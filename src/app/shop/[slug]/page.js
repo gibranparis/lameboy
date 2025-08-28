@@ -1,23 +1,70 @@
+// src/app/shop/[slug]/page.js
+
 import swell from '@/lib/swell';
 import AddToCart from '@/components/AddToCart';
 import ProductGallery from '@/components/ProductGallery';
 
 export const revalidate = 60;
 
+// Fetch a single product (with images + variants)
 async function getProduct(slug) {
-  return await swell.products.get(slug, { expand: ['variants', 'images'] });
+  try {
+    return await swell.products.get(slug, { expand: ['variants', 'images'] });
+  } catch (e) {
+    console.error('getProduct failed', e);
+    return null;
+  }
 }
 
+// Pre-generate product paths
 export async function generateStaticParams() {
   const { results = [] } = await swell.products.list({ limit: 50 });
   return results.map(p => ({ slug: p.slug }));
 }
 
-export default async function ProductPage({ params }) {
-  // ✅ Next 15: params is a Promise
+// Per-product metadata (canonical, title, OG, etc.)
+export async function generateMetadata({ params }) {
+  // Next 15: params is a Promise
   const { slug } = await params;
 
   const product = await getProduct(slug);
+
+  const url = `/shop/${encodeURIComponent(slug)}`;
+  const title = product?.name ? `${product.name} — LAMEBOY` : 'Product — LAMEBOY';
+  const description =
+    product?.meta?.description ||
+    (product?.description ? product.description.replace(/<[^>]*>/g, '').slice(0, 160) : 'Product');
+
+  const ogImages = (product?.images || [])
+    .map(i => i?.file?.url)
+    .filter(Boolean)
+    .slice(0, 4);
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      url,
+      title,
+      description,
+      type: 'product',
+      images: ogImages,
+    },
+    twitter: {
+      card: ogImages.length ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      images: ogImages,
+    },
+  };
+}
+
+// Page component
+export default async function ProductPage({ params }) {
+  const { slug } = await params; // Next 15
+  const product = await getProduct(slug);
+
   if (!product) {
     return (
       <main className="container">
@@ -44,15 +91,16 @@ export default async function ProductPage({ params }) {
             <div className="muted">No image</div>
           )}
         </div>
+
         <div className="card">
           <h1 style={{ marginTop: 0 }}>{product.name}</h1>
-          <div className="price">
-            ${Number(product.price || 0).toFixed(2)}
-          </div>
+          <div className="price">${Number(product.price || 0).toFixed(2)}</div>
+
           <div
             style={{ marginTop: 16 }}
             dangerouslySetInnerHTML={{ __html: product.description || '' }}
           />
+
           <div style={{ marginTop: 24 }}>
             <AddToCart productId={product.id} />
           </div>

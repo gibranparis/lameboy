@@ -1,3 +1,7 @@
+export const metadata = {
+  alternates: { canonical: '/' },
+};
+
 export default function HomePage() {
   return (
     <main className="container" style={{ paddingTop: 24 }}>
