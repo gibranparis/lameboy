@@ -4,38 +4,33 @@ import swell from '@/lib/swell';
 import AddToCart from '@/components/AddToCart';
 import ProductGallery from '@/components/ProductGallery';
 
-export const revalidate = 60;
+// Don't prerender this route at build. Render on request instead.
+export const dynamic = 'force-dynamic'; // (alternative: export const revalidate = 0)
 
-// Fetch a single product (with images + variants)
-async function getProduct(slug) {
+// NOTE: intentionally no generateStaticParams() here while we stabilize the build.
+// If you re-enable SSG/ISR later, re-add it once builds succeed.
+
+async function getProductSafe(slug) {
   try {
     return await swell.products.get(slug, { expand: ['variants', 'images'] });
   } catch (e) {
-    console.error('getProduct failed', e);
+    console.error('[build] getProduct failed', e);
     return null;
   }
 }
 
-// Pre-generate product paths
-export async function generateStaticParams() {
-  const { results = [] } = await swell.products.list({ limit: 50 });
-  return results.map(p => ({ slug: p.slug }));
-}
-
-// Per-product metadata (canonical, title, OG, etc.)
 export async function generateMetadata({ params }) {
-  // Next 15: params is a Promise
   const { slug } = await params;
-
-  const product = await getProduct(slug);
+  const product = await getProductSafe(slug);
 
   const url = `/shop/${encodeURIComponent(slug)}`;
   const title = product?.name ? `${product.name} — LAMEBOY` : 'Product — LAMEBOY';
-  const description =
-    product?.meta?.description ||
-    (product?.description ? product.description.replace(/<[^>]*>/g, '').slice(0, 160) : 'Product');
 
-  const ogImages = (product?.images || [])
+  const raw = product?.meta?.description ?? product?.description ?? '';
+  const description =
+    typeof raw === 'string' ? raw.replace(/<[^>]+>/g, '').slice(0, 160) : undefined;
+
+  const images = (product?.images || [])
     .map(i => i?.file?.url)
     .filter(Boolean)
     .slice(0, 4);
@@ -44,31 +39,25 @@ export async function generateMetadata({ params }) {
     title,
     description,
     alternates: { canonical: url },
-    openGraph: {
-      url,
-      title,
-      description,
-      type: 'product',
-      images: ogImages,
-    },
+    openGraph: { title, description, url, type: 'product', images },
     twitter: {
-      card: ogImages.length ? 'summary_large_image' : 'summary',
+      card: images.length ? 'summary_large_image' : 'summary',
       title,
       description,
-      images: ogImages,
+      images,
     },
   };
 }
 
-// Page component
 export default async function ProductPage({ params }) {
-  const { slug } = await params; // Next 15
-  const product = await getProduct(slug);
+  const { slug } = await params;
+  const product = await getProductSafe(slug);
 
   if (!product) {
+    // Render a soft "not found" shell; don't throw during build.
     return (
       <main className="container">
-        <p>Not found.</p>
+        <p className="muted">Not found.</p>
       </main>
     );
   }
@@ -91,16 +80,13 @@ export default async function ProductPage({ params }) {
             <div className="muted">No image</div>
           )}
         </div>
-
         <div className="card">
           <h1 style={{ marginTop: 0 }}>{product.name}</h1>
           <div className="price">${Number(product.price || 0).toFixed(2)}</div>
-
           <div
             style={{ marginTop: 16 }}
             dangerouslySetInnerHTML={{ __html: product.description || '' }}
           />
-
           <div style={{ marginTop: 24 }}>
             <AddToCart productId={product.id} />
           </div>
