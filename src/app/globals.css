@@ -1,11 +1,219 @@
-:root { --bg:#0b0b0b; --fg:#eaeaea; --muted:#9a9a9a; --card:#121212; --line:#1b1b1b; }
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-a{color:inherit;text-decoration:none}
-.container{max-width:1200px;margin:0 auto;padding:16px}
-.header{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(11,11,11,.6);backdrop-filter:blur(8px)}
-.btn{border:1px solid var(--line);border-radius:999px;padding:10px 16px;background:#111}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px}
-.price{opacity:.8;font-size:14px}
-.grid{display:grid;gap:16px}
-.muted{color:var(--muted)}
+/* =========================================================
+   LAMEBOY — Global Styles (full replacement)
+   - Tokenized color system (light/dark)
+   - Accessible focus states
+   - Themeable button system (CSS variables)
+   - Card + text + link polish
+   - Utilities: container, product grid, visually-hidden
+   ========================================================= */
+
+/* ---------- Color & Type Tokens ---------- */
+:root {
+  /* Surface & text */
+  --bg: #ffffff;
+  --fg: #111111;
+  --muted-fg: #666666;
+  --link-fg: inherit;
+  --link-fg-hover-underline: currentColor;
+
+  /* Card */
+  --card-bg: #ffffff;
+  --card-bd: #eaeaea;
+  --card-bd-hover: #dcdcdc;
+
+  /* Inputs */
+  --input-bg: #ffffff;
+  --input-bd: #dddddd;
+  --input-fg: var(--fg);
+
+  /* Buttons (primary) */
+  --btn-bg: #111;
+  --btn-fg: #fff;
+  --btn-bd: #111;
+  --btn-bg-hover: #111;
+  --btn-fg-hover: #fff;
+
+  /* Buttons (ghost) */
+  --btn-ghost-bg: #fff;
+  --btn-ghost-fg: #111;
+  --btn-ghost-bd: #ddd;
+
+  /* Buttons (soft) */
+  --btn-soft-bg: #f4f4f4;
+  --btn-soft-fg: #111;
+  --btn-soft-bd: #e3e3e3;
+  --btn-soft-bg-hover: #eee;
+}
+
+/* Dark theme overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0e0e;
+    --fg: #eeeeee;
+    --muted-fg: #aaaaaa;
+    --link-fg: inherit;
+    --link-fg-hover-underline: #bbbbbb;
+
+    --card-bg: #111111;
+    --card-bd: #2a2a2a;
+    --card-bd-hover: #3a3a3a;
+
+    --input-bg: #111111;
+    --input-bd: #333333;
+    --input-fg: #eeeeee;
+
+    --btn-bg: #ffffff;
+    --btn-fg: #111111;
+    --btn-bd: #ffffff;
+    --btn-bg-hover: #f2f2f2;
+
+    --btn-ghost-bg: transparent;
+    --btn-ghost-fg: #eeeeee;
+    --btn-ghost-bd: #333333;
+
+    --btn-soft-bg: #1a1a1a;
+    --btn-soft-fg: #eeeeee;
+    --btn-soft-bd: #2a2a2a;
+    --btn-soft-bg-hover: #222222;
+  }
+}
+
+/* ---------- Base Resets ---------- */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+/* ---------- Accessibility & Focus ---------- */
+:where(a, button, [role="button"], input, select, textarea).btn,
+:where(a, button, [role="button"], input, select, textarea) { outline: none; }
+
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :where(a, button, [role="button"], input, select, textarea):focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- Links ---------- */
+a { color: var(--link-fg); text-decoration: none; }
+a:hover { text-decoration: underline; text-decoration-color: var(--link-fg-hover-underline); }
+
+/* ---------- Buttons (themeable) ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--btn-bd);
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .05s ease,
+              opacity .2s ease,
+              background-color .15s ease,
+              border-color .15s ease;
+}
+.btn:hover {
+  opacity: .9;
+  background: var(--btn-bg-hover);
+  color: var(--btn-fg-hover);
+}
+.btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; pointer-events: none; }
+
+/* Variants */
+.btn.ghost {
+  background: var(--btn-ghost-bg);
+  color: var(--btn-ghost-fg);
+  border-color: var(--btn-ghost-bd);
+}
+.btn.soft {
+  background: var(--btn-soft-bg);
+  color: var(--btn-soft-fg);
+  border-color: var(--btn-soft-bd);
+}
+.btn.soft:hover { background: var(--btn-soft-bg-hover); }
+
+/* ---------- Cards ---------- */
+.card {
+  border: 1px solid var(--card-bd);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--card-bg);
+  transition: border-color .15s ease, transform .05s ease;
+}
+.card:hover { border-color: var(--card-bd-hover); cursor: pointer; }
+.card:active { transform: translateY(1px); }
+
+/* ---------- Type Utilities ---------- */
+.muted { color: var(--muted-fg); }
+
+/* ---------- Forms / Inputs ---------- */
+input, select, textarea {
+  background: var(--input-bg);
+  color: var(--input-fg);
+  border: 1px solid var(--input-bd);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--muted-fg) 75%, transparent); }
+
+/* Qty controls used in cart */
+.qty {
+  margin-left: 8px;
+  margin-right: 6px;
+  border: 1px solid var(--input-bd);
+  border-radius: 6px;
+  width: 26px;
+  height: 22px;
+  line-height: 20px;
+  font-size: 14px;
+  background: var(--input-bg);
+  color: var(--input-fg);
+  cursor: pointer;
+}
+.qty:disabled { opacity: 0.5; cursor: not-allowed; }
+.qtyValue { display: inline-block; min-width: 18px; text-align: center; }
+
+/* ---------- Layout Utilities ---------- */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* Shop grid helper (overridden at small screens) */
+.productLayout { display: grid; gap: 16px; }
+
+@media (max-width: 860px) {
+  .productLayout { grid-template-columns: 1fr !important; }
+}
+
+/* ---------- A11y Helpers ---------- */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- Motion Preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: none; }
+  .card { transition: none; }
+  .card:active { transform: none; }
+}

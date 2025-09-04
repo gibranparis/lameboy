@@ -1,0 +1,116 @@
+/* =========================================================
+   LAMEBOY — Header (with Cart badge + mobile cart button)
+   ========================================================= */
+
+.header {
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  border-bottom: 1px solid var(--card-bd);
+  display: grid; grid-template-columns: 1fr auto auto;
+  align-items: center; gap: 1rem;
+  padding: 12px 16px;
+}
+
+.logo {
+  font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  text-decoration: none; line-height: 1; color: var(--fg);
+}
+
+/* Desktop nav (≥768px) */
+.navDesktop { display: none; align-items: center; gap: 16px; }
+.navDesktop a {
+  text-decoration: none; color: var(--fg); opacity: 0.9;
+  padding: 6px 8px; border-radius: 8px;
+  transition: opacity .15s ease, background-color .15s ease, transform .05s ease;
+}
+.navDesktop a:hover { opacity: 1; text-decoration: underline; }
+.navDesktop a:active { transform: translateY(1px); }
+.navDesktop a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; text-decoration: none; }
+
+/* Cart link + badge (shared) */
+.cartLink { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.badge {
+  position: absolute;
+  top: -6px; right: -10px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px;
+  background: var(--btn-bg); color: var(--btn-fg); border: 1px solid var(--btn-bd);
+  font-size: 11px; line-height: 16px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Hamburger (mobile <768px) */
+.hamburger {
+  display: inline-flex; width: 38px; height: 38px; border-radius: 10px;
+  border: 1px solid var(--input-bd); background: var(--input-bg);
+  align-items: center; justify-content: center; gap: 4px; cursor: pointer;
+  transition: transform .05s ease, background-color .15s ease, border-color .15s ease;
+}
+.hamburger span { display: block; width: 18px; height: 2px; background: var(--fg); }
+.hamburger:hover { background: color-mix(in srgb, var(--input-bg) 85%, var(--fg) 0%); }
+.hamburger:active { transform: translateY(1px); }
+
+/* Backdrop + Drawer for site menu (mobile) */
+.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0); pointer-events: none; transition: background .2s ease; }
+.backdrop.show { background: rgba(0,0,0,0.35); pointer-events: auto; }
+
+.drawer {
+  position: fixed; top: 0; right: 0; height: 100dvh; width: 280px; max-width: 88%;
+  background: var(--card-bg); border-left: 1px solid var(--card-bd);
+  transform: translateX(100%); transition: transform .2s ease;
+  display: flex; flex-direction: column;
+}
+.drawer.open { transform: translateX(0%); }
+
+.drawerHeader {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 14px 16px; border-bottom: 1px solid var(--card-bd);
+}
+.drawerTitle { font-weight: 700; color: var(--fg); }
+.close {
+  width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--input-bd);
+  background: var(--input-bg); color: var(--fg); font-size: 20px; line-height: 1; cursor: pointer;
+  transition: transform .05s ease, background-color .15s ease, border-color .15s ease;
+}
+.close:active { transform: translateY(1px); }
+
+/* Mobile nav links */
+.navMobile { display: grid; padding: 8px; gap: 6px; }
+.navMobile a {
+  text-decoration: none; color: var(--fg);
+  padding: 12px 10px; border-radius: 10px; margin: 2px 4px;
+  transition: background-color .15s ease;
+}
+.navMobile a:hover { background: color-mix(in srgb, var(--card-bg) 80%, var(--fg) 5%); }
+
+/* Mobile: make Cart look like a primary action button */
+.cartTrigger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--btn-bg); color: var(--btn-fg);
+  border: 1px solid var(--btn-bd);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 6px 4px 2px;
+  text-decoration: none;
+}
+.cartTrigger:hover { filter: brightness(0.96); }
+.cartTrigger:active { transform: translateY(1px); }
+
+/* Reuse the badge inside the button (positioned relative to text) */
+.cartTrigger .badge {
+  position: static;
+  min-width: 20px; height: 20px; line-height: 18px; font-size: 12px;
+  margin-left: 6px;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .navDesktop { display: inline-flex; }
+  .hamburger { display: none; }
+}
+
+/* Dark-mode A11y */
+@media (prefers-color-scheme: dark) {
+  .navDesktop a:focus-visible { outline: 2px solid #fff; }
+}

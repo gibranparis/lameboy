@@ -1,0 +1,60 @@
+'use client';
+
+import { useState } from 'react';
+
+export default function AdminRevalidate() {
+  const [path, setPath] = useState('/shop');
+  const [out, setOut] = useState('');
+
+  async function run() {
+    setOut('Revalidating…');
+    try {
+      const token = process.env.NEXT_PUBLIC_REVALIDATE_TOKEN;
+      if (!token) {
+        setOut('Missing NEXT_PUBLIC_REVALIDATE_TOKEN in .env.local');
+        return;
+      }
+
+      const res = await fetch(
+        `/api/revalidate?token=${encodeURIComponent(token)}&path=${encodeURIComponent(path)}`
+      );
+      const json = await res.json();
+      setOut(JSON.stringify(json, null, 2));
+    } catch (e) {
+      setOut('Error: ' + e.message);
+    }
+  }
+
+  return (
+    <main className="container" style={{ paddingTop: 24, maxWidth: 720 }}>
+      <h1 style={{ fontSize: 22, marginBottom: 12 }}>Admin · Revalidate</h1>
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <input
+          value={path}
+          onChange={(e) => setPath(e.target.value)}
+          placeholder="/shop/my-product-slug"
+          style={{
+            height: 40,
+            borderRadius: 8,
+            border: '1px solid #ddd',
+            padding: '0 10px',
+            flex: 1,
+            minWidth: 260,
+          }}
+        />
+        <button className="btn" onClick={run}>Revalidate</button>
+      </div>
+
+      <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+        Tip: use <code>/shop</code> to refresh the grid, or <code>/shop/slug</code> for a product.
+      </p>
+
+      {out && (
+        <pre style={{ background:'#fafafa', border:'1px solid #eee', borderRadius:8, padding:12, fontSize:12 }}>
+{out}
+        </pre>
+      )}
+    </main>
+  );
+}

@@ -1,15 +1,46 @@
-export const metadata = {
-  alternates: { canonical: '/' },
-};
+// src/app/shop/page.js
+import swell from '@/lib/swell';
+import ProductCard from '@/components/ProductCard';
 
-export default function HomePage() {
+export const revalidate = 60; // ISR
+export const metadata = { title: 'Shop – LAMEBOY' };
+
+async function getProducts() {
+  try {
+    const res = await swell.products.list({
+      limit: 24,
+      expand: ['images'],
+    });
+    return res?.results ?? [];
+  } catch (e) {
+    console.error('[shop] products.list failed', e);
+    return [];
+  }
+}
+
+export default async function ShopPage() {
+  const products = await getProducts();
+
   return (
     <main className="container" style={{ paddingTop: 24 }}>
-      <h1 style={{ fontSize: 28, margin: 0 }}>Welcome to LAMEBOY</h1>
-      <p className="muted">Ultra-fast, headless commerce starter using Swell + Next.js.</p>
-      <div style={{ marginTop: 24 }}>
-        <a className="btn" href="/shop">Enter Shop →</a>
-      </div>
+      <h2 style={{ fontSize: 22, marginBottom: 16 }}>Shop</h2>
+
+      {products.length === 0 ? (
+        <div className="muted">No products found.</div>
+      ) : (
+        <div
+          className="grid productLayout"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: 16,
+          }}
+        >
+          {products.map((p) => (
+            <ProductCard key={p.id || p.slug} product={p} />
+          ))}
+        </div>
+      )}
     </main>
   );
 }

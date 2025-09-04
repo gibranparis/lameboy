@@ -1,24 +1,26 @@
-export const metadata = {
- metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+// Root layout (App Router)
+import './globals.css';
+import Header from '../components/Header';
 
-  title: 'LAMEBOY — Shop',
+import { CartUIProvider } from '@/contexts/CartUIContext';
+import CartFlyout from '@/components/CartFlyout';
+
+export const metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+  title: 'LAMEBOY – Shop',
   description: 'Headless store powered by Swell + Next.js',
 };
-
-import './globals.css';
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <header className="header">
-          <a href="/">LAMEBOY</a>
-          <nav style={{ display: 'flex', gap: 12 }}>
-            <a href="/shop">Shop</a>
-            <a href="/cart">Cart</a>
-          </nav>
-        </header>
-        {children}
+        <CartUIProvider>
+          <Header />
+          <main className="container">{children}</main>
+          {/* Global cart drawer */}
+          <CartFlyout />
+        </CartUIProvider>
       </body>
     </html>
   );

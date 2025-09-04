@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "restart": "bash -c 'kill -9 $(lsof -ti :3000,3001,3002) || true && next dev'",
+    "clean": "rm -rf .next node_modules package-lock.json && npm install",
+    "rebuild": "npm run clean && npm run build && npm run start"
   },
   "dependencies": {
     "next": "15.5.0",

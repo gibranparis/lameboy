@@ -2,15 +2,19 @@
 import swell from '@/lib/swell';
 import ProductCard from '@/components/ProductCard';
 
-export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Shop — LAMEBOY', alternates: { canonical: '/shop' } };
+export const revalidate = 60; // ISR: refresh at most once/min (plus webhook-triggered)
+export const metadata = { title: 'Shop – LAMEBOY' };
 
 async function getProducts() {
   try {
-    const res = await swell.products.list({ limit: 24, expand: ['images'] });
+    const res = await swell.products.list({
+      limit: 24,
+      expand: ['images'], // include image data for cards
+      // You can sort if you like: sort: '-date_created'
+    });
     return res?.results ?? [];
   } catch (e) {
-    console.error('[build] products.list failed', e);
+    console.error('[shop] products.list failed', e);
     return [];
   }
 }
@@ -21,14 +25,19 @@ export default async function ShopPage() {
   return (
     <main className="container" style={{ paddingTop: 24 }}>
       <h2 style={{ fontSize: 22, marginBottom: 16 }}>Shop</h2>
+
       {products.length === 0 ? (
         <div className="muted">No products found.</div>
       ) : (
         <div
-          className="grid"
-          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}
+          className="grid productLayout"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: 16,
+          }}
         >
-          {products.map(p => (
+          {products.map((p) => (
             <ProductCard key={p.id || p.slug} product={p} />
           ))}
         </div>
