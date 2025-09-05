@@ -2,11 +2,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import swell from '@/lib/swell';
+import swell from '@/lib/swell-client';
 import { useCartUI } from '@/contexts/CartUIContext';
 
 export default function AddToCart({ product }) {
-  const { openCart } = useCartUI(); // open the drawer via context
+  const { openCart } = useCartUI();
 
   const hasVariants = (product?.variants?.results?.length || 0) > 0;
   const variants = useMemo(() => {
@@ -31,12 +31,14 @@ export default function AddToCart({ product }) {
   }, [product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function fmt(n, currency = product?.currency || 'USD') {
-    try { return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n); }
-    catch { return `$${Number(n).toFixed(2)}`; }
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n);
+    } catch {
+      return `$${Number(n).toFixed(2)}`;
+    }
   }
 
   async function add(e) {
-    // belt & suspenders: block any parent Link/form
     e?.preventDefault?.();
     e?.stopPropagation?.();
     e?.nativeEvent?.stopImmediatePropagation?.();
@@ -44,6 +46,13 @@ export default function AddToCart({ product }) {
     try {
       setBusy(true);
       setDone(false);
+
+      if (!swell?.cart?.addItem) {
+        throw new Error('Swell client not initialized');
+      }
+      if (!product?.id) {
+        throw new Error('Missing product id');
+      }
 
       const payload = {
         product_id: product.id,
@@ -53,16 +62,19 @@ export default function AddToCart({ product }) {
 
       await swell.cart.addItem(payload);
 
-      // notify other tabs/pages
       try { localStorage.setItem('cart:updated', String(Date.now())); } catch {}
-
       setDone(true);
     } catch (err) {
-      console.error('[cart] addItem failed', err);
-      alert('Could not add to cart. Please try again.');
+      console.error('[cart] addItem failed:', err);
+      alert(
+        err?.message?.includes('Swell client not initialized')
+          ? 'Store config missing. Set NEXT_PUBLIC_SWELL_* in Vercel and redeploy.'
+          : 'Could not add to cart. Please try again.'
+      );
     } finally {
       setBusy(false);
-      openCart(); // always open the flyout
+      openCart();
+      try { window.dispatchEvent(new Event('menu:close')); } catch {}
     }
   }
 
@@ -123,19 +135,7 @@ export default function AddToCart({ product }) {
         />
       </label>
 
-      <button
-        className="btn"
-        type="button"
-        onClick={add}
-        onClickCapture={(e) => {
-          // kill any parent <Link href="/cart"> or <form action="/cart">
-          e.preventDefault();
-          e.stopPropagation();
-          e.nativeEvent?.stopImmediatePropagation?.();
-        }}
-        onMouseDown={(e) => e.preventDefault()} // prevents anchor activation/focus quirks
-        disabled={busy}
-      >
+      <button className="btn" type="button" onClick={add} disabled={busy}>
         {busy ? 'Adding…' : 'Add to Cart'}
       </button>
 

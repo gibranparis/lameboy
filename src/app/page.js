@@ -1,46 +1,16 @@
-// src/app/shop/page.js
-import swell from '@/lib/swell';
-import ProductCard from '@/components/ProductCard';
+// src/app/page.js
+import Link from 'next/link';
 
-export const revalidate = 60; // ISR
-export const metadata = { title: 'Shop – LAMEBOY' };
-
-async function getProducts() {
-  try {
-    const res = await swell.products.list({
-      limit: 24,
-      expand: ['images'],
-    });
-    return res?.results ?? [];
-  } catch (e) {
-    console.error('[shop] products.list failed', e);
-    return [];
-  }
-}
-
-export default async function ShopPage() {
-  const products = await getProducts();
-
+export default function Page() {
   return (
-    <main className="container" style={{ paddingTop: 24 }}>
-      <h2 style={{ fontSize: 22, marginBottom: 16 }}>Shop</h2>
+    <main className="container" style={{ padding: '2rem 1rem' }}>
+      <h1 style={{ margin: 0, fontSize: 28, letterSpacing: 0.5 }}>LAMEBOY</h1>
+      <p style={{ opacity: 0.8, marginTop: 8 }}>Headless store powered by Swell + Next.js.</p>
 
-      {products.length === 0 ? (
-        <div className="muted">No products found.</div>
-      ) : (
-        <div
-          className="grid productLayout"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-            gap: 16,
-          }}
-        >
-          {products.map((p) => (
-            <ProductCard key={p.id || p.slug} product={p} />
-          ))}
-        </div>
-      )}
+      <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
+        <Link href="/shop">Shop</Link>
+        <Link href="/cart">Cart</Link>
+      </div>
     </main>
   );
 }

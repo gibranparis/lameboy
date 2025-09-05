@@ -1,26 +1,41 @@
-// Root layout (App Router)
+// src/app/layout.js
 import './globals.css';
-import Header from '../components/Header';
+import { cookies } from 'next/headers';
 
+import Header from '@/components/Header';
 import { CartUIProvider } from '@/contexts/CartUIContext';
 import CartFlyout from '@/components/CartFlyout';
+import Maintenance from '@/components/Maintenance';
+
+const isTrue = (v) => String(v ?? '').toLowerCase() === 'true';
 
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
-  title: 'LAMEBOY – Shop',
+  title: 'LAMEBOY — Shop',
   description: 'Headless store powered by Swell + Next.js',
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // Next.js 15: cookies() must be awaited
+  const cookieStore = await cookies();
+  const hasBypass = cookieStore.get('bypass_maintenance')?.value === '1';
+
+  const enabled = isTrue(process.env.MAINTENANCE_MODE);
+  const locked = enabled && !hasBypass;
+
   return (
     <html lang="en">
       <body>
-        <CartUIProvider>
-          <Header />
-          <main className="container">{children}</main>
-          {/* Global cart drawer */}
-          <CartFlyout />
-        </CartUIProvider>
+        {locked ? (
+          <Maintenance />
+        ) : (
+          <>
+            <Header />
+            <CartUIProvider>
+              <main className="container">{children}</main>
+              <CartFlyout />
+            </CartUIProvider>
+          </>
+        )}
       </body>
     </html>
   );

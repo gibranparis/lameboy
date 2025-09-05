@@ -1,3 +1,4 @@
+// src/components/Header.js
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,15 +9,27 @@ import { useCartUI } from '@/contexts/CartUIContext';
 
 export default function Header() {
   const [openMenu, setOpenMenu] = useState(false);
-  const { openCart, open, closeCart } = useCartUI();
+  const { openCart, open } = useCartUI(); // open = cart flyout state
 
-  // lock body scroll when overlays open
+  // Lock body scroll when any overlay is open
   useEffect(() => {
     const anyOpen = openMenu || open;
     const prev = document.body.style.overflow;
     document.body.style.overflow = anyOpen ? 'hidden' : prev || '';
     return () => { document.body.style.overflow = prev; };
   }, [openMenu, open]);
+
+  // ✅ Auto-close Menu whenever the Cart opens
+  useEffect(() => {
+    if (open && openMenu) setOpenMenu(false);
+  }, [open, openMenu]);
+
+  // ✅ Support a global "menu:close" event
+  useEffect(() => {
+    const closeMenu = () => setOpenMenu(false);
+    window.addEventListener('menu:close', closeMenu);
+    return () => window.removeEventListener('menu:close', closeMenu);
+  }, []);
 
   return (
     <header className={styles.header}>
@@ -28,7 +41,10 @@ export default function Header() {
         <button
           type="button"
           className={styles.cartLink}
-          onClick={openCart}
+          onClick={() => {
+            setOpenMenu(false); // extra safety
+            openCart();
+          }}
         >
           Cart
           <CartCount className={styles.badge} />
@@ -74,6 +90,8 @@ export default function Header() {
             onClick={() => {
               setOpenMenu(false);
               openCart();
+              // also broadcast in case other listeners care
+              try { window.dispatchEvent(new Event('menu:close')); } catch {}
             }}
           >
             <span>Open Cart</span>

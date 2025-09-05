@@ -1,204 +1,152 @@
+// src/components/CartFlyout.jsx
 'use client';
 
-import React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import swell from '@/lib/swell';
-import { useCartUI } from '@/contexts/CartUIContext';
 import styles from './CartFlyout.module.css';
+import swell from '@/lib/swell-client';
+import { useCartUI } from '@/contexts/CartUIContext';
 
 export default function CartFlyout() {
   const { open, closeCart } = useCartUI();
-  const [cart, setCart] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-  const [updating, setUpdating] = React.useState(false);
+  const [cart, setCart] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const items = useMemo(() => cart?.items ?? [], [cart]);
 
-  React.useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const c = await swell.cart.get();
-        if (alive) setCart(c);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [open]);
-
-  const broadcast = React.useCallback(() => {
-    try { localStorage.setItem('cart:updated', String(Date.now())); } catch {}
-  }, []);
-
-  async function setQty(id, qty) {
-    setUpdating(true);
+  async function refresh() {
     try {
-      const q = Math.max(0, Number(qty) || 0);
-      if (q <= 0) await swell.cart.removeItem(id);
-      else await swell.cart.updateItem(id, { quantity: q });
       const c = await swell.cart.get();
       setCart(c);
-      broadcast();
+    } catch (err) {
+      console.error('[cart] get failed', err);
     } finally {
-      setUpdating(false);
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    refresh();
+    const onOpen = () => refresh();
+    const onStorage = (e) => { if (e.key === 'cart:updated') refresh(); };
+    window.addEventListener('cart:open', onOpen);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('cart:open', onOpen);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  async function setQuantity(id, quantity) {
+    try {
+      setBusy(true);
+      const q = Math.max(0, Number(quantity) || 0);
+      if (q <= 0) await swell.cart.update({ items: [{ id, quantity: 0 }] });
+      else await swell.cart.update({ items: [{ id, quantity: q }] });
+      await refresh();
+    } catch (err) {
+      console.error('[cart] set qty failed', err);
+      setBusy(false);
     }
   }
 
   async function removeItem(id) {
-    setUpdating(true);
     try {
-      await swell.cart.removeItem(id);
-      const c = await swell.cart.get();
-      setCart(c);
-      broadcast();
-    } finally {
-      setUpdating(false);
+      setBusy(true);
+      await swell.cart.update({ items: [{ id, quantity: 0 }] });
+      await refresh();
+    } catch (err) {
+      console.error('[cart] remove failed', err);
+      setBusy(false);
     }
   }
 
-  async function goCheckout() {
-    try {
-      const { url } = await swell.cart.checkout();
-      if (url) {
-        window.dispatchEvent(new Event('cart:close')); // close before leaving
-        window.location.href = url;
-      }
-    } catch (e) {
-      console.error('checkout failed', e);
-      alert('Checkout failed. Please try again.');
-    }
+  function fmt(value, currency = cart?.currency || 'USD') {
+    try { return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value ?? 0); }
+    catch { return `$${Number(value ?? 0).toFixed(2)}`; }
   }
 
-  const money = (n, cur = cart?.currency || 'USD') => {
-    try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur }).format(n || 0); }
-    catch { return `$${Number(n || 0).toFixed(2)}`; }
-  };
-
-  const firstImg = (item) => {
-    const img = item?.product?.images?.[0];
+  function firstImage(item) {
+    const img = item?.images?.[0] || item?.product?.images?.[0];
     return img?.file?.url || img?.url || null;
-  };
+  }
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className={`${styles.backdrop} ${open ? styles.show : ''}`}
         onClick={closeCart}
-        aria-hidden={!open}
       />
 
-      {/* Panel */}
       <aside
         className={`${styles.panel} ${open ? styles.open : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label="Shopping cart"
       >
-        {/* Header */}
         <div className={styles.header}>
-          <div className={styles.title}>Your Cart</div>
+          <span className={styles.title}>Your Cart</span>
           <button className={styles.close} aria-label="Close cart" onClick={closeCart}>×</button>
         </div>
 
-        {/* Body */}
         <div className={styles.body}>
-          {loading ? (
-            <div className={styles.empty}>Loading…</div>
-          ) : !cart?.items?.length ? (
-            <div className={styles.empty}>Your cart is empty.</div>
+          {items.length === 0 ? (
+            <div className={styles.empty}>
+              <p className="muted">Your cart is empty.</p>
+            </div>
           ) : (
-            <ul className={styles.items}>
-              {cart.items.map((item) => {
-                const img = firstImg(item);
+            <div className={styles.items}>
+              {items.map((it) => {
+                const img = firstImage(it);
+                const title = it?.product?.name || it?.product_id || 'Item';
+                const unitPrice = fmt(it?.price);
+                const lineTotal = fmt(it?.price_total);
+
                 return (
-                  <li key={item.id} className={styles.item}>
+                  <div className={styles.item} key={it.id}>
                     <div className={styles.thumb}>
-                      {img && (
-                        <Image
-                          src={img}
-                          alt={item.product?.name || ''}
-                          fill
-                          sizes="72px"
-                          style={{ objectFit: 'cover' }}
-                        />
-                      )}
+                      {img && <Image src={img} alt={title} fill sizes="72px" style={{ objectFit: 'cover' }} />}
                     </div>
 
                     <div className={styles.meta}>
                       <div className={styles.name}>
-                        <Link href={`/shop/${item.product?.slug || item.product_id}`} onClick={closeCart}>
-                          {item.product?.name || 'Item'}
-                        </Link>
+                        <Link href={`/shop/${it?.product?.slug || it?.product_id}`}>{title}</Link>
                       </div>
-
-                      {item?.variant && (
-                        <div className="muted" style={{ fontSize: 12 }}>
-                          {Object.values(item.variant?.options || {}).join(' / ')}
-                        </div>
-                      )}
-
                       <div className={styles.qtyRow}>
-                        <button
-                          type="button"
-                          className={styles.qtyBtn}
-                          disabled={updating || item.quantity <= 1}
-                          onClick={() => setQty(item.id, item.quantity - 1)}
-                          aria-label="Decrease quantity"
-                        >−</button>
-
-                        <span className={styles.qtyVal}>{item.quantity}</span>
-
-                        <button
-                          type="button"
-                          className={styles.qtyBtn}
-                          disabled={updating}
-                          onClick={() => setQty(item.id, item.quantity + 1)}
-                          aria-label="Increase quantity"
-                        >＋</button>
-
-                        <button
-                          type="button"
-                          style={{ marginLeft: 8, fontSize: 12, color: 'var(--muted)' }}
-                          disabled={updating}
-                          onClick={() => removeItem(item.id)}
-                        >
-                          Remove
-                        </button>
+                        <span className="muted" style={{ fontSize: 12 }}>{unitPrice} • Qty</span>
+                        <button className={styles.qtyBtn} disabled={busy || it.quantity <= 1} onClick={() => setQuantity(it.id, it.quantity - 1)} aria-label="Decrease quantity">−</button>
+                        <span className={styles.qtyVal}>{it.quantity}</span>
+                        <button className={styles.qtyBtn} disabled={busy} onClick={() => setQuantity(it.id, it.quantity + 1)} aria-label="Increase quantity">+</button>
                       </div>
                     </div>
 
                     <div className={styles.right}>
-                      <div className={styles.lineTotal}>{money(item.price_total)}</div>
+                      <div className={styles.lineTotal}>{lineTotal}</div>
+                      <button className="btn ghost" disabled={busy} onClick={() => removeItem(it.id)}>Remove</button>
                     </div>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           )}
         </div>
 
-        {/* Footer */}
         <div className={styles.footer}>
           <div className={styles.row}>
-            <span className="muted">Subtotal</span>
-            <strong>{money(cart?.sub_total)}</strong>
+            <div className="muted">Subtotal</div>
+            <div>{fmt(cart?.sub_total)}</div>
           </div>
 
           <div className={styles.actions}>
-            <Link href="/cart" className="btn ghost" onClick={closeCart}>
-              View full cart
-            </Link>
-            <button className="btn" onClick={goCheckout} disabled={updating}>
-              Checkout
+            <Link href="/cart" className="btn ghost" onClick={closeCart}>View full cart</Link>
+            <button className="btn" disabled={busy || items.length === 0} onClick={closeCart}>
+              Checkout →
             </button>
           </div>
 
-          <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+          <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
             Taxes and shipping calculated at checkout.
-          </div>
+          </p>
         </div>
       </aside>
     </>
