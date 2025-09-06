@@ -1,154 +1,103 @@
 // src/components/CartFlyout.jsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
+import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './CartFlyout.module.css';
-import swell from '@/lib/swell-client';
+
 import { useCartUI } from '@/contexts/CartUIContext';
+import { useCart } from '@/contexts/CartContext';
 
 export default function CartFlyout() {
   const { open, closeCart } = useCartUI();
-  const [cart, setCart] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const items = useMemo(() => cart?.items ?? [], [cart]);
+  const { cart, loading, updating, itemCount, setItemQty, removeItem, total, currency } = useCart();
 
-  async function refresh() {
-    try {
-      const c = await swell.cart.get();
-      setCart(c);
-    } catch (err) {
-      console.error('[cart] get failed', err);
-    } finally {
-      setBusy(false);
-    }
-  }
+  React.useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
 
-  useEffect(() => {
-    refresh();
-    const onOpen = () => refresh();
-    const onStorage = (e) => { if (e.key === 'cart:updated') refresh(); };
-    window.addEventListener('cart:open', onOpen);
-    window.addEventListener('storage', onStorage);
-    return () => {
-      window.removeEventListener('cart:open', onOpen);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, []);
-
-  async function setQuantity(id, quantity) {
-    try {
-      setBusy(true);
-      const q = Math.max(0, Number(quantity) || 0);
-      if (q <= 0) await swell.cart.update({ items: [{ id, quantity: 0 }] });
-      else await swell.cart.update({ items: [{ id, quantity: q }] });
-      await refresh();
-    } catch (err) {
-      console.error('[cart] set qty failed', err);
-      setBusy(false);
-    }
-  }
-
-  async function removeItem(id) {
-    try {
-      setBusy(true);
-      await swell.cart.update({ items: [{ id, quantity: 0 }] });
-      await refresh();
-    } catch (err) {
-      console.error('[cart] remove failed', err);
-      setBusy(false);
-    }
-  }
-
-  function fmt(value, currency = cart?.currency || 'USD') {
-    try { return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value ?? 0); }
-    catch { return `$${Number(value ?? 0).toFixed(2)}`; }
-  }
-
-  function firstImage(item) {
-    const img = item?.images?.[0] || item?.product?.images?.[0];
-    return img?.file?.url || img?.url || null;
-  }
+  if (!open) return null;
 
   return (
-    <>
-      <div
-        className={`${styles.backdrop} ${open ? styles.show : ''}`}
-        onClick={closeCart}
-      />
+    <aside className={styles.overlay} onClick={closeCart}>
+      <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
+        <header className={styles.header}>
+          <h3 className={styles.title}>Your cart ({itemCount})</h3>
+          <button className={styles.close} onClick={closeCart} aria-label="Close cart">×</button>
+        </header>
 
-      <aside
-        className={`${styles.panel} ${open ? styles.open : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Shopping cart"
-      >
-        <div className={styles.header}>
-          <span className={styles.title}>Your Cart</span>
-          <button className={styles.close} aria-label="Close cart" onClick={closeCart}>×</button>
-        </div>
-
-        <div className={styles.body}>
-          {items.length === 0 ? (
-            <div className={styles.empty}>
-              <p className="muted">Your cart is empty.</p>
-            </div>
-          ) : (
-            <div className={styles.items}>
-              {items.map((it) => {
-                const img = firstImage(it);
-                const title = it?.product?.name || it?.product_id || 'Item';
-                const unitPrice = fmt(it?.price);
-                const lineTotal = fmt(it?.price_total);
-
-                return (
-                  <div className={styles.item} key={it.id}>
-                    <div className={styles.thumb}>
-                      {img && <Image src={img} alt={title} fill sizes="72px" style={{ objectFit: 'cover' }} />}
-                    </div>
-
-                    <div className={styles.meta}>
-                      <div className={styles.name}>
-                        <Link href={`/shop/${it?.product?.slug || it?.product_id}`}>{title}</Link>
-                      </div>
-                      <div className={styles.qtyRow}>
-                        <span className="muted" style={{ fontSize: 12 }}>{unitPrice} • Qty</span>
-                        <button className={styles.qtyBtn} disabled={busy || it.quantity <= 1} onClick={() => setQuantity(it.id, it.quantity - 1)} aria-label="Decrease quantity">−</button>
-                        <span className={styles.qtyVal}>{it.quantity}</span>
-                        <button className={styles.qtyBtn} disabled={busy} onClick={() => setQuantity(it.id, it.quantity + 1)} aria-label="Increase quantity">+</button>
-                      </div>
-                    </div>
-
-                    <div className={styles.right}>
-                      <div className={styles.lineTotal}>{lineTotal}</div>
-                      <button className="btn ghost" disabled={busy} onClick={() => removeItem(it.id)}>Remove</button>
-                    </div>
+        {loading ? (
+          <div className={styles.empty}>Loading…</div>
+        ) : (cart?.items?.length ? (
+          <ul className={styles.items}>
+            {cart.items.map((it) => (
+              <li key={it.id} className={styles.item}>
+                <div className={styles.thumb}>
+                  {it.product?.images?.[0]?.file?.url ? (
+                    <Image
+                      src={it.product.images[0].file.url}
+                      alt={it.product?.name || 'Product'}
+                      width={72}
+                      height={72}
+                    />
+                  ) : null}
+                </div>
+                <div className={styles.meta}>
+                  <Link href={`/shop/${it.product?.slug || ''}`} className={styles.name} onClick={closeCart}>
+                    {it.product?.name || 'Product'}
+                  </Link>
+                  <div className={styles.controls}>
+                    <button disabled={updating} onClick={() => setItemQty(it.id, it.quantity - 1)}>-</button>
+                    <input
+                      className={styles.qty}
+                      type="number"
+                      min={0}
+                      value={it.quantity}
+                      onChange={(e) => setItemQty(it.id, Number(e.target.value))}
+                    />
+                    <button disabled={updating} onClick={() => setItemQty(it.id, it.quantity + 1)}>+</button>
+                    <button className={styles.remove} disabled={updating} onClick={() => removeItem(it.id)}>
+                      Remove
+                    </button>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                </div>
+                <div className={styles.price}>
+                  {formatMoney(it.priceTotal || it.price, it.currency || currency)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className={styles.empty}>Your cart is empty.</div>
+        ))}
 
-        <div className={styles.footer}>
-          <div className={styles.row}>
-            <div className="muted">Subtotal</div>
-            <div>{fmt(cart?.sub_total)}</div>
+        <footer className={styles.footer}>
+          <div className={styles.totalRow}>
+            <span>Total</span>
+            <strong>{formatMoney(total, currency)}</strong>
           </div>
-
-          <div className={styles.actions}>
-            <Link href="/cart" className="btn ghost" onClick={closeCart}>View full cart</Link>
-            <button className="btn" disabled={busy || items.length === 0} onClick={closeCart}>
-              Checkout →
+          <div className={styles.ctaRow}>
+            <Link href="/cart" className={styles.link} onClick={closeCart}>View cart</Link>
+            <button
+              className={styles.checkout}
+              disabled={!itemCount || updating}
+              onClick={() => (window.location.href = '/api/checkout')}
+            >
+              Checkout
             </button>
           </div>
-
-          <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-            Taxes and shipping calculated at checkout.
-          </p>
-        </div>
-      </aside>
-    </>
+        </footer>
+      </div>
+    </aside>
   );
+}
+
+function formatMoney(n, currency = 'USD') {
+  const num = Number(n || 0);
+  try { return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(num); }
+  catch { return `$${num.toFixed(2)}`; }
 }

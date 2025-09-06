@@ -6,19 +6,21 @@ import Header from '@/components/Header';
 import { CartUIProvider } from '@/contexts/CartUIContext';
 import CartFlyout from '@/components/CartFlyout';
 import Maintenance from '@/components/Maintenance';
+import { CartProvider } from '@/contexts/CartContext';
+
+export const dynamic = 'force-dynamic';
 
 const isTrue = (v) => String(v ?? '').toLowerCase() === 'true';
 
 export const metadata = {
-  title: 'LAMEBOY — Shop',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+  title: 'LAMEBOY – Shop',
   description: 'Headless store powered by Swell + Next.js',
 };
 
 export default async function RootLayout({ children }) {
-  // Next.js 15: cookies() must be awaited
   const cookieStore = await cookies();
   const hasBypass = cookieStore.get('bypass_maintenance')?.value === '1';
-
   const enabled = isTrue(process.env.MAINTENANCE_MODE);
   const locked = enabled && !hasBypass;
 
@@ -31,8 +33,10 @@ export default async function RootLayout({ children }) {
           <>
             <Header />
             <CartUIProvider>
-              <main className="container">{children}</main>
-              <CartFlyout />
+              <CartProvider>
+                <main className="container">{children}</main>
+                <CartFlyout />
+              </CartProvider>
             </CartUIProvider>
           </>
         )}
