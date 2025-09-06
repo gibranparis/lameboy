@@ -55,7 +55,7 @@ export default async function ProductPage({ params }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         <div>
           {image ? (
-            <ResponsiveProductImage src={image} alt={product.name} />
+            <ResponsiveProductImage images={product.images} alt={product.name} />
           ) : null}
         </div>
         <div>

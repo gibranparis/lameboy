@@ -18,8 +18,8 @@ export const metadata = {
   description: 'Headless store powered by Swell + Next.js',
 };
 
-export default async function RootLayout({ children }) {
-  const c = await cookies();
+export default function RootLayout({ children }) {
+  const c = cookies();
   const bypass = c.get('bypass_maintenance')?.value === '1';
   const maintenance = isTrue(process.env.MAINTENANCE_MODE) && !bypass;
 
