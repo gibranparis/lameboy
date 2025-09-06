@@ -15,82 +15,52 @@ export default function Header() {
   useEffect(() => {
     const anyOpen = openMenu || open;
     const prev = document.body.style.overflow;
-    document.body.style.overflow = anyOpen ? 'hidden' : prev || '';
+    document.body.style.overflow = anyOpen ? 'hidden' : prev;
     return () => { document.body.style.overflow = prev; };
   }, [openMenu, open]);
 
-  // ✅ Auto-close Menu whenever the Cart opens
-  useEffect(() => {
-    if (open && openMenu) setOpenMenu(false);
-  }, [open, openMenu]);
-
-  // ✅ Support a global "menu:close" event
-  useEffect(() => {
-    const closeMenu = () => setOpenMenu(false);
-    window.addEventListener('menu:close', closeMenu);
-    return () => window.removeEventListener('menu:close', closeMenu);
-  }, []);
-
   return (
     <header className={styles.header}>
-      <Link href="/" className={styles.logo}>LAMEBOY</Link>
+      <div className={styles.inner}>
+        <Link href="/" className={styles.brand} onClick={() => setOpenMenu(false)}>
+          LAMEBOY
+        </Link>
 
-      {/* Desktop nav */}
-      <nav className={styles.navDesktop}>
-        <Link href="/shop">Shop</Link>
-        <button
-          type="button"
-          className={styles.cartLink}
-          onClick={() => {
-            setOpenMenu(false); // extra safety
-            openCart();
-          }}
-        >
-          Cart
-          <CartCount className={styles.badge} />
-        </button>
-      </nav>
-
-      {/* Hamburger (mobile) */}
-      <button
-        className={styles.hamburger}
-        aria-label="Open menu"
-        aria-expanded={openMenu}
-        aria-controls="mobile-drawer"
-        onClick={() => setOpenMenu(true)}
-      >
-        <span /><span /><span />
-      </button>
-
-      {/* Site menu backdrop */}
-      <div
-        className={`${styles.backdrop} ${openMenu ? styles.show : ''}`}
-        onClick={() => setOpenMenu(false)}
-      />
-
-      {/* Site drawer (mobile) */}
-      <aside
-        id="mobile-drawer"
-        className={`${styles.drawer} ${openMenu ? styles.open : ''}`}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className={styles.drawerHeader}>
-          <span className={styles.drawerTitle}>Menu</span>
-          <button className={styles.close} aria-label="Close menu" onClick={() => setOpenMenu(false)}>×</button>
-        </div>
-
-        <nav className={styles.navMobile}>
-          <Link href="/shop" onClick={() => setOpenMenu(false)}>Shop</Link>
-
-          {/* Mobile cart trigger */}
+        <nav className={styles.nav}>
+          <Link href="/shop" className={styles.link}>Shop</Link>
+          <Link href="/cart" className={styles.link}>Cart</Link>
           <button
-            type="button"
-            className={`${styles.cartTrigger} ${styles.cartLink}`}
+            className={styles.cartBtn}
+            onClick={() => openCart()}
+            aria-label="Open cart"
+          >
+            <span>Open Cart</span>
+            <CartCount className={styles.badge} />
+          </button>
+          <button
+            className={styles.menuBtn}
+            onClick={() => setOpenMenu((v) => !v)}
+            aria-expanded={openMenu}
+            aria-controls="mobile-nav"
+          >
+            ☰
+          </button>
+        </nav>
+      </div>
+
+      {/* Mobile menu */}
+      <aside
+        id="mobile-nav"
+        aria-hidden={!openMenu}
+        className={openMenu ? styles.mobileOpen : styles.mobile}
+      >
+        <nav className={styles.mobileNav}>
+          <Link href="/shop" onClick={() => setOpenMenu(false)}>Shop</Link>
+          <Link href="/cart" onClick={() => setOpenMenu(false)}>Cart</Link>
+          <button
             onClick={() => {
               setOpenMenu(false);
               openCart();
-              // also broadcast in case other listeners care
               try { window.dispatchEvent(new Event('menu:close')); } catch {}
             }}
           >

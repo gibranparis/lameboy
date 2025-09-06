@@ -24,6 +24,7 @@ export function CartProvider({ children }) {
   const [state, setState] = React.useState(initial);
   const alive = React.useRef(true);
   React.useEffect(() => () => { alive.current = false; }, []);
+
   const set = (patch) => setState((s) => ({ ...s, ...patch }));
 
   const load = React.useCallback(async () => {
@@ -71,8 +72,11 @@ export function CartProvider({ children }) {
     set({ updating: true, error: null });
     try {
       const q = Math.max(0, Number(qty) || 0);
-      if (q <= 0) await swell.cart.removeItem(itemId);
-      else await swell.cart.updateItem(itemId, { quantity: q });
+      if (q <= 0) {
+        await swell.cart.removeItem(itemId);
+      } else {
+        await swell.cart.updateItem(itemId, { quantity: q });
+      }
       const cart = await swell.cart.get();
       if (alive.current) set({ cart, updating: false });
       broadcast();
