@@ -4,6 +4,7 @@
 import React from 'react';
 import swell from '@/lib/swell';
 
+// Single source of truth for cart state + mutations
 const initial = { cart: null, loading: true, updating: false, error: null };
 
 const CartContext = React.createContext({
@@ -23,7 +24,6 @@ export function CartProvider({ children }) {
   const [state, setState] = React.useState(initial);
   const alive = React.useRef(true);
   React.useEffect(() => () => { alive.current = false; }, []);
-
   const set = (patch) => setState((s) => ({ ...s, ...patch }));
 
   const load = React.useCallback(async () => {
@@ -36,6 +36,7 @@ export function CartProvider({ children }) {
     }
   }, []);
 
+  // Initial load + refresh when tab regains focus or another tab updates the cart
   React.useEffect(() => {
     (async () => { await load(); })();
     const onFocus = () => load();
