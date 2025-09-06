@@ -30,7 +30,7 @@ export default function Maintenance() {
           }}
         >
           <span style={{ color: '#6A9955' }}>{"// LAMEBOY.COM\n"}</span>
-          <span style={{ color: '#6A9955' }}>{"// is banned\n\n"}</span>
+          <span style={{ color: '#6A9955' }}>{"// is banned for now\n\n"}</span>
 
           <span style={{ color: '#C586C0' }}>console</span>
           <span style={{ color: '#d4d4d4' }}>.</span>
@@ -43,7 +43,7 @@ export default function Maintenance() {
         </div>
 
         <p style={{ marginTop: '1.25rem', opacity: 0.75 }}>
-          Florida
+          Florida, USA
         </p>
       </div>
 
