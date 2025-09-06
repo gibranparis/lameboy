@@ -3,43 +3,46 @@ import './globals.css';
 import { cookies } from 'next/headers';
 
 import Header from '@/components/Header';
-import { CartUIProvider } from '@/contexts/CartUIContext';
 import CartFlyout from '@/components/CartFlyout';
-import Maintenance from '@/components/Maintenance';
 import { CartProvider } from '@/contexts/CartContext';
-
-export const dynamic = 'force-dynamic';
-
-const isTrue = (v) => String(v ?? '').toLowerCase() === 'true';
+import { CartUIProvider } from '@/contexts/CartUIContext';
+import Maintenance from '@/components/Maintenance';
 
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
-  title: 'LAMEBOY – Shop',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://lameboy.com'),
+  title: 'LAMEBOY | Shop',
   description: 'Headless store powered by Swell + Next.js',
 };
 
-export default async function RootLayout({ children }) {
-  const cookieStore = await cookies();
-  const hasBypass = cookieStore.get('bypass_maintenance')?.value === '1';
-  const enabled = isTrue(process.env.MAINTENANCE_MODE);
-  const locked = enabled && !hasBypass;
+export default function RootLayout({ children }) {
+  const c = cookies();
+  const bypass = c.get('bypass_maintenance')?.value === '1';
+  const maintenance = process.env.MAINTENANCE_MODE === 'true' && !bypass;
 
+  if (maintenance) {
+    // Minimal shell, no header/cart while locked
+    return (
+      <html lang="en">
+        <body>
+          <main className="container">
+            <Maintenance />
+          </main>
+        </body>
+      </html>
+    );
+  }
+
+  // Normal shell with cart wired up
   return (
     <html lang="en">
       <body>
-        {locked ? (
-          <Maintenance />
-        ) : (
-          <>
+        <CartProvider>
+          <CartUIProvider>
             <Header />
-            <CartUIProvider>
-              <CartProvider>
-                <main className="container">{children}</main>
-                <CartFlyout />
-              </CartProvider>
-            </CartUIProvider>
-          </>
-        )}
+            <main className="container">{children}</main>
+            <CartFlyout />
+          </CartUIProvider>
+        </CartProvider>
       </body>
     </html>
   );
