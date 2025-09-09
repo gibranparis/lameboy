@@ -4,130 +4,165 @@
 import React from 'react';
 import swell from '@/lib/swell';
 
-// Minimal normalized shape so consumers have stable keys
-const initialCart = {
-  id: null,
-  items: [],
-  itemCount: 0,
-  subTotal: 0,
-  currency: 'USD',
-};
+// Single source of truth for cart state + mutations
+const initial = { cart: null, loading: true, updating: false, error: null };
 
 const CartContext = React.createContext({
-  cart: initialCart,
-  loading: true,
+  ...initial,
   refresh: async () => {},
-  addItem: async (_productOrId, _opts = {}) => {},
+  addItem: async (_productIdOrPayload, _opts = {}) => {},
   setItemQty: async (_itemId, _qty) => {},
   removeItem: async (_itemId) => {},
   clear: async () => {},
-  subtotal: 0,
   itemCount: 0,
+  subtotal: 0,
+  total: 0,
+  currency: 'USD',
 });
 
 function normalizeCart(c) {
-  if (!c) return initialCart;
-  const subtotal = c.subtotal ?? c.subTotal ?? 0;
-  const itemCount =
+  if (!c) return null;
+  // Swell uses 'item_quantity' and 'subtotal', sometimes camel depending on config
+  const itemCount = Number(
+    c.itemQuantity ??
     c.item_quantity ??
-    c.itemCount ??
-    (Array.isArray(c.items) ? c.items.reduce((s, i) => s + (i.quantity || 0), 0) : 0);
-  return { ...c, subTotal: subtotal, itemCount };
+    (Array.isArray(c.items) ? c.items.reduce((s, i) => s + (Number(i.quantity) || 0), 0) : 0)
+  );
+  const subtotal = Number(c.subtotal ?? c.subTotal ?? 0);
+  const total = Number(c.grandTotal ?? c.total ?? subtotal);
+  const currency = c.currency || 'USD';
+  return { ...c, itemQuantity: itemCount, subtotal, grandTotal: total, currency };
 }
 
 export function CartProvider({ children }) {
-  const [cart, setCart] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
+  const [state, setState] = React.useState(initial);
+  const alive = React.useRef(true);
+  React.useEffect(() => () => { alive.current = false; }, []);
 
-  const refresh = React.useCallback(async () => {
+  const set = (patch) => setState((s) => ({ ...s, ...patch }));
+
+  const load = React.useCallback(async () => {
+    set({ loading: true, error: null });
     try {
-      const c = await swell.cart.get();
-      setCart(normalizeCart(c));
+      const cart = await swell.cart.get();
+      if (alive.current) set({ cart: normalizeCart(cart), loading: false });
     } catch (err) {
-      console.error('[cart] get failed', err);
-    } finally {
-      setLoading(false);
+      if (alive.current) set({ error: err?.message || 'Failed to load cart', loading: false });
     }
   }, []);
 
+  // Initial load + refresh on focus and cross-tab updates
   React.useEffect(() => {
-    refresh();
-  }, [refresh]);
+    (async () => { await load(); })();
+    const onFocus = () => load();
+    const onStorage = (e) => { if (e.key === 'cart:updated') load(); };
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [load]);
+
+  const broadcast = React.useCallback(() => {
+    try { localStorage.setItem('cart:updated', String(Date.now())); } catch {}
+  }, []);
+
+  function normalizeItemPayload(productOrId, opts) {
+    if (typeof productOrId === 'object' && productOrId !== null) {
+      // Caller passed full payload
+      const p = { ...productOrId };
+      if (p.productId && !p.product_id) { p.product_id = p.productId; delete p.productId; }
+      if (p.variantId && !p.variant_id) { p.variant_id = p.variantId; delete p.variantId; }
+      return p;
+    }
+    // Caller passed productId and maybe opts
+    const p = { product_id: productOrId, ...(opts || {}) };
+    if (p.productId && !p.product_id) { p.product_id = p.productId; delete p.productId; }
+    if (p.variantId && !p.variant_id) { p.variant_id = p.variantId; delete p.variantId; }
+    return p;
+  }
 
   const addItem = React.useCallback(async (productOrId, opts = {}) => {
+    set({ updating: true, error: null });
     try {
-      setLoading(true);
-      const product_id =
-        typeof productOrId === 'string' ? productOrId : productOrId?.id;
-      const c = await swell.cart.addItem({ product_id, ...opts });
-      setCart(normalizeCart(c));
+      const payload = normalizeItemPayload(productOrId, opts);
+      await swell.cart.addItem(payload);
+      const cart = await swell.cart.get();
+      if (alive.current) set({ cart: normalizeCart(cart), updating: false });
+      broadcast();
+      return cart;
     } catch (err) {
-      console.error('[cart] addItem failed', err);
-    } finally {
-      setLoading(false);
+      if (alive.current) set({ updating: false, error: err?.message || 'Failed to add item' });
+      throw err;
     }
-  }, []);
+  }, [broadcast]);
 
   const setItemQty = React.useCallback(async (itemId, qty) => {
+    set({ updating: true, error: null });
     try {
-      setLoading(true);
-      const c = await swell.cart.updateItem(itemId, {
-        quantity: Math.max(0, Number(qty) || 0),
-      });
-      setCart(normalizeCart(c));
+      const q = Math.max(0, Number(qty) || 0);
+      let cart;
+      if (q <= 0) {
+        await swell.cart.removeItem(itemId);
+        cart = await swell.cart.get();
+      } else {
+        await swell.cart.updateItem(itemId, { quantity: q });
+        cart = await swell.cart.get();
+      }
+      if (alive.current) set({ cart: normalizeCart(cart), updating: false });
+      broadcast();
+      return cart;
     } catch (err) {
-      console.error('[cart] setItemQty failed', err);
-    } finally {
-      setLoading(false);
+      if (alive.current) set({ updating: false, error: err?.message || 'Failed to update quantity' });
+      throw err;
     }
-  }, []);
+  }, [broadcast]);
 
   const removeItem = React.useCallback(async (itemId) => {
+    set({ updating: true, error: null });
     try {
-      setLoading(true);
-      const c = await swell.cart.removeItem(itemId);
-      setCart(normalizeCart(c));
+      await swell.cart.removeItem(itemId);
+      const cart = await swell.cart.get();
+      if (alive.current) set({ cart: normalizeCart(cart), updating: false });
+      broadcast();
+      return cart;
     } catch (err) {
-      console.error('[cart] removeItem failed', err);
-    } finally {
-      setLoading(false);
+      if (alive.current) set({ updating: false, error: err?.message || 'Failed to remove item' });
+      throw err;
     }
-  }, []);
+  }, [broadcast]);
 
   const clear = React.useCallback(async () => {
+    set({ updating: true, error: null });
     try {
-      setLoading(true);
-      const c = await swell.cart.setItems([]);
-      setCart(normalizeCart(c));
+      await swell.cart.setItems([]);
+      const cart = await swell.cart.get();
+      if (alive.current) set({ cart: normalizeCart(cart), updating: false });
+      broadcast();
+      return cart;
     } catch (err) {
-      console.error('[cart] clear failed', err);
-    } finally {
-      setLoading(false);
+      if (alive.current) set({ updating: false, error: err?.message || 'Failed to clear cart' });
+      throw err;
     }
-  }, []);
+  }, [broadcast]);
 
-  const value = React.useMemo(
-    () => ({
-      cart: cart ?? initialCart,
-      loading,
-      refresh,
-      addItem,
-      setItemQty,
-      removeItem,
-      clear,
-      itemCount: (cart ?? initialCart).itemCount,
-      subtotal: (cart ?? initialCart).subTotal,
-    }),
-    [cart, loading, refresh, addItem, setItemQty, removeItem, clear]
-  );
+  const value = React.useMemo(() => ({
+    ...state,
+    refresh: load,
+    addItem,
+    setItemQty,
+    removeItem,
+    clear,
+    itemCount: Number(state.cart?.itemQuantity || 0),
+    subtotal: Number(state.cart?.subtotal || 0),
+    total: Number(state.cart?.grandTotal ?? state.cart?.total ?? 0),
+    currency: state.cart?.currency || 'USD',
+  }), [state, load, addItem, setItemQty, removeItem, clear]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {
-  const ctx = React.useContext(CartContext);
-  if (!ctx) throw new Error('useCart must be used within <CartProvider>');
-  return ctx;
+  return React.useContext(CartContext);
 }
-
-export default CartContext;

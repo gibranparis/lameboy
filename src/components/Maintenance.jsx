@@ -1,3 +1,4 @@
+// src/components/Maintenance.jsx
 'use client';
 
 export default function Maintenance() {
@@ -76,14 +77,14 @@ export default function Maintenance() {
           inset: 0;
           border-radius: 10px;
           box-shadow:
-            0 0 0 1px rgba(14,99,156,0.8) inset,
-            0 0 0 2px rgba(14,99,156,0.2);
+            0 0 0 1px rgba(14,99,156,0.85) inset,
+            0 0 0 1.5px rgba(14,99,156,0.3);
           pointer-events: none;
         }
 
         .vscode-maint__code {
           margin: 0;
-          font-size: 13.5px;          /* Monaco-ish size */
+          font-size: 14px;          /* Monaco-ish size */
           line-height: 1.65;
           color: var(--text);
           white-space: pre;

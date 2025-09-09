@@ -24,12 +24,10 @@ export default function RootLayout({ children }) {
   const maintenance = isTrue(process.env.MAINTENANCE_MODE) && !bypass;
 
   return (
-    <html lang="en">
+    <html lang="en" className={maintenance ? 'vsc-dark' : ''}>
       <body>
         {maintenance ? (
-          <main className="container">
-            <Maintenance />
-          </main>
+          <Maintenance />
         ) : (
           <CartProvider>
             <CartUIProvider>
