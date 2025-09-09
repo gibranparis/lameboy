@@ -1,6 +1,6 @@
-// src/components/Maintenance.jsx
 'use client';
 
+// VS Code “Dark+” styled maintenance screen (pixel-matched)
 export default function Maintenance() {
   return (
     <main className="screen">
@@ -26,98 +26,95 @@ export default function Maintenance() {
       </div>
 
       <style jsx>{`
-        /* VS Code Dark+ palette */
+        /* ---------- VS Code Dark+ palette (exact hex) ---------- */
         :root {
-          --bg: #0b0b0b;               /* editor background (pitch black feel) */
-          --panel: #111214;            /* dark panel block */
-          --fg: #d4d4d4;               /* default text */
-          --muted: #9da3ad;
-
-          --border: #2c2c2c;           /* subtle border */
-          --accent: #007acc;           /* VS Code focus blue */
-          --accent-shadow: rgba(0, 122, 204, 0.3);
-
-          /* token colors (Dark+) */
-          --tok-comment: #6a9955;
-          --tok-blue: #569cd6;         /* function/identifier */
-          --tok-purple: #c586c0;       /* namespace/keyword-ish */
-          --tok-string: #ce9178;
+          --bg: #0b0e14;             /* near-black canvas seen in your screenshot */
+          --panel: #111317;          /* editor gutter-ish panel tone */
+          --panel-border: #2b2b2b;   /* editor widget border */
+          --focus-blue: #3794ff;     /* VS Code focus/selection blue */
+          --text: #d4d4d4;           /* default editor text */
+          --comment: #6a9955;        /* comment green */
+          --purple: #c586c0;         /* e.g., 'console' */
+          --blue: #569cd6;           /* function names like 'log' */
+          --string: #ce9178;         /* string literal */
         }
 
         .screen {
-          margin: 0;
           min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          display: grid;
+          place-items: center;
           background: var(--bg);
-          color: var(--fg);
-          font: 16px/1.6 Menlo, Monaco, 'SFMono-Regular', 'Courier New', monospace;
+          color: var(--text);
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+            "Liberation Mono", "Courier New", monospace;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
         }
 
         .wrap {
           text-align: center;
-          padding: 2rem;
+          padding: 2rem 1.25rem;
         }
 
         .panel {
           position: relative;
           display: inline-block;
-          text-align: left;
           background: var(--panel);
-          border: 1px solid var(--border);
+          border: 1px solid var(--panel-border);
           border-radius: 10px;
-          padding: 18px 22px;
-          box-shadow:
-            0 8px 24px rgba(0,0,0,0.35),
-            0 0 0 2px var(--accent); /* the bright VS Code blue outline */
+          padding: 14px 18px;
+          /* subtle soft shadow like VS Code quickpick */
+          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+          /* keep width visually close to the screenshot */
+          max-width: 560px;
         }
 
-        /* faint blue “glow” just outside the border for that VS Code focus look */
-        .panel::after {
-          content: "";
-          position: absolute;
-          inset: -2px;
-          border-radius: 12px;
-          box-shadow: 0 0 0 1px var(--accent), 0 0 18px var(--accent-shadow);
+        /* The bright blue VS Code focus ring around the panel */
+        .accent {
           pointer-events: none;
+          position: absolute;
+          inset: -2px;               /* sits just outside the grey border */
+          border-radius: 12px;       /* matches panel radius + inset */
+          border: 2px solid var(--focus-blue);
+          /* light outer glow, very subtle */
+          box-shadow: 0 0 0 1px rgba(55, 148, 255, 0.08);
         }
-
-        .accent { display: none; } /* hook kept if you ever want a tab notch */
 
         .code {
           margin: 0;
+          text-align: left;
+          line-height: 1.6;
+          font-size: 13.5px;         /* VS Code’s default monospace size feel */
           white-space: pre;
         }
 
-        .comment { color: var(--tok-comment); }
-        .blue    { color: var(--tok-blue); }
-        .purple  { color: var(--tok-purple); }
-        .string  { color: var(--tok-string); }
-        .text    { color: var(--fg); }
-
-        .cursor {
-          display: inline-block;
-          width: 10px;
-          height: 1.1em;
-          margin-left: 2px;
-          background: var(--fg);
-          vertical-align: -2px;
-          animation: blink 1s step-end infinite;
-        }
+        .comment { color: var(--comment); }
+        .purple  { color: var(--purple); }
+        .blue    { color: var(--blue); }
+        .string  { color: var(--string); }
+        .text    { color: var(--text); }
 
         .foot {
-          margin-top: 16px;
-          color: var(--muted);
-          letter-spacing: 0.4px;
+          margin: 1.15rem 0 0;
+          font-size: 12.5px;
+          opacity: 0.75;
         }
 
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50%      { opacity: 0; }
+        /* Blinking caret */
+        @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
+        .cursor {
+          display: inline-block;
+          width: 8px;
+          height: 1.2em;
+          margin-left: 3px;
+          background: var(--text);
+          vertical-align: -2px;
+          animation: blink 1s step-end infinite;
+          border-radius: 1px;
         }
+
+        /* Make sure the code block width hugs content for that “snippet” feel */
+        .panel :global(pre.code) { width: max-content; }
       `}</style>
     </main>
   );
