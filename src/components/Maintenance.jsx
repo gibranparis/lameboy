@@ -9,43 +9,46 @@ export default function Maintenance() {
           <div className="accent" />
           <pre className="code">
             <span className="comment">// LAMEBOY.COM</span>{'\n'}
-            <span className="comment">// is under maintenance</span>{'\n'}
+            <span className="comment">// is banned for now</span>{'\n'}
             {'\n'}
             <span className="purple">console</span>
             <span className="text">.</span>
             <span className="blue">log</span>
             <span className="text">(</span>
-            <span className="string">"⚙️ Updating site…"</span>
+            <span className="string">"🚧..."</span>
             <span className="text">)</span>
             <span className="text">;</span>
             <span className="cursor" />
           </pre>
         </div>
 
-        <p className="note">We’ll be back online soon.</p>
+        <p className="note">Florida, USA</p>
       </div>
 
       <style jsx>{`
         :root {
-          --bg: #0d0f12;           /* page bg (near black) */
-          --panel: #0f1115;        /* card bg */
-          --border: #2563eb;       /* blue trim */
-          --text: #e5e7eb;         /* default text */
-          --muted: #9aa4b2;        /* secondary text */
-          --cmt: #6a9955;          /* VSCode comment green */
-          --blue: #569cd6;         /* VSCode blue */
-          --purple: #c586c0;       /* VSCode purple */
-          --string: #ce9178;       /* VSCode string */
+          --vs-blue: #007acc;       /* VS Code blue (exact) */
+          --bg: #000000;            /* pitch black */
+          --panel: #0a0a0a;         /* near-black to separate from bg */
+          --text: #d4d4d4;          /* default text */
+          --muted: #a0a0a0;         /* secondary text */
+
+          /* VS Code syntax colors */
+          --cmt: #6a9955;           /* comment green */
+          --blue: #569cd6;          /* function blue */
+          --purple: #c586c0;        /* object purple */
+          --string: #ce9178;        /* string orange */
         }
 
         .screen {
           min-height: 100vh;
-          background: var(--bg);
-          color: var(--text);
           display: grid;
           place-items: center;
+          background: var(--bg);
+          color: var(--text);
           padding: 48px 16px;
           font-family: Menlo, Monaco, 'Courier New', ui-monospace, SFMono-Regular, monospace;
+          font-size: 16px;
         }
 
         .wrap {
@@ -58,25 +61,26 @@ export default function Maintenance() {
           margin: 0 auto;
           background: var(--panel);
           border-radius: 14px;
+          /* blue border + subtle glow */
           box-shadow:
-            inset 0 0 0 1px rgba(37, 99, 235, 0.35),
+            inset 0 0 0 1px rgba(0, 122, 204, 0.7),
+            0 0 0 1px rgba(0, 122, 204, 0.3),
             0 10px 30px rgba(0, 0, 0, 0.6);
         }
 
-        /* thin blue bar at the top (accent trim) */
+        /* thin blue bar across the top */
         .accent {
           height: 4px;
           width: 100%;
           border-radius: 14px 14px 0 0;
-          background: linear-gradient(90deg, var(--border), #60a5fa);
+          background: var(--vs-blue);
         }
 
         .code {
           margin: 0;
           padding: 20px 24px 22px;
-          font-size: 14px;
-          line-height: 1.65;
           white-space: pre-wrap;
+          line-height: 1.65;
           text-align: left;
         }
 
@@ -92,10 +96,10 @@ export default function Maintenance() {
         .string  { color: var(--string); }
         .text    { color: var(--text); }
 
-        @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+        @keyframes blink { 0%,100% {opacity:1} 50% {opacity:0} }
         .cursor {
           display: inline-block;
-          width: 8px;
+          width: 10px;
           height: 1.1em;
           margin-left: 4px;
           background: var(--text);
