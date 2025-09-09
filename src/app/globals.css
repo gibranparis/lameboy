@@ -65,6 +65,11 @@ html, body{
   box-shadow: var(--ring);
 }
 
+/* Limit login card size on phones */
+.login-card{
+  width: min(92vw, 360px);
+}
+
 /* “Text button” look for Florida, USA */
 .ghost-btn{
   background: transparent; border: 0; margin: 0; padding: 0;
@@ -80,14 +85,14 @@ html, body{
 .code-op     { color: var(--op); }
 .code-punc   { color: var(--punct); }
 
-/* Inline code line layout */
+/* Inline code line layout (allow wrap on mobile) */
 .code-line{
   display: flex;
   align-items: baseline;
   gap: 4px;
   line-height: 1.6;
   font-size: 0.95rem;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;     /* <-- prevents horizontal overflow on phones */
 }
 
 /* “String” input that looks like code */
@@ -101,36 +106,38 @@ html, body{
   padding: 0;
   margin: 0;
   min-width: 6ch;
+  max-width: 20ch;               /* <-- cap so it never stretches bubble */
 }
 .code-input::placeholder{ color:#8d8d8d; }
 
-/* === VS Code “Run and Debug” style button === */
-.run-btn{
-  display:block;
-  width:100%;
-  text-align:center;
-  padding: 10px 14px;
+/* === Compact VS Code badge (commit-style) === */
+.commit-btn{
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;             /* smaller bubble */
   border: 1px solid var(--accent);
   border-radius: 10px;
   background: rgba(0,122,204,.12);
   color: var(--text);
   font: inherit;
-  font-weight: 700;
+  font-weight: 700;              /* keep the Submit font weight you liked */
   cursor: pointer;
-  line-height: 1.2;
+  line-height: 1.1;
 }
-.run-btn:hover{
-  background: rgba(0,122,204,.20);
+.commit-btn:hover{
+  background: rgba(247,160,45,.10);           /* orange tint on hover */
+  border-color: var(--focus-orange);
 }
-.run-btn:focus-visible{
-  outline: 1px dashed var(--focus-orange);   /* orange dotted ring */
+.commit-btn:focus-visible{
+  outline: 1px dashed var(--focus-orange);    /* orange dotted focus */
   outline-offset: 3px;
 }
-.run-btn:active{
+.commit-btn:active{
+  background: rgba(247,160,45,.18);           /* deeper orange on click */
   border-color: var(--focus-orange);
   box-shadow: inset 0 0 0 1px var(--focus-orange);
 }
-.run-btn[disabled]{ opacity:.6; cursor:progress; }
+.commit-btn[disabled]{ opacity:.6; cursor:progress; }
 
 /* Blinking caret for the demo card */
 .caret::after{

@@ -11,9 +11,10 @@ export default function BannedCard() {
 
   const toggle = () => { setMsg(null); setMode(m => m === "banned" ? "login" : "banned"); };
 
-  // Make the “string” input width feel like code literals
-  const emailWidthCh = useMemo(() => Math.max((email || 'you@example.com').length, 6) + 1, [email]);
-  const phoneWidthCh = useMemo(() => Math.max((phone || '+1 305 555 0123').length, 6) + 1, [phone]);
+  // Size strings like code literals, but clamp to avoid overflow
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
+  const emailWidthCh = useMemo(() => clamp((email || 'you@example.com').length + 1, 6, 20), [email]);
+  const phoneWidthCh = useMemo(() => clamp((phone || '+1 305 555 0123').length + 1, 6, 20), [phone]);
 
   async function onSubmit(e){
     e.preventDefault();
@@ -73,7 +74,7 @@ export default function BannedCard() {
   );
 
   const LoginCard = (
-    <div className="vscode-card p-4 rounded-xl" style={{ maxWidth: 360 }}>
+    <div className="vscode-card login-card p-4 rounded-xl">
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
@@ -112,17 +113,15 @@ export default function BannedCard() {
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        {/* Run & Debug-style Submit button */}
-        <div className="mt-3">
-          <button type="submit" className="run-btn" disabled={busy}>
+        {/* Bottom-left small badge button */}
+        <div className="mt-3 flex justify-start">
+          <button type="submit" className="commit-btn" disabled={busy}>
             Submit
           </button>
           {msg && (
-            <div className="mt-2">
-              <span className={msg.type === 'ok' ? "code-comment" : "code-string"}>
-                {msg.type === 'ok' ? `// ${msg.text}` : `"${msg.text}"`}
-              </span>
-            </div>
+            <span style={{ marginLeft: 10 }} className={msg.type === 'ok' ? "code-comment" : "code-string"}>
+              {msg.type === 'ok' ? `// ${msg.text}` : `"${msg.text}"`}
+            </span>
           )}
         </div>
       </form>
