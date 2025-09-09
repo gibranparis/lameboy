@@ -112,11 +112,11 @@ export default function BannedCard() {
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        {/* await submit({ email, phone }); */}
+        {/* VS Code-like badge button */}
         <div className="code-line mt-2">
           <span className="code-keyword">await</span>
-          <button type="submit" className="code-fn-btn" disabled={busy}>
-            submit
+          <button type="submit" className="chip-btn" disabled={busy}>
+            <span className="code-var">Submit</span>
           </button>
           <span className="code-punc">(</span>
           <span className="code-punc">{'{'}</span>

@@ -24,6 +24,7 @@
   --punct:#ffffff;
   --op:#ffffff;
 
+  --focus-orange:#f7a02d;       /* orange dotted focus ring */
   --radius-xl: 14px;
   --ring: 0 0 0 1px rgba(0,122,204,.25);
 }
@@ -103,29 +104,33 @@ html, body{
 }
 .code-input::placeholder{ color:#8d8d8d; }
 
-/* Code-style function button */
-.code-fn-btn{
-  background: transparent;
-  border: 0;
-  padding: 0 2px;
-  margin: 0;
+/* VS Code badge-style button (like “Additional Views”) */
+.chip-btn{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 9999px;
+  background: rgba(0,122,204,.12);
+  color: var(--text);
   font: inherit;
-  color: var(--var);             /* function/identifier color */
   cursor: pointer;
+  line-height: 1.2;
 }
-.code-fn-btn:hover{
-  text-decoration: underline;
-  text-decoration-color: var(--accent);
+.chip-btn:hover{
+  background: rgba(0,122,204,.2);
 }
-.code-fn-btn:focus-visible{
-  outline: 1px dashed var(--accent);
-  outline-offset: 2px;
-  border-radius: 3px;
+.chip-btn:focus-visible{
+  outline: 1px dashed var(--focus-orange);      /* orange dotted focus */
+  outline-offset: 3px;
 }
-.code-fn-btn[disabled]{
-  opacity: .6;
-  cursor: progress;
-  text-decoration: none;
+.chip-btn:active{
+  border-color: var(--focus-orange);
+  box-shadow: inset 0 0 0 1px var(--focus-orange);
+}
+.chip-btn[disabled]{
+  opacity: .6; cursor: progress;
 }
 
 /* Blinking caret for the demo card */
