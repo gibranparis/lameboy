@@ -4,7 +4,7 @@
 import React from 'react';
 import swell from '@/lib/swell';
 
-// Single source of truth for cart state + mutations
+// Cart state + actions
 const initial = { cart: null, loading: true, updating: false, error: null };
 
 const CartContext = React.createContext({
@@ -22,115 +22,35 @@ const CartContext = React.createContext({
 
 export function CartProvider({ children }) {
   const [state, setState] = React.useState(initial);
-  const alive = React.useRef(true);
-  React.useEffect(() => () => { alive.current = false; }, []);
-
-  const set = (patch) => setState((s) => ({ ...s, ...patch }));
 
   const load = React.useCallback(async () => {
-    set({ loading: true, error: null });
     try {
+      setState((s) => ({ ...s, loading: true, error: null }));
       const cart = await swell.cart.get();
-      if (alive.current) set({ cart, loading: false });
+      setState((s) => ({ ...s, cart, loading: false }));
     } catch (err) {
-      if (alive.current) set({ error: err?.message || 'Failed to load cart', loading: false });
+      console.error('[cart] load failed', err);
+      setState((s) => ({ ...s, error: err, loading: false }));
     }
   }, []);
 
-  // Initial load + refresh when tab regains focus or another tab updates the cart
-  React.useEffect(() => {
-    (async () => { await load(); })();
-    const onFocus = () => load();
-    const onStorage = (e) => { if (e.key === 'cart:updated') load(); };
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('storage', onStorage);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, [load]);
-
-  const broadcast = React.useCallback(() => {
-    try { localStorage.setItem('cart:updated', String(Date.now())); } catch {}
-  }, []);
+  React.useEffect(() => { load(); }, [load]);
 
   const addItem = React.useCallback(async (productId, opts = {}) => {
-    set({ updating: true, error: null });
     try {
-      await swell.cart.addItem({ productId, ...opts });
-      const cart = await swell.cart.get();
-      if (alive.current) set({ cart, updating: false });
-      broadcast();
+      setState((s) => ({ ...s, updating: true, error: null }));
+      const payload = { product_id: productId, quantity: Number(opts.quantity || 1) };
+      if (opts.variant_id) payload.variant_id = opts.variant_id;
+      if (opts.options) payload.options = opts.options;
+      const cart = await swell.cart.addItem(payload);
+      setState((s) => ({ ...s, cart, updating: false }));
       return cart;
     } catch (err) {
-      if (alive.current) set({ updating: false, error: err?.message || 'Failed to add item' });
+      console.error('[cart] addItem failed', err);
+      setState((s) => ({ ...s, error: err, updating: false }));
       throw err;
     }
-  }, [broadcast]);
+  }, []);
 
   const setItemQty = React.useCallback(async (itemId, qty) => {
-    set({ updating: true, error: null });
-    try {
-      const q = Math.max(0, Number(qty) || 0);
-      if (q <= 0) {
-        await swell.cart.removeItem(itemId);
-      } else {
-        await swell.cart.updateItem(itemId, { quantity: q });
-      }
-      const cart = await swell.cart.get();
-      if (alive.current) set({ cart, updating: false });
-      broadcast();
-      return cart;
-    } catch (err) {
-      if (alive.current) set({ updating: false, error: err?.message || 'Failed to update quantity' });
-      throw err;
-    }
-  }, [broadcast]);
-
-  const removeItem = React.useCallback(async (itemId) => {
-    set({ updating: true, error: null });
-    try {
-      await swell.cart.removeItem(itemId);
-      const cart = await swell.cart.get();
-      if (alive.current) set({ cart, updating: false });
-      broadcast();
-      return cart;
-    } catch (err) {
-      if (alive.current) set({ updating: false, error: err?.message || 'Failed to remove item' });
-      throw err;
-    }
-  }, [broadcast]);
-
-  const clear = React.useCallback(async () => {
-    set({ updating: true, error: null });
-    try {
-      await swell.cart.setItems([]);
-      const cart = await swell.cart.get();
-      if (alive.current) set({ cart, updating: false });
-      broadcast();
-      return cart;
-    } catch (err) {
-      if (alive.current) set({ updating: false, error: err?.message || 'Failed to clear cart' });
-      throw err;
-    }
-  }, [broadcast]);
-
-  const value = React.useMemo(() => ({
-    ...state,
-    refresh: load,
-    addItem,
-    setItemQty,
-    removeItem,
-    clear,
-    itemCount: Number(state.cart?.itemQuantity || 0),
-    subtotal: Number(state.cart?.subtotal || 0),
-    total: Number(state.cart?.grandTotal ?? state.cart?.total ?? 0),
-    currency: state.cart?.currency || 'USD',
-  }), [state, load, addItem, setItemQty, removeItem, clear]);
-
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
-}
-
-export function useCart() {
-  return React.useContext(CartContext);
-}
+   
