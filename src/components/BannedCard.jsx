@@ -112,24 +112,17 @@ export default function BannedCard() {
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        {/* VS Code-like badge button */}
-        <div className="code-line mt-2">
-          <span className="code-keyword">await</span>
-          <button type="submit" className="chip-btn" disabled={busy}>
-            <span className="code-var">Submit</span>
+        {/* Run & Debug-style Submit button */}
+        <div className="mt-3">
+          <button type="submit" className="run-btn" disabled={busy}>
+            Submit
           </button>
-          <span className="code-punc">(</span>
-          <span className="code-punc">{'{'}</span>
-          <span className="code-var">email</span>
-          <span className="code-punc">,</span>
-          <span className="code-var">phone</span>
-          <span className="code-punc">{'}'}</span>
-          <span className="code-punc">)</span><span className="code-punc">;</span>
-
           {msg && (
-            <span style={{ marginLeft: 10 }} className={msg.type === 'ok' ? "code-comment" : "code-string"}>
-              {msg.type === 'ok' ? `// ${msg.text}` : `"${msg.text}"`}
-            </span>
+            <div className="mt-2">
+              <span className={msg.type === 'ok' ? "code-comment" : "code-string"}>
+                {msg.type === 'ok' ? `// ${msg.text}` : `"${msg.text}"`}
+              </span>
+            </div>
           )}
         </div>
       </form>
