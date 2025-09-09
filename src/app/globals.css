@@ -57,7 +57,7 @@ html, body{
   flex-wrap: nowrap;
 }
 
-/* Compact VS Code card */
+/* Compact VS Code card border */
 .vscode-card{
   background: var(--panel);
   border: 2px solid var(--accent);
@@ -65,9 +65,14 @@ html, body{
   box-shadow: var(--ring);
 }
 
-/* Limit login card size on phones */
+/* Hug-content login bubble (no extra space, no fixed width) */
 .login-card{
-  width: min(92vw, 360px);
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;                    /* tiny vertical spacing between lines */
+  width: fit-content;          /* <-- wraps to content */
+  max-width: 92vw;             /* safe on phones */
+  padding: 10px 12px;          /* small, like your banned card */
 }
 
 /* “Text button” look for Florida, USA */
@@ -85,14 +90,14 @@ html, body{
 .code-op     { color: var(--op); }
 .code-punc   { color: var(--punct); }
 
-/* Inline code line layout (allow wrap on mobile) */
+/* Inline code line layout (wrap allowed to avoid overflow) */
 .code-line{
   display: flex;
   align-items: baseline;
   gap: 4px;
   line-height: 1.6;
   font-size: 0.95rem;
-  flex-wrap: wrap;     /* <-- prevents horizontal overflow on phones */
+  flex-wrap: wrap;             /* prevents horizontal overflow on phones */
 }
 
 /* “String” input that looks like code */
@@ -100,27 +105,27 @@ html, body{
   background: transparent;
   border: none;
   outline: none;
-  color: var(--purple);          /* typed value */
+  color: var(--purple);        /* typed value */
   caret-color: var(--purple);
   font: inherit;
   padding: 0;
   margin: 0;
   min-width: 6ch;
-  max-width: 20ch;               /* <-- cap so it never stretches bubble */
+  max-width: 20ch;             /* clamp so bubble never stretches */
 }
 .code-input::placeholder{ color:#8d8d8d; }
 
-/* === Compact VS Code badge (commit-style) === */
+/* Compact commit-style chip */
 .commit-btn{
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;             /* smaller bubble */
+  padding: 4px 10px;           /* tight chip */
   border: 1px solid var(--accent);
   border-radius: 10px;
   background: rgba(0,122,204,.12);
   color: var(--text);
   font: inherit;
-  font-weight: 700;              /* keep the Submit font weight you liked */
+  font-weight: 700;            /* keep the Submit font weight you liked */
   cursor: pointer;
   line-height: 1.1;
 }
@@ -133,7 +138,7 @@ html, body{
   outline-offset: 3px;
 }
 .commit-btn:active{
-  background: rgba(247,160,45,.18);           /* deeper orange on click */
+  background: rgba(247,160,45,.18);
   border-color: var(--focus-orange);
   box-shadow: inset 0 0 0 1px var(--focus-orange);
 }

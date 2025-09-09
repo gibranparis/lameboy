@@ -74,7 +74,7 @@ export default function BannedCard() {
   );
 
   const LoginCard = (
-    <div className="vscode-card login-card p-4 rounded-xl">
+    <div className="vscode-card login-card rounded-xl">
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
@@ -113,8 +113,8 @@ export default function BannedCard() {
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        {/* Bottom-left small badge button */}
-        <div className="mt-3 flex justify-start">
+        {/* bottom-left compact chip */}
+        <div className="code-line">
           <button type="submit" className="commit-btn" disabled={busy}>
             Submit
           </button>
@@ -139,7 +139,7 @@ export default function BannedCard() {
         ) : (
           <>
             {FloridaButton}  {/* shifts to LEFT */}
-            {LoginCard}      {/* compact code-style login bubble on RIGHT */}
+            {LoginCard}      {/* tight, content-wrapping bubble */}
           </>
         )}
       </div>
