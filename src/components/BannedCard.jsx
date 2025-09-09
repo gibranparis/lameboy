@@ -26,8 +26,8 @@ export default function BannedCard() {
     try{
       setBusy(true);
       const res = await fetch("/api/submit", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ email, phone }),
       });
       if (!res.ok) {
@@ -44,22 +44,17 @@ export default function BannedCard() {
   }
 
   const FloridaButton = (
-    <button
-      type="button"
-      className="ghost-btn text-xs"
-      onClick={toggle}
-      aria-label="Florida, USA"
-    >
+    <button type="button" className="ghost-btn text-xs" onClick={toggle} aria-label="Florida, USA">
       Florida, USA
     </button>
   );
 
   const CodeCard = (
-    <div className="vscode-card card-tight rounded-xl" style={{ maxWidth: 360 }}>
-      <div className="text-sm leading-7">
+    <div className="vscode-card card-ultra-tight rounded-xl" style={{ maxWidth: 360 }}>
+      <div className="text-sm leading-6">
         <div className="code-comment">// LAMEBOY.COM</div>
         <div className="code-comment">// is banned</div>
-        <div className="mt-2 caret">
+        <div className="mt-1 caret">
           <span className="code-keyword">console</span>
           <span className="code-punc">.</span>
           <span className="code-keyword">log</span>
@@ -72,7 +67,7 @@ export default function BannedCard() {
   );
 
   const LoginCard = (
-    <div className="vscode-card card-tight login-card rounded-xl">
+    <div className="vscode-card card-ultra-tight login-card rounded-xl">
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
@@ -94,7 +89,7 @@ export default function BannedCard() {
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        {/* const phone = "<typed>";  (with blinking caret at end) */}
+        {/* const phone = "<typed>"; (with caret) */}
         <div className="code-line caret">
           <span className="code-keyword">const</span>
           <span className="code-var">phone</span>
@@ -111,11 +106,9 @@ export default function BannedCard() {
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        {/* bottom-left small chip */}
+        {/* bottom-left tiny button */}
         <div className="code-line">
-          <button type="submit" className="commit-btn" disabled={busy}>
-            Submit
-          </button>
+          <button type="submit" className="commit-btn" disabled={busy}>Submit</button>
           {msg && (
             <span style={{ marginLeft: 10 }} className={msg.type === 'ok' ? "code-comment" : "code-string"}>
               {msg.type === 'ok' ? `// ${msg.text}` : `"${msg.text}"`}
