@@ -12,6 +12,7 @@
   --text: #ffffff;
   --muted: #b3b3b3;
   --accent: #007acc;
+  --purple: #a855f7; /* typed text color in login inputs */
 
   --comment:#6a9955;
   --string:#ce9178;
@@ -32,7 +33,7 @@ html, body{
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Center helper */
+/* Full-screen centered row */
 .page-center{
   min-height: 100dvh;
   display:flex;
@@ -41,7 +42,7 @@ html, body{
   padding: 2rem;
 }
 
-/* Card */
+/* VS Code card */
 .vscode-card{
   background: var(--panel);
   border: 2px solid var(--accent);
@@ -49,16 +50,29 @@ html, body{
   box-shadow: var(--ring);
 }
 
-/* Code colors */
+/* Helpers */
+.vscode-muted{ color: var(--muted); }
 .code-comment{ color: var(--comment); }
 .code-string { color: var(--string); }
 .code-keyword{ color: var(--keyword); }
 
-/* Blinking caret (closed correctly) */
+/* Login inputs: purple typed text */
+.login-input{
+  width: 100%;
+  background:#000;
+  color: var(--purple);          /* <-- purple while typing/typed */
+  caret-color: var(--purple);
+  border:1px solid var(--accent);
+  border-radius: 10px;
+  padding:.75rem .9rem;
+  outline:none;
+}
+.login-input::placeholder{ color:#8d8d8d; }
+.login-input:focus{ box-shadow:0 0 0 2px var(--accent); }
+
+/* Blinking caret for the code demo */
 .caret::after{
   content: "▮";
   animation: blink 1.1s steps(2, start) infinite;
 }
-@keyframes blink {
-  to { visibility: hidden; }
-}
+@keyframes blink { to { visibility: hidden; } }
