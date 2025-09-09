@@ -20,7 +20,6 @@ export default function Maintenance() {
         <h1 className="text-[28px] md:text-[32px] font-bold vscode-accent mb-2">
           LAMEBOY — Maintenance Mode
         </h1>
-
         <p className="vscode-muted mb-6 leading-7">
           We’re working on something amazing. Enter your info to get updates when we restock or reopen.
         </p>
