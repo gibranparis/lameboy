@@ -3,8 +3,22 @@
    exact focus ring (#0E639C), and Dark+ token colors. */
 
 /* ===== Theme Tokens ===== */
-:root {
-  color-scheme: dark;
+:root{
+  --bg:#0b1117;                /* canvas */
+  --panel:#0f141a;             /* panels/cards */
+  --panel-border:#1f2937;      /* panel stroke */
+  --ring:#2b85f0;              /* VS Code blue */
+  --fg:#e5e7eb;                /* text */
+  --muted:#9aa4b2;             /* subdued text */
+
+  --code-text:#cdd6f4;
+  --code-comment:#6a9955;
+  --code-blue:#569cd6;
+  --code-purple:#c586c0;
+  --code-string:#ce9178;
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
 
   /* Surfaces */
   --bg: #000000;          /* full black */
