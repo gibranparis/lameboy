@@ -2,42 +2,94 @@
 @tailwind components;
 @tailwind utilities;
 
-/* VS Code editor mono font stack */
-:root {
+/* =========================
+   VS Code Dark – Design Tokens
+   ========================= */
+:root{
   --mono: Menlo, Monaco, Consolas, "SFMono-Regular",
           "Liberation Mono", "Courier New", ui-monospace, monospace;
+
+  /* colors */
+  --bg: #000000;           /* page background */
+  --panel: #1e1e1e;        /* card/panel */
+  --text: #ffffff;         /* primary text */
+  --muted: #b3b3b3;        /* secondary text */
+  --accent: #007acc;       /* VS Code blue */
+  --accent-600:#005a9e;    /* hover */
+  --comment:#6a9955;       /* code comment green */
+  --string:#ce9178;        /* string */
+  --keyword:#9cdcfe;       /* keyword/identifier */
+
+  /* radii & shadows */
+  --radius-xl: 14px;
+  --ring: 0 0 0 1px rgba(0,122,204,.25);
 }
 
-/* Base */
-html, body {
-  margin: 0;
-  padding: 0;
-  font-family: var(--mono);
-  background-color: #000; /* pitch black */
-  color: #fff;            /* bright white */
+/* base */
+html, body{
+  margin:0;
+  padding:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--mono);
 }
 
-/* Code styles */
-code, pre {
-  font-family: var(--mono);
-  font-size: 0.95rem;
-  background: #1e1e1e; /* VS Code dark */
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-}
-
-/* Make form controls inherit font */
-button, input, select, textarea {
+/* make controls inherit */
+button,input,select,textarea{
   font: inherit !important;
   font-family: var(--mono) !important;
-  font-variant-ligatures: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Optional helpers (not required since we now style inline) */
-.vscode-border {
-  border: 2px solid #007acc;
+/* reusable primitives */
+.vscode-card{
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--ring);
 }
-.vscode-accent { color: #007acc; }
-.vscode-yellow { color: #dcdcaa; }
+
+.vscode-accent{ color: var(--accent); }
+.vscode-muted{ color: var(--muted); }
+
+.vscode-input{
+  background:#000;
+  color:var(--text);
+  border:1px solid var(--accent);
+  border-radius: 8px;
+  padding: .75rem .9rem;
+  outline: none;
+}
+
+.vscode-input:focus{
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.vscode-button{
+  background: var(--accent);
+  color: var(--text);
+  border: 0;
+  border-radius: 10px;
+  padding: .75rem 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+
+.vscode-button:hover{ background: var(--accent-600); }
+
+/* code look bits */
+.code-comment{ color: var(--comment); }
+.code-keyword{ color: var(--keyword); }
+.code-string { color: var(--string); }
+
+/* layout helper */
+.page-center{
+  min-height: 100dvh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: var(--bg);
+  color: var(--text);
+}
