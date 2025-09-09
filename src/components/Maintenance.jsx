@@ -9,7 +9,7 @@ export default function Maintenance() {
           <div className="vscode-maint__accent" />
           <pre className="vscode-maint__code">
             <span className="tk-comment">// LAMEBOY.COM</span>{'\n'}
-            <span className="tk-comment">// is banned for now</span>{'\n'}
+            <span className="tk-comment">// is banned </span>{'\n'}
             {'\n'}
             <span className="tk-purple">console</span>
             <span className="tk-text">.</span>
