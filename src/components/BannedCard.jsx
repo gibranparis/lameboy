@@ -15,7 +15,7 @@ export default function BannedCard() {
 
   // width clamps so the bubble never overflows
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
-  const emailWidthCh = useMemo(() => clamp((email.length || 1), 1, 18), [email]);
+  const emailWidthCh = useMemo(() => clamp(Math.max(1, email.length) + 0, 1, 18), [email]); // min 1ch for tap target
   const phoneWidthCh = useMemo(() => clamp((phone || '+1 305 555 0123').length + 1, 6, 18), [phone]);
 
   // Focus email and put insertion point at the BEGINNING
@@ -82,34 +82,35 @@ export default function BannedCard() {
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
-        {/* const email = "...";  (single input; purple caret “moves” without swapping DOM) */}
+        {/* const email = "...";  (single input + persistent purple fake caret) */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">email</span>
           <span className="code-op">=</span>
 
-          {/* Quoted string group keeps tight spacing */}
-          <span className="inline-flex items-baseline" style={{ gap: 0 }}>
+          {/* Wrapper makes the whole string area focus the input */}
+          <span
+            className="inline-flex items-baseline"
+            style={{ gap: 0 }}
+            onClick={() => emailRef.current?.focus()}
+          >
             <span className="code-punc">"</span>
 
-            {/* Single input always present to preserve focus on iOS */}
+            {/* One input (keeps iOS keyboard open); min 1ch so it's easy to tap */}
             <input
               ref={emailRef}
               className="code-input caret-transparent"
               type="email"
               value={email}
               onChange={e=>setEmail(e.target.value)}
-              // 0.1ch keeps it focusable on iOS when empty; grows with text
-              style={{ width: email ? `${emailWidthCh}ch` : '0.1ch' }}
+              style={{ width: `${emailWidthCh}ch` }}  /* moves caret as you type */
               required
             />
 
-            {/* Fake caret always visible; naturally sits after input.
-               When empty, input is ~0ch so caret appears at the very start.
-               When typing, input width grows, so caret tracks the text. */}
+            {/* Fake caret lives AFTER the input and tracks its width automatically */}
             <span className="purple-caret" aria-hidden="true"></span>
 
-            {/* Grey example shown only when empty, after the caret */}
+            {/* Grey example only when empty (after the caret) */}
             {email.length === 0 && (
               <span className="code-placeholder">you@example.com</span>
             )}
