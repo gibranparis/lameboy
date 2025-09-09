@@ -42,6 +42,14 @@ html, body{
   padding: 2rem;
 }
 
+/* No-wrap row so items never stack top/bottom */
+.row-nowrap{
+  display:flex;
+  align-items:center;
+  gap: 14px;
+  flex-wrap: nowrap;   /* <-- keeps them side-by-side */
+}
+
 /* VS Code card */
 .vscode-card{
   background: var(--panel);
@@ -50,8 +58,20 @@ html, body{
   box-shadow: var(--ring);
 }
 
-/* Helpers */
-.vscode-muted{ color: var(--muted); }
+/* “Text button” reset for Florida, USA */
+.ghost-btn{
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;         /* <-- prevents wrap */
+}
+.ghost-btn:hover{ color:#ffffff; }
+
+/* Code colors */
 .code-comment{ color: var(--comment); }
 .code-string { color: var(--string); }
 .code-keyword{ color: var(--keyword); }
@@ -60,7 +80,7 @@ html, body{
 .login-input{
   width: 100%;
   background:#000;
-  color: var(--purple);          /* <-- purple while typing/typed */
+  color: var(--purple);
   caret-color: var(--purple);
   border:1px solid var(--accent);
   border-radius: 10px;
@@ -70,7 +90,7 @@ html, body{
 .login-input::placeholder{ color:#8d8d8d; }
 .login-input:focus{ box-shadow:0 0 0 2px var(--accent); }
 
-/* Blinking caret for the code demo */
+/* Blinking caret */
 .caret::after{
   content: "▮";
   animation: blink 1.1s steps(2, start) infinite;

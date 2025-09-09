@@ -5,18 +5,18 @@ import { useState } from 'react';
 export default function BannedCard() {
   const [mode, setMode] = useState("banned"); // "banned" | "login"
 
-  const floridaBtn = (
+  const FloridaButton = (
     <button
       type="button"
+      className="ghost-btn text-xs"
       onClick={() => setMode(mode === "banned" ? "login" : "banned")}
-      className="text-xs vscode-muted hover:text-white transition underline-offset-4 hover:underline"
       aria-label="Florida, USA"
     >
       Florida, USA
     </button>
   );
 
-  const leftCodeCard = (
+  const CodeCard = (
     <div className="vscode-card p-4 rounded-xl" style={{ maxWidth: 360 }}>
       <div className="text-sm leading-7">
         <div className="code-comment">// LAMEBOY.COM</div>
@@ -33,15 +33,15 @@ export default function BannedCard() {
     </div>
   );
 
-  const rightLoginCard = (
+  const LoginCard = (
     <div className="vscode-card p-4 rounded-xl" style={{ maxWidth: 360, minWidth: 300 }}>
       <div className="space-y-3">
         <div>
-          <label className="block text-xs vscode-muted mb-1">Email</label>
+          <label className="block text-xs" style={{ color: 'var(--muted)' }}>Email</label>
           <input className="login-input" type="email" placeholder="you@example.com" />
         </div>
         <div>
-          <label className="block text-xs vscode-muted mb-1">Phone number</label>
+          <label className="block text-xs" style={{ color: 'var(--muted)' }}>Phone number</label>
           <input className="login-input" type="tel" placeholder="+1 305 555 0123" />
         </div>
       </div>
@@ -50,16 +50,17 @@ export default function BannedCard() {
 
   return (
     <div className="page-center">
-      <div className="flex items-center gap-8">
+      {/* Always a single horizontal row (no wrapping) */}
+      <div className="row-nowrap">
         {mode === "banned" ? (
           <>
-            {leftCodeCard}
-            {floridaBtn}
+            {CodeCard}
+            {FloridaButton}  {/* on the RIGHT of the code card */}
           </>
         ) : (
           <>
-            {floridaBtn}
-            {rightLoginCard}
+            {FloridaButton}  {/* shift to LEFT */}
+            {LoginCard}      {/* new bubble on the RIGHT */}
           </>
         )}
       </div>
