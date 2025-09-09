@@ -15,33 +15,58 @@ export default function Maintenance() {
   };
 
   return (
-    <div className="page-center px-4">
+    <div className="page-center">
       <Card className="w-full max-w-2xl">
-        <h1 className="text-3xl font-bold vscode-accent mb-2">
+        <h1 className="text-[28px] md:text-[32px] font-bold vscode-accent mb-2">
           LAMEBOY — Maintenance Mode
         </h1>
-        <p className="vscode-muted mb-6">
+
+        <p className="vscode-muted mb-6 leading-7">
           We’re working on something amazing. Enter your info to get updates when we restock or reopen.
         </p>
 
-        <form onSubmit={onSubmit}
-              className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3">
-          <input
-            className="vscode-input"
-            type="email"
-            placeholder="Email"
-            required
-            value={email}
-            onChange={(e)=>setEmail(e.target.value)}
-          />
-          <input
-            className="vscode-input"
-            type="tel"
-            placeholder="Phone"
-            value={phone}
-            onChange={(e)=>setPhone(e.target.value)}
-          />
-          <button className="vscode-button" type="submit">Enter</button>
+        {/* Desktop: fused input group ; Mobile: stacks gracefully */}
+        <form onSubmit={onSubmit} className="space-y-3">
+          <div className="hidden md:block">
+            <div className="ig">
+              <input
+                className="ig-field"
+                type="email"
+                placeholder="Email"
+                required
+                value={email}
+                onChange={(e)=>setEmail(e.target.value)}
+              />
+              <input
+                className="ig-field"
+                type="tel"
+                placeholder="Phone"
+                value={phone}
+                onChange={(e)=>setPhone(e.target.value)}
+              />
+              <button className="ig-button" type="submit">Enter</button>
+            </div>
+          </div>
+
+          {/* Mobile stacked fields */}
+          <div className="md:hidden space-y-3">
+            <input
+              className="vscode-input w-full"
+              type="email"
+              placeholder="Email"
+              required
+              value={email}
+              onChange={(e)=>setEmail(e.target.value)}
+            />
+            <input
+              className="vscode-input w-full"
+              type="tel"
+              placeholder="Phone"
+              value={phone}
+              onChange={(e)=>setPhone(e.target.value)}
+            />
+            <button className="ig-button w-full rounded-[10px]" type="submit">Enter</button>
+          </div>
         </form>
       </Card>
     </div>

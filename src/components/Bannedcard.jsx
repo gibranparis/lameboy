@@ -8,14 +8,13 @@ export default function BannedCard() {
         <div className="text-sm leading-7">
           <div className="code-comment">// LAMEBOY.COM</div>
           <div className="code-comment">// is banned</div>
-          <div className="mt-2">
+          <div className="mt-2 caret">
             <span className="code-keyword">console</span>
             <span>.</span>
             <span className="code-keyword">log</span>
             <span>(</span>
             <span className="code-string">"hi…"</span>
             <span>);</span>
-            <span>▮</span>
           </div>
         </div>
       </Card>
