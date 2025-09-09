@@ -18,24 +18,23 @@ export default function BannedCard() {
 
   const toggle = () => { setMsg(null); setMode(m => m === "banned" ? "login" : "banned"); };
 
-  // Pixel-accurate autosize (no trailing gap)
+  // Pixel-accurate autosize (no trailing gap) for email
   useLayoutEffect(() => {
-    if (emailMeasureRef.current) {
-      emailMeasureRef.current.textContent = email.length ? email : "\u200B";
-      const w = Math.ceil(emailMeasureRef.current.getBoundingClientRect().width);
-      setEmailPx(Math.max(8, w));
-    }
+    if (!emailMeasureRef.current) return;
+    emailMeasureRef.current.textContent = email.length ? email : "\u200B"; // zero-width when empty
+    const w = Math.ceil(emailMeasureRef.current.getBoundingClientRect().width);
+    setEmailPx(Math.max(8, w)); // keep a small clickable width
   }, [email]);
 
+  // Pixel-accurate autosize for phone
   useLayoutEffect(() => {
-    if (phoneMeasureRef.current) {
-      phoneMeasureRef.current.textContent = phone.length ? phone : "\u200B";
-      const w = Math.ceil(phoneMeasureRef.current.getBoundingClientRect().width);
-      setPhonePx(Math.max(8, w));
-    }
+    if (!phoneMeasureRef.current) return;
+    phoneMeasureRef.current.textContent = phone.length ? phone : "\u200B";
+    const w = Math.ceil(phoneMeasureRef.current.getBoundingClientRect().width);
+    setPhonePx(Math.max(8, w));
   }, [phone]);
 
-  // Focus email and put insertion point at index 0
+  // Focus email and put insertion point at index 0 when opening login
   useEffect(() => {
     if (mode === 'login' && emailRef.current) {
       emailRef.current.focus({ preventScroll: true });
@@ -99,66 +98,77 @@ export default function BannedCard() {
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
-        {/* const email = "<typed>";  (real purple caret; fake purple caret only before first char) */}
-        <div className="code-line" onClick={() => emailRef.current?.focus()}>
+        {/* const email = "…";  (grey inline preview; purple fake caret until first char; click preview to focus) */}
+        <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">email</span>
           <span className="code-op">=</span>
           <span className="code-punc">"</span>
 
-          <span className="relative inline-flex items-baseline" style={{ gap: 0 }}>
-            {/* Fake caret visible only when empty */}
+          {/* Wrapper makes caret/input/preview one big click target */}
+          <span
+            className="relative inline-flex items-baseline"
+            style={{ gap: 0 }}
+            onClick={() => emailRef.current?.focus()}
+          >
+            {/* Show block caret only before any typing */}
             {email.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
 
-            {/* One input (keeps iOS keyboard open) — autosized to exact text width */}
+            {/* Single input (keeps iOS stable) sized to exact text */}
             <input
               ref={emailRef}
               className="code-input"
               type="email"
               value={email}
               onChange={e=>setEmail(e.target.value)}
-              placeholder="you@example.com"
               style={{ width: `${emailPx}px` }}
+              placeholder="" /* preview is rendered separately below */
               required
             />
             <span ref={emailMeasureRef} className="measurer"></span>
+
+            {/* Grey preview (clickable via wrapper) shows only when empty */}
+            {email.length === 0 && (
+              <span className="code-placeholder">you@example.com</span>
+            )}
           </span>
 
           <span className="code-punc">"</span>
           <span className="code-punc">;</span>
         </div>
 
-        {/* always-visible example preview (full view) */}
-        <div className="code-line">
-          <span className="code-comment">// you@example.com</span>
-        </div>
-
-        {/* const phone = "<typed>";  (autosized too) */}
+        {/* const phone = "…"; (grey inline preview; click to focus) */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">phone</span>
           <span className="code-op">=</span>
           <span className="code-punc">"</span>
 
-          <span className="relative inline-flex items-baseline" style={{ gap: 0 }}>
+          <span
+            className="relative inline-flex items-baseline"
+            style={{ gap: 0 }}
+            onClick={(e) => {
+              // Focus the nearest input inside this wrapper
+              const input = e.currentTarget.querySelector('input');
+              input?.focus();
+            }}
+          >
             <input
               className="code-input"
               type="tel"
               value={phone}
               onChange={e=>setPhone(e.target.value)}
-              placeholder="+1 305 555 0123"
               style={{ width: `${phonePx}px` }}
+              placeholder=""
             />
             <span ref={phoneMeasureRef} className="measurer"></span>
+            {phone.length === 0 && (
+              <span className="code-placeholder">+1 305 555 0123</span>
+            )}
           </span>
 
           <span className="code-punc">"</span>
           <span className="code-punc">;</span>
-        </div>
-
-        {/* phone example preview (full view) */}
-        <div className="code-line">
-          <span className="code-comment">// +1 305 555 0123</span>
         </div>
 
         {/* bottom-left tiny button */}
