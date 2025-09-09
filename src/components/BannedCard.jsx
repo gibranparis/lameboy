@@ -11,15 +11,14 @@ export default function BannedCard() {
 
   const toggle = () => { setMsg(null); setMode(m => m === "banned" ? "login" : "banned"); };
 
-  // Size strings like code literals, but clamp to avoid overflow
+  // width in ch, clamped so it doesn't overflow
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
-  const emailWidthCh = useMemo(() => clamp((email || 'you@example.com').length + 1, 6, 20), [email]);
-  const phoneWidthCh = useMemo(() => clamp((phone || '+1 305 555 0123').length + 1, 6, 20), [phone]);
+  const emailWidthCh = useMemo(() => clamp((email || 'you@example.com').length + 1, 6, 18), [email]);
+  const phoneWidthCh = useMemo(() => clamp((phone || '+1 305 555 0123').length + 1, 6, 18), [phone]);
 
   async function onSubmit(e){
     e.preventDefault();
     setMsg(null);
-
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     const phoneOk = !phone || /^\+?[0-9\-().\s]{7,}$/.test(phone);
     if (!emailOk) return setMsg({type:'err', text:'Please enter a valid email.'});
@@ -57,7 +56,7 @@ export default function BannedCard() {
   );
 
   const CodeCard = (
-    <div className="vscode-card p-4 rounded-xl" style={{ maxWidth: 360 }}>
+    <div className="vscode-card card-tight rounded-xl" style={{ maxWidth: 360 }}>
       <div className="text-sm leading-7">
         <div className="code-comment">// LAMEBOY.COM</div>
         <div className="code-comment">// is banned</div>
@@ -74,7 +73,7 @@ export default function BannedCard() {
   );
 
   const LoginCard = (
-    <div className="vscode-card login-card rounded-xl">
+    <div className="vscode-card card-tight login-card rounded-xl">
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
@@ -96,8 +95,8 @@ export default function BannedCard() {
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        {/* const phone = "<typed>"; */}
-        <div className="code-line">
+        {/* const phone = "<typed>";  (with blinking caret at end) */}
+        <div className="code-line caret">
           <span className="code-keyword">const</span>
           <span className="code-var">phone</span>
           <span className="code-op">=</span>
@@ -113,7 +112,7 @@ export default function BannedCard() {
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        {/* bottom-left compact chip */}
+        {/* bottom-left small chip */}
         <div className="code-line">
           <button type="submit" className="commit-btn" disabled={busy}>
             Submit
@@ -134,12 +133,12 @@ export default function BannedCard() {
         {mode === "banned" ? (
           <>
             {CodeCard}
-            {FloridaButton}  {/* to the RIGHT initially */}
+            {FloridaButton}
           </>
         ) : (
           <>
-            {FloridaButton}  {/* shifts to LEFT */}
-            {LoginCard}      {/* tight, content-wrapping bubble */}
+            {FloridaButton}
+            {LoginCard}
           </>
         )}
       </div>
