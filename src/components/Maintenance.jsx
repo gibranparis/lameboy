@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Card from "@/components/ui/Card";
+import Card from "./ui/Card";
 
 export default function Maintenance() {
   const [email,setEmail] = useState("");
