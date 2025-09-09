@@ -82,45 +82,42 @@ export default function BannedCard() {
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
-        {/* const email = "...";  (fake purple caret that *moves* with typing) */}
+        {/* const email = "...";  (single input; purple caret “moves” without swapping DOM) */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">email</span>
           <span className="code-op">=</span>
-          <span className="code-punc">"</span>
 
-          {/* When empty, show caret BEFORE visible example text.
-              When typing, place caret AFTER the input (so it follows the text). */}
-          {email.length === 0 ? (
-            <>
-              <span className="purple-caret" aria-hidden="true"></span>
-              <input
-                ref={emailRef}
-                className="code-input caret-transparent"
-                type="email"
-                value={email}
-                onChange={e=>setEmail(e.target.value)}
-                style={{ width: `0ch` }}
-                required
-              />
+          {/* Quoted string group keeps tight spacing */}
+          <span className="inline-flex items-baseline" style={{ gap: 0 }}>
+            <span className="code-punc">"</span>
+
+            {/* Single input always present to preserve focus on iOS */}
+            <input
+              ref={emailRef}
+              className="code-input caret-transparent"
+              type="email"
+              value={email}
+              onChange={e=>setEmail(e.target.value)}
+              // 0.1ch keeps it focusable on iOS when empty; grows with text
+              style={{ width: email ? `${emailWidthCh}ch` : '0.1ch' }}
+              required
+            />
+
+            {/* Fake caret always visible; naturally sits after input.
+               When empty, input is ~0ch so caret appears at the very start.
+               When typing, input width grows, so caret tracks the text. */}
+            <span className="purple-caret" aria-hidden="true"></span>
+
+            {/* Grey example shown only when empty, after the caret */}
+            {email.length === 0 && (
               <span className="code-placeholder">you@example.com</span>
-            </>
-          ) : (
-            <>
-              <input
-                ref={emailRef}
-                className="code-input caret-transparent"
-                type="email"
-                value={email}
-                onChange={e=>setEmail(e.target.value)}
-                style={{ width: `${emailWidthCh}ch` }}
-                required
-              />
-              <span className="purple-caret" aria-hidden="true"></span>
-            </>
-          )}
+            )}
 
-          <span className="code-punc">"</span><span className="code-punc">;</span>
+            <span className="code-punc">"</span>
+          </span>
+
+          <span className="code-punc">;</span>
         </div>
 
         {/* const phone = "<typed>"; (normal caret) */}
@@ -137,7 +134,8 @@ export default function BannedCard() {
             onChange={e=>setPhone(e.target.value)}
             style={{ width: `${phoneWidthCh}ch` }}
           />
-          <span className="code-punc">"</span><span className="code-punc">;</span>
+          <span className="code-punc">"</span>
+          <span className="code-punc">;</span>
         </div>
 
         {/* bottom-left tiny button */}
