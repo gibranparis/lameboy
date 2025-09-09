@@ -2,21 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-/* VS Code Dark – Design Tokens */
+/* =========================
+   VS Code Dark – Design Tokens
+   ========================= */
 :root{
   --mono: Menlo, Monaco, Consolas, "SFMono-Regular",
           "Liberation Mono", "Courier New", ui-monospace, monospace;
 
-  --bg: #000000;
-  --panel: #1e1e1e;
-  --text: #ffffff;
-  --muted: #b3b3b3;
-  --accent: #007acc;
-  --purple: #a855f7; /* typed text color in login inputs */
+  --bg: #000000;     /* page background */
+  --panel: #1e1e1e;  /* card/panel */
+  --text: #ffffff;   /* primary text */
+  --muted: #b3b3b3;  /* secondary text */
+  --accent: #007acc; /* VS Code blue */
+  --purple: #a855f7; /* typed text color */
 
+  /* VS Code-like token colors */
   --comment:#6a9955;
   --string:#ce9178;
   --keyword:#9cdcfe;
+  --var:#dcdcaa;
+  --punct:#ffffff;
+  --op:#ffffff;
 
   --radius-xl: 14px;
   --ring: 0 0 0 1px rgba(0,122,204,.25);
@@ -42,7 +48,7 @@ html, body{
   padding: 2rem;
 }
 
-/* No-wrap row so items never stack top/bottom */
+/* Force a single row; no vertical stacking */
 .row-nowrap{
   display:flex;
   align-items:center;
@@ -50,7 +56,7 @@ html, body{
   flex-wrap: nowrap;
 }
 
-/* VS Code card */
+/* Compact VS Code card */
 .vscode-card{
   background: var(--panel);
   border: 2px solid var(--accent);
@@ -58,57 +64,59 @@ html, body{
   box-shadow: var(--ring);
 }
 
-/* “Text button” reset for Florida, USA */
+/* Text button look for “Florida, USA” */
 .ghost-btn{
-  background: transparent;
-  border: 0;
-  margin: 0;
-  padding: 0;
-  color: var(--muted);
-  font: inherit;
-  cursor: pointer;
-  white-space: nowrap;
+  background: transparent; border: 0; margin: 0; padding: 0;
+  color: var(--muted); font: inherit; cursor: pointer; white-space: nowrap;
 }
 .ghost-btn:hover{ color:#ffffff; }
 
-/* Code colors */
+/* ===== Code token helpers ===== */
 .code-comment{ color: var(--comment); }
 .code-string { color: var(--string); }
 .code-keyword{ color: var(--keyword); }
+.code-var    { color: var(--var); }
+.code-op     { color: var(--op); }
+.code-punc   { color: var(--punct); }
 
-/* Login inputs: purple typed text */
-.login-input{
-  width: 100%;
-  background:#000;
-  color: var(--purple);
-  caret-color: var(--purple);
-  border:1px solid var(--accent);
-  border-radius: 10px;
-  padding:.75rem .9rem;
-  outline:none;
+/* Inline code line layout */
+.code-line{
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  line-height: 1.6;
+  font-size: 0.95rem;
 }
-.login-input::placeholder{ color:#8d8d8d; }
-.login-input:focus{ box-shadow:0 0 0 2px var(--accent); }
 
-/* Primary button (Submit) */
+/* “String” input that looks like you’re typing in code */
+.code-input{
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--purple);          /* typed value */
+  caret-color: var(--purple);
+  font: inherit;
+  padding: 0;
+  margin: 0;
+  min-width: 6ch;
+}
+.code-input::placeholder{ color:#8d8d8d; }
+
+/* Small primary button that fits inside code bubble */
 .primary-btn{
-  width: 100%;
   background: var(--accent);
   color: var(--text);
   border: 1px solid var(--accent);
   border-radius: 10px;
-  padding:.75rem 1rem;
-  font-weight: 700;
-  cursor: pointer;
+  padding:.45rem .8rem;
+  font-weight:700;
+  cursor:pointer;
   transition: background .15s ease;
+  display: inline-block;
 }
 .primary-btn:hover{ background:#005a9e; }
 
-/* Feedback */
-.msg-ok{ color:#86efac; font-size:.9rem; }      /* green */
-.msg-err{ color:#fca5a5; font-size:.9rem; }     /* red  */
-
-/* Blinking caret */
+/* Blinking caret for the demo card */
 .caret::after{
   content: "▮";
   animation: blink 1.1s steps(2, start) infinite;
