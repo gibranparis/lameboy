@@ -1,42 +1,49 @@
-// src/app/layout.js
-import './globals.css';
-import { cookies } from 'next/headers';
+import "./globals.css";
 
-import Header from '@/components/Header';
-import CartFlyout from '@/components/CartFlyout';
-import { CartProvider } from '@/contexts/CartContext';
-import { CartUIProvider } from '@/contexts/CartUIContext';
-import Maintenance from '@/components/Maintenance';
-
-export const dynamic = 'force-dynamic';
-
-const isTrue = (v) => String(v ?? '').toLowerCase() === 'true';
-
+/**
+ * Global <head> metadata
+ */
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://lameboy.com'),
-  title: 'LAMEBOY | Shop',
-  description: 'Headless store powered by Swell + Next.js',
+  title: "LAMEBOY",
+  description: "Let All Mankind Evolve — storefront under active development.",
+  metadataBase: new URL("https://lameboy.com"),
+  icons: { icon: "/favicon.ico" },
+  openGraph: {
+    title: "LAMEBOY",
+    description: "Let All Mankind Evolve — storefront under active development.",
+    url: "https://lameboy.com",
+    siteName: "LAMEBOY",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LAMEBOY",
+    description: "Let All Mankind Evolve — storefront under active development.",
+  },
+};
+
+/**
+ * Optional viewport hints
+ */
+export const viewport = {
+  themeColor: "#000000",
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }) {
-  const c = cookies();
-  const bypass = c.get('bypass_maintenance')?.value === '1';
-  const maintenance = isTrue(process.env.MAINTENANCE_MODE) && !bypass;
-
   return (
-    <html lang="en" className={maintenance ? 'vsc-dark' : ''}>
-      <body>
-        {maintenance ? (
-          <Maintenance />
-        ) : (
-          <CartProvider>
-            <CartUIProvider>
-              <Header />
-              <main className="container">{children}</main>
-              <CartFlyout />
-            </CartUIProvider>
-          </CartProvider>
-        )}
+    <html lang="en" suppressHydrationWarning>
+      {/* Keep everything on the VS Code mono stack + pitch black theme */}
+      <body
+        className="bg-black text-white antialiased"
+        style={{
+          fontFamily: "var(--mono)", // defined in globals.css
+        }}
+      >
+        {children}
       </body>
     </html>
   );
