@@ -1,5 +1,5 @@
-import Maintenance from "../components/Maintenance";
+import BannedCard from "../components/BannedCard";
 
 export default function Page() {
-  return <Maintenance />;
+  return <BannedCard />;
 }
