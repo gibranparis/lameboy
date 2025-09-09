@@ -1,126 +1,58 @@
-/* src/app/globals.css
-   VS Code–inspired dark theme across the site
-   - Pitch black page background
-   - Exact VS Code blue (#007ACC) for accents/links
-   - Neutral text + border tokens
-*/
+/* src/app/globals.css */
 
+/* ---------- Theme (VS Code Dark+) ---------- */
 :root {
-  /* Core palette */
-  --vs-blue: #007acc;       /* VS Code blue */
-  --bg: #000000;            /* pitch black */
-  --panel: #0a0a0a;         /* near-black surface */
-  --text: #d4d4d4;          /* default text */
-  --text-dim: #a0a0a0;      /* secondary text */
-  --border: #2a2a2a;        /* subtle borders */
-  --shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+  --bg: #0b0b0b;         /* page background */
+  --panel: #111214;      /* dark blocks/cards */
+  --fg: #d4d4d4;         /* default text */
+  --muted: #9da3ad;
 
-  /* Syntax colors (also used by code blocks, etc.) */
-  --cmt: #6a9955;
-  --blue-fn: #569cd6;
-  --purple: #c586c0;
-  --string: #ce9178;
+  --border: #2c2c2c;     /* subtle borders */
+  --accent: #007acc;     /* VS Code focus blue */
+  --link: #4ea1ff;
 
-  /* Focus ring (blue glow) */
-  --ring: 0 0 0 2px rgba(0, 122, 204, 0.22);
+  /* token colors (for any code you render globally) */
+  --tok-comment: #6a9955;
+  --tok-blue: #569cd6;
+  --tok-purple: #c586c0;
+  --tok-string: #ce9178;
 }
 
-/* Reset-ish */
-*, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; }
+/* ---------- Base ---------- */
+*,
+*::before,
+*::after { box-sizing: border-box; }
 
-html {
-  color-scheme: dark;
-  background: var(--bg) !important; /* force pitch black */
-}
-
-body {
+html, body {
+  padding: 0;
   margin: 0;
-  background: var(--bg) !important; /* double down (override libs) */
-  color: var(--text);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: Menlo, Monaco, 'SFMono-Regular', 'Courier New', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI,
-    Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  line-height: 1.6;
 }
 
-/* Links = VS Code blue */
 a {
-  color: var(--vs-blue);
+  color: var(--link);
   text-decoration: none;
 }
 a:hover { text-decoration: underline; }
 
-/* Buttons – minimal default look that picks up the theme */
-button, [type="button"], [type="submit"], [role="button"] {
-  font: inherit;
-  color: var(--text);
-  background: #111;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  cursor: pointer;
-  box-shadow: none;
-}
-button:hover { background: #141414; border-color: #333; }
-button:focus-visible { outline: none; box-shadow: var(--ring); }
+img, picture, video, canvas, svg { display: block; max-width: 100%; }
 
-/* Inputs */
-input, select, textarea {
-  font: inherit;
-  color: var(--text);
-  background: #0d0d0d;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-}
-input::placeholder, textarea::placeholder { color: var(--text-dim); }
-input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: none; box-shadow: var(--ring);
-}
+button { font: inherit; }
 
-/* Panels / cards (use if your components rely on generic panels) */
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-}
-
-/* Container (used by your RootLayout: <main class="container">) */
+/* optional utility used by your layout */
 .container {
   width: 100%;
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 24px 56px;
+  padding: 0 16px;
 }
 
-/* Code & pre blocks (use same syntax colors as Maintenance) */
-code, pre, kbd, samp {
-  font-family: Menlo, Monaco, "Courier New", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  font-size: 0.95rem;
+/* Optional global code colors if you render <code>/<pre> elsewhere */
+code, pre {
+  font-family: Menlo, Monaco, 'SFMono-Regular', 'Courier New', monospace;
+  color: var(--fg);
 }
-pre {
-  background: #0b0b0b;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px 18px;
-  overflow: auto;
-}
-.code-comment { color: var(--cmt); }
-.code-blue { color: var(--blue-fn); }
-.code-purple { color: var(--purple); }
-.code-string { color: var(--string); }
-
-/* Tables, hr */
-hr { border: 0; height: 1px; background: var(--border); }
-
-/* Selection */
-::selection { background: rgba(0, 122, 204, 0.28); color: #fff; }
-
-/* Scrollbar (WebKit) */
-*::-webkit-scrollbar { height: 10px; width: 10px; }
-*::-webkit-scrollbar-thumb { background: #1f1f1f; border: 2px solid #0c0c0c; border-radius: 10px; }
-*::-webkit-scrollbar-thumb:hover { background: #262626; }

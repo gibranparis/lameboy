@@ -22,89 +22,101 @@ export default function Maintenance() {
           </pre>
         </div>
 
-        <p className="note">Florida, USA</p>
+        <p className="foot">Florida, USA</p>
       </div>
 
       <style jsx>{`
+        /* VS Code Dark+ palette */
         :root {
-          --vs-blue: #007acc;       /* VS Code blue (exact) */
-          --bg: #000000;            /* pitch black */
-          --panel: #0a0a0a;         /* near-black to separate from bg */
-          --text: #d4d4d4;          /* default text */
-          --muted: #a0a0a0;         /* secondary text */
+          --bg: #0b0b0b;               /* editor background (pitch black feel) */
+          --panel: #111214;            /* dark panel block */
+          --fg: #d4d4d4;               /* default text */
+          --muted: #9da3ad;
 
-          /* VS Code syntax colors */
-          --cmt: #6a9955;           /* comment green */
-          --blue: #569cd6;          /* function blue */
-          --purple: #c586c0;        /* object purple */
-          --string: #ce9178;        /* string orange */
+          --border: #2c2c2c;           /* subtle border */
+          --accent: #007acc;           /* VS Code focus blue */
+          --accent-shadow: rgba(0, 122, 204, 0.3);
+
+          /* token colors (Dark+) */
+          --tok-comment: #6a9955;
+          --tok-blue: #569cd6;         /* function/identifier */
+          --tok-purple: #c586c0;       /* namespace/keyword-ish */
+          --tok-string: #ce9178;
         }
 
         .screen {
+          margin: 0;
           min-height: 100vh;
-          display: grid;
-          place-items: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           background: var(--bg);
-          color: var(--text);
-          padding: 48px 16px;
-          font-family: Menlo, Monaco, 'Courier New', ui-monospace, SFMono-Regular, monospace;
-          font-size: 16px;
+          color: var(--fg);
+          font: 16px/1.6 Menlo, Monaco, 'SFMono-Regular', 'Courier New', monospace;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
         }
 
         .wrap {
           text-align: center;
+          padding: 2rem;
         }
 
         .panel {
           position: relative;
-          width: min(760px, 92vw);
-          margin: 0 auto;
+          display: inline-block;
+          text-align: left;
           background: var(--panel);
-          border-radius: 14px;
-          /* blue border + subtle glow */
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 18px 22px;
           box-shadow:
-            inset 0 0 0 1px rgba(0, 122, 204, 0.7),
-            0 0 0 1px rgba(0, 122, 204, 0.3),
-            0 10px 30px rgba(0, 0, 0, 0.6);
+            0 8px 24px rgba(0,0,0,0.35),
+            0 0 0 2px var(--accent); /* the bright VS Code blue outline */
         }
 
-        /* thin blue bar across the top */
-        .accent {
-          height: 4px;
-          width: 100%;
-          border-radius: 14px 14px 0 0;
-          background: var(--vs-blue);
+        /* faint blue “glow” just outside the border for that VS Code focus look */
+        .panel::after {
+          content: "";
+          position: absolute;
+          inset: -2px;
+          border-radius: 12px;
+          box-shadow: 0 0 0 1px var(--accent), 0 0 18px var(--accent-shadow);
+          pointer-events: none;
         }
+
+        .accent { display: none; } /* hook kept if you ever want a tab notch */
 
         .code {
           margin: 0;
-          padding: 20px 24px 22px;
-          white-space: pre-wrap;
-          line-height: 1.65;
-          text-align: left;
+          white-space: pre;
         }
 
-        .note {
-          margin-top: 18px;
-          color: var(--muted);
-          font-size: 14px;
-        }
+        .comment { color: var(--tok-comment); }
+        .blue    { color: var(--tok-blue); }
+        .purple  { color: var(--tok-purple); }
+        .string  { color: var(--tok-string); }
+        .text    { color: var(--fg); }
 
-        .comment { color: var(--cmt); }
-        .blue    { color: var(--blue); }
-        .purple  { color: var(--purple); }
-        .string  { color: var(--string); }
-        .text    { color: var(--text); }
-
-        @keyframes blink { 0%,100% {opacity:1} 50% {opacity:0} }
         .cursor {
           display: inline-block;
           width: 10px;
           height: 1.1em;
-          margin-left: 4px;
-          background: var(--text);
+          margin-left: 2px;
+          background: var(--fg);
           vertical-align: -2px;
           animation: blink 1s step-end infinite;
+        }
+
+        .foot {
+          margin-top: 16px;
+          color: var(--muted);
+          letter-spacing: 0.4px;
+        }
+
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50%      { opacity: 0; }
         }
       `}</style>
     </main>
