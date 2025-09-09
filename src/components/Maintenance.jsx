@@ -1,6 +1,6 @@
+// src/components/Maintenance.jsx
 'use client';
 
-// VS Code “Dark+” styled maintenance screen (pixel-matched)
 export default function Maintenance() {
   return (
     <main className="screen">
@@ -22,99 +22,94 @@ export default function Maintenance() {
           </pre>
         </div>
 
-        <p className="foot">Florida, USA</p>
+        <p className="note">Florida, USA</p>
       </div>
 
       <style jsx>{`
-        /* ---------- VS Code Dark+ palette (exact hex) ---------- */
-        :root {
-          --bg: #0b0e14;             /* near-black canvas seen in your screenshot */
-          --panel: #111317;          /* editor gutter-ish panel tone */
-          --panel-border: #2b2b2b;   /* editor widget border */
-          --focus-blue: #3794ff;     /* VS Code focus/selection blue */
-          --text: #d4d4d4;           /* default editor text */
-          --comment: #6a9955;        /* comment green */
-          --purple: #c586c0;         /* e.g., 'console' */
-          --blue: #569cd6;           /* function names like 'log' */
-          --string: #ce9178;         /* string literal */
+        /* === VS Code Default Dark+ palette === */
+        :root{
+          --vsc-bg: #1e1e1e;         /* editor background */
+          --vsc-panel: #252526;      /* panel block */
+          --vsc-border: #007acc;     /* VS Code focus/selection blue */
+          --vsc-text: #d4d4d4;       /* default text */
+          --vsc-comment: #6a9955;    /* comments */
+          --vsc-blue: #569cd6;       /* keywords / member functions */
+          --vsc-purple: #c586c0;     /* identifiers */
+          --vsc-string: #ce9178;     /* strings */
+          --vsc-shadow: rgba(0,0,0,.55);
         }
 
-        .screen {
-          min-height: 100vh;
-          display: grid;
-          place-items: center;
-          background: var(--bg);
-          color: var(--text);
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-            "Liberation Mono", "Courier New", monospace;
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
+        .screen{
+          margin:0;
+          min-height:100vh;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          background:var(--vsc-bg);
+          color:var(--vsc-text);
+          font: 14px/1.6 Menlo, Monaco, "Courier New", ui-monospace, SFMono-Regular, Consolas, Liberation Mono, monospace;
         }
 
-        .wrap {
-          text-align: center;
-          padding: 2rem 1.25rem;
+        .wrap{ text-align:center; padding: 2rem; }
+
+        .panel{
+          position:relative;
+          display:inline-block;
+          text-align:left;
+          background:var(--vsc-panel);
+          border:1px solid rgba(255,255,255,0.08);
+          border-radius:8px;
+          box-shadow:
+            0 8px 24px var(--vsc-shadow),
+            inset 0 0 0 1px rgba(255,255,255,0.03);
         }
 
-        .panel {
-          position: relative;
-          display: inline-block;
-          background: var(--panel);
-          border: 1px solid var(--panel-border);
-          border-radius: 10px;
-          padding: 14px 18px;
-          /* subtle soft shadow like VS Code quickpick */
-          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
-          /* keep width visually close to the screenshot */
-          max-width: 560px;
+        /* the VS Code blue focus ring */
+        .accent{
+          position:absolute;
+          inset:-1px;
+          border-radius:8px;
+          pointer-events:none;
+          box-shadow: 0 0 0 1px var(--vsc-border), 0 0 18px 0 rgba(0,122,204,.35);
+          mix-blend-mode:normal;
         }
 
-        /* The bright blue VS Code focus ring around the panel */
-        .accent {
-          pointer-events: none;
-          position: absolute;
-          inset: -2px;               /* sits just outside the grey border */
-          border-radius: 12px;       /* matches panel radius + inset */
-          border: 2px solid var(--focus-blue);
-          /* light outer glow, very subtle */
-          box-shadow: 0 0 0 1px rgba(55, 148, 255, 0.08);
+        .code{
+          margin:0;
+          padding: 14px 16px;
+          white-space:pre;
         }
 
-        .code {
-          margin: 0;
-          text-align: left;
-          line-height: 1.6;
-          font-size: 13.5px;         /* VS Code’s default monospace size feel */
-          white-space: pre;
+        .comment{ color: var(--vsc-comment); }
+        .text{ color: var(--vsc-text); }
+        .blue{ color: var(--vsc-blue); }
+        .purple{ color: var(--vsc-purple); }
+        .string{ color: var(--vsc-string); }
+
+        .note{
+          margin-top: 14px;
+          color: rgba(212,212,212,.75);
+          font-size: 12px;
+          letter-spacing: .2px;
         }
 
-        .comment { color: var(--comment); }
-        .purple  { color: var(--purple); }
-        .blue    { color: var(--blue); }
-        .string  { color: var(--string); }
-        .text    { color: var(--text); }
-
-        .foot {
-          margin: 1.15rem 0 0;
-          font-size: 12.5px;
-          opacity: 0.75;
-        }
-
-        /* Blinking caret */
-        @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
-        .cursor {
-          display: inline-block;
-          width: 8px;
-          height: 1.2em;
-          margin-left: 3px;
-          background: var(--text);
+        /* blinking cursor like editor caret */
+        @keyframes blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+        .cursor{
+          display:inline-block;
+          width:10px;
+          height:1.15em;
+          margin-left:2px;
+          background: var(--vsc-text);
           vertical-align: -2px;
           animation: blink 1s step-end infinite;
-          border-radius: 1px;
+          border-radius:1px;
         }
 
-        /* Make sure the code block width hugs content for that “snippet” feel */
-        .panel :global(pre.code) { width: max-content; }
+        /* tighten on very small viewports */
+        @media (max-width: 480px){
+          .code{ padding: 12px 12px; }
+        }
       `}</style>
     </main>
   );
