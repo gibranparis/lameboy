@@ -54,7 +54,7 @@ html, body{
 .code-string { color: var(--string); }
 .code-keyword{ color: var(--keyword); }
 
-/* Blinking caret (syntax fixed) */
+/* Blinking caret (closed correctly) */
 .caret::after{
   content: "▮";
   animation: blink 1.1s steps(2, start) infinite;
