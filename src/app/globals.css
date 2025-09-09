@@ -2,31 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Define VS Code mono font stack */
+/* VS Code editor mono font stack */
 :root {
   --mono: Menlo, Monaco, Consolas, "SFMono-Regular",
           "Liberation Mono", "Courier New", ui-monospace, monospace;
 }
 
-/* Base styles */
+/* Base */
 html, body {
   margin: 0;
   padding: 0;
   font-family: var(--mono);
   background-color: #000; /* pitch black */
-  color: #fff; /* bright white text */
+  color: #fff;            /* bright white */
 }
 
-/* Code blocks & pre */
+/* Code styles */
 code, pre {
   font-family: var(--mono);
   font-size: 0.95rem;
-  background: #1e1e1e; /* VS Code dark background */
+  background: #1e1e1e; /* VS Code dark */
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
 }
 
-/* Ensure form controls inherit the editor font */
+/* Make form controls inherit font */
 button, input, select, textarea {
   font: inherit !important;
   font-family: var(--mono) !important;
@@ -35,15 +35,9 @@ button, input, select, textarea {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Optional utility classes */
+/* Optional helpers (not required since we now style inline) */
 .vscode-border {
-  border: 1px solid #007acc; /* VS Code blue */
+  border: 2px solid #007acc;
 }
-
-.vscode-accent {
-  color: #007acc;
-}
-
-.vscode-yellow {
-  color: #dcdcaa;
-}
+.vscode-accent { color: #007acc; }
+.vscode-yellow { color: #dcdcaa; }
