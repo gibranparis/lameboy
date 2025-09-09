@@ -16,7 +16,7 @@
   --accent: #007acc;
   --purple: #a855f7;
 
-  --comment:#6a9955;      /* VS Code green comments */
+  --comment:#f20e0e;      /* VS Code green comments */
   --string:#ce9178;
   --keyword:#9cdcfe;
   --var:#dcdcaa;
@@ -62,7 +62,7 @@ html, body{
   background:transparent; border:0; margin:0; padding:0;
   color:var(--muted); font:inherit; cursor:pointer; white-space:nowrap;
 }
-.ghost-btn:hover{ color:#fff; }
+.ghost-btn:hover{ color:#0bf05f; }
 
 /* Tokens */
 .code-comment{ color:var(--comment); }
@@ -72,7 +72,7 @@ html, body{
 .code-op     { color:var(--op); }
 .code-punc   { color:var(--punct); }
 /* DARKER inline preview (placeholder) */
-.code-placeholder{ color:#6b6b6b; }
+.code-placeholder{ color:#555454; }
 
 /* Code rows */
 .code-line{
