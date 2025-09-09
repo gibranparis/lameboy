@@ -11,7 +11,6 @@ export default function BannedCard() {
 
   const toggle = () => { setMsg(null); setMode(m => m === "banned" ? "login" : "banned"); };
 
-  // width in ch, clamped so it doesn't overflow
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
   const emailWidthCh = useMemo(() => clamp((email || 'you@example.com').length + 1, 6, 18), [email]);
   const phoneWidthCh = useMemo(() => clamp((phone || '+1 305 555 0123').length + 1, 6, 18), [phone]);

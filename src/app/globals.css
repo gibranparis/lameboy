@@ -92,14 +92,15 @@ html, body{
 .code-op     { color: var(--op); }
 .code-punc   { color: var(--punct); }
 
-/* Single-line code rows so bubble stays tight */
+/* Allow wrapping again so lines break nicely on phones */
 .code-line{
   display: flex;
   align-items: baseline;
   gap: 4px;
+  row-gap: 2px;
   line-height: 1.6;
   font-size: 0.95rem;
-  flex-wrap: nowrap;            /* <- no wrapping (matches banned card) */
+  flex-wrap: wrap;              /* ✅ wrapping ON */
 }
 
 /* Inputs styled as code strings */
@@ -113,10 +114,10 @@ html, body{
   padding: 0;
   margin: 0;
   min-width: 6ch;
-  max-width: 18ch;              /* keep line short so it won’t overflow */
+  max-width: 18ch;              /* keep lines compact when wrapping */
 }
 @media (max-width: 420px){
-  .code-input{ max-width: 12ch; }  /* even tighter on small phones */
+  .code-input{ max-width: 12ch; }
 }
 .code-input::placeholder{ color:#8d8d8d; }
 
