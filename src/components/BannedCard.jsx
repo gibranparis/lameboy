@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export default function BannedCard() {
   const [mode, setMode]   = useState("banned"); // "banned" | "login"
@@ -10,15 +10,22 @@ export default function BannedCard() {
   const [msg, setMsg]     = useState(null);     // {type:'ok'|'err', text:string}
 
   const emailRef = useRef(null);
+  const measureRef = useRef(null);
+  const [emailPx, setEmailPx] = useState(8); // tiny default so bubble still huggable
 
   const toggle = () => { setMsg(null); setMode(m => m === "banned" ? "login" : "banned"); };
 
-  // width clamps so the bubble never overflows
-  const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
-  const emailWidthCh = useMemo(() => clamp(Math.max(1, email.length) + 0, 1, 18), [email]); // min 1ch for tap target
-  const phoneWidthCh = useMemo(() => clamp((phone || '+1 305 555 0123').length + 1, 6, 18), [phone]);
+  // Autosize email input exactly to its content (pixel-perfect, no trailing gap)
+  useLayoutEffect(() => {
+    if (!measureRef.current) return;
+    // Use a zero-width placeholder char to ensure at least a caret width when empty
+    const text = email.length ? email : "\u200B";
+    measureRef.current.textContent = text;
+    const w = Math.ceil(measureRef.current.getBoundingClientRect().width);
+    setEmailPx(Math.max(8, w)); // at least a few px so it's clickable
+  }, [email]);
 
-  // Focus email and put insertion point at the BEGINNING
+  // Focus email and put insertion point at index 0
   useEffect(() => {
     if (mode === 'login' && emailRef.current) {
       emailRef.current.focus({ preventScroll: true });
@@ -82,46 +89,33 @@ export default function BannedCard() {
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
-        {/* const email = "...";  (single input + persistent purple fake caret) */}
-        <div className="code-line">
+        {/* const email = "<typed>";  (real purple caret, tight bubble) */}
+        <div className="code-line" onClick={() => emailRef.current?.focus()}>
           <span className="code-keyword">const</span>
           <span className="code-var">email</span>
           <span className="code-op">=</span>
+          <span className="code-punc">"</span>
 
-          {/* Wrapper makes the whole string area focus the input */}
-          <span
-            className="inline-flex items-baseline"
-            style={{ gap: 0 }}
-            onClick={() => emailRef.current?.focus()}
-          >
-            <span className="code-punc">"</span>
-
-            {/* One input (keeps iOS keyboard open); min 1ch so it's easy to tap */}
+          <span className="relative inline-flex items-baseline" style={{ gap: 0 }}>
             <input
               ref={emailRef}
-              className="code-input caret-transparent"
+              className="code-input"
               type="email"
+              placeholder="you@example.com"
               value={email}
               onChange={e=>setEmail(e.target.value)}
-              style={{ width: `${emailWidthCh}ch` }}  /* moves caret as you type */
+              style={{ width: `${emailPx}px` }}
               required
             />
-
-            {/* Fake caret lives AFTER the input and tracks its width automatically */}
-            <span className="purple-caret" aria-hidden="true"></span>
-
-            {/* Grey example only when empty (after the caret) */}
-            {email.length === 0 && (
-              <span className="code-placeholder">you@example.com</span>
-            )}
-
-            <span className="code-punc">"</span>
+            {/* hidden live measurer uses identical font to compute exact width */}
+            <span ref={measureRef} className="measurer"></span>
           </span>
 
+          <span className="code-punc">"</span>
           <span className="code-punc">;</span>
         </div>
 
-        {/* const phone = "<typed>"; (normal caret) */}
+        {/* const phone = "<typed>"; */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">phone</span>
@@ -133,7 +127,8 @@ export default function BannedCard() {
             placeholder="+1 305 555 0123"
             value={phone}
             onChange={e=>setPhone(e.target.value)}
-            style={{ width: `${phoneWidthCh}ch` }}
+            /* let phone be a little elastic but still compact */
+            style={{ width: `${Math.max(8, Math.ceil((phone || "").length * 8))}px` }}
           />
           <span className="code-punc">"</span>
           <span className="code-punc">;</span>
