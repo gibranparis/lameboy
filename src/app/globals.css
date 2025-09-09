@@ -47,24 +47,23 @@ html, body{
   display:flex; align-items:center; gap:14px; flex-wrap:nowrap;
 }
 
-/* Card + “ultra tight” variant */
+/* Cards */
 .vscode-card{
   background:var(--panel);
   border:2px solid var(--accent);
   border-radius:var(--radius-xl);
   box-shadow:var(--ring);
 }
-/* ← This makes the border hug the content */
 .card-ultra-tight{ padding:6px 8px; }
 
 /* Login bubble hugs content; safe on phones */
 .login-card{
   display:inline-flex; flex-direction:column;
-  gap:2px;                /* tighter between rows */
+  gap:2px;
   width:fit-content; max-width:92vw;
 }
 
-/* Florida button */
+/* “Florida, USA” */
 .ghost-btn{
   background:transparent; border:0; margin:0; padding:0;
   color:var(--muted); font:inherit; cursor:pointer; white-space:nowrap;
@@ -79,23 +78,28 @@ html, body{
 .code-op     { color:var(--op); }
 .code-punc   { color:var(--punct); }
 
-/* Code row — wrapping ON, but very compact */
+/* Code row — wrapping ON, compact */
 .code-line{
   display:flex; align-items:baseline;
   gap:4px; row-gap:0;
-  line-height:1.35;         /* tighter line height */
+  line-height:1.35;
   font-size:.95rem;
-  flex-wrap:wrap;           /* allow break on phones */
+  flex-wrap:wrap;
 }
 
 /* Inputs as strings */
 .code-input{
   background:transparent; border:none; outline:none;
   color:var(--purple); caret-color:var(--purple); font:inherit;
-  padding:0; margin:0; min-width:6ch; max-width:18ch;
+  padding:0; margin:0; min-width:0ch; max-width:18ch;
 }
 @media (max-width:420px){ .code-input{ max-width:12ch; } }
-.code-input::placeholder{ color:#8d8d8d; }
+
+/* Grey example text that sits after the fake caret when empty */
+.code-placeholder{ color:#8d8d8d; }
+
+/* Hide native caret where we want only the fake block caret */
+.caret-transparent{ caret-color: transparent !important; }
 
 /* Compact “commit-style” chip */
 .commit-btn{
@@ -110,6 +114,7 @@ html, body{
 .commit-btn:active{ background:rgba(247,160,45,.18); border-color:var(--focus-orange); box-shadow:inset 0 0 0 1px var(--focus-orange); }
 .commit-btn[disabled]{ opacity:.6; cursor:progress; }
 
-/* Caret */
+/* Carets */
 .caret::after{ content:"▮"; animation:blink 1.1s steps(2, start) infinite; }
+.purple-caret::after{ content:"▮"; color:var(--purple); animation:blink 1.1s steps(2, start) infinite; }
 @keyframes blink{ to{ visibility:hidden; } }

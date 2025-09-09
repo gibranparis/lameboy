@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 export default function BannedCard() {
   const [mode, setMode]   = useState("banned"); // "banned" | "login"
@@ -9,11 +9,22 @@ export default function BannedCard() {
   const [busy, setBusy]   = useState(false);
   const [msg, setMsg]     = useState(null);     // {type:'ok'|'err', text:string}
 
+  const emailRef = useRef(null);
+
   const toggle = () => { setMsg(null); setMode(m => m === "banned" ? "login" : "banned"); };
 
+  // width clamps so the bubble never overflows
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
-  const emailWidthCh = useMemo(() => clamp((email || 'you@example.com').length + 1, 6, 18), [email]);
+  const emailWidthCh = useMemo(() => clamp((email.length || 1), 1, 18), [email]);
   const phoneWidthCh = useMemo(() => clamp((phone || '+1 305 555 0123').length + 1, 6, 18), [phone]);
+
+  // Focus email and put insertion point at the BEGINNING
+  useEffect(() => {
+    if (mode === 'login' && emailRef.current) {
+      emailRef.current.focus({ preventScroll: true });
+      try { emailRef.current.setSelectionRange(0, 0); } catch {}
+    }
+  }, [mode]);
 
   async function onSubmit(e){
     e.preventDefault();
@@ -71,26 +82,49 @@ export default function BannedCard() {
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
-        {/* const email = "<typed>"; */}
+        {/* const email = "...";  (fake purple caret that *moves* with typing) */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">email</span>
           <span className="code-op">=</span>
           <span className="code-punc">"</span>
-          <input
-            className="code-input"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={e=>setEmail(e.target.value)}
-            style={{ width: `${emailWidthCh}ch` }}
-            required
-          />
+
+          {/* When empty, show caret BEFORE visible example text.
+              When typing, place caret AFTER the input (so it follows the text). */}
+          {email.length === 0 ? (
+            <>
+              <span className="purple-caret" aria-hidden="true"></span>
+              <input
+                ref={emailRef}
+                className="code-input caret-transparent"
+                type="email"
+                value={email}
+                onChange={e=>setEmail(e.target.value)}
+                style={{ width: `0ch` }}
+                required
+              />
+              <span className="code-placeholder">you@example.com</span>
+            </>
+          ) : (
+            <>
+              <input
+                ref={emailRef}
+                className="code-input caret-transparent"
+                type="email"
+                value={email}
+                onChange={e=>setEmail(e.target.value)}
+                style={{ width: `${emailWidthCh}ch` }}
+                required
+              />
+              <span className="purple-caret" aria-hidden="true"></span>
+            </>
+          )}
+
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        {/* const phone = "<typed>"; (with caret) */}
-        <div className="code-line caret">
+        {/* const phone = "<typed>"; (normal caret) */}
+        <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">phone</span>
           <span className="code-op">=</span>
