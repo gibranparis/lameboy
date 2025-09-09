@@ -3,9 +3,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export default function BannedCard() {
-  const [mode, setMode]   = useState("banned"); // "banned" | "login"
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [mode, setMode]   = useState('banned'); // 'banned' | 'login'
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [busy, setBusy]   = useState(false);
   const [msg, setMsg]     = useState(null);     // {type:'ok'|'err', text:string}
 
@@ -16,25 +16,24 @@ export default function BannedCard() {
   const [emailPx, setEmailPx] = useState(8);
   const [phonePx, setPhonePx] = useState(8);
 
-  const toggle = () => { setMsg(null); setMode(m => m === "banned" ? "login" : "banned"); };
+  const toggle = () => { setMsg(null); setMode(m => (m === 'banned' ? 'login' : 'banned')); };
 
-  // Pixel-accurate autosize (no trailing gap) for email
+  /* Pixel-accurate autosize so the blue bubble hugs content with no trailing gap */
   useLayoutEffect(() => {
     if (!emailMeasureRef.current) return;
-    emailMeasureRef.current.textContent = email.length ? email : "\u200B"; // zero-width when empty
+    emailMeasureRef.current.textContent = email.length ? email : '\u200B';
     const w = Math.ceil(emailMeasureRef.current.getBoundingClientRect().width);
-    setEmailPx(Math.max(8, w)); // keep a small clickable width
+    setEmailPx(Math.max(8, w));
   }, [email]);
 
-  // Pixel-accurate autosize for phone
   useLayoutEffect(() => {
     if (!phoneMeasureRef.current) return;
-    phoneMeasureRef.current.textContent = phone.length ? phone : "\u200B";
+    phoneMeasureRef.current.textContent = phone.length ? phone : '\u200B';
     const w = Math.ceil(phoneMeasureRef.current.getBoundingClientRect().width);
     setPhonePx(Math.max(8, w));
   }, [phone]);
 
-  // Focus email and put insertion point at index 0 when opening login
+  /* Focus email at index 0 when opening login */
   useEffect(() => {
     if (mode === 'login' && emailRef.current) {
       emailRef.current.focus({ preventScroll: true });
@@ -52,17 +51,17 @@ export default function BannedCard() {
 
     try{
       setBusy(true);
-      const res = await fetch("/api/submit", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
+      const res = await fetch('/api/submit', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ email, phone }),
       });
       if (!res.ok) {
-        const t = await res.json().catch(()=>({error:"Submit failed"}));
-        throw new Error(t.error || "Submit failed");
+        const t = await res.json().catch(()=>({error:'Submit failed'}));
+        throw new Error(t.error || 'Submit failed');
       }
       setMsg({type:'ok', text:'Thanks — we got it.'});
-      setEmail(""); setPhone("");
+      setEmail(''); setPhone('');
     }catch(err){
       setMsg({type:'err', text: err.message || 'Something went wrong.'});
     }finally{
@@ -98,46 +97,40 @@ export default function BannedCard() {
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
-        {/* const email = "…";  (grey inline preview; purple fake caret until first char; click preview to focus) */}
+        {/* const email = "…";  grey inline preview (tap target); purple fake caret ONLY before typing */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">email</span>
           <span className="code-op">=</span>
           <span className="code-punc">"</span>
 
-          {/* Wrapper makes caret/input/preview one big click target */}
           <span
             className="relative inline-flex items-baseline"
             style={{ gap: 0 }}
             onClick={() => emailRef.current?.focus()}
           >
-            {/* Show block caret only before any typing */}
             {email.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
 
-            {/* Single input (keeps iOS stable) sized to exact text */}
             <input
               ref={emailRef}
               className="code-input"
               type="email"
               value={email}
-              onChange={e=>setEmail(e.target.value)}
+              onChange={(e)=>setEmail(e.target.value)}
               style={{ width: `${emailPx}px` }}
-              placeholder="" /* preview is rendered separately below */
+              placeholder="" /* preview below renders visually */
               required
             />
             <span ref={emailMeasureRef} className="measurer"></span>
 
-            {/* Grey preview (clickable via wrapper) shows only when empty */}
-            {email.length === 0 && (
-              <span className="code-placeholder">you@example.com</span>
-            )}
+            {email.length === 0 && <span className="code-placeholder">you@example.com</span>}
           </span>
 
           <span className="code-punc">"</span>
           <span className="code-punc">;</span>
         </div>
 
-        {/* const phone = "…"; (grey inline preview; click to focus) */}
+        {/* const phone = "…"; grey inline preview (tap target) */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">phone</span>
@@ -147,35 +140,28 @@ export default function BannedCard() {
           <span
             className="relative inline-flex items-baseline"
             style={{ gap: 0 }}
-            onClick={(e) => {
-              // Focus the nearest input inside this wrapper
-              const input = e.currentTarget.querySelector('input');
-              input?.focus();
-            }}
+            onClick={(e)=>e.currentTarget.querySelector('input')?.focus()}
           >
             <input
               className="code-input"
               type="tel"
               value={phone}
-              onChange={e=>setPhone(e.target.value)}
+              onChange={(e)=>setPhone(e.target.value)}
               style={{ width: `${phonePx}px` }}
               placeholder=""
             />
             <span ref={phoneMeasureRef} className="measurer"></span>
-            {phone.length === 0 && (
-              <span className="code-placeholder">+1 305 555 0123</span>
-            )}
+            {phone.length === 0 && <span className="code-placeholder">+1 305 555 0123</span>}
           </span>
 
           <span className="code-punc">"</span>
           <span className="code-punc">;</span>
         </div>
 
-        {/* bottom-left tiny button */}
         <div className="code-line">
           <button type="submit" className="commit-btn" disabled={busy}>Submit</button>
           {msg && (
-            <span style={{ marginLeft: 10 }} className={msg.type === 'ok' ? "code-comment" : "code-string"}>
+            <span style={{ marginLeft: 10 }} className={msg.type === 'ok' ? 'code-comment' : 'code-string'}>
               {msg.type === 'ok' ? `// ${msg.text}` : `"${msg.text}"`}
             </span>
           )}
@@ -187,7 +173,7 @@ export default function BannedCard() {
   return (
     <div className="page-center">
       <div className="row-nowrap">
-        {mode === "banned" ? (
+        {mode === 'banned' ? (
           <>
             {CodeCard}
             {FloridaButton}
