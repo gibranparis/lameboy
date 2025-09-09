@@ -10,20 +10,30 @@ export default function BannedCard() {
   const [msg, setMsg]     = useState(null);     // {type:'ok'|'err', text:string}
 
   const emailRef = useRef(null);
-  const measureRef = useRef(null);
-  const [emailPx, setEmailPx] = useState(8); // tiny default so bubble still huggable
+  const emailMeasureRef = useRef(null);
+  const phoneMeasureRef = useRef(null);
+
+  const [emailPx, setEmailPx] = useState(8);
+  const [phonePx, setPhonePx] = useState(8);
 
   const toggle = () => { setMsg(null); setMode(m => m === "banned" ? "login" : "banned"); };
 
-  // Autosize email input exactly to its content (pixel-perfect, no trailing gap)
+  // Pixel-accurate autosize (no trailing gap)
   useLayoutEffect(() => {
-    if (!measureRef.current) return;
-    // Use a zero-width placeholder char to ensure at least a caret width when empty
-    const text = email.length ? email : "\u200B";
-    measureRef.current.textContent = text;
-    const w = Math.ceil(measureRef.current.getBoundingClientRect().width);
-    setEmailPx(Math.max(8, w)); // at least a few px so it's clickable
+    if (emailMeasureRef.current) {
+      emailMeasureRef.current.textContent = email.length ? email : "\u200B";
+      const w = Math.ceil(emailMeasureRef.current.getBoundingClientRect().width);
+      setEmailPx(Math.max(8, w));
+    }
   }, [email]);
+
+  useLayoutEffect(() => {
+    if (phoneMeasureRef.current) {
+      phoneMeasureRef.current.textContent = phone.length ? phone : "\u200B";
+      const w = Math.ceil(phoneMeasureRef.current.getBoundingClientRect().width);
+      setPhonePx(Math.max(8, w));
+    }
+  }, [phone]);
 
   // Focus email and put insertion point at index 0
   useEffect(() => {
@@ -89,7 +99,7 @@ export default function BannedCard() {
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
-        {/* const email = "<typed>";  (real purple caret, tight bubble) */}
+        {/* const email = "<typed>";  (real purple caret; fake purple caret only before first char) */}
         <div className="code-line" onClick={() => emailRef.current?.focus()}>
           <span className="code-keyword">const</span>
           <span className="code-var">email</span>
@@ -97,41 +107,58 @@ export default function BannedCard() {
           <span className="code-punc">"</span>
 
           <span className="relative inline-flex items-baseline" style={{ gap: 0 }}>
+            {/* Fake caret visible only when empty */}
+            {email.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
+
+            {/* One input (keeps iOS keyboard open) — autosized to exact text width */}
             <input
               ref={emailRef}
               className="code-input"
               type="email"
-              placeholder="you@example.com"
               value={email}
               onChange={e=>setEmail(e.target.value)}
+              placeholder="you@example.com"
               style={{ width: `${emailPx}px` }}
               required
             />
-            {/* hidden live measurer uses identical font to compute exact width */}
-            <span ref={measureRef} className="measurer"></span>
+            <span ref={emailMeasureRef} className="measurer"></span>
           </span>
 
           <span className="code-punc">"</span>
           <span className="code-punc">;</span>
         </div>
 
-        {/* const phone = "<typed>"; */}
+        {/* always-visible example preview (full view) */}
+        <div className="code-line">
+          <span className="code-comment">// you@example.com</span>
+        </div>
+
+        {/* const phone = "<typed>";  (autosized too) */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">phone</span>
           <span className="code-op">=</span>
           <span className="code-punc">"</span>
-          <input
-            className="code-input"
-            type="tel"
-            placeholder="+1 305 555 0123"
-            value={phone}
-            onChange={e=>setPhone(e.target.value)}
-            /* let phone be a little elastic but still compact */
-            style={{ width: `${Math.max(8, Math.ceil((phone || "").length * 8))}px` }}
-          />
+
+          <span className="relative inline-flex items-baseline" style={{ gap: 0 }}>
+            <input
+              className="code-input"
+              type="tel"
+              value={phone}
+              onChange={e=>setPhone(e.target.value)}
+              placeholder="+1 305 555 0123"
+              style={{ width: `${phonePx}px` }}
+            />
+            <span ref={phoneMeasureRef} className="measurer"></span>
+          </span>
+
           <span className="code-punc">"</span>
           <span className="code-punc">;</span>
+        </div>
+
+        {/* phone example preview (full view) */}
+        <div className="code-line">
+          <span className="code-comment">// +1 305 555 0123</span>
         </div>
 
         {/* bottom-left tiny button */}

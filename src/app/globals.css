@@ -113,6 +113,7 @@ html, body{
 .commit-btn:active{ background:rgba(247,160,45,.18); border-color:var(--focus-orange); box-shadow:inset 0 0 0 1px var(--focus-orange); }
 .commit-btn[disabled]{ opacity:.6; cursor:progress; }
 
-/* Caret used on the banned card only */
-.caret::after{ content:"▮"; animation:blink 1.1s steps(2, start) infinite; }
+/* Carets */
+.caret::after{ content:"▮"; animation:blink 1.1s steps(2, start) infinite; } /* banned card */
+.purple-caret::after{ content:"▮"; color:var(--purple); animation:blink 1.1s steps(2, start) infinite; } /* fake login caret (only before typing) */
 @keyframes blink{ to{ visibility:hidden; } }
