@@ -20,7 +20,7 @@
   --comment:#6a9955;
   --string:#ce9178;
   --keyword:#9cdcfe;
-  --var:#dcdcaa;
+  --var:#dcdcaa;     /* vars / function identifiers */
   --punct:#ffffff;
   --op:#ffffff;
 
@@ -64,7 +64,7 @@ html, body{
   box-shadow: var(--ring);
 }
 
-/* Text button look for “Florida, USA” */
+/* “Text button” look for Florida, USA */
 .ghost-btn{
   background: transparent; border: 0; margin: 0; padding: 0;
   color: var(--muted); font: inherit; cursor: pointer; white-space: nowrap;
@@ -86,9 +86,10 @@ html, body{
   gap: 4px;
   line-height: 1.6;
   font-size: 0.95rem;
+  flex-wrap: nowrap;
 }
 
-/* “String” input that looks like you’re typing in code */
+/* “String” input that looks like code */
 .code-input{
   background: transparent;
   border: none;
@@ -102,19 +103,30 @@ html, body{
 }
 .code-input::placeholder{ color:#8d8d8d; }
 
-/* Small primary button that fits inside code bubble */
-.primary-btn{
-  background: var(--accent);
-  color: var(--text);
-  border: 1px solid var(--accent);
-  border-radius: 10px;
-  padding:.45rem .8rem;
-  font-weight:700;
-  cursor:pointer;
-  transition: background .15s ease;
-  display: inline-block;
+/* Code-style function button */
+.code-fn-btn{
+  background: transparent;
+  border: 0;
+  padding: 0 2px;
+  margin: 0;
+  font: inherit;
+  color: var(--var);             /* function/identifier color */
+  cursor: pointer;
 }
-.primary-btn:hover{ background:#005a9e; }
+.code-fn-btn:hover{
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+.code-fn-btn:focus-visible{
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.code-fn-btn[disabled]{
+  opacity: .6;
+  cursor: progress;
+  text-decoration: none;
+}
 
 /* Blinking caret for the demo card */
 .caret::after{

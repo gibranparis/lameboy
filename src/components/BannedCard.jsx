@@ -112,13 +112,22 @@ export default function BannedCard() {
           <span className="code-punc">"</span><span className="code-punc">;</span>
         </div>
 
-        <div className="mt-3">
-          <button className="primary-btn" type="submit" disabled={busy}>
-            {busy ? "Submitting…" : "Submit"}
+        {/* await submit({ email, phone }); */}
+        <div className="code-line mt-2">
+          <span className="code-keyword">await</span>
+          <button type="submit" className="code-fn-btn" disabled={busy}>
+            submit
           </button>
+          <span className="code-punc">(</span>
+          <span className="code-punc">{'{'}</span>
+          <span className="code-var">email</span>
+          <span className="code-punc">,</span>
+          <span className="code-var">phone</span>
+          <span className="code-punc">{'}'}</span>
+          <span className="code-punc">)</span><span className="code-punc">;</span>
+
           {msg && (
             <span style={{ marginLeft: 10 }} className={msg.type === 'ok' ? "code-comment" : "code-string"}>
-              {/* green comment for ok, string color for error */}
               {msg.type === 'ok' ? `// ${msg.text}` : `"${msg.text}"`}
             </span>
           )}
