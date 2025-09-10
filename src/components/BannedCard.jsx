@@ -11,10 +11,7 @@ export default function BannedCard() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
-
-  // We’ll only show this AFTER the cascade completes on failure
-  const [msg, setMsg] = useState(null);           // actually rendered message
-  const msgPendingRef = useRef(null);             // stored during cascade
+  const [msg, setMsg] = useState(null);                   // visible message (shows immediately)
 
   // measurements for inline inputs
   const emailRef = useRef(null);
@@ -39,9 +36,7 @@ export default function BannedCard() {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
-    // Clear any visible message now; we’ll reveal result AFTER cascade
     setMsg(null);
-    msgPendingRef.current = null;
 
     let success = false;
 
@@ -57,26 +52,21 @@ export default function BannedCard() {
     }
 
     if (success) {
-      // On success we navigate to shop after cascade; no need to show a message
+      // Show success immediately (glowing green) & run cascade -> shop
+      setMsg({ type: 'ok', text: 'Thanks — opening shop…' });
       setAfterCascade('shop');
+      setPhase('chakra');
     } else {
-      // On failure we’ll show the glowing red message AFTER the cascade finishes
-      msgPendingRef.current = { type: 'err', text: 'Submit failed' };
+      // Show failure immediately (glowing red) & also run cascade -> back to UI
+      setMsg({ type: 'err', text: 'Submit failed' });
       setAfterCascade('ui');
+      setPhase('chakra');
     }
 
-    setPhase('chakra'); // play cascade either way
     setBusy(false);
   }
 
-  const handleChakraComplete = () => {
-    if (afterCascade === 'ui' && msgPendingRef.current) {
-      // Only now reveal the message result
-      setMsg(msgPendingRef.current);
-      msgPendingRef.current = null;
-    }
-    setPhase(afterCascade);
-  };
+  const handleChakraComplete = () => setPhase(afterCascade);
 
   if (phase === 'shop') {
     return <ShopGrid />;
@@ -84,16 +74,17 @@ export default function BannedCard() {
 
   return (
     <>
-      {/* Foreground cascade ONLY during submit; background stays black */}
+      {/* Chakra overlay always runs on submit (success OR failure).
+         It sits underneath .ui-top elements so messages remain visible. */}
       {phase === 'chakra' && <ChakraCascade onComplete={handleChakraComplete} />}
 
-      <div className="page-center" aria-hidden={phase !== 'ui'}>
-        <div className="row-nowrap">
+      <div className="page-center">
+        <div className="row-nowrap ui-top">
           {mode === 'banned' ? (
             <>
               <div className={`vscode-card card-ultra-tight rounded-xl ${slideCardClass}`} style={{ maxWidth: 420 }}>
                 <div className="text-sm leading-6">
-                  {/* // LAMEBOY.COM — each letter colored to chakra, .COM seafoam */}
+                  {/* // LAMEBOY.COM — chakra-colored letters for LAMEBOY; .COM seafoam */}
                   <div className="code-comment">
                     <span>// </span>
                     <span className="chakra-letter chakra-root">L</span>
@@ -220,12 +211,12 @@ export default function BannedCard() {
                     <button type="submit" className="commit-btn" disabled={busy}>
                       {busy ? 'Submitting…' : 'Submit'}
                     </button>
-                    {/* Show result ONLY after cascade and only on UI phase */}
-                    {phase === 'ui' && msg && (
+
+                    {/* Message shows immediately; color by status */}
+                    {msg && (
                       <span style={{ marginLeft: 10 }}>
-                        {/* keep quotes, color only the inner text red-glow */}
                         <span className="code-punc">"</span>
-                        <span className={msg.type === 'err' ? 'code-fail' : 'code-comment'}>
+                        <span className={msg.type === 'err' ? 'code-fail' : 'code-success'}>
                           {msg.text}
                         </span>
                         <span className="code-punc">"</span>

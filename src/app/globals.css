@@ -109,18 +109,31 @@ html,body{
   text-shadow:0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35);
 }
 
-/* Glowing red for failure messages (same vibe as .code-banned) */
+/* Glowing red for failure messages */
 .code-fail{
   color:#f20e0e;
   font-weight:800;
   text-shadow:0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35);
 }
 
+/* Glowing green for success messages */
+.code-success{
+  color:#0bf05f;
+  font-weight:800;
+  text-shadow:0 0 6px rgba(11,240,95,.55), 0 0 14px rgba(11,240,95,.35);
+}
+
+/* Make any element sit above the chakra overlay */
+.ui-top{
+  position:relative;
+  z-index:70;
+}
+
 /* Per-letter chakra coloring for "LAMEBOY" */
 .chakra-letter{
   font-weight:800;
   color:var(--c);
-  text-shadow:0 0 10px currentColor; /* soft glow in letter color */
+  text-shadow:0 0 10px currentColor;
   letter-spacing:.02em;
 }
 
@@ -177,7 +190,7 @@ html,body{
    Chakra Cascade (Left→Right, glow, appear→disappear)
    ========================= */
 .chakra-overlay{
-  position:fixed; inset:0; z-index:60;          /* above UI */
+  position:fixed; inset:0; z-index:60;          /* overlay sits *under* .ui-top content */
   display:grid; grid-template-columns:repeat(7, 1fr);
   pointer-events:none;
 }
@@ -225,7 +238,7 @@ html,body{
 .shop-wrap{ padding: 24px; }
 
 .shop-grid{
-  --tile: clamp(140px, 17vw, 200px);  /* tile width scales a bit, Yeezy-ish */
+  --tile: clamp(140px, 17vw, 200px);
   --gap:  28px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
@@ -233,10 +246,10 @@ html,body{
 }
 
 @media (min-width: 1280px){
-  .shop-grid{ --tile: 220px; --gap: 32px; }   /* large desktop */
+  .shop-grid{ --tile: 220px; --gap: 32px; }
 }
 @media (max-width: 640px){
-  .shop-grid{ --tile: 150px; --gap: 20px; }   /* phones */
+  .shop-grid{ --tile: 150px; --gap: 20px; }
 }
 
 .product-tile{
@@ -248,7 +261,7 @@ html,body{
 .product-box{
   aspect-ratio: 1 / 1;
   border-radius: 12px;
-  background: #0a0a0a;                    /* deep gray like yeezy bg */
+  background: #0a0a0a;
   display:flex; align-items:center; justify-content:center;
   overflow:hidden;
   border: 1px solid rgba(255,255,255,.06);
@@ -261,7 +274,6 @@ html,body{
   filter: contrast(1.02) saturate(0.98);
 }
 
-/* Large code label under each tile */
 .product-meta{
   padding: 10px 2px 0 2px;
   letter-spacing: .02em;
@@ -270,7 +282,6 @@ html,body{
   line-height: 1.05;
 }
 
-/* Optional: subtle hover lift */
 .product-tile:hover .product-box{
   border-color: rgba(25,145,255,.18);
   box-shadow: 0 0 0 1px rgba(25,145,255,.12), 0 8px 20px rgba(0,0,0,.35);
