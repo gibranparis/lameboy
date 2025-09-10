@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import swell from '../lib/swell-client';
+import ProductOverlay from './ProductOverlay';
 
 function productCode(p) {
   const tryKeys = ['code', 'short_code', 'sku', 'slug', 'name'];
@@ -17,12 +18,12 @@ export default function ShopGrid() {
   const [busy, setBusy] = useState(true);
 
   // brand toggle: lameboy <-> lamegirl (UI only for now)
-  const [brand, setBrand] = useState('boy'); // 'boy' | 'girl'
+  const [brand, setBrand] = useState('boy');
   const toggleBrand = () => setBrand((b) => (b === 'boy' ? 'girl' : 'boy'));
 
   // --- Column count controller ---------------------------------------------
   const initialCols = useMemo(() => {
-    if (typeof window === 'undefined') return 5; // SSR-safe default
+    if (typeof window === 'undefined') return 5;
     const w = window.innerWidth;
     if (w >= 1536) return 7;
     if (w >= 1280) return 6;
@@ -57,6 +58,7 @@ export default function ShopGrid() {
   };
 
   // -------------------------------------------------------------------------
+  const [selected, setSelected] = useState(null); // product for overlay
 
   useEffect(() => {
     let alive = true;
@@ -120,11 +122,17 @@ export default function ShopGrid() {
         <div className="shop-grid" style={{ '--cols': cols }}>
           {items.map((p) => {
             const code = productCode(p);
-            const href = `/product/${p.slug || p.id}`;
             const img = p.images?.[0]?.file?.url;
 
             return (
-              <a key={p.id} href={href} className="product-tile">
+              <button
+                key={p.id}
+                type="button"
+                className="product-tile"
+                onClick={() => setSelected(p)}
+                aria-label={`Open ${code}`}
+                title={code}
+              >
                 <div className="product-box">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {img ? (
@@ -134,11 +142,14 @@ export default function ShopGrid() {
                   )}
                 </div>
                 <div className="product-meta">{code}</div>
-              </a>
+              </button>
             );
           })}
         </div>
       </main>
+
+      {/* Yeezy-style overlay */}
+      {selected && <ProductOverlay product={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }

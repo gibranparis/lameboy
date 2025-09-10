@@ -11,8 +11,8 @@ export default function BannedCard() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null);                   // visible message (success/fail)
-  const [glowFlorida, setGlowFlorida] = useState(false);  // click/auto glow
+  const [msg, setMsg] = useState(null);
+  const [glowFlorida, setGlowFlorida] = useState(false);
 
   // measurements for inline inputs
   const emailRef = useRef(null);
@@ -26,21 +26,20 @@ export default function BannedCard() {
 
   const toggle = () => { setMsg(null); setMode(m => (m === 'banned' ? 'login' : 'banned')); };
 
-  // Florida click handler: brief green glow then toggle
   const onFloridaClick = () => {
     setGlowFlorida(true);
     setTimeout(() => setGlowFlorida(false), 500);
     toggle();
   };
 
-  // Auto-activate from BANNED → LOGIN after 8s with a glow
+  // Auto-activate from BANNED → LOGIN after 18s (smoother reveal thanks to global keyframes)
   useEffect(() => {
     if (phase !== 'ui' || mode !== 'banned') return;
     const t = setTimeout(() => {
       setGlowFlorida(true);
       setTimeout(() => setGlowFlorida(false), 900);
       setMode('login');
-    }, 8000);
+    }, 18000);
     return () => clearTimeout(t);
   }, [phase, mode]);
 
@@ -58,7 +57,6 @@ export default function BannedCard() {
     setMsg(null);
 
     let success = false;
-
     try {
       const res = await fetch('/api/submit', {
         method: 'POST',
@@ -71,14 +69,14 @@ export default function BannedCard() {
     }
 
     if (success) {
-      setMsg({ type: 'ok', text: 'Thanks — opening shop…' });  // green glow
+      setMsg({ type: 'ok', text: 'Thanks — opening shop…' });
       setAfterCascade('shop');
     } else {
-      setMsg({ type: 'err', text: 'Submit failed' });          // red glow
+      setMsg({ type: 'err', text: 'Submit failed' });
       setAfterCascade('ui');
     }
 
-    setPhase('chakra');  // run cascade on both outcomes
+    setPhase('chakra');  // run cascade in both cases
     setBusy(false);
   }
 
@@ -96,7 +94,6 @@ export default function BannedCard() {
             <>
               <div className={`vscode-card card-ultra-tight rounded-xl ${slideCardClass}`} style={{ maxWidth: 420 }}>
                 <div className="text-sm leading-6">
-                  {/* // LAMEBOY.COM — chakra-colored letters for LAMEBOY; .COM seafoam */}
                   <div className="code-comment">
                     <span>// </span>
                     <span className="chakra-letter chakra-root">L</span>
@@ -154,12 +151,8 @@ export default function BannedCard() {
                     <span className="code-op">=</span>
                     <span className="code-punc">"</span>
 
-                    <span
-                      className="relative inline-flex items-baseline"
-                      onClick={() => emailRef.current?.focus()}
-                    >
+                    <span className="relative inline-flex items-baseline" onClick={() => emailRef.current?.focus()}>
                       {email.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
-
                       <input
                         ref={emailRef}
                         className="code-input"
@@ -170,12 +163,7 @@ export default function BannedCard() {
                         autoComplete="email"
                         style={{ width: Math.max(8, emailPx) }}
                       />
-
-                      {email.length === 0 && (
-                        <span className="absolute code-placeholder" style={{ left: 0 }}>
-                          you@example.com
-                        </span>
-                      )}
+                      {email.length === 0 && <span className="absolute code-placeholder" style={{ left: 0 }}>you@example.com</span>}
                       <span ref={emailMeasureRef} className="measurer">{email}</span>
                     </span>
 
@@ -190,12 +178,8 @@ export default function BannedCard() {
                     <span className="code-op">=</span>
                     <span className="code-punc">"</span>
 
-                    <span
-                      className="relative inline-flex items-baseline"
-                      onClick={() => document.getElementById('phone-input')?.focus()}
-                    >
+                    <span className="relative inline-flex items-baseline" onClick={() => document.getElementById('phone-input')?.focus()}>
                       {phone.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
-
                       <input
                         id="phone-input"
                         className="code-input"
@@ -206,12 +190,7 @@ export default function BannedCard() {
                         autoComplete="tel"
                         style={{ width: Math.max(8, phonePx) }}
                       />
-
-                      {phone.length === 0 && (
-                        <span className="absolute code-placeholder" style={{ left: 0 }}>
-                          +1 305 555 0123
-                        </span>
-                      )}
+                      {phone.length === 0 && <span className="absolute code-placeholder" style={{ left: 0 }}>+1 305 555 0123</span>}
                       <span ref={phoneMeasureRef} className="measurer">{phone}</span>
                     </span>
 
@@ -224,13 +203,10 @@ export default function BannedCard() {
                       {busy ? 'Submitting…' : 'Submit'}
                     </button>
 
-                    {/* Result shows immediately, color by status */}
                     {msg && (
                       <span style={{ marginLeft: 10 }}>
                         <span className="code-punc">"</span>
-                        <span className={msg.type === 'err' ? 'code-fail' : 'code-success'}>
-                          {msg.text}
-                        </span>
+                        <span className={msg.type === 'err' ? 'code-fail' : 'code-success'}>{msg.text}</span>
                         <span className="code-punc">"</span>
                       </span>
                     )}
