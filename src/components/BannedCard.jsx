@@ -29,7 +29,7 @@ export default function BannedCard() {
 
   const toggleMode = () => { setMsg(null); setMode(m => (m === 'banned' ? 'login' : 'banned')); };
 
-  // Florida works both ways; edge hover zones handle glow + click too
+  // Florida small button click (always toggles)
   const onFloridaClick = () => {
     setGlowFlorida(true);
     setTimeout(() => setGlowFlorida(false), 500);
@@ -89,17 +89,24 @@ export default function BannedCard() {
   // Hide login card any time a cascade is running
   const hideLoginCard = inCascade && mode === 'login';
 
+  // Bypass heart: only on LOGIN + UI phase
+  const bypassToShop = () => {
+    setAfterCascade('shop');
+    setCascadeFlip(v => !v);
+    setPhase('chakra');
+  };
+
   return (
     <>
       {inCascade && <ChakraCascade onComplete={handleChakraComplete} />}
 
-      {/* Edge hover zones:
-         - On BANNED: left half → glow + click brings LOGIN
-         - On LOGIN:  right half → glow + click brings BANNED
+      {/* Edge hover zones  — UPDATED mapping:
+          BANNED → RIGHT half (where Florida label sits)
+          LOGIN  → LEFT  half (opposite side)
       */}
       {phase === 'ui' && mode === 'banned' && (
         <div
-          className="hover-zone-left"
+          className="hover-zone-right"
           onMouseEnter={() => setGlowFlorida(true)}
           onMouseLeave={() => setGlowFlorida(false)}
           onClick={toggleMode}
@@ -108,7 +115,7 @@ export default function BannedCard() {
       )}
       {phase === 'ui' && mode === 'login' && (
         <div
-          className="hover-zone-right"
+          className="hover-zone-left"
           onMouseEnter={() => setGlowFlorida(true)}
           onMouseLeave={() => setGlowFlorida(false)}
           onClick={toggleMode}
@@ -247,6 +254,11 @@ export default function BannedCard() {
           )}
         </div>
       </div>
+
+      {/* Pink heart bypass (Login only) */}
+      {phase === 'ui' && mode === 'login' && (
+        <button className="bypass-heart" onClick={bypassToShop} aria-label="Skip and enter shop">♥</button>
+      )}
     </>
   );
 }
