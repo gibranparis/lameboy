@@ -29,13 +29,12 @@ export default function BannedCard() {
 
   const toggleMode = () => { setMsg(null); setMode(m => (m === 'banned' ? 'login' : 'banned')); };
 
+  // Florida click works in BOTH modes now
   const onFloridaClick = () => {
     setGlowFlorida(true);
     setTimeout(() => setGlowFlorida(false), 500);
-    if (mode === 'banned') toggleMode();
+    toggleMode();
   };
-
-  // ⛔️ REMOVED the old 18s timer entirely
 
   useLayoutEffect(() => {
     if (emailMeasureRef.current) setEmailPx(emailMeasureRef.current.getBoundingClientRect().width || 8);
@@ -66,15 +65,14 @@ export default function BannedCard() {
     setCascadeFlip(v => !v);
 
     if (success) {
-      setMsg({ type: 'ok', text: 'Thanks — opening shop…' });
+      // On success: hide the login card DURING the cascade for a clean transition
       setAfterCascade('shop');
     } else {
-      setMsg(null);                 // hide text (bubble disappears)
+      // On failure: also hide login card during cascade; after it completes, show 'Submit failed'
       setAfterCascade('ui');
     }
 
-    // Start the cascade (bubble will hide if failure)
-    setPhase('chakra');
+    setPhase('chakra'); // run cascade in both cases
     setBusy(false);
   }
 
@@ -91,15 +89,34 @@ export default function BannedCard() {
   const labelDuringCascade = cascadeFlip ? 'LAMEBOY, USA' : 'Florida, USA';
   const labelText = inCascade ? labelDuringCascade : 'Florida, USA';
 
-  const hideLoginCard = inCascade && afterCascade === 'ui';
+  // NEW: hide the login card anytime a cascade is running (success OR failure)
+  const hideLoginCard = inCascade && mode === 'login';
 
   return (
     <>
       {inCascade && <ChakraCascade onComplete={handleChakraComplete} />}
 
-      {/* Right-half invisible tap zone (BANNED view only) */}
-      {mode === 'banned' && phase === 'ui' && (
-        <div className="right-tap-zone" onClick={onFloridaClick} aria-hidden="true" />
+      {/* Hover zones:
+         - On BANNED: left half → glow + click brings LOGIN back in
+         - On LOGIN:  right half → glow + click goes to BANNED
+      */}
+      {phase === 'ui' && mode === 'banned' && (
+        <div
+          className="hover-zone-left"
+          onMouseEnter={() => setGlowFlorida(true)}
+          onMouseLeave={() => setGlowFlorida(false)}
+          onClick={toggleMode}
+          aria-hidden="true"
+        />
+      )}
+      {phase === 'ui' && mode === 'login' && (
+        <div
+          className="hover-zone-right"
+          onMouseEnter={() => setGlowFlorida(true)}
+          onMouseLeave={() => setGlowFlorida(false)}
+          onClick={toggleMode}
+          aria-hidden="true"
+        />
       )}
 
       <div className="page-center">
@@ -178,7 +195,7 @@ export default function BannedCard() {
                           autoComplete="email"
                           style={{ width: Math.max(8, emailPx) }}
                         />
-                        {email.length === 0 && <span className="absolute code-placeholder" style={{ left: 0 }}>you@example.com</span>}
+                        {email.length === 0 && <span className="code-placeholder">you@example.com</span>}
                         <span ref={emailMeasureRef} className="measurer">{email}</span>
                       </span>
 
@@ -205,7 +222,7 @@ export default function BannedCard() {
                           autoComplete="tel"
                           style={{ width: Math.max(8, phonePx) }}
                         />
-                        {phone.length === 0 && <span className="absolute code-placeholder" style={{ left: 0 }}>+1 305 555 0123</span>}
+                        {phone.length === 0 && <span className="code-placeholder">+1 305 555 0123</span>}
                         <span ref={phoneMeasureRef} className="measurer">{phone}</span>
                       </span>
 
