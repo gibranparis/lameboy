@@ -1,24 +1,29 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 export default function BannedCard() {
-  const [mode, setMode]   = useState('banned'); // 'banned' | 'login'
+  const [mode, setMode] = useState('banned'); // 'banned' | 'login'
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [busy, setBusy]   = useState(false);
-  const [msg, setMsg]     = useState(null);     // {type:'ok'|'err', text:string}
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
 
+  // measurements for inline-width inputs
   const emailRef = useRef(null);
   const emailMeasureRef = useRef(null);
   const phoneMeasureRef = useRef(null);
-
   const [emailPx, setEmailPx] = useState(8);
   const [phonePx, setPhonePx] = useState(8);
 
-  const toggle = () => { setMsg(null); setMode(m => (m === 'banned' ? 'login' : 'banned')); };
+  const slideCardClass = mode === 'banned' ? 'card-slide-right' : 'card-slide-left';
+  const slideFloridaClass = mode === 'banned' ? 'slide-in-right' : 'slide-in-left';
 
-  /* Pixel-accurate autosize so the blue bubble hugs content with no trailing gap */
+  const toggle = () => {
+    setMsg(null);
+    setMode(m => (m === 'banned' ? 'login' : 'banned'));
+  };
+
   useLayoutEffect(() => {
     if (emailMeasureRef.current) setEmailPx(emailMeasureRef.current.getBoundingClientRect().width || 8);
   }, [email]);
@@ -30,21 +35,18 @@ export default function BannedCard() {
     e.preventDefault();
     setBusy(true);
     setMsg(null);
-    try{
+    try {
       const res = await fetch('/api/submit', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ email, phone })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, phone }),
       });
-      if (!res.ok) {
-        const t = await res.json().catch(()=>({error:'Submit failed'}));
-        throw new Error(t.error || 'Submit failed');
-      }
-      setMsg({type:'ok', text:'Thanks — we got it.'});
+      if (!res.ok) throw new Error('Submit failed');
+      setMsg({ type: 'ok', text: 'Thanks — we got it.' });
       setEmail(''); setPhone('');
-    }catch(err){
-      setMsg({type:'err', text: err.message || 'Something went wrong.'});
-    }finally{
+    } catch (err) {
+      setMsg({ type: 'err', text: err.message || 'Something went wrong.' });
+    } finally {
       setBusy(false);
     }
   }
@@ -52,7 +54,7 @@ export default function BannedCard() {
   const FloridaButton = (
     <button
       type="button"
-      className={`ghost-btn text-xs florida-pulse ${mode === 'banned' ? 'slide-in-right' : 'slide-in-left'}`}
+      className={`ghost-btn text-xs florida-pulse ${slideFloridaClass}`}
       onClick={toggle}
       aria-label="Florida, USA"
     >
@@ -61,10 +63,12 @@ export default function BannedCard() {
   );
 
   const CodeCard = (
-    <div className="vscode-card card-ultra-tight rounded-xl" style={{ maxWidth: 360 }}>
+    <div className={`vscode-card card-ultra-tight rounded-xl ${slideCardClass}`} style={{ maxWidth: 360 }}>
       <div className="text-sm leading-6">
         <div className="code-comment">// LAMEBOY.COM</div>
-        <div className="code-comment">// is <span className="code-banned">banned</span></div>
+        <div className="code-comment">
+          // is <span className="code-banned">banned</span>
+        </div>
         <div className="mt-1 caret">
           <span className="code-keyword">console</span>
           <span className="code-punc">.</span>
@@ -78,11 +82,11 @@ export default function BannedCard() {
   );
 
   const LoginCard = (
-    <div className="vscode-card card-ultra-tight login-card rounded-xl">
+    <div className={`vscode-card card-ultra-tight login-card rounded-xl ${slideCardClass}`}>
       <form className="text-sm" onSubmit={onSubmit}>
         <div className="code-comment">// login</div>
 
-        {/* const email = "…";  grey inline preview (tap target); purple fake caret ONLY before typing */}
+        {/* const email = "…" */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">email</span>
@@ -91,7 +95,6 @@ export default function BannedCard() {
 
           <span
             className="relative inline-flex items-baseline"
-            style={{ gap: 0 }}
             onClick={() => emailRef.current?.focus()}
           >
             {email.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
@@ -103,7 +106,6 @@ export default function BannedCard() {
               name="email"
               value={email}
               onChange={(e)=>setEmail(e.target.value)}
-              placeholder=""
               autoComplete="email"
               style={{ width: Math.max(8, emailPx) }}
             />
@@ -120,7 +122,7 @@ export default function BannedCard() {
           <span className="code-punc">;</span>
         </div>
 
-        {/* const phone = "…"; grey inline preview (tap target) */}
+        {/* const phone = "…" */}
         <div className="code-line">
           <span className="code-keyword">const</span>
           <span className="code-var">phone</span>
@@ -129,7 +131,6 @@ export default function BannedCard() {
 
           <span
             className="relative inline-flex items-baseline"
-            style={{ gap: 0 }}
             onClick={() => document.getElementById('phone-input')?.focus()}
           >
             {phone.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
@@ -141,7 +142,6 @@ export default function BannedCard() {
               name="phone"
               value={phone}
               onChange={(e)=>setPhone(e.target.value)}
-              placeholder=""
               autoComplete="tel"
               style={{ width: Math.max(8, phonePx) }}
             />
