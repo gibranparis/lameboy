@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import swell from '@/lib/swell-client';
+// ✅ use relative path (no @ alias)
+import swell from '../lib/swell-client';
 
 export default function ShopGrid() {
   const [items, setItems] = useState([]);
