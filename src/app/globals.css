@@ -16,7 +16,8 @@
   --accent: #007acc;
   --purple: #a855f7;
 
-  --comment:#f20e0e;      /* VS Code green comments */
+  /* Tokens */
+  --comment:#2ee6b8;      /* seafoam green for comments */
   --string:#ce9178;
   --keyword:#9cdcfe;
   --var:#dcdcaa;
@@ -64,6 +65,20 @@ html, body{
 }
 .ghost-btn:hover{ color:#0bf05f; }
 
+/* Flash “Florida, USA” the hover green every 3.3s */
+@keyframes floridaPulse {
+  0%, 85% { color: var(--muted); }
+  92%     { color: #0bf05f; }
+  100%    { color: var(--muted); }
+}
+.florida-pulse { animation: floridaPulse 3.3s linear infinite; }
+
+/* Slide hint when the button swaps sides */
+.slide-in-left  { animation: slideInLeft .25s ease-out; }
+.slide-in-right { animation: slideInRight .25s ease-out; }
+@keyframes slideInLeft  { from { transform: translateX(24px);  } to { transform: translateX(0); } }
+@keyframes slideInRight { from { transform: translateX(-24px); } to { transform: translateX(0); } }
+
 /* Tokens */
 .code-comment{ color:var(--comment); }
 .code-string { color:var(--string); }
@@ -73,6 +88,9 @@ html, body{
 .code-punc   { color:var(--punct); }
 /* DARKER inline preview (placeholder) */
 .code-placeholder{ color:#555454; }
+
+/* Special case: only the word “banned” stays red */
+.code-banned{ color:#f20e0e; font-weight:700; }
 
 /* Code rows */
 .code-line{

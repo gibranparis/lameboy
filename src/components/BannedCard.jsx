@@ -20,41 +20,21 @@ export default function BannedCard() {
 
   /* Pixel-accurate autosize so the blue bubble hugs content with no trailing gap */
   useLayoutEffect(() => {
-    if (!emailMeasureRef.current) return;
-    emailMeasureRef.current.textContent = email.length ? email : '\u200B';
-    const w = Math.ceil(emailMeasureRef.current.getBoundingClientRect().width);
-    setEmailPx(Math.max(8, w));
+    if (emailMeasureRef.current) setEmailPx(emailMeasureRef.current.getBoundingClientRect().width || 8);
   }, [email]);
-
   useLayoutEffect(() => {
-    if (!phoneMeasureRef.current) return;
-    phoneMeasureRef.current.textContent = phone.length ? phone : '\u200B';
-    const w = Math.ceil(phoneMeasureRef.current.getBoundingClientRect().width);
-    setPhonePx(Math.max(8, w));
+    if (phoneMeasureRef.current) setPhonePx(phoneMeasureRef.current.getBoundingClientRect().width || 8);
   }, [phone]);
 
-  /* Focus email at index 0 when opening login */
-  useEffect(() => {
-    if (mode === 'login' && emailRef.current) {
-      emailRef.current.focus({ preventScroll: true });
-      try { emailRef.current.setSelectionRange(0, 0); } catch {}
-    }
-  }, [mode]);
-
-  async function onSubmit(e){
+  async function onSubmit(e) {
     e.preventDefault();
+    setBusy(true);
     setMsg(null);
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    const phoneOk = !phone || /^\+?[0-9\-().\s]{7,}$/.test(phone);
-    if (!emailOk) return setMsg({type:'err', text:'Please enter a valid email.'});
-    if (!phoneOk) return setMsg({type:'err', text:'Phone looks invalid.'});
-
     try{
-      setBusy(true);
       const res = await fetch('/api/submit', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ email, phone }),
+        body: JSON.stringify({ email, phone })
       });
       if (!res.ok) {
         const t = await res.json().catch(()=>({error:'Submit failed'}));
@@ -70,7 +50,12 @@ export default function BannedCard() {
   }
 
   const FloridaButton = (
-    <button type="button" className="ghost-btn text-xs" onClick={toggle} aria-label="Florida, USA">
+    <button
+      type="button"
+      className={`ghost-btn text-xs florida-pulse ${mode === 'banned' ? 'slide-in-right' : 'slide-in-left'}`}
+      onClick={toggle}
+      aria-label="Florida, USA"
+    >
       Florida, USA
     </button>
   );
@@ -79,7 +64,7 @@ export default function BannedCard() {
     <div className="vscode-card card-ultra-tight rounded-xl" style={{ maxWidth: 360 }}>
       <div className="text-sm leading-6">
         <div className="code-comment">// LAMEBOY.COM</div>
-        <div className="code-comment">// is banned</div>
+        <div className="code-comment">// is <span className="code-banned">banned</span></div>
         <div className="mt-1 caret">
           <span className="code-keyword">console</span>
           <span className="code-punc">.</span>
@@ -115,15 +100,20 @@ export default function BannedCard() {
               ref={emailRef}
               className="code-input"
               type="email"
+              name="email"
               value={email}
               onChange={(e)=>setEmail(e.target.value)}
-              style={{ width: `${emailPx}px` }}
-              placeholder="" /* preview below renders visually */
-              required
+              placeholder=""
+              autoComplete="email"
+              style={{ width: Math.max(8, emailPx) }}
             />
-            <span ref={emailMeasureRef} className="measurer"></span>
 
-            {email.length === 0 && <span className="code-placeholder">you@example.com</span>}
+            {email.length === 0 && (
+              <span className="absolute code-placeholder" style={{ left: 0 }}>
+                you@example.com
+              </span>
+            )}
+            <span ref={emailMeasureRef} className="measurer">{email}</span>
           </span>
 
           <span className="code-punc">"</span>
@@ -140,26 +130,38 @@ export default function BannedCard() {
           <span
             className="relative inline-flex items-baseline"
             style={{ gap: 0 }}
-            onClick={(e)=>e.currentTarget.querySelector('input')?.focus()}
+            onClick={() => document.getElementById('phone-input')?.focus()}
           >
+            {phone.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
+
             <input
+              id="phone-input"
               className="code-input"
               type="tel"
+              name="phone"
               value={phone}
               onChange={(e)=>setPhone(e.target.value)}
-              style={{ width: `${phonePx}px` }}
               placeholder=""
+              autoComplete="tel"
+              style={{ width: Math.max(8, phonePx) }}
             />
-            <span ref={phoneMeasureRef} className="measurer"></span>
-            {phone.length === 0 && <span className="code-placeholder">+1 305 555 0123</span>}
+
+            {phone.length === 0 && (
+              <span className="absolute code-placeholder" style={{ left: 0 }}>
+                +1 305 555 0123
+              </span>
+            )}
+            <span ref={phoneMeasureRef} className="measurer">{phone}</span>
           </span>
 
           <span className="code-punc">"</span>
           <span className="code-punc">;</span>
         </div>
 
-        <div className="code-line">
-          <button type="submit" className="commit-btn" disabled={busy}>Submit</button>
+        <div className="row-nowrap" style={{ marginTop: 6 }}>
+          <button type="submit" className="commit-btn" disabled={busy}>
+            {busy ? 'Submitting…' : 'Submit'}
+          </button>
           {msg && (
             <span style={{ marginLeft: 10 }} className={msg.type === 'ok' ? 'code-comment' : 'code-string'}>
               {msg.type === 'ok' ? `// ${msg.text}` : `"${msg.text}"`}
