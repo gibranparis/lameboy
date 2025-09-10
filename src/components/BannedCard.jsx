@@ -47,7 +47,7 @@ export default function BannedCard() {
         body: JSON.stringify({ email, phone }),
       });
       success = res.ok === true;
-    } catch (err) {
+    } catch {
       success = false;
     }
 
@@ -59,8 +59,7 @@ export default function BannedCard() {
       setAfterCascade('ui');
     }
 
-    // ✅ Always run the cascade, regardless of success/failure
-    setPhase('chakra');
+    setPhase('chakra'); // play cascade either way
     setBusy(false);
   }
 
@@ -72,7 +71,6 @@ export default function BannedCard() {
 
   return (
     <>
-      {/* Foreground cascade ONLY during submit; background stays black */}
       {phase === 'chakra' && <ChakraCascade onComplete={handleChakraComplete} />}
 
       <div className="page-center" aria-hidden={phase !== 'ui'}>

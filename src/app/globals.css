@@ -166,15 +166,12 @@ html,body{
   display:grid; grid-template-columns:repeat(7, 1fr);
   pointer-events:none;
 }
-
 .chakra-band{
   position:relative;
   opacity:0;
   transform:translateX(-2%);
   animation:chakraBlink 1.2s ease-out forwards;
 }
-
-/* Soft glow */
 .chakra-band::before{
   content:"";
   position:absolute;
@@ -184,16 +181,12 @@ html,body{
   opacity:.55;
   pointer-events:none;
 }
-
-/* Appear → hold → disappear (non-overlapping) */
 @keyframes chakraBlink{
   0%   { opacity:0; transform:translateX(-2%); }
-  18%  { opacity:1; transform:translateX(0%);  }
+  18%  { opacity:1; transform:translateX(0%); }
   80%  { opacity:1; }
   100% { opacity:0; }
 }
-
-/* left→right stagger */
 .band-1{ animation-delay: 0s;    }
 .band-2{ animation-delay: .18s;  }
 .band-3{ animation-delay: .36s;  }
@@ -202,7 +195,7 @@ html,body{
 .band-6{ animation-delay: .90s;  }
 .band-7{ animation-delay: 1.08s; }
 
-/* Your vibrant chakra colors */
+/* Vibrant chakra colors you chose */
 .chakra-root     { --c:#ff0808; background:#FF0000; } /* red */
 .chakra-sacral   { --c:#ff8b07; background:#FF7F00; } /* orange */
 .chakra-plexus   { --c:#ffff4b; background:#FFFF00; } /* yellow */
@@ -210,3 +203,62 @@ html,body{
 .chakra-throat   { --c:#164bfb; background:#0000FF; } /* blue */
 .chakra-thirdeye { --c:#b300ff; background:#4B0082; } /* indigo */
 .chakra-crown    { --c:#faf5ff; background:#8B00FF; } /* violet */
+
+/* =========================
+   Shop Grid — Yeezy-style fixed tiles
+   ========================= */
+.shop-wrap{ padding: 24px; }
+
+.shop-grid{
+  --tile: clamp(140px, 17vw, 200px);  /* tile width scales a bit, Yeezy-ish */
+  --gap:  28px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
+  gap: var(--gap);
+}
+
+@media (min-width: 1280px){
+  .shop-grid{ --tile: 220px; --gap: 32px; }   /* large desktop */
+}
+@media (max-width: 640px){
+  .shop-grid{ --tile: 150px; --gap: 20px; }   /* phones */
+}
+
+.product-tile{
+  display:block;
+  text-decoration:none;
+  color:inherit;
+}
+
+.product-box{
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  background: #0a0a0a;                    /* deep gray like yeezy bg */
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+  border: 1px solid rgba(255,255,255,.06);
+}
+
+.product-img{
+  width: 88%; height: 88%;
+  object-fit: contain;
+  mix-blend-mode: normal;
+  filter: contrast(1.02) saturate(0.98);
+}
+
+/* Large code label under each tile */
+.product-meta{
+  padding: 10px 2px 0 2px;
+  letter-spacing: .02em;
+  font-weight: 800;
+  font-size: clamp(14px, 2.3vw, 22px);
+  line-height: 1.05;
+}
+
+/* Optional: subtle hover lift */
+.product-tile:hover .product-box{
+  border-color: rgba(25,145,255,.18);
+  box-shadow: 0 0 0 1px rgba(25,145,255,.12), 0 8px 20px rgba(0,0,0,.35);
+  transform: translateY(-2px);
+  transition: all .18s ease;
+}

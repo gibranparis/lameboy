@@ -1,8 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-// ✅ use relative path (no @ alias)
 import swell from '../lib/swell-client';
+
+function productCode(p) {
+  // Prefer short code-like labels similar to yeezy.
+  const tryKeys = ['code', 'short_code', 'sku', 'slug', 'name'];
+  for (const k of tryKeys) {
+    const v = p?.[k];
+    if (typeof v === 'string' && v.trim()) return v.trim().toUpperCase();
+  }
+  return String(p?.id || '').slice(0, 8).toUpperCase();
+}
 
 export default function ShopGrid() {
   const [items, setItems] = useState([]);
@@ -12,8 +21,9 @@ export default function ShopGrid() {
     let alive = true;
     (async () => {
       try {
-        const res = await swell.products.list({ limit: 24, page: 1, active: true });
-        if (alive) setItems(res?.results || []);
+        const res = await swell.products.list({ limit: 60, page: 1, active: true });
+        if (!alive) return;
+        setItems(res?.results || []);
       } catch (e) {
         console.error('products list failed', e);
       } finally {
@@ -32,25 +42,27 @@ export default function ShopGrid() {
   }
 
   return (
-    <main className="p-6 max-w-6xl mx-auto">
-      <div
-        className="grid"
-        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}
-      >
-        {items.map(p => (
-          <a key={p.id} href={`/product/${p.slug || p.id}`} className="vscode-card card-ultra-tight block">
-            <div style={{ aspectRatio: '1 / 1', background:'#0a0a0a', borderRadius: 10, overflow:'hidden' }}>
-              {p.images?.[0]?.file?.url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.images[0].file.url} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-              )}
-            </div>
-            <div style={{ padding:'8px 6px 6px 6px' }}>
-              <div style={{ fontWeight:700 }}>{p.name}</div>
-              <div style={{ color:'#b3b3b3' }}>${(p.sale_price ?? p.price ?? 0).toFixed(2)}</div>
-            </div>
-          </a>
-        ))}
+    <main className="shop-wrap max-w-7xl mx-auto">
+      <div className="shop-grid">
+        {items.map((p) => {
+          const code = productCode(p);
+          const href = `/product/${p.slug || p.id}`;
+          const img = p.images?.[0]?.file?.url;
+
+          return (
+            <a key={p.id} href={href} className="product-tile">
+              <div className="product-box vscode-card">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {img ? (
+                  <img className="product-img" src={img} alt={p.name || code} />
+                ) : (
+                  <div className="code-placeholder" aria-hidden>no image</div>
+                )}
+              </div>
+              <div className="product-meta">{code}</div>
+            </a>
+          );
+        })}
       </div>
     </main>
   );
