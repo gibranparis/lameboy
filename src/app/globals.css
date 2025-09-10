@@ -159,10 +159,10 @@ html,body{
 @keyframes blink{ to{ visibility:hidden; } }
 
 /* =========================
-   Chakra Cascade (Left→Right, overlapping wave + soft glow)
+   Chakra Cascade (Left→Right, glow, appear→disappear)
    ========================= */
 .chakra-overlay{
-  position:fixed; inset:0; z-index:60;
+  position:fixed; inset:0; z-index:60;          /* above UI */
   display:grid; grid-template-columns:repeat(7, 1fr);
   pointer-events:none;
 }
@@ -171,40 +171,38 @@ html,body{
   position:relative;
   opacity:0;
   transform:translateX(-2%);
-  animation:chakraWave 1.6s ease-out forwards;
-  mix-blend-mode: screen;         /* softer additive blend */
-  will-change: opacity, transform;
+  animation:chakraBlink 1.2s ease-out forwards;
 }
 
 /* Soft glow */
 .chakra-band::before{
   content:"";
   position:absolute;
-  inset:-12px;
+  inset:-10px;
   background: var(--c);
-  filter: blur(26px);
+  filter: blur(22px);
   opacity:.55;
   pointer-events:none;
 }
 
-/* Appear → hold → disappear (longer for smoother overlap) */
-@keyframes chakraWave{
+/* Appear → hold → disappear (non-overlapping) */
+@keyframes chakraBlink{
   0%   { opacity:0; transform:translateX(-2%); }
-  22%  { opacity:1; transform:translateX(0%); }
-  78%  { opacity:1; }
+  18%  { opacity:1; transform:translateX(0%);  }
+  80%  { opacity:1; }
   100% { opacity:0; }
 }
 
-/* left→right stagger (tighter to overlap) */
+/* left→right stagger */
 .band-1{ animation-delay: 0s;    }
-.band-2{ animation-delay: .12s;  }
-.band-3{ animation-delay: .24s;  }
-.band-4{ animation-delay: .36s;  }
-.band-5{ animation-delay: .48s;  }
-.band-6{ animation-delay: .60s;  }
-.band-7{ animation-delay: .72s;  }
+.band-2{ animation-delay: .18s;  }
+.band-3{ animation-delay: .36s;  }
+.band-4{ animation-delay: .54s;  }
+.band-5{ animation-delay: .72s;  }
+.band-6{ animation-delay: .90s;  }
+.band-7{ animation-delay: 1.08s; }
 
-/* Chakra colors (your updated picks) */
+/* Your vibrant chakra colors */
 .chakra-root     { --c:#ff0808; background:#FF0000; } /* red */
 .chakra-sacral   { --c:#ff8b07; background:#FF7F00; } /* orange */
 .chakra-plexus   { --c:#ffff4b; background:#FFFF00; } /* yellow */

@@ -3,8 +3,8 @@ import { useEffect } from 'react';
 
 export default function ChakraCascade({ onComplete }) {
   useEffect(() => {
-    // last delay (.72s) + duration (1.6s) + small buffer ≈ 2.6s
-    const totalMs = 2600;
+    // last delay (1.08s) + duration (1.2s) + small buffer ≈ 2.4s
+    const totalMs = 2400;
     const t = setTimeout(() => onComplete?.(), totalMs);
     return () => clearTimeout(t);
   }, [onComplete]);
