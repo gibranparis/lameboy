@@ -112,9 +112,8 @@ html,body{
 
 /* =========================
    Edge Hover Zones (page edges)
-   Mapping NOW:
-   - BANNED screen  → RIGHT half
-   - LOGIN screen   → LEFT  half
+   - BANNED screen → RIGHT half
+   - LOGIN  screen → LEFT  half
    ========================= */
 .hover-zone-left,
 .hover-zone-right{
@@ -133,30 +132,61 @@ html,body{
   display:grid; place-items:center; cursor:pointer;
   border:1px solid rgba(255,255,255,.25);
   background: linear-gradient(145deg,#ffdff1 0%, #f7a8e3 48%, #d184ff 100%);
-  box-shadow:
-    0 6px 22px rgba(210, 120, 250, .25),
-    0 0 12px rgba(255, 160, 220, .35);
+  box-shadow: 0 6px 22px rgba(210,120,250,.25), 0 0 12px rgba(255,160,220,.35);
   color:#fff; font-size:22px; font-weight:900;
   transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
 }
 .bypass-heart:hover{ transform: translateY(-2px) scale(1.03); filter:saturate(1.05); }
 
 /* =========================
-   Shop — (kept as in your last version)
+   Shop — Grid & Controls
    ========================= */
 .shop-wrap{ padding: 86px 24px 24px; }
-.shop-grid{ --tile: clamp(140px, 17vw, 200px); --gap:28px; display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--tile), 1fr)); gap:var(--gap); }
+
+.shop-grid{
+  --tile: clamp(140px, 17vw, 200px);
+  --gap:  28px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(var(--tile), 1fr));
+  gap:var(--gap);
+}
 @media (min-width:1280px){ .shop-grid{ --tile:220px; --gap:32px; } }
 @media (max-width:640px){  .shop-grid{ --tile:150px; --gap:20px; } }
+
 .product-tile{ display:block; color:inherit; text-decoration:none; }
 .product-box{ aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:transparent; border:none; }
 .product-img{ width:88%; height:88%; object-fit:contain; mix-blend-mode:normal; filter:contrast(1.02) saturate(0.98); }
 .product-meta{ padding:10px 2px 0 2px; letter-spacing:.02em; font-weight:800; text-align:center; font-size:clamp(12px,1.7vw,18px); line-height:1.05; }
-.shop-density{ position:fixed; left:18px; top:18px; z-index:75; width:36px; height:36px; border-radius:10px; display:grid; place-content:center; cursor:pointer; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04); color:#fff; font-weight:900; font-size:20px; transition:transform .15s ease, background .2s, border-color .2s;}
+
+/* Top-left density control */
+.shop-density{
+  position:fixed; left:18px; top:18px; z-index:75;
+  width:36px; height:36px; border-radius:10px;
+  display:grid; place-content:center; cursor:pointer;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04);
+  color:#fff; font-weight:900; font-size:20px;
+  transition:transform .15s ease, background .2s, border-color .2s;
+}
 .shop-density:hover{ transform:translateY(-1px); background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.2); }
-.shop-toggle{ position:fixed; left:50%; top:18px; transform:translateX(-50%); z-index:75; font-weight:900; letter-spacing:.08em; padding:6px 14px; border-radius:999px; cursor:pointer; user-select:none; transition: transform .15s ease, filter .2s ease; }
+
+/* Center-top gender toggle */
+.shop-toggle{
+  position:fixed; left:50%; top:18px; transform:translateX(-50%); z-index:75;
+  font-weight:900; letter-spacing:.08em;
+  padding:6px 14px; border-radius:999px;
+  cursor:pointer; user-select:none;
+  transition: transform .15s ease, filter .2s ease;
+}
 .shop-toggle:hover{ transform:translateX(-50%) translateY(-1px); }
-.shop-toggle--boy{ color:#fff; text-shadow:0 0 10px rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.35); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); }
+
+/* LAMEBOY default (dark theme) */
+.shop-toggle--boy{
+  color:#fff; text-shadow:0 0 10px rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.35);
+  background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+}
+
+/* LAMEGIRL gradient text */
 .shop-toggle--girl{
   background: linear-gradient(95deg,#fff6fb 0%,#ffd9ee 22%,#fbb7f0 40%,#dca9ff 62%,#b388ff 80%,#7a2cff 100%);
   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
@@ -164,7 +194,7 @@ html,body{
   border:1px solid rgba(255,255,255,.12);
 }
 
-/* Product hero overlay sizing (fit to screen) */
+/* Product “hero” overlay (detail) */
 .product-hero-overlay{ position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.92); display:flex; align-items:center; justify-content:center; padding:20px; }
 .product-hero{ width:min(92vw, 1000px); max-height:86vh; display:flex; flex-direction:column; align-items:center; gap:14px; }
 .product-hero-img{ width:100%; max-height:70vh; object-fit:contain; }
@@ -172,7 +202,7 @@ html,body{
 .product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
 
 /* =========================
-   Chakra cascade (unchanged)
+   Chakra cascade (RTL violet→red)
    ========================= */
 .chakra-overlay{ position:fixed; inset:0; z-index:60; display:grid; grid-template-columns:repeat(7, 1fr); pointer-events:none; direction: rtl; }
 .chakra-band{ position:relative; opacity:0; transform:translateX(2%); animation:chakraBlink 1.2s ease-out forwards; }
@@ -196,3 +226,37 @@ html,body{
 .commit-btn:focus-visible{ outline:1px dashed var(--focus-orange); outline-offset:3px; }
 .commit-btn:active{ background:rgba(247,160,45,.18); border-color:var(--focus-orange); box-shadow:inset 0 0 0 1px var(--focus-orange); transform: translateY(1px); }
 .commit-btn[disabled]{ opacity:.6; cursor:progress; }
+
+/* =========================
+   SHOP WHITE THEME OVERRIDES
+   (applied only inside .shop-page wrapper)
+   ========================= */
+.shop-page{ background:#fff; color:#111; min-height:100dvh; }
+
+/* Controls readable on white */
+.shop-page .shop-density{
+  background:rgba(0,0,0,.04);
+  border-color:rgba(0,0,0,.12);
+  color:#111;
+}
+.shop-page .shop-density:hover{
+  background:rgba(0,0,0,.06);
+  border-color:rgba(0,0,0,.20);
+}
+.shop-page .shop-toggle--boy{
+  color:#111; text-shadow:none;
+  background:rgba(0,0,0,.04);
+  border:1px solid rgba(0,0,0,.12);
+}
+.shop-page .shop-toggle--girl{
+  border-color:rgba(0,0,0,.12);
+  text-shadow:0 0 10px rgba(180,120,255,.15);
+}
+
+/* Product labels */
+.shop-page .product-meta{ color:#111; }
+
+/* Product detail overlay matches white theme */
+.shop-page .product-hero-overlay{
+  background:#fff; color:#111;
+}
