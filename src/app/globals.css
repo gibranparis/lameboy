@@ -159,7 +159,7 @@ html,body{
 @keyframes blink{ to{ visibility:hidden; } }
 
 /* =========================
-   Chakra Waterfall Overlay (Left→Right, glow, appear→disappear)
+   Chakra Cascade (Left→Right, glow, appear→disappear)
    ========================= */
 .chakra-overlay{
   position:fixed; inset:0; z-index:60;          /* above UI */
@@ -174,18 +174,17 @@ html,body{
   animation:chakraBlink 1.2s ease-out forwards;
 }
 
-/* Soft glow using blurred pseudo layer in the band color */
+/* Soft glow */
 .chakra-band::before{
   content:"";
   position:absolute;
-  inset:-10px;                      /* glow bleeding */
+  inset:-10px;
   background: var(--c);
-  filter: blur(18px);
-  opacity:.45;
+  filter: blur(22px);
+  opacity:.55;
   pointer-events:none;
 }
 
-/* Appear → hold → disappear */
 @keyframes chakraBlink{
   0%   { opacity:0; transform:translateX(-2%); }
   18%  { opacity:1; transform:translateX(0%); }
@@ -202,7 +201,7 @@ html,body{
 .band-6{ animation-delay: .90s;  }
 .band-7{ animation-delay: 1.08s; }
 
-/* chakra colors + CSS variable for glow */
+/* Chakra colors (your updated picks) */
 .chakra-root     { --c:#ff0808; background:#FF0000; } /* red */
 .chakra-sacral   { --c:#ff8b07; background:#FF7F00; } /* orange */
 .chakra-plexus   { --c:#ffff4b; background:#FFFF00; } /* yellow */
@@ -210,4 +209,3 @@ html,body{
 .chakra-throat   { --c:#164bfb; background:#0000FF; } /* blue */
 .chakra-thirdeye { --c:#b300ff; background:#4B0082; } /* indigo */
 .chakra-crown    { --c:#faf5ff; background:#8B00FF; } /* violet */
-
