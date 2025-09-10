@@ -1,14 +1,19 @@
 'use client';
 
 import { useEffect } from 'react';
+import { playChakraSequenceRTL } from '../lib/chakra-audio';
 
 export default function ChakraCascade({ onComplete }) {
   useEffect(() => {
-    const t = setTimeout(() => onComplete?.(), 1400); // match band-7 end (~1.2s + small buffer)
+    // Fire tones when the cascade mounts
+    playChakraSequenceRTL().catch(() => {});
+
+    // Total = last delay (1.08s) + band dur (1.2s) + buffer
+    const t = setTimeout(() => onComplete?.(), 2500);
     return () => clearTimeout(t);
   }, [onComplete]);
 
-  // NOTE: order is violet -> red; container CSS is RTL so the first child lands on the RIGHT
+  // DOM order matches RTL visual order (right-most first)
   return (
     <div className="chakra-overlay">
       <div className="chakra-band chakra-crown    band-1"></div>

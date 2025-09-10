@@ -1,115 +1,39 @@
-// Web Audio bell chimes for 7 chakras with tunable params
+// Client-only tiny synth for chakra tones (Web Audio)
+export async function playChakraSequenceRTL() {
+  if (typeof window === "undefined") return;
 
-let _ctx = null;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
 
-export function getAudioCtx() {
-  if (typeof window === 'undefined') return null;
-  if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
-  return _ctx;
-}
+  // Re-use a single context
+  const ctx = (window.__lbAudioCtx ||= new AudioCtx());
+  try { await ctx.resume(); } catch {}
 
-// Pleasant base mapping Root→C3 up to Crown→C4
-const BASE_FREQS = [130.81,146.83,164.81,174.61,196.00,220.00,261.63];
+  // RTL (violet→red): crown, third eye, throat, heart, plexus, sacral, root
+  // B4, A4, G4, F4, E4, D4, C4
+  const freqs = [493.88, 440.0, 392.0, 349.23, 329.63, 293.66, 261.63];
 
-export const DEFAULTS = {
-  attack: 0.02,
-  decay: 1.2,
-  filterHz: 8000,
-  filterQ: 0.7,
-  partialRatio: 2.71,
-  partialLevel: 0.25,
-  octave: 0,
-  freqs: BASE_FREQS,
-  noteGain: 0.6,
-  masterGain: 0.8,
-};
+  const now = ctx.currentTime + 0.03;
+  const step = 0.18;      // matches CSS band stagger
+  const dur  = 0.48;      // per tone
+  const peak = 0.06;      // gain peak
 
-function shiftOctave(freq, oct = 0) { return freq * Math.pow(2, oct); }
+  freqs.forEach((f, i) => {
+    const start = now + i * step;
 
-function makeMaster(ctx, gainValue) {
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(gainValue, ctx.currentTime);
-  g.connect(ctx.destination);
-  return g;
-}
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
-function playBell(ctx, {
-  freq = 220, when = 0,
-  attack = DEFAULTS.attack, decay = DEFAULTS.decay,
-  filterHz = DEFAULTS.filterHz, filterQ = DEFAULTS.filterQ,
-  partialRatio = DEFAULTS.partialRatio, partialLevel = DEFAULTS.partialLevel,
-  noteGain = DEFAULTS.noteGain, masterNode,
-}) {
-  const end = when + attack + decay;
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(f, start);
 
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, when);
-  env.gain.exponentialRampToValueAtTime(Math.max(0.001, noteGain), when + attack);
-  env.gain.exponentialRampToValueAtTime(0.0001, end);
+    // Soft A/D envelope
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peak, start + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
 
-  const oscFund = ctx.createOscillator();
-  oscFund.type = 'sine';
-  oscFund.frequency.setValueAtTime(freq, when);
-
-  const oscPart = ctx.createOscillator();
-  oscPart.type = 'sine';
-  oscPart.frequency.setValueAtTime(freq * partialRatio, when);
-
-  const gFund = ctx.createGain(); gFund.gain.setValueAtTime(1.0, when);
-  const gPart = ctx.createGain(); gPart.gain.setValueAtTime(Math.max(0, Math.min(1, partialLevel)), when);
-
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(filterHz, when);
-  filter.Q.setValueAtTime(filterQ, when);
-
-  oscFund.connect(gFund).connect(env);
-  oscPart.connect(gPart).connect(env);
-  env.connect(filter).connect(masterNode || ctx.destination);
-
-  oscFund.start(when); oscPart.start(when);
-  oscFund.stop(end);   oscPart.stop(end);
-}
-
-export function scheduleChakraChimes(delaysSec = [], opts = {}) {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-
-  if (ctx.state === 'suspended') { ctx.resume().catch(() => {}); }
-
-  const {
-    attack = DEFAULTS.attack,
-    decay  = DEFAULTS.decay,
-    filterHz = DEFAULTS.filterHz,
-    filterQ  = DEFAULTS.filterQ,
-    partialRatio = DEFAULTS.partialRatio,
-    partialLevel = DEFAULTS.partialLevel,
-    octave = DEFAULTS.octave,
-    freqs = DEFAULTS.freqs,
-    noteGain = DEFAULTS.noteGain,
-    masterGain = DEFAULTS.masterGain,
-    duration,
-  } = opts;
-
-  const finalDecay = typeof duration === 'number' ? Math.max(0.2, duration - attack) : decay;
-  const master = makeMaster(ctx, Math.max(0, Math.min(1, masterGain)));
-  const now = ctx.currentTime + 0.02;
-
-  delaysSec.slice(0,7).forEach((delay, i) => {
-    const when = now + (delay || 0);
-    const baseFreq = freqs[i] ?? freqs[freqs.length - 1] ?? 220;
-    const f = shiftOctave(baseFreq, octave);
-    playBell(ctx, {
-      freq: f,
-      when,
-      attack,
-      decay: finalDecay,
-      filterHz,
-      filterQ,
-      partialRatio,
-      partialLevel,
-      noteGain,
-      masterNode: master,
-    });
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + dur + 0.05);
   });
 }
