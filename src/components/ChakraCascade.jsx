@@ -1,10 +1,19 @@
 'use client';
 import { useEffect } from 'react';
+import { scheduleChakraChimes } from '../lib/chakra-audio';
 
 export default function ChakraCascade({ onComplete }) {
+  // Visual timings (match your CSS): duration 1.2s, stagger .18s
+  const bandStagger = 0.18;
+  const bandDuration = 1.2;
+  const delays = [0, bandStagger, bandStagger*2, bandStagger*3, bandStagger*4, bandStagger*5, bandStagger*6];
+
   useEffect(() => {
-    // last delay (1.08s) + duration (1.2s) + small buffer ≈ 2.4s
-    const totalMs = 2400;
+    // Schedule the 7 chimes to match the 7 bands:
+    scheduleChakraChimes(delays, bandDuration);
+
+    // Allow enough time for last band: last delay + duration + small buffer
+    const totalMs = (delays[delays.length - 1] + bandDuration + 0.1) * 1000; // ≈ 2400ms
     const t = setTimeout(() => onComplete?.(), totalMs);
     return () => clearTimeout(t);
   }, [onComplete]);
