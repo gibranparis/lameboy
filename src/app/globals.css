@@ -141,6 +141,8 @@ html,body{
 /* =========================
    Shop — Grid & Controls
    ========================= */
+.shop-page{ background:#fff; color:#111; min-height:100dvh; }
+
 .shop-wrap{ padding: 86px 24px 24px; }
 
 .shop-grid{
@@ -163,12 +165,12 @@ html,body{
   position:fixed; left:18px; top:18px; z-index:75;
   width:36px; height:36px; border-radius:10px;
   display:grid; place-content:center; cursor:pointer;
-  border:1px solid rgba(255,255,255,.12);
-  background:rgba(255,255,255,.04);
-  color:#fff; font-weight:900; font-size:20px;
+  border:1px solid rgba(0,0,0,.12);
+  background:rgba(0,0,0,.04);
+  color:#111; font-weight:900; font-size:20px;
   transition:transform .15s ease, background .2s, border-color .2s;
 }
-.shop-density:hover{ transform:translateY(-1px); background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.2); }
+.shop-density:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
 
 /* Center-top gender toggle */
 .shop-toggle{
@@ -180,10 +182,10 @@ html,body{
 }
 .shop-toggle:hover{ transform:translateX(-50%) translateY(-1px); }
 
-/* LAMEBOY default (dark theme) */
+/* LAMEBOY on white */
 .shop-toggle--boy{
-  color:#fff; text-shadow:0 0 10px rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.35);
-  background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+  color:#111; text-shadow:none;
+  background:rgba(0,0,0,.04); border:1px solid rgba(0,0,0,.12);
 }
 
 /* LAMEGIRL gradient text */
@@ -191,15 +193,45 @@ html,body{
   background: linear-gradient(95deg,#fff6fb 0%,#ffd9ee 22%,#fbb7f0 40%,#dca9ff 62%,#b388ff 80%,#7a2cff 100%);
   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
   text-shadow:0 0 12px rgba(243,154,230,.35), 0 0 22px rgba(122,44,255,.25);
-  border:1px solid rgba(255,255,255,.12);
+  border:1px solid rgba(0,0,0,.12);
 }
 
-/* Product “hero” overlay (detail) */
-.product-hero-overlay{ position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.92); display:flex; align-items:center; justify-content:center; padding:20px; }
-.product-hero{ width:min(92vw, 1000px); max-height:86vh; display:flex; flex-direction:column; align-items:center; gap:14px; }
+/* CART FAB (top-right) */
+.cart-fab{
+  position:fixed; right:18px; top:18px; z-index:76;
+  min-width:44px; height:36px; padding:0 12px; border-radius:10px;
+  display:inline-flex; align-items:center; gap:8px;
+  border:1px solid rgba(0,0,0,.12);
+  background:rgba(0,0,0,.04); color:#111; font-weight:800;
+  cursor:pointer; transition: transform .12s ease, background .2s, border-color .2s;
+}
+.cart-fab:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
+.cart-fab svg{ width:18px; height:18px; }
+.cart-badge{
+  position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px;
+  border-radius:999px; background:#111; color:#fff; font-size:11px; font-weight:900;
+  display:grid; place-items:center; border:2px solid #fff;
+}
+@keyframes cartBump { 0%{ transform:scale(1);} 15%{ transform:scale(1.14);} 100%{ transform:scale(1);} }
+.cart-fab.bump{ animation: cartBump .35s ease-out; }
+
+/* Product hero overlay (fits screen) */
+.product-hero-overlay{ position:fixed; inset:0; z-index:90; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; padding:20px; }
+.product-hero{ width:min(92vw, 1000px); max-height:86vh; display:flex; flex-direction:column; align-items:center; gap:14px; position:relative; }
 .product-hero-img{ width:100%; max-height:70vh; object-fit:contain; }
 .product-hero-title{ font-weight:800; font-size:clamp(14px,2vw,20px); text-align:center; }
 .product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
+
+/* Close “×” in top-right of overlay */
+.product-hero-close{
+  position:fixed; right:24px; top:24px; z-index:95;
+  width:42px; height:42px; border-radius:12px;
+  display:grid; place-items:center; cursor:pointer;
+  border:1px solid rgba(0,0,0,.12);
+  background:rgba(0,0,0,.04); color:#111; font-weight:900; font-size:22px;
+  transition: transform .12s ease, background .2s, border-color .2s;
+}
+.product-hero-close:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
 
 /* =========================
    Chakra cascade (RTL violet→red)
@@ -218,7 +250,7 @@ html,body{
   appearance:none; -webkit-appearance:none;
   display:inline-flex; align-items:center; justify-content:center;
   padding:6px 12px; border:1px solid var(--accent); border-radius:10px;
-  background:rgba(25,145,255,.12); color:var(--text);
+  background:rgba(25,145,255,.12); color:#111;
   font:inherit; font-weight:700; line-height:1.1; cursor:pointer;
   transition: background .2s, border-color .2s, box-shadow .2s, transform .05s;
 }
@@ -226,37 +258,3 @@ html,body{
 .commit-btn:focus-visible{ outline:1px dashed var(--focus-orange); outline-offset:3px; }
 .commit-btn:active{ background:rgba(247,160,45,.18); border-color:var(--focus-orange); box-shadow:inset 0 0 0 1px var(--focus-orange); transform: translateY(1px); }
 .commit-btn[disabled]{ opacity:.6; cursor:progress; }
-
-/* =========================
-   SHOP WHITE THEME OVERRIDES
-   (applied only inside .shop-page wrapper)
-   ========================= */
-.shop-page{ background:#fff; color:#111; min-height:100dvh; }
-
-/* Controls readable on white */
-.shop-page .shop-density{
-  background:rgba(0,0,0,.04);
-  border-color:rgba(0,0,0,.12);
-  color:#111;
-}
-.shop-page .shop-density:hover{
-  background:rgba(0,0,0,.06);
-  border-color:rgba(0,0,0,.20);
-}
-.shop-page .shop-toggle--boy{
-  color:#111; text-shadow:none;
-  background:rgba(0,0,0,.04);
-  border:1px solid rgba(0,0,0,.12);
-}
-.shop-page .shop-toggle--girl{
-  border-color:rgba(0,0,0,.12);
-  text-shadow:0 0 10px rgba(180,120,255,.15);
-}
-
-/* Product labels */
-.shop-page .product-meta{ color:#111; }
-
-/* Product detail overlay matches white theme */
-.shop-page .product-hero-overlay{
-  background:#fff; color:#111;
-}

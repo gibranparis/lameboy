@@ -7,6 +7,21 @@ export default function ShopGrid() {
   const [density, setDensity] = useState(4); // 5→most tiles, 1→largest tiles
   const [girlMode, setGirlMode] = useState(false);
 
+  // very light cart (persists to localStorage)
+  const [cart, setCart] = useState([]);
+  const cartCount = cart.reduce((n, i) => n + (i.qty || 1), 0);
+  const [cartBump, setCartBump] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('lb_cart');
+      if (saved) setCart(JSON.parse(saved));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('lb_cart', JSON.stringify(cart)); } catch {}
+  }, [cart]);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -29,15 +44,31 @@ export default function ShopGrid() {
   const clickDensity = () => { if (density > 1) setDensity(density - 1); else setDensity(2); };
   const densityIcon = density > 1 ? '+' : '<';
 
+  // modal state for product detail
   const [active, setActive] = useState(null);
+
+  function addToCart(product, size) {
+    setCart(prev => {
+      const key = (product.id || product.slug || product.name) + '|' + size;
+      const idx = prev.findIndex(i => i.key === key);
+      const next = [...prev];
+      if (idx >= 0) next[idx] = { ...next[idx], qty: (next[idx].qty || 1) + 1 };
+      else next.push({ key, id: product.id || product.slug, sku: product.sku, name: product.name, size, qty: 1 });
+      return next;
+    });
+    setCartBump(true);
+    setTimeout(() => setCartBump(false), 380);
+  }
 
   return (
     <div className="shop-page">
       <div className="shop-wrap">
+        {/* density control */}
         <button className="shop-density" onClick={clickDensity} aria-label="Change grid density">
           {densityIcon}
         </button>
 
+        {/* gender toggle */}
         <button
           className={`shop-toggle ${girlMode ? 'shop-toggle--girl' : 'shop-toggle--boy'}`}
           onClick={() => setGirlMode(v => !v)}
@@ -46,6 +77,21 @@ export default function ShopGrid() {
           {girlMode ? 'LAMEGIRL' : 'LAMEBOY'}
         </button>
 
+        {/* CART with badge */}
+        <button
+          className={`cart-fab ${cartBump ? 'bump' : ''}`}
+          aria-label="Cart"
+          title="Cart"
+          onClick={()=>{/* hook a drawer later if you want */}}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/>
+          </svg>
+          <span>Cart</span>
+          {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+        </button>
+
+        {/* grid */}
         <div className="shop-grid" style={gridStyle}>
           {products.map(p => (
             <a
@@ -67,8 +113,11 @@ export default function ShopGrid() {
           ))}
         </div>
 
+        {/* detail overlay */}
         {active && (
           <div className="product-hero-overlay" onClick={()=>setActive(null)}>
+            <button className="product-hero-close" onClick={()=>setActive(null)} aria-label="Close overlay">×</button>
+
             <div className="product-hero" onClick={(e)=>e.stopPropagation()}>
               <img
                 className="product-hero-img"
@@ -80,7 +129,14 @@ export default function ShopGrid() {
 
               <div style={{ display:'flex', gap:18, marginTop:6, justifyContent:'center' }}>
                 {['S','M','L'].map(s => (
-                  <button key={s} className="commit-btn" onClick={()=>{ /* hook to cart */ }} aria-label={`Select size ${s}`}>{s}</button>
+                  <button
+                    key={s}
+                    className="commit-btn"
+                    onClick={() => addToCart(active, s)}
+                    aria-label={`Add size ${s} to cart`}
+                  >
+                    {s}
+                  </button>
                 ))}
               </div>
 
