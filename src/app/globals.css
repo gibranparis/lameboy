@@ -15,11 +15,11 @@
   --text:#fff;
   --muted:#b3b3b3;
 
-  /* Accents (screenshot colors) */
-  --accent:#1991ff;      /* cyan-ish blue for bubble border/glow */
-  --hover-green:#0bf05f; /* Florida hover green */
-  --seafoam:#2ee6b8;     /* comment seafoam */
-  --purple:#a855f7;      /* input caret purple */
+  /* Accents */
+  --accent:#1991ff;
+  --hover-green:#0bf05f;
+  --seafoam:#2ee6b8;
+  --purple:#a855f7;
 
   /* Code tokens */
   --comment:var(--seafoam);
@@ -72,14 +72,14 @@ html,body{
 }
 .ghost-btn:hover{ color:var(--hover-green); }
 
-/* Green glow helper (used for Florida + messages) */
+/* Green glow helper */
 .glow-green{
   color:var(--hover-green);
   text-shadow:0 0 6px rgba(11,240,95,.55), 0 0 14px rgba(11,240,95,.35);
 }
 .ghost-btn.is-glowing{ color:var(--hover-green); text-shadow:0 0 6px rgba(11,240,95,.55), 0 0 14px rgba(11,240,95,.35); }
 
-/* Flash “Florida, USA” seafoam/green every 3.3s */
+/* Florida pulse every 3.3s */
 @keyframes floridaPulse {
   0%, 85% { color: var(--muted); }
   92%     { color: var(--hover-green); }
@@ -87,7 +87,7 @@ html,body{
 }
 .florida-pulse { animation: floridaPulse 3.3s linear infinite; }
 
-/* Smooth slide for BOTH the blue bubble AND Florida label */
+/* Slide animations */
 .card-slide-left  { animation: slideLeft  .28s ease-out; }
 .card-slide-right { animation: slideRight .28s ease-out; }
 .slide-in-left    { animation: slideInLeft  .25s ease-out; }
@@ -106,7 +106,7 @@ html,body{
 .code-op     { color:var(--op); }
 .code-punc   { color:var(--punct); }
 
-/* Darker inline preview (placeholder) */
+/* Placeholder */
 .code-placeholder{ color:#555454; }
 
 /* Red glow words */
@@ -150,7 +150,7 @@ html,body{
   padding:0; margin:0;
 }
 
-/* Hidden measurer for pixel-accurate width */
+/* Hidden measurer */
 .measurer{
   position:absolute; visibility:hidden; pointer-events:none;
   white-space:pre; font:inherit; line-height:1.35;
@@ -185,10 +185,10 @@ html,body{
 @keyframes blink{ to{ visibility:hidden; } }
 
 /* =========================
-   Chakra Cascade (Left→Right, glow, appear→disappear)
+   Chakra Cascade
    ========================= */
 .chakra-overlay{
-  position:fixed; inset:0; z-index:60;          /* overlay sits under .ui-top */
+  position:fixed; inset:0; z-index:60;          /* under .ui-top */
   display:grid; grid-template-columns:repeat(7, 1fr);
   pointer-events:none;
 }
@@ -221,33 +221,33 @@ html,body{
 .band-6{ animation-delay: .90s;  }
 .band-7{ animation-delay: 1.08s; }
 
-/* Vibrant chakra colors */
-.chakra-root     { --c:#ff0808; background:#FF0000; } /* red */
-.chakra-sacral   { --c:#ff8b07; background:#FF7F00; } /* orange */
-.chakra-plexus   { --c:#ffff4b; background:#FFFF00; } /* yellow */
-.chakra-heart    { --c:#22ff22; background:#00FF00; } /* green */
-.chakra-throat   { --c:#164bfb; background:#0000FF; } /* blue */
-.chakra-thirdeye { --c:#b300ff; background:#4B0082; } /* indigo */
-.chakra-crown    { --c:#faf5ff; background:#8B00FF; } /* violet */
+/* Chakra colors */
+.chakra-root     { --c:#ff0808; background:#FF0000; }
+.chakra-sacral   { --c:#ff8b07; background:#FF7F00; }
+.chakra-plexus   { --c:#ffff4b; background:#FFFF00; }
+.chakra-heart    { --c:#22ff22; background:#00FF00; }
+.chakra-throat   { --c:#164bfb; background:#0000FF; }
+.chakra-thirdeye { --c:#b300ff; background:#4B0082; }
+.chakra-crown    { --c:#faf5ff; background:#8B00FF; }
 
 /* =========================
-   Shop Grid — "floating" items (no borders/background)
+   Shop Grid — floating items + toolbar
    ========================= */
-.shop-wrap{ padding: 24px; }
+.shop-wrap{ padding: 64px 24px 24px; } /* top padding so button doesn't overlap */
 
 .shop-grid{
-  --tile: clamp(140px, 17vw, 200px);
+  --cols: 5;                /* will be overridden inline */
   --gap:  28px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   gap: var(--gap);
 }
 
 @media (min-width: 1280px){
-  .shop-grid{ --tile: 220px; --gap: 32px; }
+  .shop-grid{ --gap: 32px; }
 }
 @media (max-width: 640px){
-  .shop-grid{ --tile: 150px; --gap: 20px; }
+  .shop-grid{ --gap: 20px; }
 }
 
 .product-tile{
@@ -260,8 +260,8 @@ html,body{
   aspect-ratio: 1 / 1;
   display:flex; align-items:center; justify-content:center;
   overflow:hidden;
-  background: transparent; /* no box */
-  border: 0;               /* no border */
+  background: transparent; /* floating look */
+  border: 0;
 }
 
 .product-img{
@@ -272,11 +272,28 @@ html,body{
 
 .product-meta{
   padding: 8px 2px 0 2px;
-  text-align:center;                 /* centered name */
+  text-align:center;
   letter-spacing: .02em;
   font-weight: 700;
   font-size: clamp(12px, 1.8vw, 16px);  /* smaller label */
   line-height: 1.1;
 }
 
-/* (keep hover effect off for fully-floating feel) */
+/* Toolbar button (top-left) */
+.grid-toolbar{
+  position:fixed;
+  top:14px; left:16px; z-index:85;
+}
+.grid-size-btn{
+  background:transparent; border:0; padding:0; margin:0;
+  color:#111;                 /* make it look like Yeezy on white bg; we'll tint below */
+  font-size:40px; line-height:1; cursor:pointer;
+  user-select:none;
+  filter: invert(1);          /* invert to show as dark on light/white product bg */
+  transition: transform .12s ease, color .12s ease, text-shadow .12s ease;
+}
+.grid-size-btn:hover{
+  transform: scale(1.06);
+  color: var(--hover-green);
+  text-shadow: 0 0 8px rgba(11,240,95,.45);
+}
