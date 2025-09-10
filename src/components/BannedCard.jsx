@@ -5,14 +5,15 @@ import ChakraCascade from './ChakraCascade';
 import ShopGrid from './ShopGrid';
 
 export default function BannedCard() {
-  const [phase, setPhase] = useState('ui'); // 'ui' | 'chakra' | 'shop'
-  const [mode, setMode] = useState('banned'); // 'banned' | 'login'
+  const [phase, setPhase] = useState('ui');               // 'ui' | 'chakra' | 'shop'
+  const [afterCascade, setAfterCascade] = useState('ui'); // where to go after cascade
+  const [mode, setMode] = useState('banned');             // 'banned' | 'login'
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
-  // measurements for inline-width inputs
+  // measurements for inline inputs
   const emailRef = useRef(null);
   const emailMeasureRef = useRef(null);
   const phoneMeasureRef = useRef(null);
@@ -33,27 +34,37 @@ export default function BannedCard() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setMsg(null);
-    try{
+
+    let success = false;
+
+    try {
       const res = await fetch('/api/submit', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ email, phone })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, phone }),
       });
-      if (!res.ok) throw new Error('Submit failed');
-      // success UI note then launch the chakra sequence
-      setMsg({type:'ok', text:'Thanks — opening shop…'});
-      setPhase('chakra');
-    }catch(err){
-      setMsg({type:'err', text: err.message || 'Something went wrong.'});
-    }finally{
-      setBusy(false);
+      success = res.ok === true;
+    } catch (err) {
+      success = false;
     }
+
+    if (success) {
+      setMsg({ type: 'ok', text: 'Thanks — opening shop…' });
+      setAfterCascade('shop');
+    } else {
+      setMsg({ type: 'err', text: 'Submit failed' });
+      setAfterCascade('ui');
+    }
+
+    // ✅ Always run the cascade, regardless of success/failure
+    setPhase('chakra');
+    setBusy(false);
   }
 
-  // When waterfall finishes, reveal shop
-  const handleChakraComplete = () => setPhase('shop');
+  const handleChakraComplete = () => setPhase(afterCascade);
 
   if (phase === 'shop') {
     return <ShopGrid />;
@@ -61,6 +72,7 @@ export default function BannedCard() {
 
   return (
     <>
+      {/* Foreground cascade ONLY during submit; background stays black */}
       {phase === 'chakra' && <ChakraCascade onComplete={handleChakraComplete} />}
 
       <div className="page-center" aria-hidden={phase !== 'ui'}>
