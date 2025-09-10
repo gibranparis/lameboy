@@ -16,36 +16,39 @@ export default function ShopGrid() {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(true);
 
+  // brand toggle: lameboy <-> lamegirl (UI only for now)
+  const [brand, setBrand] = useState('boy'); // 'boy' | 'girl'
+  const toggleBrand = () => setBrand((b) => (b === 'boy' ? 'girl' : 'boy'));
+
   // --- Column count controller ---------------------------------------------
   const initialCols = useMemo(() => {
-    if (typeof window === 'undefined') return 5; // SSR-safe
+    if (typeof window === 'undefined') return 5; // SSR-safe default
     const w = window.innerWidth;
     if (w >= 1536) return 7;
     if (w >= 1280) return 6;
-    return 5; // mobile/tablet like yeezy
+    return 5;
   }, []);
   const MAX_COLS = 7;
 
   const [cols, setCols] = useState(initialCols);
-  const [direction, setDirection] = useState('shrink'); // 'shrink' ( + ) -> fewer per row; 'expand' ( < ) -> more
+  const [direction, setDirection] = useState('shrink'); // '+' -> shrink; '<' -> expand
 
   const onSizeButton = () => {
     if (direction === 'shrink') {
       if (cols > 1) {
         const next = cols - 1;
         setCols(next);
-        if (next === 1) setDirection('expand'); // flip at 1
+        if (next === 1) setDirection('expand');
       }
     } else {
       if (cols < MAX_COLS) {
         const next = cols + 1;
         setCols(next);
-        if (next === MAX_COLS) setDirection('shrink'); // bounce at max
+        if (next === MAX_COLS) setDirection('shrink');
       }
     }
   };
 
-  // keyboard accessibility
   const onSizeKey = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -85,7 +88,7 @@ export default function ShopGrid() {
 
   return (
     <>
-      {/* Toolbar */}
+      {/* Toolbar (top-left) */}
       <div className="grid-toolbar ui-top">
         <button
           className="grid-size-btn"
@@ -96,6 +99,19 @@ export default function ShopGrid() {
           title={`${cols} per row`}
         >
           {direction === 'shrink' ? '+' : '<'}
+        </button>
+      </div>
+
+      {/* Center brand toggle (overlay) */}
+      <div className="brand-toggle-wrap ui-top" aria-hidden="false">
+        <button
+          type="button"
+          className={`brand-toggle-btn ${brand === 'girl' ? 'pink' : ''}`}
+          onClick={toggleBrand}
+          aria-pressed={brand === 'girl'}
+          title="Switch between lameboy / lamegirl"
+        >
+          {brand === 'girl' ? 'lamegirl' : 'lameboy'}
         </button>
       </div>
 

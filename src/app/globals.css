@@ -233,10 +233,10 @@ html,body{
 /* =========================
    Shop Grid — floating items + toolbar
    ========================= */
-.shop-wrap{ padding: 64px 24px 24px; } /* top padding so button doesn't overlap */
+.shop-wrap{ padding: 64px 24px 24px; } /* space for top-left tool */
 
 .shop-grid{
-  --cols: 5;                /* will be overridden inline */
+  --cols: 5;                /* overridden inline */
   --gap:  28px;
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
@@ -286,14 +286,40 @@ html,body{
 }
 .grid-size-btn{
   background:transparent; border:0; padding:0; margin:0;
-  color:#111;                 /* make it look like Yeezy on white bg; we'll tint below */
+  color:#111;
   font-size:40px; line-height:1; cursor:pointer;
   user-select:none;
-  filter: invert(1);          /* invert to show as dark on light/white product bg */
+  filter: invert(1);
   transition: transform .12s ease, color .12s ease, text-shadow .12s ease;
 }
 .grid-size-btn:hover{
   transform: scale(1.06);
   color: var(--hover-green);
   text-shadow: 0 0 8px rgba(11,240,95,.45);
+}
+
+/* ===== Center Brand Toggle ===== */
+.brand-toggle-wrap{
+  position:fixed; inset:0; display:grid; place-items:center;
+  z-index:90; pointer-events:none;    /* only the button receives events */
+}
+.brand-toggle-btn{
+  pointer-events:auto;
+  background:transparent; border:0; margin:0;
+  padding:8px 18px;
+  font-weight:900;
+  font-size:clamp(28px, 6vw, 56px);
+  line-height:1;
+  color:#fff;
+  text-shadow:0 0 9px rgba(255,255,255,.7), 0 0 18px rgba(255,255,255,.45);
+  cursor:pointer;
+  transition: transform .15s ease, text-shadow .15s ease, opacity .15s ease;
+}
+.brand-toggle-btn:hover{
+  transform:scale(1.04);
+  text-shadow:0 0 12px rgba(255,255,255,.85), 0 0 24px rgba(255,255,255,.6);
+}
+.brand-toggle-btn.pink{
+  color:#ffb6d9; /* soft Hello Kitty pink */
+  text-shadow:0 0 10px rgba(255,182,217,.75), 0 0 22px rgba(255,182,217,.55);
 }
