@@ -11,7 +11,10 @@ export default function BannedCard() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null);
+
+  // We’ll only show this AFTER the cascade completes on failure
+  const [msg, setMsg] = useState(null);           // actually rendered message
+  const msgPendingRef = useRef(null);             // stored during cascade
 
   // measurements for inline inputs
   const emailRef = useRef(null);
@@ -36,7 +39,9 @@ export default function BannedCard() {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
+    // Clear any visible message now; we’ll reveal result AFTER cascade
     setMsg(null);
+    msgPendingRef.current = null;
 
     let success = false;
 
@@ -52,10 +57,11 @@ export default function BannedCard() {
     }
 
     if (success) {
-      setMsg({ type: 'ok', text: 'Thanks — opening shop…' });
+      // On success we navigate to shop after cascade; no need to show a message
       setAfterCascade('shop');
     } else {
-      setMsg({ type: 'err', text: 'Submit failed' });
+      // On failure we’ll show the glowing red message AFTER the cascade finishes
+      msgPendingRef.current = { type: 'err', text: 'Submit failed' };
       setAfterCascade('ui');
     }
 
@@ -63,7 +69,14 @@ export default function BannedCard() {
     setBusy(false);
   }
 
-  const handleChakraComplete = () => setPhase(afterCascade);
+  const handleChakraComplete = () => {
+    if (afterCascade === 'ui' && msgPendingRef.current) {
+      // Only now reveal the message result
+      setMsg(msgPendingRef.current);
+      msgPendingRef.current = null;
+    }
+    setPhase(afterCascade);
+  };
 
   if (phase === 'shop') {
     return <ShopGrid />;
@@ -71,15 +84,28 @@ export default function BannedCard() {
 
   return (
     <>
+      {/* Foreground cascade ONLY during submit; background stays black */}
       {phase === 'chakra' && <ChakraCascade onComplete={handleChakraComplete} />}
 
       <div className="page-center" aria-hidden={phase !== 'ui'}>
         <div className="row-nowrap">
           {mode === 'banned' ? (
             <>
-              <div className={`vscode-card card-ultra-tight rounded-xl ${slideCardClass}`} style={{ maxWidth: 360 }}>
+              <div className={`vscode-card card-ultra-tight rounded-xl ${slideCardClass}`} style={{ maxWidth: 420 }}>
                 <div className="text-sm leading-6">
-                  <div className="code-comment">// LAMEBOY.COM</div>
+                  {/* // LAMEBOY.COM — each letter colored to chakra, .COM seafoam */}
+                  <div className="code-comment">
+                    <span>// </span>
+                    <span className="chakra-letter chakra-root">L</span>
+                    <span className="chakra-letter chakra-sacral">A</span>
+                    <span className="chakra-letter chakra-plexus">M</span>
+                    <span className="chakra-letter chakra-heart">E</span>
+                    <span className="chakra-letter chakra-throat">B</span>
+                    <span className="chakra-letter chakra-thirdeye">O</span>
+                    <span className="chakra-letter chakra-crown">Y</span>
+                    <span className="code-comment">.COM</span>
+                  </div>
+
                   <div className="code-comment">
                     // is <span className="code-banned">banned</span>
                   </div>
@@ -194,9 +220,15 @@ export default function BannedCard() {
                     <button type="submit" className="commit-btn" disabled={busy}>
                       {busy ? 'Submitting…' : 'Submit'}
                     </button>
-                    {msg && (
-                      <span style={{ marginLeft: 10 }} className={msg.type === 'ok' ? 'code-comment' : 'code-string'}>
-                        {msg.type === 'ok' ? `// ${msg.text}` : `"${msg.text}"`}
+                    {/* Show result ONLY after cascade and only on UI phase */}
+                    {phase === 'ui' && msg && (
+                      <span style={{ marginLeft: 10 }}>
+                        {/* keep quotes, color only the inner text red-glow */}
+                        <span className="code-punc">"</span>
+                        <span className={msg.type === 'err' ? 'code-fail' : 'code-comment'}>
+                          {msg.text}
+                        </span>
+                        <span className="code-punc">"</span>
                       </span>
                     )}
                   </div>

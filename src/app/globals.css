@@ -109,6 +109,21 @@ html,body{
   text-shadow:0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35);
 }
 
+/* Glowing red for failure messages (same vibe as .code-banned) */
+.code-fail{
+  color:#f20e0e;
+  font-weight:800;
+  text-shadow:0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35);
+}
+
+/* Per-letter chakra coloring for "LAMEBOY" */
+.chakra-letter{
+  font-weight:800;
+  color:var(--c);
+  text-shadow:0 0 10px currentColor; /* soft glow in letter color */
+  letter-spacing:.02em;
+}
+
 /* Code rows */
 .code-line{
   display:flex; align-items:baseline;
