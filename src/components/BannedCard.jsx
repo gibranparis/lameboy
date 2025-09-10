@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import ChakraCascade from './ChakraCascade';
 import ShopGrid from './ShopGrid';
 
@@ -14,7 +14,7 @@ export default function BannedCard() {
   const [msg, setMsg] = useState(null);
 
   // Label flip during cascades
-  const [cascadeFlip, setCascadeFlip] = useState(false); // toggles each cascade
+  const [cascadeFlip, setCascadeFlip] = useState(false);
   const [glowFlorida, setGlowFlorida] = useState(false);
 
   // inputs
@@ -32,19 +32,10 @@ export default function BannedCard() {
   const onFloridaClick = () => {
     setGlowFlorida(true);
     setTimeout(() => setGlowFlorida(false), 500);
-    toggleMode();
+    if (mode === 'banned') toggleMode();
   };
 
-  // Auto-activate from BANNED → LOGIN after 18s
-  useEffect(() => {
-    if (phase !== 'ui' || mode !== 'banned') return;
-    const t = setTimeout(() => {
-      setGlowFlorida(true);
-      setTimeout(() => setGlowFlorida(false), 900);
-      setMode('login');
-    }, 18000);
-    return () => clearTimeout(t);
-  }, [phase, mode]);
+  // ⛔️ REMOVED the old 18s timer entirely
 
   useLayoutEffect(() => {
     if (emailMeasureRef.current) setEmailPx(emailMeasureRef.current.getBoundingClientRect().width || 8);
@@ -78,7 +69,7 @@ export default function BannedCard() {
       setMsg({ type: 'ok', text: 'Thanks — opening shop…' });
       setAfterCascade('shop');
     } else {
-      setMsg(null);                 // hide result text (bubble is disappearing)
+      setMsg(null);                 // hide text (bubble disappears)
       setAfterCascade('ui');
     }
 
@@ -89,26 +80,27 @@ export default function BannedCard() {
 
   const handleChakraComplete = () => {
     setPhase(afterCascade);
-    // If we failed, restore the login bubble after the cascade passes
     if (afterCascade === 'ui' && mode !== 'banned') {
       setMsg({ type: 'err', text: 'Submit failed' });
     }
   };
 
-  // If we’ve moved to the shop, render that
   if (phase === 'shop') return <ShopGrid />;
 
-  // While the cascade is running, we keep the label visible and alternating
   const inCascade = phase === 'chakra';
   const labelDuringCascade = cascadeFlip ? 'LAMEBOY, USA' : 'Florida, USA';
   const labelText = inCascade ? labelDuringCascade : 'Florida, USA';
 
-  // Hide login bubble only when cascade is running AND we are returning to UI (failure)
   const hideLoginCard = inCascade && afterCascade === 'ui';
 
   return (
     <>
       {inCascade && <ChakraCascade onComplete={handleChakraComplete} />}
+
+      {/* Right-half invisible tap zone (BANNED view only) */}
+      {mode === 'banned' && phase === 'ui' && (
+        <div className="right-tap-zone" onClick={onFloridaClick} aria-hidden="true" />
+      )}
 
       <div className="page-center">
         <div className="row-nowrap ui-top">
