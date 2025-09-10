@@ -77,7 +77,7 @@ export default function ShopGrid() {
           {girlMode ? 'LAMEGIRL' : 'LAMEBOY'}
         </button>
 
-        {/* CART with badge */}
+        {/* CART with badge (top-right) */}
         <button
           className={`cart-fab ${cartBump ? 'bump' : ''}`}
           aria-label="Cart"
@@ -116,6 +116,7 @@ export default function ShopGrid() {
         {/* detail overlay */}
         {active && (
           <div className="product-hero-overlay" onClick={()=>setActive(null)}>
+            {/* CLOSE (now top-left) */}
             <button className="product-hero-close" onClick={()=>setActive(null)} aria-label="Close overlay">×</button>
 
             <div className="product-hero" onClick={(e)=>e.stopPropagation()}>
