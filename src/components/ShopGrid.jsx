@@ -30,7 +30,7 @@ export default function ShopGrid() {
         const swell = mod.default || mod.swell || mod;
         const res = await swell.products.list({ limit: 60 });
         if (mounted && res?.results) setProducts(res.results);
-      } catch {/* optional */}
+      } catch {/* optional */ }
     })();
     return () => { mounted = false; };
   }, []);
@@ -63,12 +63,12 @@ export default function ShopGrid() {
   return (
     <div className="shop-page">
       <div className="shop-wrap">
-        {/* density control */}
+        {/* density control (top-left) */}
         <button className="shop-density" onClick={clickDensity} aria-label="Change grid density">
           {densityIcon}
         </button>
 
-        {/* gender toggle */}
+        {/* gender toggle (center-top) */}
         <button
           className={`shop-toggle ${girlMode ? 'shop-toggle--girl' : 'shop-toggle--boy'}`}
           onClick={() => setGirlMode(v => !v)}
@@ -77,18 +77,21 @@ export default function ShopGrid() {
           {girlMode ? 'LAMEGIRL' : 'LAMEBOY'}
         </button>
 
-        {/* CART with badge (top-right) */}
+        {/* CART with badge (top-right, icon-only) */}
         <button
           className={`cart-fab ${cartBump ? 'bump' : ''}`}
           aria-label="Cart"
           title="Cart"
-          onClick={()=>{/* hook a drawer later if you want */}}
+          onClick={()=>{/* (optional) open mini-cart later */}}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/>
           </svg>
-          <span>Cart</span>
-          {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+          {cartCount > 0 && (
+            <span className={`cart-badge ${girlMode ? 'cart-badge--girl' : 'cart-badge--boy'}`}>
+              {cartCount}
+            </span>
+          )}
         </button>
 
         {/* grid */}
@@ -116,7 +119,7 @@ export default function ShopGrid() {
         {/* detail overlay */}
         {active && (
           <div className="product-hero-overlay" onClick={()=>setActive(null)}>
-            {/* CLOSE (now top-left) */}
+            {/* CLOSE (top-left) */}
             <button className="product-hero-close" onClick={()=>setActive(null)} aria-label="Close overlay">×</button>
 
             <div className="product-hero" onClick={(e)=>e.stopPropagation()}>

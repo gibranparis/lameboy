@@ -111,9 +111,7 @@ html,body{
 .caretwrap>.code-placeholder{ position:absolute; left:0; top:0; z-index:1; }
 
 /* =========================
-   Edge Hover Zones (page edges)
-   - BANNED screen → RIGHT half
-   - LOGIN  screen → LEFT  half
+   Edge Hover Zones
    ========================= */
 .hover-zone-left,
 .hover-zone-right{
@@ -124,7 +122,7 @@ html,body{
 .hover-zone-right{ right:0; width:50%; cursor:pointer; }
 
 /* =========================
-   Bypass heart (Login → cascade → shop)
+   Bypass heart
    ========================= */
 .bypass-heart{
   position:fixed; right:24px; bottom:24px; z-index:80;
@@ -182,13 +180,15 @@ html,body{
 }
 .shop-toggle:hover{ transform:translateX(-50%) translateY(-1px); }
 
-/* LAMEBOY on white */
+/* LAMEBOY — WHITE→BLUE→INDIGO gradient text */
 .shop-toggle--boy{
-  color:#111; text-shadow:none;
-  background:rgba(0,0,0,.04); border:1px solid rgba(0,0,0,.12);
+  background: linear-gradient(95deg,#f6fbff 0%, #e5f3ff 22%, #cfe2ff 40%, #8abfff 62%, #4a7dff 80%, #2f2faf 100%);
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  text-shadow:0 0 12px rgba(120,170,255,.35), 0 0 22px rgba(47,47,175,.20);
+  border:1px solid rgba(0,0,0,.12);
 }
 
-/* LAMEGIRL gradient text */
+/* LAMEGIRL gradient text (unchanged) */
 .shop-toggle--girl{
   background: linear-gradient(95deg,#fff6fb 0%,#ffd9ee 22%,#fbb7f0 40%,#dca9ff 62%,#b388ff 80%,#7a2cff 100%);
   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
@@ -196,22 +196,29 @@ html,body{
   border:1px solid rgba(0,0,0,.12);
 }
 
-/* CART FAB (top-right) */
+/* CART FAB (icon-only; top-right) */
 .cart-fab{
   position:fixed; right:18px; top:18px; z-index:76;
-  min-width:44px; height:36px; padding:0 12px; border-radius:10px;
-  display:inline-flex; align-items:center; gap:8px;
+  width:42px; height:36px; border-radius:10px; padding:0;
+  display:inline-flex; align-items:center; justify-content:center;
   border:1px solid rgba(0,0,0,.12);
   background:rgba(0,0,0,.04); color:#111; font-weight:800;
   cursor:pointer; transition: transform .12s ease, background .2s, border-color .2s;
 }
 .cart-fab:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
-.cart-fab svg{ width:18px; height:18px; }
+.cart-fab svg{ width:20px; height:20px; }
+
+/* Badge (mode-dependent colors) */
 .cart-badge{
   position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px;
-  border-radius:999px; background:#111; color:#fff; font-size:11px; font-weight:900;
+  border-radius:999px; color:#fff; font-size:11px; font-weight:900;
   display:grid; place-items:center; border:2px solid #fff;
+  box-shadow:0 0 10px rgba(0,0,0,.12);
 }
+.cart-badge--boy{  background:var(--hover-green); }
+.cart-badge--girl{ background:#f7a8e3; }
+
+/* bump */
 @keyframes cartBump { 0%{ transform:scale(1);} 15%{ transform:scale(1.14);} 100%{ transform:scale(1);} }
 .cart-fab.bump{ animation: cartBump .35s ease-out; }
 
@@ -222,7 +229,7 @@ html,body{
 .product-hero-title{ font-weight:800; font-size:clamp(14px,2vw,20px); text-align:center; }
 .product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
 
-/* Close “×” — NOW TOP-LEFT */
+/* Close “×” — top-left */
 .product-hero-close{
   position:fixed; left:24px; top:24px; z-index:95;
   width:42px; height:42px; border-radius:12px;
@@ -245,7 +252,7 @@ html,body{
 .chakra-heart{--c:#22ff22;background:#00FF00}.chakra-throat{--c:#164bfb;background:#0000FF}.chakra-thirdeye{--c:#b300ff;background:#4B0082}
 .chakra-crown{--c:#faf5ff;background:#8B00FF}
 
-/* Buttons (hardened) */
+/* Buttons */
 .commit-btn{
   appearance:none; -webkit-appearance:none;
   display:inline-flex; align-items:center; justify-content:center;
