@@ -7,10 +7,13 @@ export default function ShopGrid() {
   const [density, setDensity] = useState(4); // 5→most tiles, 1→largest tiles
   const [girlMode, setGirlMode] = useState(false);
 
-  // very light cart (persists to localStorage)
+  // cart (persisted)
   const [cart, setCart] = useState([]);
   const cartCount = cart.reduce((n, i) => n + (i.qty || 1), 0);
   const [cartBump, setCartBump] = useState(false);
+
+  // badge pulse when mode changes
+  const [badgeSwap, setBadgeSwap] = useState(null); // 'green' | 'pink' | null
 
   useEffect(() => {
     try {
@@ -30,7 +33,7 @@ export default function ShopGrid() {
         const swell = mod.default || mod.swell || mod;
         const res = await swell.products.list({ limit: 60 });
         if (mounted && res?.results) setProducts(res.results);
-      } catch {/* optional */ }
+      } catch {/* optional */}
     })();
     return () => { mounted = false; };
   }, []);
@@ -44,7 +47,7 @@ export default function ShopGrid() {
   const clickDensity = () => { if (density > 1) setDensity(density - 1); else setDensity(2); };
   const densityIcon = density > 1 ? '+' : '<';
 
-  // modal state for product detail
+  // modal for product detail
   const [active, setActive] = useState(null);
 
   function addToCart(product, size) {
@@ -60,6 +63,14 @@ export default function ShopGrid() {
     setTimeout(() => setCartBump(false), 380);
   }
 
+  function toggleMode() {
+    const next = !girlMode;
+    setGirlMode(next);
+    setBadgeSwap(next ? 'pink' : 'green');
+    // clear pulse class after animation
+    setTimeout(() => setBadgeSwap(null), 520);
+  }
+
   return (
     <div className="shop-page">
       <div className="shop-wrap">
@@ -71,7 +82,7 @@ export default function ShopGrid() {
         {/* gender toggle (center-top) */}
         <button
           className={`shop-toggle ${girlMode ? 'shop-toggle--girl' : 'shop-toggle--boy'}`}
-          onClick={() => setGirlMode(v => !v)}
+          onClick={toggleMode}
           aria-label={girlMode ? 'LAMEGIRL' : 'LAMEBOY'}
         >
           {girlMode ? 'LAMEGIRL' : 'LAMEBOY'}
@@ -82,13 +93,20 @@ export default function ShopGrid() {
           className={`cart-fab ${cartBump ? 'bump' : ''}`}
           aria-label="Cart"
           title="Cart"
-          onClick={()=>{/* (optional) open mini-cart later */}}
+          onClick={()=>{/* open drawer in future */}}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/>
           </svg>
           {cartCount > 0 && (
-            <span className={`cart-badge ${girlMode ? 'cart-badge--girl' : 'cart-badge--boy'}`}>
+            <span
+              className={[
+                'cart-badge',
+                girlMode ? 'cart-badge--girl' : 'cart-badge--boy',
+                badgeSwap === 'green' ? 'swap-green' : '',
+                badgeSwap === 'pink'  ? 'swap-pink'  : ''
+              ].join(' ').trim()}
+            >
               {cartCount}
             </span>
           )}
