@@ -103,8 +103,6 @@ html,body{
 .code-var    { color:var(--var); }
 .code-op     { color:var(--op); }
 .code-punc   { color:var(--punct); }
-
-/* Placeholder */
 .code-placeholder{ color:#555454; }
 
 /* Red/Green glow words */
@@ -121,59 +119,21 @@ html,body{
 /* Keep UI above the cascade overlay */
 .ui-top{ position:relative; z-index:70; }
 
-/* Per-letter chakra coloring for "LAMEBOY" */
+/* Per-letter chakra coloring */
 .chakra-letter{
-  font-weight:800; color:var(--c);
-  text-shadow:0 0 10px currentColor; letter-spacing:.02em;
+  font-weight:900; color:var(--c);
+  text-shadow:0 0 8px currentColor, 0 0 14px currentColor;
+  letter-spacing:.02em;
 }
-
-/* Code rows */
-.code-line{
-  display:flex; align-items:baseline;
-  gap:4px; row-gap:0;
-  line-height:1.35; font-size:.95rem;
-  flex-wrap:wrap;
-}
-
-/* Inputs-as-strings */
-.code-input{
-  background:transparent; border:none; outline:none;
-  color:var(--purple); caret-color:var(--purple); font:inherit;
-  padding:0; margin:0;
-}
-
-/* Hidden measurer */
-.measurer{
-  position:absolute; visibility:hidden; pointer-events:none;
-  white-space:pre; font:inherit; line-height:1.35;
-}
-
-/* VS Code chip */
-.commit-btn{
-  display:inline-flex; align-items:center;
-  padding:4px 10px; border:1px solid var(--accent);
-  border-radius:10px; background:rgba(25,145,255,.12);
-  color:var(--text); font:inherit; font-weight:700; line-height:1.1; cursor:pointer;
-  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
-}
-.commit-btn:hover{ background:rgba(247,160,45,.10); border-color:var(--focus-orange); }
-.commit-btn:focus-visible{ outline:1px dashed var(--focus-orange); outline-offset:3px; }
-.commit-btn:active{ background:rgba(247,160,45,.18); border-color:var(--focus-orange); box-shadow:inset 0 0 0 1px var(--focus-orange); }
-.commit-btn[disabled]{ opacity:.6; cursor:progress; }
-
-/* Carets */
-.caret::after{ content:"▮"; animation:blink 1.1s steps(2, start) infinite; }
-.purple-caret::after{ content:"▮"; color:var(--purple); animation:blink 1.1s steps(2, start) infinite; }
-@keyframes blink{ to{ visibility:hidden; } }
 
 /* =========================
-   Chakra Cascade (Right→Left: violet→red)
+   Chakra Cascade (RTL violet→red)
    ========================= */
 .chakra-overlay{
   position:fixed; inset:0; z-index:60;
   display:grid; grid-template-columns:repeat(7, 1fr);
   pointer-events:none;
-  direction: rtl; /* render first band on the RIGHT */
+  direction: rtl;
 }
 .chakra-band{
   position:relative; opacity:0; transform:translateX(2%);
@@ -198,18 +158,18 @@ html,body{
 .band-7{ animation-delay: 1.08s; }
 
 /* Chakra colors */
-.chakra-root     { --c:#ff0808; background:#FF0000; } /* red */
-.chakra-sacral   { --c:#ff8b07; background:#FF7F00; } /* orange */
-.chakra-plexus   { --c:#ffff4b; background:#FFFF00; } /* yellow */
-.chakra-heart    { --c:#22ff22; background:#00FF00; } /* green */
-.chakra-throat   { --c:#164bfb; background:#0000FF; } /* blue */
-.chakra-thirdeye { --c:#b300ff; background:#4B0082; } /* indigo */
-.chakra-crown    { --c:#faf5ff; background:#8B00FF; } /* violet */
+.chakra-root     { --c:#ff0808; background:#FF0000; }
+.chakra-sacral   { --c:#ff8b07; background:#FF7F00; }
+.chakra-plexus   { --c:#ffff4b; background:#FFFF00; }
+.chakra-heart    { --c:#22ff22; background:#00FF00; }
+.chakra-throat   { --c:#164bfb; background:#0000FF; }
+.chakra-thirdeye { --c:#b300ff; background:#4B0082; }
+.chakra-crown    { --c:#faf5ff; background:#8B00FF; }
 
 /* =========================
-   Shop Grid — floating items + toolbar + brand toggle
+   Shop Grid — floating items + controls
    ========================= */
-.shop-wrap{ padding: 64px 24px 24px; }
+.shop-wrap{ padding: 86px 24px 24px; } /* extra top space for header */
 
 .shop-grid{
   --cols: 5; --gap: 28px;
@@ -217,20 +177,16 @@ html,body{
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   gap: var(--gap);
 }
-
 @media (min-width: 1280px){ .shop-grid{ --gap: 32px; } }
 @media (max-width: 640px){ .shop-grid{ --gap: 20px; } }
 
 .product-tile{ display:block; text-decoration:none; color:inherit; }
-
 .product-box{
   aspect-ratio: 1 / 1;
   display:flex; align-items:center; justify-content:center;
   overflow:hidden; background: transparent; border: 0;
 }
-
 .product-img{ width: 96%; height: 96%; object-fit: contain; mix-blend-mode: normal; }
-
 .product-meta{
   padding:8px 2px 0 2px; text-align:center;
   letter-spacing:.02em; font-weight:700; font-size:clamp(12px,1.8vw,16px); line-height:1.1;
@@ -246,16 +202,38 @@ html,body{
 }
 .grid-size-btn:hover{ transform:scale(1.06); color:var(--hover-green); text-shadow:0 0 8px rgba(11,240,95,.45); }
 
-/* Center brand toggle */
-.brand-toggle-wrap{ position:fixed; inset:0; display:grid; place-items:center; z-index:90; pointer-events:none; }
-.brand-toggle-btn{
-  pointer-events:auto; background:transparent; border:0; margin:0; padding:8px 18px;
-  font-weight:900; font-size:clamp(28px, 6vw, 56px); line-height:1; color:#fff;
-  text-shadow:0 0 9px rgba(255,255,255,.7), 0 0 18px rgba(255,255,255,.45);
-  cursor:pointer; transition: transform .15s ease, text-shadow .15s ease, opacity .15s ease;
+/* ===== Center-top brand toggle with chakra boxes ===== */
+.brand-toggle-top{
+  position:fixed; top:10px; left:50%; transform:translateX(-50%);
+  z-index:90; pointer-events:none;
 }
-.brand-toggle-btn:hover{ transform:scale(1.04); text-shadow:0 0 12px rgba(255,255,255,.85), 0 0 24px rgba(255,255,255,.6); }
-.brand-toggle-btn.pink{ color:#ffb6d9; text-shadow:0 0 10px rgba(255,182,217,.75), 0 0 22px rgba(255,182,217,.55); }
+.brand-title-btn{
+  pointer-events:auto; background:transparent; border:0; margin:0;
+  padding:2px 8px;
+  font-weight:900; text-transform:uppercase;
+  font-size:clamp(16px, 3.4vw, 28px);
+  line-height:1; letter-spacing:.08em;
+  color:#fff;
+  text-shadow:0 0 6px rgba(255,255,255,.7), 0 0 12px rgba(255,255,255,.45);
+  cursor:pointer;
+  transition: transform .12s ease, text-shadow .15s ease, opacity .15s ease;
+}
+.brand-title-btn:hover{ transform:translateY(-1px); text-shadow:0 0 9px rgba(255,255,255,.85), 0 0 18px rgba(255,255,255,.6); }
+
+.brand-title-btn.pink{
+  color:#ff8ac2; /* sexier Hello Kitty-ish pink */
+  text-shadow:0 0 10px rgba(255,138,194,.9), 0 0 22px rgba(255,138,194,.7), 0 0 36px rgba(255,138,194,.5);
+}
+
+/* Letters + mini chakra bars (LAMEBOY only) */
+.brand-letters{ display:flex; gap:8px; align-items:flex-start; justify-content:center; }
+.brand-letter{ display:flex; flex-direction:column; align-items:center; }
+.chakra-mini{
+  width:16px; height:6px; border-radius:999px; margin-top:4px;
+  background:var(--c);
+  box-shadow:0 0 6px var(--c), 0 0 14px var(--c);
+  opacity:.95;
+}
 
 /* ====== Product Overlay (zoom in, no page load) ====== */
 .product-overlay{
@@ -274,7 +252,6 @@ html,body{
 @keyframes zoomIn{ to{ transform:scale(1) translateY(0);} }
 
 .po-img{ width:min(680px, 86vw); height:auto; }
-
 .po-meta{ text-align:center; margin-top:20px; }
 .po-title{ font-weight:800; font-size:clamp(16px,2.2vw,22px); }
 .po-price{ margin-top:8px; font-weight:700; }
@@ -290,7 +267,6 @@ html,body{
   position:fixed; left:18px; top:18px; background:transparent; border:0; color:#fff; font-size:28px; cursor:pointer;
 }
 
-/* Bottom “size sheet” */
 .size-sheet{
   position:fixed; left:0; right:0; bottom:0; z-index:130;
   background:#000; border-top:1px solid rgba(255,255,255,.06);
@@ -306,10 +282,7 @@ html,body{
 }
 .sheet-title{ letter-spacing:.06em; font-weight:800; }
 .sheet-dismiss{ background:transparent; border:0; color:#fff; font-size:20px; cursor:pointer; }
-
-.size-grid{
-  display:grid; grid-template-columns:repeat(3,1fr); gap:20px; text-align:center; color:#fff;
-}
+.size-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; text-align:center; color:#fff; }
 .size-btn{
   background:transparent; border:1px solid rgba(255,255,255,.35);
   border-radius:999px; padding:10px 0; font-weight:800; cursor:pointer;

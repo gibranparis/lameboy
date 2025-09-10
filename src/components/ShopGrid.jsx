@@ -56,8 +56,8 @@ export default function ShopGrid() {
       onSizeButton();
     }
   };
-
   // -------------------------------------------------------------------------
+
   const [selected, setSelected] = useState(null); // product for overlay
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function ShopGrid() {
 
   return (
     <>
-      {/* Toolbar (top-left) */}
+      {/* Grid size control (top-left) */}
       <div className="grid-toolbar ui-top">
         <button
           className="grid-size-btn"
@@ -104,16 +104,51 @@ export default function ShopGrid() {
         </button>
       </div>
 
-      {/* Center brand toggle (overlay) */}
-      <div className="brand-toggle-wrap ui-top" aria-hidden="false">
+      {/* Center-top brand toggle with chakra boxes */}
+      <div className="brand-toggle-top ui-top">
         <button
           type="button"
-          className={`brand-toggle-btn ${brand === 'girl' ? 'pink' : ''}`}
+          className={`brand-title-btn ${brand === 'girl' ? 'pink' : ''}`}
           onClick={toggleBrand}
           aria-pressed={brand === 'girl'}
           title="Switch between lameboy / lamegirl"
         >
-          {brand === 'girl' ? 'lamegirl' : 'lameboy'}
+          {brand === 'girl' ? (
+            // LAMEGIRL — sexier pink, no boxes
+            <span>lamegirl</span>
+          ) : (
+            // LAMEBOY — per-letter with chakra bars
+            <span className="brand-letters">
+              <span className="brand-letter chakra-root">
+                <span className="chakra-letter">L</span>
+                <span className="chakra-mini"></span>
+              </span>
+              <span className="brand-letter chakra-sacral">
+                <span className="chakra-letter">A</span>
+                <span className="chakra-mini"></span>
+              </span>
+              <span className="brand-letter chakra-plexus">
+                <span className="chakra-letter">M</span>
+                <span className="chakra-mini"></span>
+              </span>
+              <span className="brand-letter chakra-heart">
+                <span className="chakra-letter">E</span>
+                <span className="chakra-mini"></span>
+              </span>
+              <span className="brand-letter chakra-throat">
+                <span className="chakra-letter">B</span>
+                <span className="chakra-mini"></span>
+              </span>
+              <span className="brand-letter chakra-thirdeye">
+                <span className="chakra-letter">O</span>
+                <span className="chakra-mini"></span>
+              </span>
+              <span className="brand-letter chakra-crown">
+                <span className="chakra-letter">Y</span>
+                <span className="chakra-mini"></span>
+              </span>
+            </span>
+          )}
         </button>
       </div>
 
