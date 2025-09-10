@@ -29,7 +29,7 @@ export default function BannedCard() {
 
   const toggleMode = () => { setMsg(null); setMode(m => (m === 'banned' ? 'login' : 'banned')); };
 
-  // Florida click works in BOTH modes now
+  // Florida works both ways; edge hover zones handle glow + click too
   const onFloridaClick = () => {
     setGlowFlorida(true);
     setTimeout(() => setGlowFlorida(false), 500);
@@ -61,18 +61,15 @@ export default function BannedCard() {
       success = false;
     }
 
-    // Flip the label each time a cascade is triggered
     setCascadeFlip(v => !v);
 
     if (success) {
-      // On success: hide the login card DURING the cascade for a clean transition
-      setAfterCascade('shop');
+      setAfterCascade('shop');   // hide login during cascade, then open shop
     } else {
-      // On failure: also hide login card during cascade; after it completes, show 'Submit failed'
-      setAfterCascade('ui');
+      setAfterCascade('ui');     // hide login during cascade, then show failure text
     }
 
-    setPhase('chakra'); // run cascade in both cases
+    setPhase('chakra');
     setBusy(false);
   }
 
@@ -89,16 +86,16 @@ export default function BannedCard() {
   const labelDuringCascade = cascadeFlip ? 'LAMEBOY, USA' : 'Florida, USA';
   const labelText = inCascade ? labelDuringCascade : 'Florida, USA';
 
-  // NEW: hide the login card anytime a cascade is running (success OR failure)
+  // Hide login card any time a cascade is running
   const hideLoginCard = inCascade && mode === 'login';
 
   return (
     <>
       {inCascade && <ChakraCascade onComplete={handleChakraComplete} />}
 
-      {/* Hover zones:
-         - On BANNED: left half → glow + click brings LOGIN back in
-         - On LOGIN:  right half → glow + click goes to BANNED
+      {/* Edge hover zones:
+         - On BANNED: left half → glow + click brings LOGIN
+         - On LOGIN:  right half → glow + click brings BANNED
       */}
       {phase === 'ui' && mode === 'banned' && (
         <div
@@ -183,7 +180,7 @@ export default function BannedCard() {
                       <span className="code-op">=</span>
                       <span className="code-punc">"</span>
 
-                      <span className="relative inline-flex items-baseline" onClick={() => emailRef.current?.focus()}>
+                      <span className="caretwrap" onClick={() => emailRef.current?.focus()}>
                         {email.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
                         <input
                           ref={emailRef}
@@ -210,7 +207,7 @@ export default function BannedCard() {
                       <span className="code-op">=</span>
                       <span className="code-punc">"</span>
 
-                      <span className="relative inline-flex items-baseline" onClick={() => document.getElementById('phone-input')?.focus()}>
+                      <span className="caretwrap" onClick={() => document.getElementById('phone-input')?.focus()}>
                         {phone.length === 0 && <span className="purple-caret" aria-hidden="true"></span>}
                         <input
                           id="phone-input"
