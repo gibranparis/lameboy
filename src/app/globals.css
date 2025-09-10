@@ -68,9 +68,16 @@ html,body{
 .ghost-btn{
   background:transparent; border:0; margin:0; padding:0;
   color:var(--muted); font:inherit; cursor:pointer; white-space:nowrap;
-  transition: color .15s ease;
+  transition: color .15s ease, text-shadow .15s ease;
 }
 .ghost-btn:hover{ color:var(--hover-green); }
+
+/* Green glow helper (used for Florida + messages) */
+.glow-green{
+  color:var(--hover-green);
+  text-shadow:0 0 6px rgba(11,240,95,.55), 0 0 14px rgba(11,240,95,.35);
+}
+.ghost-btn.is-glowing{ color:var(--hover-green); text-shadow:0 0 6px rgba(11,240,95,.55), 0 0 14px rgba(11,240,95,.35); }
 
 /* Flash “Florida, USA” seafoam/green every 3.3s */
 @keyframes floridaPulse {
@@ -102,32 +109,23 @@ html,body{
 /* Darker inline preview (placeholder) */
 .code-placeholder{ color:#555454; }
 
-/* Only the word “banned” stays bold red + glow */
-.code-banned{
-  color:#f20e0e;
-  font-weight:800;
-  text-shadow:0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35);
-}
-
-/* Glowing red for failure messages */
+/* Red glow words */
+.code-banned,
 .code-fail{
   color:#f20e0e;
   font-weight:800;
   text-shadow:0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35);
 }
 
-/* Glowing green for success messages */
+/* Green glow messages */
 .code-success{
-  color:#0bf05f;
+  color:var(--hover-green);
   font-weight:800;
   text-shadow:0 0 6px rgba(11,240,95,.55), 0 0 14px rgba(11,240,95,.35);
 }
 
-/* Make any element sit above the chakra overlay */
-.ui-top{
-  position:relative;
-  z-index:70;
-}
+/* Keep UI above the cascade overlay */
+.ui-top{ position:relative; z-index:70; }
 
 /* Per-letter chakra coloring for "LAMEBOY" */
 .chakra-letter{
@@ -190,7 +188,7 @@ html,body{
    Chakra Cascade (Left→Right, glow, appear→disappear)
    ========================= */
 .chakra-overlay{
-  position:fixed; inset:0; z-index:60;          /* overlay sits *under* .ui-top content */
+  position:fixed; inset:0; z-index:60;          /* overlay sits under .ui-top */
   display:grid; grid-template-columns:repeat(7, 1fr);
   pointer-events:none;
 }
@@ -223,7 +221,7 @@ html,body{
 .band-6{ animation-delay: .90s;  }
 .band-7{ animation-delay: 1.08s; }
 
-/* Vibrant chakra colors you chose */
+/* Vibrant chakra colors */
 .chakra-root     { --c:#ff0808; background:#FF0000; } /* red */
 .chakra-sacral   { --c:#ff8b07; background:#FF7F00; } /* orange */
 .chakra-plexus   { --c:#ffff4b; background:#FFFF00; } /* yellow */
@@ -233,7 +231,7 @@ html,body{
 .chakra-crown    { --c:#faf5ff; background:#8B00FF; } /* violet */
 
 /* =========================
-   Shop Grid — Yeezy-style fixed tiles
+   Shop Grid — "floating" items (no borders/background)
    ========================= */
 .shop-wrap{ padding: 24px; }
 
@@ -260,31 +258,25 @@ html,body{
 
 .product-box{
   aspect-ratio: 1 / 1;
-  border-radius: 12px;
-  background: #0a0a0a;
   display:flex; align-items:center; justify-content:center;
   overflow:hidden;
-  border: 1px solid rgba(255,255,255,.06);
+  background: transparent; /* no box */
+  border: 0;               /* no border */
 }
 
 .product-img{
-  width: 88%; height: 88%;
+  width: 96%; height: 96%;
   object-fit: contain;
   mix-blend-mode: normal;
-  filter: contrast(1.02) saturate(0.98);
 }
 
 .product-meta{
-  padding: 10px 2px 0 2px;
+  padding: 8px 2px 0 2px;
+  text-align:center;                 /* centered name */
   letter-spacing: .02em;
-  font-weight: 800;
-  font-size: clamp(14px, 2.3vw, 22px);
-  line-height: 1.05;
+  font-weight: 700;
+  font-size: clamp(12px, 1.8vw, 16px);  /* smaller label */
+  line-height: 1.1;
 }
 
-.product-tile:hover .product-box{
-  border-color: rgba(25,145,255,.18);
-  box-shadow: 0 0 0 1px rgba(25,145,255,.12), 0 8px 20px rgba(0,0,0,.35);
-  transform: translateY(-2px);
-  transition: all .18s ease;
-}
+/* (keep hover effect off for fully-floating feel) */

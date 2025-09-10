@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import swell from '../lib/swell-client';
 
 function productCode(p) {
-  // Prefer short code-like labels similar to yeezy.
   const tryKeys = ['code', 'short_code', 'sku', 'slug', 'name'];
   for (const k of tryKeys) {
     const v = p?.[k];
@@ -34,15 +33,19 @@ export default function ShopGrid() {
   }, []);
 
   if (busy) {
-    return <div className="page-center"><div className="code-comment">// loading shop…</div></div>;
+    return (
+      <div className="page-center ui-top">
+        <div className="code-success">// loading shop…</div>
+      </div>
+    );
   }
 
   if (!items.length) {
-    return <div className="page-center"><div className="code-comment">// no products yet</div></div>;
+    return <div className="page-center ui-top"><div className="code-comment">// no products yet</div></div>;
   }
 
   return (
-    <main className="shop-wrap max-w-7xl mx-auto">
+    <main className="shop-wrap max-w-7xl mx-auto ui-top">
       <div className="shop-grid">
         {items.map((p) => {
           const code = productCode(p);
@@ -51,7 +54,7 @@ export default function ShopGrid() {
 
           return (
             <a key={p.id} href={href} className="product-tile">
-              <div className="product-box vscode-card">
+              <div className="product-box">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {img ? (
                   <img className="product-img" src={img} alt={p.name || code} />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ChakraCascade from './ChakraCascade';
 import ShopGrid from './ShopGrid';
 
@@ -11,7 +11,8 @@ export default function BannedCard() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null);                   // visible message (shows immediately)
+  const [msg, setMsg] = useState(null);                   // visible message (success/fail)
+  const [glowFlorida, setGlowFlorida] = useState(false);  // click/auto glow
 
   // measurements for inline inputs
   const emailRef = useRef(null);
@@ -24,6 +25,24 @@ export default function BannedCard() {
   const slideFloridaClass = mode === 'banned' ? 'slide-in-right' : 'slide-in-left';
 
   const toggle = () => { setMsg(null); setMode(m => (m === 'banned' ? 'login' : 'banned')); };
+
+  // Florida click handler: brief green glow then toggle
+  const onFloridaClick = () => {
+    setGlowFlorida(true);
+    setTimeout(() => setGlowFlorida(false), 500);
+    toggle();
+  };
+
+  // Auto-activate from BANNED → LOGIN after 8s with a glow
+  useEffect(() => {
+    if (phase !== 'ui' || mode !== 'banned') return;
+    const t = setTimeout(() => {
+      setGlowFlorida(true);
+      setTimeout(() => setGlowFlorida(false), 900);
+      setMode('login');
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [phase, mode]);
 
   useLayoutEffect(() => {
     if (emailMeasureRef.current) setEmailPx(emailMeasureRef.current.getBoundingClientRect().width || 8);
@@ -52,30 +71,23 @@ export default function BannedCard() {
     }
 
     if (success) {
-      // Show success immediately (glowing green) & run cascade -> shop
-      setMsg({ type: 'ok', text: 'Thanks — opening shop…' });
+      setMsg({ type: 'ok', text: 'Thanks — opening shop…' });  // green glow
       setAfterCascade('shop');
-      setPhase('chakra');
     } else {
-      // Show failure immediately (glowing red) & also run cascade -> back to UI
-      setMsg({ type: 'err', text: 'Submit failed' });
+      setMsg({ type: 'err', text: 'Submit failed' });          // red glow
       setAfterCascade('ui');
-      setPhase('chakra');
     }
 
+    setPhase('chakra');  // run cascade on both outcomes
     setBusy(false);
   }
 
   const handleChakraComplete = () => setPhase(afterCascade);
 
-  if (phase === 'shop') {
-    return <ShopGrid />;
-  }
+  if (phase === 'shop') return <ShopGrid />;
 
   return (
     <>
-      {/* Chakra overlay always runs on submit (success OR failure).
-         It sits underneath .ui-top elements so messages remain visible. */}
       {phase === 'chakra' && <ChakraCascade onComplete={handleChakraComplete} />}
 
       <div className="page-center">
@@ -113,8 +125,8 @@ export default function BannedCard() {
 
               <button
                 type="button"
-                className={`ghost-btn text-xs florida-pulse ${slideFloridaClass}`}
-                onClick={toggle}
+                className={`ghost-btn text-xs florida-pulse ${slideFloridaClass} ${glowFlorida ? 'is-glowing' : ''}`}
+                onClick={onFloridaClick}
                 aria-label="Florida, USA"
               >
                 Florida, USA
@@ -124,8 +136,8 @@ export default function BannedCard() {
             <>
               <button
                 type="button"
-                className={`ghost-btn text-xs florida-pulse ${slideFloridaClass}`}
-                onClick={toggle}
+                className={`ghost-btn text-xs florida-pulse ${slideFloridaClass} ${glowFlorida ? 'is-glowing' : ''}`}
+                onClick={onFloridaClick}
                 aria-label="Florida, USA"
               >
                 Florida, USA
@@ -212,7 +224,7 @@ export default function BannedCard() {
                       {busy ? 'Submitting…' : 'Submit'}
                     </button>
 
-                    {/* Message shows immediately; color by status */}
+                    {/* Result shows immediately, color by status */}
                     {msg && (
                       <span style={{ marginLeft: 10 }}>
                         <span className="code-punc">"</span>
