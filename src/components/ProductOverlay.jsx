@@ -1,49 +1,85 @@
 'use client';
 
+import { useState } from 'react';
+import { useCart } from '../contexts/CartContext';
+
 export default function ProductOverlay({ product, onClose }) {
-  const [showSheet, setShowSheet] = useState(false);
-  const { useState } = require('react'); // inline to avoid SSR import order complaints
+  const { add } = useCart();
+  const [open, setOpen] = useState(false);       // "+" opens options
+  const [showLabels, setShowLabels] = useState(false); // "?" toggles 1/2/3 → S/M/L
 
   if (!product) return null;
 
-  const title = product.name || product.slug || 'Product';
-  const priceStr = product.price != null ? `$${Number(product.price).toFixed(0)}` : '';
+  const img =
+    product.images?.[0]?.file?.url ||
+    product.images?.[0]?.url ||
+    product.image ||
+    '/placeholder.png';
 
-  const img = product.images?.[0]?.file?.url;
+  const price =
+    product.price?.toFixed?.(0) ??
+    product.price?.value ??
+    product.price ??
+    '';
+
+  const choose = () => {
+    add(1);
+    // Keeps the cart visible; user can keep shopping or close overlay manually.
+  };
 
   return (
-    <div className="product-overlay" role="dialog" aria-modal="true" aria-label={title}>
-      <button className="po-close" onClick={onClose} aria-label="Back">‹</button>
+    <div className="product-hero-overlay" role="dialog" aria-modal="true">
+      {/* Top-left "<" close */}
+      <button className="product-hero-close" onClick={onClose} aria-label="Close">&lt;</button>
 
-      <div className="po-card">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {img ? <img className="po-img" src={img} alt={title} /> : <div className="code-placeholder">no image</div>}
+      <div className="product-hero">
+        <img className="product-hero-img" src={img} alt={product.name || 'Product'} />
 
-        <div className="po-meta">
-          <div className="po-title">{title}</div>
-          {priceStr && <div className="po-price">{priceStr}</div>}
-        </div>
+        <div className="product-hero-title">{product.name || '—'}</div>
+        {price !== '' && <div className="product-hero-price">${price}</div>}
 
-        <div className="po-actions">
-          <button className="po-plus" onClick={() => setShowSheet(v => !v)} aria-expanded={showSheet} aria-controls="size-sheet">+</button>
-        </div>
+        {/* "+" button to reveal size options */}
+        {!open && (
+          <button className="hero-plus" onClick={() => setOpen(true)} aria-label="Open options">+</button>
+        )}
+
+        {open && (
+          <>
+            <div className="options-header">
+              <button
+                className="icon-chip"
+                onClick={() => setShowLabels((v) => !v)}
+                aria-label="What do 1/2/3 mean?"
+                title="Toggle 1/2/3 ↔ S/M/L"
+              >
+                ?
+              </button>
+              <div className="options-title">SELECT SIZE</div>
+              <button className="icon-chip" onClick={onClose} aria-label="Back">&lt;</button>
+            </div>
+
+            <div className="row-nowrap" style={{ gap: 10 }}>
+              {['1', '2', '3'].map((num, i) => {
+                const label = showLabels ? ['S', 'M', 'L'][i] : num;
+                return (
+                  <button
+                    key={num}
+                    className="commit-btn"
+                    onClick={choose}
+                    aria-label={`Choose size ${label}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              <button className="commit-btn" onClick={() => setOpen(false)}>Close</button>
+            </div>
+          </>
+        )}
       </div>
-
-      {showSheet && (
-        <div id="size-sheet" className="size-sheet">
-          <div className="sheet-row">
-            <span style={{opacity:.7}}>?</span>
-            <span className="sheet-title">SELECT SIZE</span>
-            <button className="sheet-dismiss" onClick={() => setShowSheet(false)} aria-label="Close">×</button>
-          </div>
-          <div className="po-price" style={{textAlign:'center', marginBottom:14}}>{priceStr}</div>
-          <div className="size-grid">
-            {['S','M','L'].map(sz => (
-              <button key={sz} className="size-btn" onClick={()=>setShowSheet(false)}>{sz}</button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
