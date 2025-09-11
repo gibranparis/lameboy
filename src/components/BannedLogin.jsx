@@ -2,25 +2,20 @@
 
 import { useCallback, useRef, useState } from 'react';
 
-const CASCADE_MS = 2400; // keep in sync with your cascade CSS timing
+const CASCADE_MS = 2400; // keep in sync with your CSS timing
 
 export default function BannedLogin() {
-  // which card to show inside the single page
-  const [view, setView] = useState('banned'); // 'banned' | 'login'
+  const [view, setView] = useState('banned');      // 'banned' | 'login'
   const [hotFlorida, setHotFlorida] = useState(false);
-
-  // cascade + bubble visibility
   const [cascade, setCascade] = useState(false);
   const [hideBubble, setHideBubble] = useState(false);
 
-  // login inputs
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const emailRef = useRef(null);
 
   const goLogin = useCallback(() => {
     setView('login');
-    // soft focus so the caret appears after the slide
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
@@ -39,20 +34,15 @@ export default function BannedLogin() {
     return () => clearTimeout(t);
   }, []);
 
-  // SPA submit (no full page reload)
   const onSubmit = useCallback(
     (e) => {
       e?.preventDefault?.();
       e?.stopPropagation?.();
-
       const ok = email.trim() && phone.trim();
-
       runCascade(() => {
         if (ok) {
-          // successful: head to shop
           window.location.href = '/shop';
         } else {
-          // failed: remain on login, bubble reappears after cascade
           setView('login');
         }
       });
@@ -60,14 +50,13 @@ export default function BannedLogin() {
     [email, phone, runCascade]
   );
 
-  // yellow star bypass → directly to shop
   const onBypass = () => {
     runCascade(() => {
       window.location.href = '/shop';
     });
   };
 
-  // non-overlapping hover zones (don’t cover inputs)
+  // Hover zones (do not cover inputs anymore)
   const bannedRightZone = (
     <div
       className="hover-zone right"
@@ -89,26 +78,22 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position: 'relative' }}>
-      {/* side hover areas */}
       {view === 'banned' ? bannedRightZone : loginLeftZone}
 
-      {/* Florida, USA control */}
+      {/* Florida, USA — now fixed & above hover zones */}
       <button
         type="button"
-        className={`ghost-btn florida-link ${hotFlorida ? 'is-hot' : ''}`}
+        className={`ghost-btn florida-link florida-fixed ${
+          view === 'banned' ? 'florida-right' : 'florida-left'
+        } ${hotFlorida ? 'is-hot' : ''}`}
         onClick={view === 'banned' ? goLogin : goBanned}
         onMouseEnter={() => setHotFlorida(true)}
         onMouseLeave={() => setHotFlorida(false)}
-        style={{
-          position: 'absolute',
-          left: view === 'banned' ? '56%' : '12%',
-          top: '50%',
-        }}
       >
         Florida, USA
       </button>
 
-      {/* Code “bubble” */}
+      {/* Code bubble */}
       {!hideBubble && (
         <div
           className={`vscode-card card-ultra-tight login-card ${
@@ -173,7 +158,6 @@ export default function BannedLogin() {
               </div>
 
               <div style={{ marginTop: 6 }}>
-                {/* button type=button to avoid form refresh */}
                 <button type="button" className="commit-btn" onClick={onSubmit}>
                   Submit
                 </button>
@@ -194,7 +178,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Chakra overlay (violet → red, right→left) */}
+      {/* Chakra overlay */}
       {cascade && (
         <div className="chakra-overlay">
           <div className="chakra-band chakra-crown band-1" />

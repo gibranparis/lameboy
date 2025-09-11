@@ -226,3 +226,14 @@ html,body{
   font-weight:900;
   text-shadow:0 0 10px rgba(46,230,184,.50), 0 0 20px rgba(46,230,184,.35);
 }
+
+/* Keep Florida fixed and above hover zones */
+.florida-fixed{
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 70;              /* hover-zone is 40; bubble is default; cascade is 60 */
+  pointer-events: auto;
+}
+.florida-right{ right: clamp(16px, 8vw, 96px); }
+.florida-left{  left:  clamp(16px, 8vw, 96px); }
