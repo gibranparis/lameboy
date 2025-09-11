@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
 export default function BannedLogin() {
   const [view, setView] = useState('banned');          // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);
-  const [hideBubble, setHideBubble] = useState(false); // stays visible until the cascade finishes (wash-away)
+  const [hideBubble, setHideBubble] = useState(false); // washed-away bubble (Florida remains)
   const [bubblePulse, setBubblePulse] = useState(false); // blue click pulse
   const [floridaHot, setFloridaHot] = useState(false);   // warm yellow glow for Florida text
   const [activated, setActivated] = useState(null);      // 'link' | 'bypass' | null (lime pulse)
@@ -18,26 +19,28 @@ export default function BannedLogin() {
   const emailRef = useRef(null);
 
   const goLogin = useCallback(() => {
-    setHideBubble(false);           // ensure bubble shows when entering login
+    setHideBubble(false);           // bubble visible when entering login
     setView('login');
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
   const goBanned = useCallback(() => {
-    setHideBubble(false);           // ensure bubble shows again on banned
+    setHideBubble(false);
     setView('banned');
   }, []);
 
   /**
    * Cascade runner:
    * - shows cascade immediately
+   * - fires chakra tones
    * - if washAway=true, hides the bubble AFTER the cascade finishes
    */
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
+    try { playChakraSequenceRTL(); } catch { /* ignore audio init failures */ }
     const t = setTimeout(() => {
       setCascade(false);
-      if (washAway) setHideBubble(true);   // <- washed away here
+      if (washAway) setHideBubble(true);   // <- washed away here (Florida remains)
       after && after();
     }, CASCADE_MS);
     return () => clearTimeout(t);
@@ -86,10 +89,11 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* Stack: bubble + Florida centered underneath */}
-      {!hideBubble && (
-        <div className="login-stack">
-          {/* Blue bubble (is a button in banned view) */}
+      {/* Stack container is always rendered; we hide only the bubble, not Florida */}
+      <div className="login-stack">
+
+        {/* Blue bubble (is a button in banned view) */}
+        {!hideBubble && (
           <div
             className={[
               'vscode-card',
@@ -189,19 +193,19 @@ export default function BannedLogin() {
               </form>
             )}
           </div>
+        )}
 
-          {/* Florida centered under bubble; muted by default; glows yellow on hover/click or after bubble click */}
-          <button
-            type="button"
-            className={`ghost-btn florida-link florida-inline ${floridaHot ? 'is-hot' : ''}`}
-            onClick={onFloridaClick}
-            onMouseEnter={() => setFloridaHot(true)}
-            onMouseLeave={() => setFloridaHot(false)}
-          >
-            Florida, USA
-          </button>
-        </div>
-      )}
+        {/* Florida centered under bubble; muted by default; glows yellow on hover/click or after bubble click */}
+        <button
+          type="button"
+          className={`ghost-btn florida-link florida-inline ${floridaHot ? 'is-hot' : ''}`}
+          onClick={onFloridaClick}
+          onMouseEnter={() => setFloridaHot(true)}
+          onMouseLeave={() => setFloridaHot(false)}
+        >
+          Florida, USA
+        </button>
+      </div>
 
       {/* Chakra overlay (only on Link / Bypass) */}
       {cascade && (
@@ -218,5 +222,3 @@ export default function BannedLogin() {
     </div>
   );
 }
-
-import { playChakraSequenceRTL } from '@/lib/chakra-audio';
