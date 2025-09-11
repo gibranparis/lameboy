@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'; // avoid static prerender of client-only bits
+export const dynamic = 'force-dynamic';
 
 import BannedCard from '../components/BannedCard';
 

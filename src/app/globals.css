@@ -212,3 +212,17 @@ html,body{
 
 .hero-plus{ margin-top:8px; width:38px; height:32px; border-radius:8px; display:grid; place-items:center; cursor:pointer; border:1px solid rgba(0,0,0,.14); background:rgba(0,0,0,.04); color:#111; font-weight:900; transition:transform .12s ease, background .2s, border-color .2s; }
 .hero-plus:hover{ transform:translateY(-1px); background:rgba(0,0,0,.07); }
+
+/* Hover zones for side activation (right half) */
+.hover-zone{
+  position:fixed; top:0; bottom:0; width:50vw; z-index:40; pointer-events:auto;
+}
+.hover-zone.right{ right:0; cursor:pointer; }
+.hover-zone.left { left:0; cursor:pointer; }
+
+/* LAMEBOY / login seafoam glow */
+.lameboy-glow{
+  color:var(--seafoam);
+  font-weight:900;
+  text-shadow:0 0 10px rgba(46,230,184,.50), 0 0 20px rgba(46,230,184,.35);
+}
