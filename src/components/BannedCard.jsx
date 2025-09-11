@@ -3,15 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-/** Right-side hover should activate Florida and clicking goes to /login */
-
 export default function BannedCard() {
   const router = useRouter();
-  const [hot, setHot] = useState(false); // hover highlight for Florida
+  const [hot, setHot] = useState(false); // yellow glow on Florida
 
   return (
     <>
-      {/* RIGHT half hover/click area */}
+      {/* RIGHT half hover/click → /login */}
       <div
         className="hover-zone right"
         onMouseEnter={() => setHot(true)}
@@ -21,7 +19,7 @@ export default function BannedCard() {
       />
 
       <div className="page-center">
-        {/* blue code bubble */}
+        {/* Blue code bubble */}
         <div className="vscode-card card-ultra-tight slide-in-right">
           <div className="code-line">
             <span className="code-comment">// </span>
