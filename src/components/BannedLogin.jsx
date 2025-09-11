@@ -218,3 +218,5 @@ export default function BannedLogin() {
     </div>
   );
 }
+
+import { playChakraSequenceRTL } from '@/lib/chakra-audio';
