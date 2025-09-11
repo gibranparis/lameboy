@@ -11,8 +11,6 @@ export default function ShopGrid() {
   const [cart, setCart] = useState([]);
   const cartCount = cart.reduce((n, i) => n + (i.qty || 1), 0);
   const [cartBump, setCartBump] = useState(false);
-
-  // badge pulse when mode changes
   const [badgeSwap, setBadgeSwap] = useState(null); // 'green' | 'pink' | null
 
   useEffect(() => {
@@ -33,7 +31,7 @@ export default function ShopGrid() {
         const swell = mod.default || mod.swell || mod;
         const res = await swell.products.list({ limit: 60 });
         if (mounted && res?.results) setProducts(res.results);
-      } catch {/* optional */}
+      } catch {}
     })();
     return () => { mounted = false; };
   }, []);
@@ -44,11 +42,20 @@ export default function ShopGrid() {
     return { ['--tile']: tile, ['--gap']: gap };
   }, [density]);
 
+  // change density: click reduces until 1, then starts back toward denser grid (step 2)
   const clickDensity = () => { if (density > 1) setDensity(density - 1); else setDensity(2); };
-  const densityIcon = density > 1 ? '+' : '<';
+  // show “+” normally; show “–” at min
+  const densityIcon = density > 1 ? '+' : '–';
 
   // modal for product detail
   const [active, setActive] = useState(null);
+  const [openOptions, setOpenOptions] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
+
+  useEffect(() => {
+    // reset options UI whenever opening a new product
+    if (active) { setOpenOptions(false); setShowLegend(false); }
+  }, [active]);
 
   function addToCart(product, size) {
     setCart(prev => {
@@ -67,7 +74,6 @@ export default function ShopGrid() {
     const next = !girlMode;
     setGirlMode(next);
     setBadgeSwap(next ? 'pink' : 'green');
-    // clear pulse class after animation
     setTimeout(() => setBadgeSwap(null), 520);
   }
 
@@ -93,7 +99,7 @@ export default function ShopGrid() {
           className={`cart-fab ${cartBump ? 'bump' : ''}`}
           aria-label="Cart"
           title="Cart"
-          onClick={()=>{/* open drawer in future */}}
+          onClick={()=>{}}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/>
@@ -137,8 +143,8 @@ export default function ShopGrid() {
         {/* detail overlay */}
         {active && (
           <div className="product-hero-overlay" onClick={()=>setActive(null)}>
-            {/* CLOSE (top-left) */}
-            <button className="product-hero-close" onClick={()=>setActive(null)} aria-label="Close overlay">×</button>
+            {/* CLOSE (top-left) now '<' */}
+            <button className="product-hero-close" onClick={()=>setActive(null)} aria-label="Close overlay">&lt;</button>
 
             <div className="product-hero" onClick={(e)=>e.stopPropagation()}>
               <img
@@ -146,25 +152,41 @@ export default function ShopGrid() {
                 src={active.images?.[0]?.file?.url || active.images?.[0]?.src || active.image?.file?.url || active.image?.src}
                 alt={active.name || 'product'}
               />
+
               <div className="product-hero-title">{active.sku || active.meta?.code || active.name}</div>
               {active.price && <div className="product-hero-price">${active.price}</div>}
 
-              <div style={{ display:'flex', gap:18, marginTop:6, justifyContent:'center' }}>
-                {['S','M','L'].map(s => (
-                  <button
-                    key={s}
-                    className="commit-btn"
-                    onClick={() => addToCart(active, s)}
-                    aria-label={`Add size ${s} to cart`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+              {/* Collapsed -> big + ; Expanded -> options header + sizes */}
+              {!openOptions ? (
+                <button className="hero-plus" onClick={()=>setOpenOptions(true)} aria-label="Open size options">+</button>
+              ) : (
+                <>
+                  <div className="options-header">
+                    <button className="icon-chip" onClick={()=>setShowLegend(s => !s)} aria-label="What do the numbers mean?">?</button>
+                    <div className="options-title">SELECT SIZE</div>
+                    <button className="icon-chip" onClick={()=>setOpenOptions(false)} aria-label="Collapse options">&lt;</button>
+                  </div>
 
-              <div style={{ marginTop:10 }}>
-                <button className="commit-btn" onClick={()=>setActive(null)}>Close</button>
-              </div>
+                  <div style={{ display:'flex', gap:18, marginTop:10, justifyContent:'center' }}>
+                    {['S','M','L'].map(s => (
+                      <button
+                        key={s}
+                        className="commit-btn"
+                        onClick={() => addToCart(active, s)}
+                        aria-label={`Add size ${s} to cart`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+
+                  {showLegend && (
+                    <div className="size-legend">
+                      <span>1</span><span>2</span><span>3</span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
