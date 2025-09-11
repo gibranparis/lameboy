@@ -400,3 +400,13 @@ html,body{
   border-color: #0bf05f !important;
   color:#0b3a25 !important;
 }
+/* 3D logo canvas sits behind UI and cascade */
+.logo-3d{
+  position: fixed;
+  inset: 0;
+  z-index: 8;          /* bubble/card default > 8; cascade is 60 */
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce){
+  .logo-3d{ display:none; }
+}

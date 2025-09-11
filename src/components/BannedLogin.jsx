@@ -1,25 +1,27 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
+
+const SpinningLogo = dynamic(() => import('./SpinningLogo'), { ssr: false });
 
 const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
 export default function BannedLogin() {
   const [view, setView] = useState('banned');          // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);
-  const [hideBubble, setHideBubble] = useState(false); // washed-away bubble (Florida remains)
-  const [bubblePulse, setBubblePulse] = useState(false); // blue click pulse
-  const [floridaHot, setFloridaHot] = useState(false);   // warm yellow glow for Florida text
-  const [activated, setActivated] = useState(null);      // 'link' | 'bypass' | null (lime pulse)
+  const [hideBubble, setHideBubble] = useState(false);  // washed-away bubble (Florida remains)
+  const [bubblePulse, setBubblePulse] = useState(false);
+  const [floridaHot, setFloridaHot] = useState(false);  // warm yellow glow
+  const [activated, setActivated] = useState(null);     // 'link' | 'bypass' | null
 
-  // inputs
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const emailRef = useRef(null);
 
   const goLogin = useCallback(() => {
-    setHideBubble(false);           // bubble visible when entering login
+    setHideBubble(false);
     setView('login');
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
@@ -29,67 +31,54 @@ export default function BannedLogin() {
     setView('banned');
   }, []);
 
-  /**
-   * Cascade runner:
-   * - shows cascade immediately
-   * - fires chakra tones
-   * - if washAway=true, hides the bubble AFTER the cascade finishes
-   */
+  // Cascade: start overlay + tones, then optionally wash away the bubble
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
-    try { playChakraSequenceRTL(); } catch { /* ignore audio init failures */ }
+    try { playChakraSequenceRTL(); } catch {}
     const t = setTimeout(() => {
       setCascade(false);
-      if (washAway) setHideBubble(true);   // <- washed away here (Florida remains)
+      if (washAway) setHideBubble(true);
       after && after();
     }, CASCADE_MS);
     return () => clearTimeout(t);
   }, []);
 
-  // Bubble click: blue pulse + set Florida glow briefly, then go to login (NO cascade here)
+  // Bubble click (no cascade): blue pulse + brief Florida glow → login
   const onBubbleClick = useCallback(() => {
-    setBubblePulse(true);
-    setTimeout(() => setBubblePulse(false), 700);
-    setFloridaHot(true);
-    setTimeout(() => setFloridaHot(false), 700);
+    setBubblePulse(true); setTimeout(() => setBubblePulse(false), 700);
+    setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
     goLogin();
   }, [goLogin]);
 
-  // Florida toggles views (NO cascade)
+  // Florida toggles views (no cascade)
   const onFloridaClick = useCallback(() => {
-    setFloridaHot(true);
-    setTimeout(() => setFloridaHot(false), 700);
+    setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
     setHideBubble(false);
     setView(v => (v === 'banned' ? 'login' : 'banned'));
   }, []);
 
-  // Link button: cascade, wash bubble away, then go /shop if both fields present
+  // Link: cascade, wash bubble away, then go /shop if both fields exist
   const onLink = useCallback(() => {
-    setActivated('link');
-    setTimeout(() => setActivated(null), 650); // quick lime pulse
+    setActivated('link'); setTimeout(() => setActivated(null), 650);
     const ok = email.trim() && phone.trim();
     runCascade(() => {
-      if (ok) {
-        window.location.href = '/shop';
-      } else {
-        // Stay on login with bubble gone (washed away). Florida stays, so user can toggle.
-        setView('login');
-      }
+      if (ok) window.location.href = '/shop';
+      else setView('login');  // stay on login; bubble washed away
     }, { washAway: true });
   }, [email, phone, runCascade]);
 
   // Bypass: cascade, wash bubble, then go shop
   const onBypass = useCallback(() => {
-    setActivated('bypass');
-    setTimeout(() => setActivated(null), 650);
-    runCascade(() => {
-      window.location.href = '/shop';
-    }, { washAway: true });
+    setActivated('bypass'); setTimeout(() => setActivated(null), 650);
+    runCascade(() => { window.location.href = '/shop'; }, { washAway: true });
   }, [runCascade]);
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* Stack container is always rendered; we hide only the bubble, not Florida */}
+      {/* Spinning 3D logo only on initial banned view (under UI & under cascade) */}
+      {view === 'banned' && <SpinningLogo />}
+
+      {/* Stack container always rendered; we hide only the bubble, not Florida */}
       <div className="login-stack">
 
         {/* Blue bubble (is a button in banned view) */}
