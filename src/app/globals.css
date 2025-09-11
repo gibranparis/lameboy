@@ -349,3 +349,54 @@ html,body{
   transition:transform .12s ease, background .2s, border-color .2s;
 }
 .hero-plus:hover{ transform:translateY(-1px); background:rgba(0,0,0,.07); }
+
+/* === Action buttons on login (Link & Bypass) === */
+
+/* Carolina blue glow for Link */
+.btn-link{
+  border-color:#4b9cd3;
+  background: linear-gradient(180deg, rgba(75,156,211,.22) 0%, rgba(75,156,211,.12) 100%);
+  box-shadow:
+    0 0 0 1px rgba(75,156,211,.25),
+    0 0 18px rgba(75,156,211,.28),
+    0 0 38px rgba(75,156,211,.20);
+  color:#111;
+}
+.btn-link:hover{
+  box-shadow:
+    0 0 0 1px rgba(75,156,211,.34),
+    0 0 26px rgba(75,156,211,.35),
+    0 0 56px rgba(75,156,211,.25);
+}
+
+/* Gold glow for Bypass (like the star) */
+.btn-bypass{
+  border-color:#f1b800;
+  background: radial-gradient(circle at 35% 35%, #fff6b2 0%, #ffe34d 40%, #ffd600 72%, #f1b800 100%);
+  box-shadow:
+    0 0 0 1px rgba(241,184,0,.25),
+    0 0 18px rgba(241,184,0,.35),
+    0 0 42px rgba(241,184,0,.25);
+  color:#3a2d00;
+}
+.btn-bypass:hover{
+  filter:saturate(1.06);
+  box-shadow:
+    0 0 0 1px rgba(241,184,0,.34),
+    0 0 26px rgba(241,184,0,.45),
+    0 0 62px rgba(241,184,0,.30);
+}
+
+/* Lime-green activation pulse for BOTH buttons */
+@keyframes btnPulseLime {
+  0%   { transform: scale(1);   box-shadow: 0 0 0 0 rgba(11,240,95,0); }
+  35%  { transform: scale(1.04); box-shadow: 0 0 24px 10px rgba(11,240,95,.30); }
+  100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(11,240,95,0); }
+}
+.btn-activated{
+  animation: btnPulseLime .55s ease-out;
+  background-image: none !important;
+  background: rgba(11,240,95,.18) !important;
+  border-color: #0bf05f !important;
+  color:#0b3a25 !important;
+}

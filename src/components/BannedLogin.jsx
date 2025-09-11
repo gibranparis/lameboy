@@ -5,74 +5,91 @@ import { useCallback, useRef, useState } from 'react';
 const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
 export default function BannedLogin() {
-  const [view, setView] = useState('banned');        // 'banned' | 'login'
+  const [view, setView] = useState('banned');          // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);
-  const [hideBubble, setHideBubble] = useState(false);
+  const [hideBubble, setHideBubble] = useState(false); // stays visible until the cascade finishes (wash-away)
   const [bubblePulse, setBubblePulse] = useState(false); // blue click pulse
-  const [floridaHot, setFloridaHot] = useState(false);   // warm yellow glow
+  const [floridaHot, setFloridaHot] = useState(false);   // warm yellow glow for Florida text
+  const [activated, setActivated] = useState(null);      // 'link' | 'bypass' | null (lime pulse)
 
-  // login inputs
+  // inputs
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const emailRef = useRef(null);
 
   const goLogin = useCallback(() => {
+    setHideBubble(false);           // ensure bubble shows when entering login
     setView('login');
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  const goBanned = useCallback(() => setView('banned'), []);
+  const goBanned = useCallback(() => {
+    setHideBubble(false);           // ensure bubble shows again on banned
+    setView('banned');
+  }, []);
 
-  // cascade runner (used only by Link in / Bypass)
-  const runCascade = useCallback((after) => {
+  /**
+   * Cascade runner:
+   * - shows cascade immediately
+   * - if washAway=true, hides the bubble AFTER the cascade finishes
+   */
+  const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
-    setHideBubble(true);
     const t = setTimeout(() => {
       setCascade(false);
-      setHideBubble(false);
+      if (washAway) setHideBubble(true);   // <- washed away here
       after && after();
     }, CASCADE_MS);
     return () => clearTimeout(t);
   }, []);
 
-  // Bubble click: blue pulse + set Florida glowing briefly, then go to login (no cascade)
+  // Bubble click: blue pulse + set Florida glow briefly, then go to login (NO cascade here)
   const onBubbleClick = useCallback(() => {
     setBubblePulse(true);
+    setTimeout(() => setBubblePulse(false), 700);
     setFloridaHot(true);
     setTimeout(() => setFloridaHot(false), 700);
     goLogin();
   }, [goLogin]);
 
-  // Florida toggles views (no cascade)
+  // Florida toggles views (NO cascade)
   const onFloridaClick = useCallback(() => {
     setFloridaHot(true);
     setTimeout(() => setFloridaHot(false), 700);
+    setHideBubble(false);
     setView(v => (v === 'banned' ? 'login' : 'banned'));
   }, []);
 
-  // Link in (was Submit): cascade, then either go shop (if both fields filled) or stay on login
-  const onLinkIn = useCallback(() => {
+  // Link button: cascade, wash bubble away, then go /shop if both fields present
+  const onLink = useCallback(() => {
+    setActivated('link');
+    setTimeout(() => setActivated(null), 650); // quick lime pulse
     const ok = email.trim() && phone.trim();
     runCascade(() => {
       if (ok) {
         window.location.href = '/shop';
       } else {
-        setView('login'); // show bubble again on failure
+        // Stay on login with bubble gone (washed away). Florida stays, so user can toggle.
+        setView('login');
       }
-    });
+    }, { washAway: true });
   }, [email, phone, runCascade]);
 
-  // Bypass: cascade then go shop
+  // Bypass: cascade, wash bubble, then go shop
   const onBypass = useCallback(() => {
-    runCascade(() => { window.location.href = '/shop'; });
+    setActivated('bypass');
+    setTimeout(() => setActivated(null), 650);
+    runCascade(() => {
+      window.location.href = '/shop';
+    }, { washAway: true });
   }, [runCascade]);
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* STACK: bubble + Florida inline under it */}
+      {/* Stack: bubble + Florida centered underneath */}
       {!hideBubble && (
         <div className="login-stack">
-          {/* Bubble (acts as a button in banned view) */}
+          {/* Blue bubble (is a button in banned view) */}
           <div
             className={[
               'vscode-card',
@@ -113,10 +130,7 @@ export default function BannedLogin() {
                 <span className="code-punc">);</span>
               </pre>
             ) : (
-              <form
-                onSubmit={(e) => { e.preventDefault(); }}
-                style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
-              >
+              <form onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div className="code-line">
                   <span className="code-comment">// login</span>
                 </div>
@@ -157,10 +171,18 @@ export default function BannedLogin() {
                 </div>
 
                 <div className="row-nowrap" style={{ marginTop: 6, gap: 8 }}>
-                  <button type="button" className="commit-btn" onClick={onLinkIn}>
-                    Link in
+                  <button
+                    type="button"
+                    className={`commit-btn btn-link ${activated === 'link' ? 'btn-activated' : ''}`}
+                    onClick={onLink}
+                  >
+                    Link
                   </button>
-                  <button type="button" className="commit-btn" onClick={onBypass}>
+                  <button
+                    type="button"
+                    className={`commit-btn btn-bypass ${activated === 'bypass' ? 'btn-activated' : ''}`}
+                    onClick={onBypass}
+                  >
                     Bypass
                   </button>
                 </div>
@@ -168,8 +190,7 @@ export default function BannedLogin() {
             )}
           </div>
 
-          {/* Florida, USA — centered under bubble.
-              Default muted; glows warm yellow on hover/click and also when bubble is clicked. */}
+          {/* Florida centered under bubble; muted by default; glows yellow on hover/click or after bubble click */}
           <button
             type="button"
             className={`ghost-btn florida-link florida-inline ${floridaHot ? 'is-hot' : ''}`}
@@ -182,7 +203,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Chakra overlay (only on Link in / Bypass) */}
+      {/* Chakra overlay (only on Link / Bypass) */}
       {cascade && (
         <div className="chakra-overlay">
           <div className="chakra-band chakra-crown band-1" />
