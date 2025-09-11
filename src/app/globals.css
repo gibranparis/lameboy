@@ -237,3 +237,48 @@ html,body{
 }
 .florida-right{ right: clamp(16px, 8vw, 96px); }
 .florida-left{  left:  clamp(16px, 8vw, 96px); }
+
+/* ----- Bubble-as-button (blue glow) ----- */
+.bubble-button { cursor: pointer; }
+
+/* Hover glow (blue) */
+.bubble-button:hover {
+  box-shadow:
+    0 0 0 1px rgba(25,145,255,.25),
+    0 0 24px rgba(25,145,255,.22),
+    0 0 50px rgba(25,145,255,.25);
+}
+
+/* Click pulse (blue) */
+@keyframes bubblePulseBlue {
+  0%   { box-shadow: 0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12); }
+  35%  { box-shadow: 0 0 0 1px rgba(25,145,255,.25), 0 0 28px rgba(25,145,255,.28), 0 0 56px rgba(25,145,255,.32); }
+  100% { box-shadow: 0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12); }
+}
+.bubble-glow-blue { animation: bubblePulseBlue .85s ease-out; }
+
+/* Accessible focus for bubble button */
+.bubble-button:focus-visible{
+  outline: 2px solid #4aa5ff;
+  outline-offset: 4px;
+  border-radius: var(--radius-xl);
+}
+
+/* ----- Center stack on login (bubble + Florida) ----- */
+.login-stack{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Florida inline under bubble, always warm-yellow glow on login */
+.florida-inline{
+  display: inline-block;
+  margin-top: 2px;
+}
+.florida-link.is-hot{
+  color:#ffeb3b;
+  font-weight:900;
+  text-shadow:0 0 8px rgba(255,235,59,.60), 0 0 18px rgba(255,235,59,.35);
+}
