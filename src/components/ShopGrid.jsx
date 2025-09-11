@@ -11,7 +11,10 @@ export default function ShopGrid() {
   const [cart, setCart] = useState([]);
   const cartCount = cart.reduce((n, i) => n + (i.qty || 1), 0);
   const [cartBump, setCartBump] = useState(false);
-  const [badgeSwap, setBadgeSwap] = useState(null); // 'green' | 'pink' | null
+  const [badgeSwap, setBadgeSwap] = useState(null); // 'green' | null
+
+  // toggle pulse class
+  const [toggleGlow, setToggleGlow] = useState(null); // 'blue' | 'green' | null
 
   useEffect(() => {
     try {
@@ -42,22 +45,24 @@ export default function ShopGrid() {
     return { ['--tile']: tile, ['--gap']: gap };
   }, [density]);
 
-  // change density: click reduces until 1, then starts back toward denser grid (step 2)
+  // change density: click reduces until 1, then goes to 2
   const clickDensity = () => { if (density > 1) setDensity(density - 1); else setDensity(2); };
-  // show “+” normally; show “–” at min
   const densityIcon = density > 1 ? '+' : '–';
 
   // modal for product detail
   const [active, setActive] = useState(null);
   const [openOptions, setOpenOptions] = useState(false);
-  const [showLegend, setShowLegend] = useState(false);
+
+  // NEW: numbers→letters toggle
+  const [useNumbers, setUseNumbers] = useState(true);
 
   useEffect(() => {
-    // reset options UI whenever opening a new product
-    if (active) { setOpenOptions(false); setShowLegend(false); }
+    if (active) { setOpenOptions(false); setUseNumbers(true); }
   }, [active]);
 
-  function addToCart(product, size) {
+  function addToCart(product, label) {
+    // Map numeric labels to sizes
+    const size = (label === '1') ? 'S' : (label === '2') ? 'M' : (label === '3') ? 'L' : label;
     setCart(prev => {
       const key = (product.id || product.slug || product.name) + '|' + size;
       const idx = prev.findIndex(i => i.key === key);
@@ -73,9 +78,16 @@ export default function ShopGrid() {
   function toggleMode() {
     const next = !girlMode;
     setGirlMode(next);
-    setBadgeSwap(next ? 'pink' : 'green');
+    // always keep badge green but pulse it
+    setBadgeSwap('green');
     setTimeout(() => setBadgeSwap(null), 520);
+
+    // add glow on the toggle text (blue for boy, green for girl)
+    setToggleGlow(next ? 'green' : 'blue');
+    setTimeout(() => setToggleGlow(null), 720);
   }
+
+  const sizeLabels = useNumbers ? ['1','2','3'] : ['S','M','L'];
 
   return (
     <div className="shop-page">
@@ -87,14 +99,19 @@ export default function ShopGrid() {
 
         {/* gender toggle (center-top) */}
         <button
-          className={`shop-toggle ${girlMode ? 'shop-toggle--girl' : 'shop-toggle--boy'}`}
+          className={[
+            'shop-toggle',
+            girlMode ? 'shop-toggle--girl' : 'shop-toggle--boy',
+            toggleGlow === 'blue'  ? 'glow-blue'  : '',
+            toggleGlow === 'green' ? 'glow-green' : ''
+          ].join(' ').trim()}
           onClick={toggleMode}
           aria-label={girlMode ? 'LAMEGIRL' : 'LAMEBOY'}
         >
           {girlMode ? 'LAMEGIRL' : 'LAMEBOY'}
         </button>
 
-        {/* CART with badge (top-right, icon-only) */}
+        {/* CART with green badge (top-right, always visible above overlay) */}
         <button
           className={`cart-fab ${cartBump ? 'bump' : ''}`}
           aria-label="Cart"
@@ -105,14 +122,7 @@ export default function ShopGrid() {
             <path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/>
           </svg>
           {cartCount > 0 && (
-            <span
-              className={[
-                'cart-badge',
-                girlMode ? 'cart-badge--girl' : 'cart-badge--boy',
-                badgeSwap === 'green' ? 'swap-green' : '',
-                badgeSwap === 'pink'  ? 'swap-pink'  : ''
-              ].join(' ').trim()}
-            >
+            <span className={['cart-badge', badgeSwap === 'green' ? 'swap-green' : ''].join(' ').trim()}>
               {cartCount}
             </span>
           )}
@@ -143,7 +153,7 @@ export default function ShopGrid() {
         {/* detail overlay */}
         {active && (
           <div className="product-hero-overlay" onClick={()=>setActive(null)}>
-            {/* CLOSE (top-left) now '<' */}
+            {/* CLOSE (top-left) as '<' */}
             <button className="product-hero-close" onClick={()=>setActive(null)} aria-label="Close overlay">&lt;</button>
 
             <div className="product-hero" onClick={(e)=>e.stopPropagation()}>
@@ -162,29 +172,28 @@ export default function ShopGrid() {
               ) : (
                 <>
                   <div className="options-header">
-                    <button className="icon-chip" onClick={()=>setShowLegend(s => !s)} aria-label="What do the numbers mean?">?</button>
+                    <button
+                      className="icon-chip"
+                      onClick={()=>setUseNumbers(n => !n)}
+                      aria-label="Toggle size labels"
+                      title={useNumbers ? 'Switch to S/M/L' : 'Switch to 1/2/3'}
+                    >?</button>
                     <div className="options-title">SELECT SIZE</div>
                     <button className="icon-chip" onClick={()=>setOpenOptions(false)} aria-label="Collapse options">&lt;</button>
                   </div>
 
                   <div style={{ display:'flex', gap:18, marginTop:10, justifyContent:'center' }}>
-                    {['S','M','L'].map(s => (
+                    {sizeLabels.map(lbl => (
                       <button
-                        key={s}
+                        key={lbl}
                         className="commit-btn"
-                        onClick={() => addToCart(active, s)}
-                        aria-label={`Add size ${s} to cart`}
+                        onClick={() => addToCart(active, lbl)}
+                        aria-label={`Choose ${lbl}`}
                       >
-                        {s}
+                        {lbl}
                       </button>
                     ))}
                   </div>
-
-                  {showLegend && (
-                    <div className="size-legend">
-                      <span>1</span><span>2</span><span>3</span>
-                    </div>
-                  )}
                 </>
               )}
             </div>
