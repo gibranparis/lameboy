@@ -1,6 +1,9 @@
 // src/components/BannedLogin.jsx
 'use client';
 
+import dynamic from 'next/dynamic';
+const BlueOrbCross3D = dynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
+
 import { useCallback, useRef, useState } from 'react';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
@@ -82,6 +85,12 @@ export default function BannedLogin() {
       {/* Normal UI is entirely hidden while/after cascade once triggered */}
       {!hideAll && (
         <div className="login-stack">
+
+          {/* 3D orb cross ABOVE the blue bubble on the login view */}
+          {view === 'login' && (
+            <BlueOrbCross3D height="42vh" rpm={2.2} />
+          )}
+
           {/* Blue bubble (is a button in banned view) */}
           {!hideBubble && (
             <div
