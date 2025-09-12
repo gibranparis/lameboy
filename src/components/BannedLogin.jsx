@@ -66,7 +66,7 @@ export default function BannedLogin() {
   const onLink = useCallback(() => {
     setActivated('link'); setTimeout(() => setActivated(null), 650);
     runCascade(() => {
-      // If you want to redirect AFTER the brand shows, uncomment:
+      // Optional redirect AFTER the brand shows:
       // setTimeout(() => (window.location.href = '/shop'), 1200);
     }, { washAway: true });
   }, [runCascade]);
@@ -75,7 +75,7 @@ export default function BannedLogin() {
   const onBypass = useCallback(() => {
     setActivated('bypass'); setTimeout(() => setActivated(null), 650);
     runCascade(() => {
-      // Optional redirect after showing brand:
+      // Optional redirect AFTER the brand shows:
       // setTimeout(() => (window.location.href = '/shop'), 1200);
     }, { washAway: true });
   }, [runCascade]);
@@ -86,10 +86,8 @@ export default function BannedLogin() {
       {!hideAll && (
         <div className="login-stack">
 
-          {/* 3D orb cross ABOVE the blue bubble on the login view */}
-          {view === 'login' && (
-            <BlueOrbCross3D height="42vh" rpm={2.2} />
-          )}
+          {/* 3D orb cross ABOVE the blue bubble (render on BOTH views) */}
+          <BlueOrbCross3D height="30vh" rpm={2} glow />
 
           {/* Blue bubble (is a button in banned view) */}
           {!hideBubble && (
