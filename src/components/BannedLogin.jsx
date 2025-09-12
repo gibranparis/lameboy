@@ -6,9 +6,7 @@ import { useCallback, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
-// NOTE: filename on disk is Spinninglogo.jsx (lowercase "l")
-// If you renamed the file to SpinningLogo.jsx, change the path back.
-const SpinningLogo = dynamic(() => import('./Spinninglogo'), { ssr: false });
+
 
 const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
@@ -79,9 +77,7 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* Spinning 3D logo only on initial banned view (under UI & under cascade) */}
-      {view === 'banned' && <SpinningLogo />}
-
+      
       {/* Stack container always rendered; we hide only the bubble, not Florida */}
       <div className="login-stack">
 
