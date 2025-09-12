@@ -9,6 +9,35 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
+/** Renders "Lameboy" with chakra colors; suffix (e.g., ".com") inherits surrounding color */
+function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = '' }) {
+  // Root→Crown: red, orange, yellow, green, blue, indigo, violet
+  const colors = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#a855f7'];
+  const letters = word.split('');
+  return (
+    <span className={`chakra-word ${className}`}>
+      {letters.map((ch, i) => (
+        <span
+          key={`${ch}-${i}`}
+          className="chakra-letter"
+          style={{
+            color: colors[i % colors.length],
+            fontWeight: strong ? 800 : 700,
+            textShadow: '0 0 8px rgba(255,255,255,0.25)',
+          }}
+        >
+          {ch}
+        </span>
+      ))}
+      {suffix ? <span className="chakra-suffix">{suffix}</span> : null}
+      <style jsx>{`
+        .chakra-word { display: inline-flex; letter-spacing: 0.06em; gap: 0.02em; }
+        .chakra-suffix { margin-left: 0.06em; font-weight: 700; }
+      `}</style>
+    </span>
+  );
+}
+
 export default function BannedLogin() {
   const [view, setView] = useState('banned');          // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);       // overlay is running
@@ -33,14 +62,14 @@ export default function BannedLogin() {
   // Core: start cascade, hide everything; when it ends, reveal centered brand
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
-    setHideAll(true);         // hide ALL the UI immediately
-    setShowFinalBrand(false); // brand appears only AFTER cascade finishes
+    setHideAll(true);
+    setShowFinalBrand(false);
     try { playChakraSequenceRTL(); } catch {}
 
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
-      setShowFinalBrand(true); // show "LAMEBOY, USA"
+      setShowFinalBrand(true);
       after && after();
     }, CASCADE_MS);
 
@@ -65,19 +94,13 @@ export default function BannedLogin() {
   // Link: run cascade and end on brand screen (no redirect)
   const onLink = useCallback(() => {
     setActivated('link'); setTimeout(() => setActivated(null), 650);
-    runCascade(() => {
-      // Optional redirect AFTER the brand shows:
-      // setTimeout(() => (window.location.href = '/shop'), 1200);
-    }, { washAway: true });
+    runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
   // Bypass: same behavior (brand screen after cascade)
   const onBypass = useCallback(() => {
     setActivated('bypass'); setTimeout(() => setActivated(null), 650);
-    runCascade(() => {
-      // Optional redirect AFTER the brand shows:
-      // setTimeout(() => (window.location.href = '/shop'), 1200);
-    }, { washAway: true });
+    runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
   return (
@@ -86,8 +109,8 @@ export default function BannedLogin() {
       {!hideAll && (
         <div className="login-stack">
 
-          {/* 3D orb cross ABOVE the blue bubble (render on BOTH views) */}
-          <BlueOrbCross3D height="30vh" rpm={2} glow />
+          {/* 3D orb cross ABOVE the blue bubble (both views) — smaller, faster, seafoam glow */}
+          <BlueOrbCross3D height="7.5vh" rpm={6} color="#32ffc7" />
 
           {/* Blue bubble (is a button in banned view) */}
           {!hideBubble && (
@@ -118,7 +141,8 @@ export default function BannedLogin() {
               {view === 'banned' ? (
                 <pre className="code-line" style={{ margin: 0 }}>
                   <span className="code-comment">// </span>
-                  <span className="lameboy-glow">LAMEBOY.COM</span>
+                  {/* Chakra-colored "Lameboy" + plain ".com" */}
+                  <ChakraWord word="Lameboy" suffix=".com" />
                   {'\n'}
                   <span className="code-comment">// </span>
                   <span className="code-banned">is banned</span>
@@ -218,7 +242,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Centered brand AFTER the cascade passes */}
+      {/* Centered brand AFTER the cascade passes (kept white as requested earlier) */}
       {showFinalBrand && !cascade && (
         <div className="brand-center" aria-hidden="true">
           <span className="brand-text">LAMEBOY, USA</span>
@@ -232,8 +256,8 @@ export default function BannedLogin() {
           inset: 0;
           display: grid;
           place-items: center;
-          z-index: 1200;        /* above everything */
-          pointer-events: none; /* do not block clicks if you re-enable navigation */
+          z-index: 1200;
+          pointer-events: none;
         }
         .brand-text {
           color: #fff;
