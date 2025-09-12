@@ -1,10 +1,14 @@
+// src/components/BannedLogin.jsx
 'use client';
 
+import RotatingFlagCSS from '@/components/RotatingFlagCSS';
 import { useCallback, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
-const SpinningLogo = dynamic(() => import('./SpinningLogo'), { ssr: false });
+// NOTE: filename on disk is Spinninglogo.jsx (lowercase "l")
+// If you renamed the file to SpinningLogo.jsx, change the path back.
+const SpinningLogo = dynamic(() => import('./Spinninglogo'), { ssr: false });
 
 const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
@@ -80,6 +84,11 @@ export default function BannedLogin() {
 
       {/* Stack container always rendered; we hide only the bubble, not Florida */}
       <div className="login-stack">
+
+        {/* NEW: ultra-light rotating emblem sits ABOVE the blue bubble in login view */}
+        {view === 'login' && (
+          <RotatingFlagCSS height="44vh" speedSec={16} />
+        )}
 
         {/* Blue bubble (is a button in banned view) */}
         {!hideBubble && (
