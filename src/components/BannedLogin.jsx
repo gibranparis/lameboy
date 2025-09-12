@@ -9,22 +9,15 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
-/** Renders "Lameboy" with chakra colors; suffix (e.g., ".com") inherits surrounding color */
+// (optional) Chakra-colored "Lameboy" helper used in the bubble headline
 function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = '' }) {
-  // Root→Crown: red, orange, yellow, green, blue, indigo, violet
-  const colors = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#a855f7'];
-  const letters = word.split('');
+  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7']; // root→crown
   return (
     <span className={`chakra-word ${className}`}>
-      {letters.map((ch, i) => (
+      {word.split('').map((ch, i) => (
         <span
           key={`${ch}-${i}`}
-          className="chakra-letter"
-          style={{
-            color: colors[i % colors.length],
-            fontWeight: strong ? 800 : 700,
-            textShadow: '0 0 8px rgba(255,255,255,0.25)',
-          }}
+          style={{ color: colors[i % colors.length], fontWeight: strong ? 800 : 700, textShadow: '0 0 8px rgba(255,255,255,0.25)' }}
         >
           {ch}
         </span>
@@ -42,7 +35,7 @@ export default function BannedLogin() {
   const [view, setView] = useState('banned');          // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);       // overlay is running
   const [hideAll, setHideAll] = useState(false);       // hide all UI while/after cascade
-  const [showFinalBrand, setShowFinalBrand] = useState(false); // show "LAMEBOY, USA" after cascade
+  const [whiteout, setWhiteout] = useState(false);     // show white screen AFTER cascade
 
   const [hideBubble, setHideBubble] = useState(false);
   const [bubblePulse, setBubblePulse] = useState(false);
@@ -59,31 +52,29 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Core: start cascade, hide everything; when it ends, reveal centered brand
+  // Start cascade: hide everything, show text OVER the cascade; when done -> white screen
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
-    setHideAll(true);
-    setShowFinalBrand(false);
+    setHideAll(true);     // hide all UI immediately
+    setWhiteout(false);   // white screen appears only AFTER cascade
     try { playChakraSequenceRTL(); } catch {}
 
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
-      setShowFinalBrand(true);
+      setWhiteout(true);  // final state: white screen
       after && after();
     }, CASCADE_MS);
 
     return () => clearTimeout(t);
   }, []);
 
-  // Bubble click (no cascade): just open login
   const onBubbleClick = useCallback(() => {
     setBubblePulse(true); setTimeout(() => setBubblePulse(false), 700);
     setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
     goLogin();
   }, [goLogin]);
 
-  // Florida toggles views (only when UI is visible)
   const onFloridaClick = useCallback(() => {
     if (hideAll) return;
     setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
@@ -91,13 +82,11 @@ export default function BannedLogin() {
     setView(v => (v === 'banned' ? 'login' : 'banned'));
   }, [hideAll]);
 
-  // Link: run cascade and end on brand screen (no redirect)
   const onLink = useCallback(() => {
     setActivated('link'); setTimeout(() => setActivated(null), 650);
     runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
-  // Bypass: same behavior (brand screen after cascade)
   const onBypass = useCallback(() => {
     setActivated('bypass'); setTimeout(() => setActivated(null), 650);
     runCascade(() => {}, { washAway: true });
@@ -105,23 +94,19 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* Normal UI is entirely hidden while/after cascade once triggered */}
+      {/* Normal UI hidden while/after cascade */}
       {!hideAll && (
         <div className="login-stack">
-
-          {/* 3D orb cross ABOVE the blue bubble (both views) — smaller, faster, seafoam glow */}
+          {/* 3D orb cross ABOVE the blue bubble (both views) */}
           <BlueOrbCross3D height="7.5vh" rpm={6} color="#32ffc7" />
 
           {/* Blue bubble (is a button in banned view) */}
           {!hideBubble && (
             <div
               className={[
-                'vscode-card',
-                'card-ultra-tight',
-                'login-card',
+                'vscode-card','card-ultra-tight','login-card',
                 view === 'banned' ? 'slide-in-left' : 'slide-in-right',
-                'bubble-button',
-                bubblePulse ? 'bubble-glow-blue' : '',
+                'bubble-button', bubblePulse ? 'bubble-glow-blue' : '',
               ].join(' ')}
               style={{ minWidth: 260 }}
               role={view === 'banned' ? 'button' : undefined}
@@ -129,19 +114,13 @@ export default function BannedLogin() {
               onClick={view === 'banned' ? onBubbleClick : undefined}
               onKeyDown={
                 view === 'banned'
-                  ? (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onBubbleClick();
-                      }
-                    }
+                  ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBubbleClick(); } }
                   : undefined
               }
             >
               {view === 'banned' ? (
                 <pre className="code-line" style={{ margin: 0 }}>
                   <span className="code-comment">// </span>
-                  {/* Chakra-colored "Lameboy" + plain ".com" */}
                   <ChakraWord word="Lameboy" suffix=".com" />
                   {'\n'}
                   <span className="code-comment">// </span>
@@ -219,7 +198,7 @@ export default function BannedLogin() {
           {/* Florida label (hidden once cascade triggers) */}
           <button
             type="button"
-            className={['ghost-btn', 'florida-link', 'florida-inline', floridaHot ? 'is-hot' : ''].join(' ')}
+            className={['ghost-btn','florida-link','florida-inline', floridaHot ? 'is-hot' : ''].join(' ')}
             onClick={onFloridaClick}
             onMouseEnter={() => setFloridaHot(true)}
             onMouseLeave={() => setFloridaHot(false)}
@@ -229,7 +208,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Chakra overlay during cascade */}
+      {/* Cascade bands */}
       {cascade && (
         <div className="chakra-overlay">
           <div className="chakra-band chakra-crown band-1" />
@@ -242,37 +221,40 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Centered brand AFTER the cascade passes (kept white as requested earlier) */}
-      {showFinalBrand && !cascade && (
-        <div className="brand-center" aria-hidden="true">
-          <span className="brand-text">LAMEBOY, USA</span>
+      {/* SMALL white "LAMEBOY, USA" OVER the cascade (centered) */}
+      {cascade && (
+        <div className="brand-overlay" aria-hidden="true">
+          <span className="brand-overlay-text">LAMEBOY, USA</span>
         </div>
       )}
 
-      {/* Local styles: centered brand */}
+      {/* After cascade: full white screen */}
+      {whiteout && !cascade && <div className="whiteout" />}
+
+      {/* Local styles */}
       <style jsx>{`
-        .brand-center {
+        .brand-overlay {
           position: fixed;
           inset: 0;
           display: grid;
           place-items: center;
-          z-index: 1200;
+          z-index: 2000;       /* above the bands */
           pointer-events: none;
         }
-        .brand-text {
+        .brand-overlay-text {
           color: #fff;
-          font-weight: 800;
-          letter-spacing: 0.12em;
+          font-weight: 700;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
-          font-size: clamp(22px, 5.2vw, 64px);
-          text-align: center;
-          opacity: 0;
-          animation: brandFade 420ms ease-out forwards;
-          text-shadow: 0 0 10px rgba(255,255,255,0.25);
+          /* small like the Florida label */
+          font-size: clamp(11px, 1.3vw, 14px);
+          text-shadow: 0 0 8px rgba(0,0,0,0.25);
         }
-        @keyframes brandFade {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
+        .whiteout {
+          position: fixed;
+          inset: 0;
+          background: #fff;
+          z-index: 1500;       /* above app chrome, below any future modals */
         }
       `}</style>
     </div>
