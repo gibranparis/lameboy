@@ -12,10 +12,12 @@
     "rebuild": "npm run clean && npm run build && npm run start"
   },
   "dependencies": {
+    "@react-three/fiber": "^9.3.0",
     "next": "15.5.3",
     "react": "19.1.1",
     "react-dom": "19.1.1",
-    "swell-js": "4.0.0"
+    "swell-js": "4.0.0",
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@types/node": "24.3.1",
