@@ -88,7 +88,7 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Cascade: hide everything; keep white underlay during/after to avoid black flash
+  // Cascade: hide UI; show split underlay (left black grows over white); then final whiteout
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -130,19 +130,27 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* White underlay prevents black flash during cascade and remains for whiteout */}
-      {(cascade || whiteout) && <div className="white-underlay" />}
+      {/* During cascade: white base + a black sweep that grows left→right */}
+      {cascade && (
+        <>
+          <div className="white-underlay" />
+          <div className="black-sweep" style={{ animationDuration: `${CASCADE_MS}ms` }} />
+        </>
+      )}
+
+      {/* After cascade: full white screen */}
+      {whiteout && !cascade && <div className="whiteout" />}
 
       {!hideAll && (
         <div className="login-stack">
-          {/* Orb — 6 outer orbs w/ chakra glows; 2× speed; half-gap closer */}
+          {/* Orb — 6 outer orbs w/ chakra glows; 2× speed; close to bubble */}
           <BlueOrbCross3D
-            rpm={39}              // 2× faster
-            color="#32ffc7"         // bar color
+            rpm={14.4}
+            color="#32ffc7"
             geomScale={1}
             glow
             glowOpacity={0.85}
-            includeZAxis            // 6 outer orbs
+            includeZAxis
             style={{ marginBottom: -28, height: '10vh' }}
           />
 
@@ -243,7 +251,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Cascade bands (ensure above white-underlay) */}
+      {/* Cascade bands (above split underlay) */}
       {cascade && (
         <div className="chakra-overlay" style={{ zIndex: 1400 }}>
           <div className="chakra-band chakra-crown band-1" />
@@ -263,12 +271,16 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* After cascade: full white screen */}
-      {whiteout && !cascade && <div className="whiteout" />}
-
       <style jsx>{`
-        /* White surface shown during cascade and after */
+        /* Split underlay: right side is white, left side is a black bar growing to the right */
         .white-underlay { position: fixed; inset: 0; background: #fff; z-index: 1200; }
+        .black-sweep { position: fixed; top: 0; left: 0; height: 100vh; width: 0%; background: #000; z-index: 1300;
+          animation-name: blackGrow; animation-timing-function: cubic-bezier(.2,.6,.2,1); animation-fill-mode: forwards;
+        }
+        @keyframes blackGrow {
+          from { width: 0%; }
+          to   { width: 100%; }
+        }
 
         .brand-overlay { position: fixed; inset: 0; display: grid; place-items: center; z-index: 2000; pointer-events: none; }
         .brand-overlay-text { color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: clamp(11px, 1.3vw, 14px); text-shadow: 0 0 8px rgba(0,0,0,0.25); }
