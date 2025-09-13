@@ -137,7 +137,7 @@ export default function BannedLogin() {
         <div className="login-stack">
           {/* Orb — 6 outer orbs w/ chakra glows; 2× speed; half-gap closer */}
           <BlueOrbCross3D
-            rpm={44}              // 2× faster
+            rpm={39}              // 2× faster
             color="#32ffc7"         // bar color
             geomScale={1}
             glow
