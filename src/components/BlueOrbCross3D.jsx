@@ -29,23 +29,24 @@ function OrbCross({
 
   useFrame((state, dt) => {
     if (!group.current) return;
+
+    // spin
     group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt;
 
-    if (overrideAllColor && group.current.userData?.pulseMats) {
+    // pulsing only when override (scary red) is active
+    const u = group.current.userData;
+    if (overrideAllColor && glow && u?.pulse) {
       const t = state.clock.getElapsedTime();
       const pulse = 0.85 + Math.sin(t * 3.6) * 0.15;
-      const { barHaloMat, sphereHaloMats, extraHaloMats, base } =
-        group.current.userData.pulseMats;
-      const b = base * pulse;
-      if (barHaloMat) barHaloMat.opacity = b * 0.55;
-      sphereHaloMats?.forEach((m) => (m.opacity = b));
-      if (extraHaloMats) {
-        if (extraHaloMats[0]) extraHaloMats[0].opacity = b * 0.65;
-        if (extraHaloMats[1]) extraHaloMats[1].opacity = b * 0.35;
-      }
+      const b = u.base * pulse;
+      u.barHalo.opacity = b * 0.55;
+      u.sphereHalos.forEach(m => (m.opacity = b));
+      u.halo2.opacity = b * 0.65;
+      u.halo3.opacity = b * 0.35;
     }
   });
 
+  // ----- geometry & constants -----
   const memo = useMemo(() => {
     const r = 0.144 * geomScale;
     const armR = Math.max(0.001, r * armRatio);
@@ -67,9 +68,10 @@ function OrbCross({
       [-offset, 0, 0],
       [0,  offset, 0],
       [0, -offset, 0],
-      [0, 0,  offset],
-      [0, 0, -offset],
     ];
+    if (includeZAxis) {
+      centers.push([0, 0,  offset], [0, 0, -offset]);
+    }
 
     const CHAKRA = {
       root:     '#ef4444',
@@ -82,24 +84,16 @@ function OrbCross({
       crownW:   '#f6f3ff',
     };
 
-    return {
-      sphereGeo, armGeoX, armGeoY, armGeoZ,
-      armGlowGeoX, armGlowGeoY, armGlowGeoZ,
-      centers, CHAKRA,
-    };
-  }, [geomScale, armRatio, offsetFactor, glowScale]);
+    return { sphereGeo, armGeoX, armGeoY, armGeoZ, armGlowGeoX, armGlowGeoY, armGlowGeoZ, centers, CHAKRA };
+  }, [geomScale, armRatio, offsetFactor, glowScale, includeZAxis]);
 
-  const {
-    sphereGeo, armGeoX, armGeoY, armGeoZ,
-    armGlowGeoX, armGlowGeoY, armGlowGeoZ,
-    centers, CHAKRA,
-  } = memo;
+  const { sphereGeo, armGeoX, armGeoY, armGeoZ, armGlowGeoX, armGlowGeoY, armGlowGeoZ, centers, CHAKRA } = memo;
 
+  // ----- materials -----
   const useOverride = !!overrideAllColor;
   const barColor = useOverride ? overrideAllColor : color;
 
-  const haloBase =
-    (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * coarseGlowFactor;
+  const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * coarseGlowFactor;
   const coreEmissive = useOverride ? 2.25 : 1.25;
   const barEmissive  = useOverride ? 1.35 : 0.6;
 
@@ -159,26 +153,45 @@ function OrbCross({
     [useOverride ? barColor : JSON.stringify(sphereDefs), glow]
   );
 
+  // Extra scary halos as stable memoized materials (no ref injection)
+  const halo2Mat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: barColor,
+    transparent: true,
+    opacity: haloBase * 0.6,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  }), [barColor, haloBase]);
+
+  const halo3Mat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: barColor,
+    transparent: true,
+    opacity: haloBase * 0.32,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+  }), [barColor, haloBase]);
+
+  // Expose pointers for the pulse step
+  useEffect(() => {
+    if (!group.current) return;
+    group.current.userData = {
+      pulse: true,
+      base: haloBase,
+      barHalo: barHaloMat,
+      sphereHalos: sphereHaloMats,
+      halo2: halo2Mat,
+      halo3: halo3Mat,
+    };
+  }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
+
+  // ----- events -----
   const handlePointerDown = (e) => { e.stopPropagation(); onActivate && onActivate(); };
   const handleKeyDown = (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } };
 
+  // ----- scene graph -----
   return (
-    <group
-      ref={(node) => {
-        if (node) {
-          node.userData.pulseMats = {
-            barHaloMat,
-            sphereHaloMats,
-            extraHaloMats: [],
-            base: haloBase,
-          };
-        }
-        group.current = node;
-      }}
-      onPointerDown={handlePointerDown}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-    >
+    <group ref={group} onPointerDown={handlePointerDown} onKeyDown={handleKeyDown} tabIndex={0}>
       {/* bars */}
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
       <mesh geometry={armGeoY} material={barCoreMat} />
@@ -201,32 +214,10 @@ function OrbCross({
           {overrideAllColor && (
             <>
               {centers.map((p, i) => (
-                <mesh key={`halo2-${i}`} geometry={sphereGeo} position={p} scale={glowScale * 1.6}
-                  ref={(m) => {
-                    if (group.current && m) {
-                      const mat = new THREE.MeshBasicMaterial({
-                        color: barColor, transparent: true, opacity: haloBase * 0.6,
-                        blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
-                      });
-                      m.material = mat;
-                      group.current.userData.pulseMats.extraHaloMats[0] = mat;
-                    }
-                  }}
-                />
+                <mesh key={`halo2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />
               ))}
               {centers.map((p, i) => (
-                <mesh key={`halo3-${i}`} geometry={sphereGeo} position={p} scale={glowScale * 1.95}
-                  ref={(m) => {
-                    if (group.current && m) {
-                      const mat = new THREE.MeshBasicMaterial({
-                        color: barColor, transparent: true, opacity: haloBase * 0.32,
-                        blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
-                      });
-                      m.material = mat;
-                      group.current.userData.pulseMats.extraHaloMats[1] = mat;
-                    }
-                  }}
-                />
+                <mesh key={`halo3-${i}`} geometry={sphereGeo} material={halo3Mat} position={p} scale={glowScale * 1.95} />
               ))}
             </>
           )}
@@ -253,6 +244,7 @@ export default function BlueOrbCross3D({
   style = {},
   className = '',
 }) {
+  // Sharper on mobile: DPR up to 3
   const [maxDpr, setMaxDpr] = useState(2);
   useEffect(() => {
     const pr = Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
@@ -260,7 +252,10 @@ export default function BlueOrbCross3D({
   }, []);
 
   return (
-    <div className={className} style={{ height, width:'100%', contain:'layout paint style', isolation:'isolate', ...style }}>
+    <div
+      className={className}
+      style={{ height, width:'100%', contain:'layout paint style', isolation:'isolate', ...style }}
+    >
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}

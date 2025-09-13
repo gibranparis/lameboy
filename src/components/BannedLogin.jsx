@@ -140,7 +140,6 @@ export default function BannedLogin() {
   const RED = '#ff001a';
   const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
   const [orbGlow, setOrbGlow] = useState(0.9);
-  const [orbVersion, setOrbVersion] = useState(0);
 
   const goLogin = useCallback(() => {
     setHideBubble(false);
@@ -190,12 +189,8 @@ export default function BannedLogin() {
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
   // "is banned" -> scary red. "Lameboy" -> chakra.
-  const setRed = useCallback(() => {
-    setOrbMode('red'); setOrbGlow(1.0); setOrbVersion(v => v + 1);
-  }, []);
-  const setChakra = useCallback(() => {
-    setOrbMode('chakra'); setOrbGlow(0.9); setOrbVersion(v => v + 1);
-  }, []);
+  const setRed = useCallback(() => { setOrbMode('red'); setOrbGlow(1.0); }, []);
+  const setChakra = useCallback(() => { setOrbMode('chakra'); setOrbGlow(0.9); }, []);
 
   const onBannedClick = useCallback((e) => { e.preventDefault(); e.stopPropagation(); setRed(); }, [setRed]);
   const onBannedKey = useCallback((e) => {
@@ -215,7 +210,6 @@ export default function BannedLogin() {
         <div className="login-stack">
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
-              key={`${orbMode}-${orbGlow}-${orbVersion}`} // hard remount on changes
               rpm={44}
               color={SEAFOAM}
               geomScale={1}
