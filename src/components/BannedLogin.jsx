@@ -326,7 +326,7 @@ export default function BannedLogin() {
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
                   <div className="code-line"><span className="lb-seafoam">// login</span></div>
 
-                  {/* email line with NEON glow on email =" */}
+                  {/* email line — glow on name, equals, opening quote + INPUT text + closing quote and ; */}
                   <div className="code-line">
                     <span className="code-keyword">const</span>&nbsp;
                     <span className="neon-chunk">
@@ -336,18 +336,18 @@ export default function BannedLogin() {
                     </span>
                     <input
                       ref={emailRef}
-                      className="code-input"
+                      className="code-input glow-text"
                       value={email}
                       onChange={(e)=>setEmail(e.target.value)}
                       placeholder="you@example.com"
                       inputMode="email"
                       autoComplete="email"
                     />
-                    <span className="code-string">"</span>
-                    <span className="code-punc">;</span>
+                    <span className="code-string glow-tail">"</span>
+                    <span className="code-punc glow-tail">;</span>
                   </div>
 
-                  {/* phone line with NEON glow on phone =" */}
+                  {/* phone line — same glow treatment */}
                   <div className="code-line">
                     <span className="code-keyword">const</span>&nbsp;
                     <span className="neon-chunk">
@@ -356,15 +356,15 @@ export default function BannedLogin() {
                       <span className="code-string">"</span>
                     </span>
                     <input
-                      className="code-input"
+                      className="code-input glow-text"
                       value={phone}
                       onChange={(e)=>setPhone(e.target.value)}
                       placeholder="+1 305 555 0123"
                       inputMode="tel"
                       autoComplete="tel"
                     />
-                    <span className="code-string">"</span>
-                    <span className="code-punc">;</span>
+                    <span className="code-string glow-tail">"</span>
+                    <span className="code-punc glow-tail">;</span>
                   </div>
 
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
@@ -400,7 +400,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Global tweaks (incl. NEW neon-chunk glow) */}
+      {/* Global tweaks (incl. NEW glow rules for inputs and trailing tokens) */}
       <style jsx global>{`
         html,body{ background:#000; }
 
@@ -410,7 +410,7 @@ export default function BannedLogin() {
           filter:saturate(1.35) brightness(1.06);
         }
 
-        /* NEW: Neon glow for the email =" and phone =" tokens, keeps original colors */
+        /* Neon block for the tokens before the inputs */
         .neon-chunk > .code-var,
         .neon-chunk > .code-op,
         .neon-chunk > .code-string {
@@ -423,19 +423,30 @@ export default function BannedLogin() {
           filter: saturate(1.25) brightness(1.06);
           mix-blend-mode: screen;
         }
-        /* Tame the bloom a bit on mobile */
-        @media (hover: none) and (pointer: coarse) {
-          .neon-chunk > .code-var,
-          .neon-chunk > .code-op,
-          .neon-chunk > .code-string {
-            text-shadow:
-              0 0 3px currentColor,
-              0 0 8px currentColor,
-              0 0 18px currentColor;
-            filter: none;
-          }
+
+        /* NEW: make the INPUT text itself glow, keeping its existing color */
+        .code-input.glow-text {
+          color: inherit;
+          text-shadow:
+            0 0 6px currentColor,
+            0 0 16px currentColor,
+            0 0 36px currentColor,
+            0 0 64px currentColor;
+          filter: saturate(1.2) brightness(1.06);
+          background: transparent;
         }
 
+        /* NEW: glow on the closing quote and semicolon */
+        .glow-tail {
+          text-shadow:
+            0 0 6px currentColor,
+            0 0 16px currentColor,
+            0 0 36px currentColor,
+            0 0 64px currentColor;
+          filter: saturate(1.2) brightness(1.06);
+        }
+
+        /* Button color treatment preserved */
         .commit-btn.btn-bypass{ will-change: filter, transform; transition: filter .15s ease, transform .12s ease; }
         .btn-yellow{ filter: none; }
         .btn-red{ filter: hue-rotate(-95deg) saturate(1.15); }
@@ -447,7 +458,7 @@ export default function BannedLogin() {
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
-        /* iOS/Safari mobile: tone down bloom for rainbow + seafoam */
+        /* iOS/Safari mobile: tone down bloom for rainbow/seafoam and input glow */
         @media (hover: none) and (pointer: coarse){
           .lb-letter{
             text-shadow: 0 0 2px currentColor, 0 0 6px currentColor, 0 0 10px currentColor !important;
@@ -455,6 +466,14 @@ export default function BannedLogin() {
           }
           .lb-seafoam{
             text-shadow: 0 0 2px #32ffc7, 0 0 6px #32ffc7, 0 0 12px #32ffc7 !important;
+            filter: none !important;
+          }
+          .code-input.glow-text,
+          .glow-tail,
+          .neon-chunk > .code-var,
+          .neon-chunk > .code-op,
+          .neon-chunk > .code-string{
+            text-shadow: 0 0 3px currentColor, 0 0 8px currentColor, 0 0 18px currentColor !important;
             filter: none !important;
           }
         }
