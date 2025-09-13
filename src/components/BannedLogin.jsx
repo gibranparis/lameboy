@@ -154,8 +154,10 @@ export default function BannedLogin() {
   const [phone, setPhone] = useState('');
   const emailRef = useRef(null);
 
-  /* ORB color: default seafoam; turns red when clicking "is banned" */
+  /* ORB color & glow (force remount on change) */
   const [orbColor, setOrbColor] = useState('#32ffc7');
+  const [orbGlow, setOrbGlow] = useState(0.85);
+  const [orbVersion, setOrbVersion] = useState(0);
 
   const goLogin = useCallback(() => {
     setHideBubble(false);
@@ -204,19 +206,22 @@ export default function BannedLogin() {
   // Orb click == Bypass (true 3D hit only inside BlueOrbCross3D)
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
-  // "is banned" click -> turn orb red (without triggering bubble click)
+  // "is banned" click -> set scary red + stronger glow; force remount
   const onBannedClick = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    setOrbColor('#ff2a2a'); // neon red
+    setOrbColor('#ff002a');       // scary neon red
+    setOrbGlow(1.0);              // max glow
+    setOrbVersion(v => v + 1);    // force remount so material updates
   }, []);
 
-  // keyboard support for "is banned"
   const onBannedKey = useCallback((e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       e.stopPropagation();
-      setOrbColor('#ff2a2a');
+      setOrbColor('#ff002a');
+      setOrbGlow(1.0);
+      setOrbVersion(v => v + 1);
     }
   }, []);
 
@@ -235,12 +240,12 @@ export default function BannedLogin() {
         <div className="login-stack">
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
-              key={orbColor}          // force remount so color always updates
+              key={`${orbColor}-${orbGlow}-${orbVersion}`} // hard remount on changes
               rpm={14.4}
               color={orbColor}
               geomScale={1}
               glow
-              glowOpacity={0.85}
+              glowOpacity={orbGlow}
               includeZAxis
               height="10vh"
               onActivate={onOrbActivate}
@@ -293,7 +298,7 @@ export default function BannedLogin() {
                     <span className="code-string">"</span><span className="code-punc">;</span>
                   </div>
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
-                    {/* LINK: exact old BYPASS look (yellow) */}
+                    {/* LINK = old yellow look (unchanged) */}
                     <button
                       type="button"
                       className={`commit-btn btn-bypass btn-link btn-yellow ${activated==='link'?'btn-activated':''}`}
@@ -301,7 +306,7 @@ export default function BannedLogin() {
                     >
                       Link
                     </button>
-                    {/* BYPASS: same style, recolored to red via hue rotate */}
+                    {/* BYPASS = same style but red via hue rotate */}
                     <button
                       type="button"
                       className={`commit-btn btn-bypass btn-red ${activated==='bypass'?'btn-activated':''}`}
@@ -327,7 +332,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Global touches: base bg + shared seafoam glow + tiny color helpers + banned trigger */}
+      {/* Global tweaks: base bg, seafoam glow, button color helpers, mobile glow tame, "is banned" UX */}
       <style jsx global>{`
         html,body{ background:#000; }
         .lb-seafoam{
@@ -338,8 +343,8 @@ export default function BannedLogin() {
 
         /* Keep existing button look. Only recolor via filters. */
         .commit-btn.btn-bypass{ will-change: filter, transform; transition: filter .15s ease, transform .12s ease; }
-        .btn-yellow{ filter: none; } /* original yellow look (no change) */
-        .btn-red{ filter: hue-rotate(-95deg) saturate(1.15); } /* shift yellow style to red */
+        .btn-yellow{ filter: none; }
+        .btn-red{ filter: hue-rotate(-95deg) saturate(1.15); }
         .commit-btn.btn-bypass:hover,
         .commit-btn.btn-bypass.btn-activated,
         .commit-btn.btn-bypass:focus-visible{
@@ -347,13 +352,27 @@ export default function BannedLogin() {
           outline: none;
         }
 
-        /* "is banned" as a true button: no permanent underline */
-        .code-banned.banned-trigger{
-          cursor:pointer; text-decoration:none;
-        }
+        /* "is banned" as a true button; underline only on hover/focus */
+        .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover,
-        .code-banned.banned-trigger:focus-visible{
-          text-decoration:underline;
+        .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
+
+        /* iOS/Safari mobile: tame the bloom around Lameboy + seafoam marks */
+        @media (hover: none) and (pointer: coarse){
+          .lb-letter{
+            text-shadow:
+              0 0 6px currentColor,
+              0 0 14px currentColor,
+              0 0 26px currentColor;
+            filter:saturate(1.2) contrast(1.1) brightness(1.04);
+          }
+          .lb-seafoam{
+            text-shadow:
+              0 0 4px #32ffc7,
+              0 0 10px #32ffc7,
+              0 0 16px #32ffc7;
+            filter:saturate(1.15) brightness(1.03);
+          }
         }
       `}</style>
 
