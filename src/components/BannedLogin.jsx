@@ -20,21 +20,18 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com' }) {
       ))}
       <span className="lb-seafoam">{suffix}</span>
       <style jsx>{`
-        .lb-word{display:inline-flex;letter-spacing:.06em;gap:.02em}
-        .lb-letter{
-          font-weight:800;-webkit-text-stroke:.6px currentColor;
-          text-shadow:0 0 10px currentColor,0 0 26px currentColor,0 0 54px currentColor,0 0 96px currentColor,0 0 150px currentColor;
+        .lb-word { display:inline-flex; letter-spacing:.06em; gap:.02em; }
+        .lb-letter {
+          font-weight:800; -webkit-text-stroke:.6px currentColor;
+          text-shadow:
+            0 0 10px currentColor, 0 0 26px currentColor, 0 0 54px currentColor,
+            0 0 96px currentColor, 0 0 150px currentColor;
           filter:saturate(1.55) contrast(1.2) brightness(1.06);
-          animation:lbGlow 1.6s ease-in-out infinite alternate
+          animation: lbGlow 1.6s ease-in-out infinite alternate;
         }
-        .lb-seafoam{
-          margin-left:.06em;color:#32ffc7;font-weight:800;
-          text-shadow:0 0 8px #32ffc7,0 0 20px #32ffc7,0 0 44px #32ffc7,0 0 80px #32ffc7;
-          filter:saturate(1.35) brightness(1.06)
-        }
-        @keyframes lbGlow{
-          from{filter:saturate(1.4) contrast(1.15) brightness(1.04)}
-          to{filter:saturate(1.75) contrast(1.25) brightness(1.08)}
+        @keyframes lbGlow {
+          from { filter:saturate(1.4) contrast(1.15) brightness(1.04); }
+          to   { filter:saturate(1.75) contrast(1.25) brightness(1.08); }
         }
       `}</style>
     </span>
@@ -49,9 +46,9 @@ function BodyPortal({ children }) {
   return createPortal(children, document.body);
 }
 
-/* JS-driven white sweep + color bands – all class names prefixed lb- to avoid collisions */
-function CascadeOverlay({ durationMs = 2400 }) {
-  const [progress, setProgress] = useState(0); // 0..1 white width
+/* JS-driven cascade with MOVING COLOR WINDOW ahead of the white follower */
+function CascadeOverlay({ durationMs = 2400, leadPct = 18 /* color window leads white by N% */ }) {
+  const [progress, setProgress] = useState(0); // 0..1 -> white width
   const rafRef = useRef();
 
   useEffect(() => {
@@ -66,41 +63,62 @@ function CascadeOverlay({ durationMs = 2400 }) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [durationMs]);
 
+  const whiteW = progress * 100;
+  const colorW = Math.min(100, whiteW + leadPct);
+
   return (
     <BodyPortal>
-      {/* white follower (under colors) */}
+      {/* WHITE follower (under the colors) */}
       <div
         aria-hidden="true"
         style={{
-          position:'fixed',top:0,right:0,width:`${(progress*100).toFixed(3)}%`,height:'100vh',
-          background:'#fff',zIndex:9998,pointerEvents:'none',willChange:'width',transition:'width 16ms linear',
+          position:'fixed', top:0, right:0, height:'100vh',
+          width:`${whiteW.toFixed(3)}%`,
+          background:'#fff',
+          zIndex:9998, pointerEvents:'none',
+          willChange:'width', transition:'width 16ms linear',
           transform:'translateZ(0)'
         }}
       />
-      {/* color bands on top */}
-      <div className="lb-cascade" aria-hidden="true" style={{ ['--lbDur']: `${durationMs}ms` }}>
-        <div className="lb-band lb-b1" />
-        <div className="lb-band lb-b2" />
-        <div className="lb-band lb-b3" />
-        <div className="lb-band lb-b4" />
-        <div className="lb-band lb-b5" />
-        <div className="lb-band lb-b6" />
-        <div className="lb-band lb-b7" />
+      {/* COLOR WINDOW (rides ahead of white) */}
+      <div
+        className="lb-color-window"
+        aria-hidden="true"
+        style={{
+          position:'fixed', top:0, right:0, height:'100vh',
+          width:`${colorW.toFixed(3)}%`,
+          overflow:'hidden',
+          zIndex:9999, pointerEvents:'none',
+          transform:'translateZ(0)'
+        }}
+      >
+        <div className="lb-cascade" style={{ ['--lbDur']: `${durationMs}ms` }}>
+          <div className="lb-band lb-b1" />
+          <div className="lb-band lb-b2" />
+          <div className="lb-band lb-b3" />
+          <div className="lb-band lb-b4" />
+          <div className="lb-band lb-b5" />
+          <div className="lb-band lb-b6" />
+          <div className="lb-band lb-b7" />
+        </div>
       </div>
-      {/* brand above all during cascade */}
-      <div className="lb-brand" aria-hidden="true">
+      {/* BRAND above all during the sweep */}
+      <div className="lb-brand" aria-hidden="true" style={{ zIndex: 10001 }}>
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
 
+      {/* GLOBAL styles for portal content */}
       <style jsx global>{`
         .lb-cascade{
-          position:fixed;inset:0;display:grid;grid-template-rows:repeat(7,1fr);
-          z-index:9999;pointer-events:none;mix-blend-mode:screen;transform:translateZ(0);
-          height:100vh;width:100vw;contain:layout paint size style
+          position:absolute; inset:0;
+          display:grid; grid-template-rows:repeat(7,1fr);
+          pointer-events:none; mix-blend-mode:screen;
+          height:100%; width:100%;
+          contain:layout paint size style;
         }
         .lb-band{
-          width:100%;height:100%;opacity:.95;background-size:240% 100%;
-          animation:lbSlide var(--lbDur) ease-in-out forwards
+          width:100%; height:100%; opacity:.95; background-size:240% 100%;
+          animation:lbSlide var(--lbDur) ease-in-out forwards;
         }
         .lb-b1{background-image:linear-gradient(90deg,rgba(192,132,252,0),rgba(192,132,252,.86),rgba(192,132,252,0))}
         .lb-b2{background-image:linear-gradient(90deg,rgba(79,70,229,0), rgba(79,70,229,.88), rgba(79,70,229,0))}
@@ -109,14 +127,12 @@ function CascadeOverlay({ durationMs = 2400 }) {
         .lb-b5{background-image:linear-gradient(90deg,rgba(250,204,21,0), rgba(250,204,21,.92), rgba(250,204,21,0))}
         .lb-b6{background-image:linear-gradient(90deg,rgba(249,115,22,0), rgba(249,115,22,.92), rgba(249,115,22,0))}
         .lb-b7{background-image:linear-gradient(90deg,rgba(239,68,68,0),  rgba(239,68,68,.92),  rgba(239,68,68,0))}
-        @keyframes lbSlide{from{background-position:110% 0}to{background-position:-130% 0}}
+        @keyframes lbSlide{ from{background-position:110% 0} to{background-position:-130% 0} }
 
-        .lb-brand{
-          position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:10001
-        }
+        .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
         .lb-brand-text{
-          color:#fff;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-          font-size:clamp(11px,1.3vw,14px);text-shadow:0 0 8px rgba(0,0,0,.25)
+          color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+          font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25);
         }
       `}</style>
     </BodyPortal>
@@ -267,9 +283,17 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* ensure base is black even without globals.css */}
-      <style jsx global>{`html,body{background:#000}`}</style>
-      <style jsx>{`.orb-row{width:100%}`}</style>
+      {/* Global touches: base bg + shared seafoam glow */}
+      <style jsx global>{`
+        html,body{ background:#000; }
+        .lb-seafoam{
+          color:#32ffc7; font-weight:800;
+          text-shadow:0 0 8px #32ffc7,0 0 20px #32ffc7,0 0 44px #32ffc7,0 0 80px #32ffc7;
+          filter:saturate(1.35) brightness(1.06);
+        }
+      `}</style>
+
+      <style jsx>{`.orb-row{ width:100%; }`}</style>
     </div>
   );
 }
