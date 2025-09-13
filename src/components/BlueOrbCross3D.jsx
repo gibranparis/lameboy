@@ -1,31 +1,48 @@
+// src/components/BlueOrbCross3D.jsx
 'use client';
 
 import * as THREE from 'three';
+import React, { useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { useMemo, useRef } from 'react';
 
 /**
  * 3-axis orb-cross (±X, ±Y, ±Z) with per-orb chakra glows.
- * Bars use the `color` prop (default seafoam). Each sphere gets its own core/halo color.
- * Clicks/presses only register when the actual 3D geometry is hit.
+ * Normal mode = chakra spheres + seafoam bars.
+ * If `overrideAllColor` is provided, EVERYTHING (spheres + bars + halos) uses that color.
+ *
+ * Props
+ * - height: CSS height for canvas (e.g., "10vh")
+ * - rpm: rotations per minute (Y axis)
+ * - color: bar color in normal mode (default seafoam)
+ * - geomScale, offsetFactor, armRatio: geometry sizing
+ * - glow, glowOpacity, glowScale: neon halo controls
+ * - includeZAxis: add ±Z spheres so "+" silhouette holds while spinning
+ * - onActivate: fired only when sphere/arm geometry is actually clicked
+ * - overrideAllColor: when set (e.g., "#ff002a"), force ALL parts to that color (scary red)
+ * - overrideGlowOpacity: optional halo strength used when overrideAllColor is active
  */
+
 function OrbCross({
   rpm = 14.4,
-  color = '#32ffc7',     // bar color (seafoam)
+  color = '#32ffc7',
   geomScale = 1,
-  offsetFactor = 2.05,   // center→outer orb distance as multiple of r
-  armRatio = 0.33,       // bar radius as fraction of r
+  offsetFactor = 2.05,
+  armRatio = 0.33,
   glow = true,
-  glowOpacity = 0.7,     // base halo opacity (outer orbs)
+  glowOpacity = 0.7,
   glowScale = 1.35,
-  includeZAxis = true,   // keep 6 outer orbs
-  onActivate = null,     // called when clicking the orb geometry
+  includeZAxis = true,
+  onActivate = null,
+  overrideAllColor = null,
+  overrideGlowOpacity,
 }) {
   const group = useRef();
 
   useFrame((_, dt) => {
     if (!group.current) return;
-    group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt;
+    const rps = ((rpm * Math.PI * 2) / 60);
+    group.current.rotation.y += rps * dt;
+    group.current.rotation.x += (rps * 0.12) * dt; // tiny tilt for depth
   });
 
   const memo = useMemo(() => {
@@ -34,7 +51,7 @@ function OrbCross({
     const offset = r * offsetFactor;
     const armLen = 2 * (offset - r * 0.12);
 
-    // Geometries (bars are Y-oriented; rotate for X/Z)
+    // Geometries
     const sphereGeo   = new THREE.SphereGeometry(r, 48, 32);
     const armGeoX     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
     const armGeoY     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
@@ -44,69 +61,80 @@ function OrbCross({
     const armGlowGeoY = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
     const armGlowGeoZ = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
 
-    // BAR materials (single color)
+    // Chakra palette (root→crown)
+    const CHAKRA = {
+      root:     '#ef4444',
+      sacral:   '#f97316',
+      solar:    '#facc15',
+      heart:    '#22c55e',
+      throat:   '#3b82f6',
+      thirdEye: '#4f46e5',
+      crownV:   '#c084fc',
+      crownW:   '#f6f3ff',
+    };
+
+    // Positions (center, ±X, ±Y, ±Z)
+    const centers = [
+      [0, 0, 0],
+      [ offset, 0, 0],
+      [-offset, 0, 0],
+      [0,  offset, 0],
+      [0, -offset, 0],
+    ];
+    if (includeZAxis) {
+      centers.push([0, 0,  offset]);
+      centers.push([0, 0, -offset]);
+    }
+
+    // If override is active → all one color; else chakra mapping
+    const useOverride = !!overrideAllColor;
+    const _barColor   = useOverride ? overrideAllColor : color;
+    const _haloOpBase = useOverride ? (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) : glowOpacity;
+    const coreEmissive = useOverride ? 2.0 : 1.25;
+    const barEmissive  = useOverride ? 1.2 : 0.6;
+
+    const sphereColors = useOverride
+      ? new Array(centers.length).fill({ core: _barColor, halo: _barColor, haloOp: _haloOpBase })
+      : [
+          { core: CHAKRA.crownW, halo: CHAKRA.crownV, haloOp: 0.9 }, // center
+          { core: CHAKRA.root,     halo: CHAKRA.root,     haloOp: glowOpacity },
+          { core: CHAKRA.sacral,   halo: CHAKRA.sacral,   haloOp: glowOpacity },
+          { core: CHAKRA.solar,    halo: CHAKRA.solar,    haloOp: glowOpacity },
+          { core: CHAKRA.heart,    halo: CHAKRA.heart,    haloOp: glowOpacity },
+          ...(includeZAxis
+            ? [
+                { core: CHAKRA.throat,   halo: CHAKRA.throat,   haloOp: glowOpacity },
+                { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: glowOpacity },
+              ]
+            : []),
+        ];
+
+    // BAR materials
     const barCoreMat = new THREE.MeshStandardMaterial({
-      color,
+      color: _barColor,
       roughness: 0.38,
       metalness: 0.22,
-      emissive: new THREE.Color(color),
-      emissiveIntensity: 0.6,
+      emissive: new THREE.Color(_barColor),
+      emissiveIntensity: barEmissive,
+      toneMapped: true,
     });
     const barHaloMat = new THREE.MeshBasicMaterial({
-      color,
+      color: _barColor,
       transparent: true,
-      opacity: glow ? glowOpacity * 0.45 : 0,
+      opacity: glow ? _haloOpBase * 0.45 : 0,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
 
-    // Chakra palette (root→crown)
-    const CHAKRA = {
-      root:     '#ef4444', // red
-      sacral:   '#f97316', // orange
-      solar:    '#facc15', // yellow
-      heart:    '#22c55e', // green
-      throat:   '#3b82f6', // blue
-      thirdEye: '#4f46e5', // indigo
-      crownV:   '#c084fc', // violet
-      crownW:   '#f6f3ff', // near-white violet-tinted
-    };
-
-    // Sphere positions (center first, then ±X, ±Y, ±Z)
-    const centers = [
-      [0, 0, 0],
-      [ offset, 0, 0],  // +X
-      [-offset, 0, 0],  // -X
-      [0,  offset, 0],  // +Y
-      [0, -offset, 0],  // -Y
-    ];
-    if (includeZAxis) {
-      centers.push([0, 0,  offset]);  // +Z
-      centers.push([0, 0, -offset]);  // -Z
-    }
-
-    // Per-sphere colors
-    const sphereColors = [
-      { core: CHAKRA.crownW, halo: CHAKRA.crownV, haloOp: 0.9 }, // center
-      { core: CHAKRA.root,     halo: CHAKRA.root,     haloOp: glowOpacity },
-      { core: CHAKRA.sacral,   halo: CHAKRA.sacral,   haloOp: glowOpacity },
-      { core: CHAKRA.solar,    halo: CHAKRA.solar,    haloOp: glowOpacity },
-      { core: CHAKRA.heart,    halo: CHAKRA.heart,    haloOp: glowOpacity },
-      ...(includeZAxis
-        ? [
-            { core: CHAKRA.throat,   halo: CHAKRA.throat,   haloOp: glowOpacity },
-            { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: glowOpacity },
-          ]
-        : []),
-    ];
-
+    // SPHERE materials (per orb)
     const sphereCoreMats = sphereColors.map(({ core }) =>
       new THREE.MeshStandardMaterial({
         color: core,
         roughness: 0.34,
         metalness: 0.22,
         emissive: new THREE.Color(core),
-        emissiveIntensity: 1.25,
+        emissiveIntensity: coreEmissive,
+        toneMapped: true,
       })
     );
     const sphereHaloMats = sphereColors.map(({ halo, haloOp }) =>
@@ -128,7 +156,11 @@ function OrbCross({
       sphereCoreMats,
       sphereHaloMats,
     };
-  }, [geomScale, armRatio, offsetFactor, color, glow, glowOpacity, glowScale, includeZAxis]);
+  }, [
+    geomScale, armRatio, offsetFactor,
+    color, glow, glowOpacity, glowScale,
+    includeZAxis, overrideAllColor, overrideGlowOpacity
+  ]);
 
   const {
     sphereGeo,
@@ -140,16 +172,16 @@ function OrbCross({
     sphereHaloMats,
   } = memo;
 
+  // Only fires when real geometry is hit (r3f raycast)
   const handlePointerDown = (e) => {
-    // Fires only when a mesh is actually hit (true 3D raycast)
     e.stopPropagation();
-    if (onActivate) onActivate();
+    onActivate && onActivate();
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      if (onActivate) onActivate();
+      onActivate && onActivate();
     }
   };
 
@@ -158,7 +190,7 @@ function OrbCross({
       ref={group}
       onPointerDown={handlePointerDown}
       onKeyDown={handleKeyDown}
-      tabIndex={0} // a11y focusable
+      tabIndex={0}
     >
       {/* Bars */}
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
@@ -201,11 +233,13 @@ export default function BlueOrbCross3D({
   glowScale = 1.35,
   includeZAxis = true,
   onActivate = null,
+  overrideAllColor = null,
+  overrideGlowOpacity,
   style = {},
   className = '',
 }) {
   return (
-    <div className={className} style={{ height, width: '100%', /* IMPORTANT: allow pointer events */ ...style }}>
+    <div className={className} style={{ height, width: '100%', ...style }}>
       <Canvas
         dpr={[1, 2]}
         camera={{ position: [0, 0, 3], fov: 45 }}
@@ -215,6 +249,7 @@ export default function BlueOrbCross3D({
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />
         <directionalLight position={[-3, -2, -4]} intensity={0.35} />
+
         <OrbCross
           rpm={rpm}
           color={color}
@@ -226,6 +261,8 @@ export default function BlueOrbCross3D({
           glowScale={glowScale}
           includeZAxis={includeZAxis}
           onActivate={onActivate}
+          overrideAllColor={overrideAllColor}
+          overrideGlowOpacity={overrideGlowOpacity}
         />
       </Canvas>
     </div>

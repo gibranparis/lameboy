@@ -210,11 +210,10 @@ export default function BannedLogin() {
   const onBannedClick = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    setOrbColor('#ff002a');       // scary neon red
-    setOrbGlow(1.0);              // max glow
-    setOrbVersion(v => v + 1);    // force remount so material updates
+    setOrbColor('#ff002a');   // scary neon red
+    setOrbGlow(1.0);          // max glow
+    setOrbVersion(v => v + 1);
   }, []);
-
   const onBannedKey = useCallback((e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -242,13 +241,16 @@ export default function BannedLogin() {
             <BlueOrbCross3D
               key={`${orbColor}-${orbGlow}-${orbVersion}`} // hard remount on changes
               rpm={14.4}
-              color={orbColor}
+              color="#32ffc7"                 // normal bar color
               geomScale={1}
               glow
               glowOpacity={orbGlow}
               includeZAxis
               height="10vh"
               onActivate={onOrbActivate}
+              /* When in scary red mode, override ALL parts to red + extra halo */
+              overrideAllColor={orbColor === '#ff002a' ? '#ff002a' : null}
+              overrideGlowOpacity={orbColor === '#ff002a' ? 1.0 : undefined}
             />
           </div>
 
@@ -357,21 +359,15 @@ export default function BannedLogin() {
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
-        /* iOS/Safari mobile: tame the bloom around Lameboy + seafoam marks */
+        /* iOS/Safari mobile: tame the bloom around Lameboy + seafoam marks (stronger reduction) */
         @media (hover: none) and (pointer: coarse){
           .lb-letter{
-            text-shadow:
-              0 0 6px currentColor,
-              0 0 14px currentColor,
-              0 0 26px currentColor;
-            filter:saturate(1.2) contrast(1.1) brightness(1.04);
+            text-shadow: 0 0 4px currentColor, 0 0 10px currentColor, 0 0 18px currentColor;
+            filter: saturate(1.1) contrast(1.06) brightness(1.03);
           }
           .lb-seafoam{
-            text-shadow:
-              0 0 4px #32ffc7,
-              0 0 10px #32ffc7,
-              0 0 16px #32ffc7;
-            filter:saturate(1.15) brightness(1.03);
+            text-shadow: 0 0 4px #32ffc7, 0 0 10px #32ffc7, 0 0 16px #32ffc7;
+            filter: saturate(1.15) brightness(1.03);
           }
         }
       `}</style>
