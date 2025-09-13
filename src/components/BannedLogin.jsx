@@ -299,13 +299,62 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Global touches: base bg + shared seafoam glow */}
+      {/* Global touches: base bg + shared seafoam glow + button glow overrides */}
       <style jsx global>{`
         html,body{ background:#000; }
         .lb-seafoam{
           color:#32ffc7; font-weight:800;
           text-shadow:0 0 8px #32ffc7,0 0 20px #32ffc7,0 0 44px #32ffc7,0 0 80px #32ffc7;
           filter:saturate(1.35) brightness(1.06);
+        }
+
+        /* === BUTTON GLOW OVERRIDES === */
+        .commit-btn.btn-link{
+          color:#facc15; border:1px solid #facc15; background:rgba(250,204,21,0.08);
+          box-shadow:
+            0 0 0 1px rgba(250,204,21,0.55) inset,
+            0 0 8px  rgba(250,204,21,0.85),
+            0 0 18px rgba(250,204,21,0.75),
+            0 0 36px rgba(250,204,21,0.45);
+          text-shadow:0 0 10px rgba(250,204,21,0.8);
+          filter:saturate(1.2) brightness(1.05);
+          transition: box-shadow .18s ease, transform .12s ease, filter .18s ease;
+        }
+        .commit-btn.btn-link:hover,
+        .commit-btn.btn-link.btn-activated,
+        .commit-btn.btn-link:focus-visible{
+          box-shadow:
+            0 0 0 1px rgba(250,204,21,0.7) inset,
+            0 0 10px rgba(250,204,21,1),
+            0 0 26px rgba(250,204,21,0.9),
+            0 0 48px rgba(250,204,21,0.55);
+          filter:saturate(1.35) brightness(1.1);
+          transform: translateY(-0.5px);
+          outline: none;
+        }
+
+        .commit-btn.btn-bypass{
+          color:#ff3b3b; border:1px solid #ff3b3b; background:rgba(255,59,59,0.08);
+          box-shadow:
+            0 0 0 1px rgba(255,59,59,0.55) inset,
+            0 0 8px  rgba(255,59,59,0.9),
+            0 0 18px rgba(255,59,59,0.8),
+            0 0 36px rgba(255,59,59,0.5);
+          text-shadow:0 0 10px rgba(255,59,59,0.85);
+          filter:saturate(1.2) brightness(1.05);
+          transition: box-shadow .18s ease, transform .12s ease, filter .18s ease;
+        }
+        .commit-btn.btn-bypass:hover,
+        .commit-btn.btn-bypass.btn-activated,
+        .commit-btn.btn-bypass:focus-visible{
+          box-shadow:
+            0 0 0 1px rgba(255,59,59,0.7) inset,
+            0 0 10px rgba(255,59,59,1),
+            0 0 26px rgba(255,59,59,0.95),
+            0 0 52px rgba(255,59,59,0.6);
+          filter:saturate(1.35) brightness(1.1);
+          transform: translateY(-0.5px);
+          outline: none;
         }
       `}</style>
 
