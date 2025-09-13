@@ -9,15 +9,15 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
-/** Chakra-colored "Lameboy" with pulsing glow; ".com" stays plain */
+/** Chakra-colored "Lameboy" with BRIGHT pulsing glow; ".com" stays plain */
 function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = '' }) {
-  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7'];
+  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7']; // root→crown
   return (
     <span className={`chakra-word ${className}`}>
       {word.split('').map((ch, i) => (
         <span
           key={`${ch}-${i}`}
-          className="chakra-letter glow"
+          className="chakra-letter glow-plus"
           style={{ color: colors[i % colors.length], fontWeight: strong ? 800 : 700 }}
         >
           {ch}
@@ -27,16 +27,49 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
       <style jsx>{`
         .chakra-word { display: inline-flex; letter-spacing: 0.06em; gap: 0.02em; }
         .chakra-suffix { margin-left: 0.06em; font-weight: 700; }
-        .chakra-letter.glow {
+
+        /* SUPER shiny rainbow glow */
+        .chakra-letter.glow-plus {
+          position: relative;
+          mix-blend-mode: screen; /* brighter on dark bg */
           text-shadow:
-            0 0 6px  currentColor,
-            0 0 14px currentColor,
-            0 0 22px currentColor;
-          animation: glowPulse 2.2s ease-in-out infinite alternate;
+            0 0 8px   currentColor,
+            0 0 18px  currentColor,
+            0 0 32px  currentColor,
+            0 0 54px  currentColor,
+            0 0 88px  currentColor;
+          filter:
+            drop-shadow(0 0 6px currentColor)
+            drop-shadow(0 0 14px currentColor)
+            drop-shadow(0 0 26px currentColor);
+          animation: glowPulseMega 1.8s ease-in-out infinite alternate;
         }
-        @keyframes glowPulse {
-          from { text-shadow: 0 0 6px currentColor, 0 0 14px currentColor, 0 0 22px currentColor; }
-          to   { text-shadow: 0 0 10px currentColor, 0 0 22px currentColor, 0 0 34px currentColor; }
+
+        @keyframes glowPulseMega {
+          0% {
+            text-shadow:
+              0 0 8px  currentColor,
+              0 0 18px currentColor,
+              0 0 32px currentColor,
+              0 0 54px currentColor,
+              0 0 88px currentColor;
+            filter:
+              drop-shadow(0 0 6px currentColor)
+              drop-shadow(0 0 14px currentColor)
+              drop-shadow(0 0 26px currentColor);
+          }
+          100% {
+            text-shadow:
+              0 0 12px currentColor,
+              0 0 28px currentColor,
+              0 0 50px currentColor,
+              0 0 84px currentColor,
+              0 0 120px currentColor;
+            filter:
+              drop-shadow(0 0 8px currentColor)
+              drop-shadow(0 0 22px currentColor)
+              drop-shadow(0 0 40px currentColor);
+          }
         }
       `}</style>
     </span>
@@ -107,15 +140,8 @@ export default function BannedLogin() {
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
       {!hideAll && (
         <div className="login-stack">
-          {/* 3D orb cross — 2× bigger, 20% faster, 50% closer (more negative margin) */}
-          <BlueOrbCross3D
-            height="10vh"
-            rpm={12}
-            color="#32ffc7"
-            r={0.288}
-            armR={0.96}
-            style={{ marginBottom: -12 }}  // was -6 → bring 50% closer
-          />
+          {/* Orb — safe geometry, 20% faster spin, close to the bubble */}
+          <BlueOrbCross3D rpm={7.2} color="#32ffc7" geomScale={1} style={{ marginBottom: -9, height: '10vh' }} />
 
           {/* Blue bubble */}
           {!hideBubble && (
@@ -158,108 +184,4 @@ export default function BannedLogin() {
 
                   <div className="code-line">
                     <span className="code-keyword">const</span>&nbsp;
-                    <span className="code-var">email</span>
-                    <span className="code-op">=</span>
-                    <span className="code-string">"</span>
-                    <input
-                      ref={emailRef}
-                      className="code-input"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      inputMode="email"
-                      autoComplete="email"
-                    />
-                    <span className="code-string">"</span>
-                    <span className="code-punc">;</span>
-                  </div>
-
-                  <div className="code-line">
-                    <span className="code-keyword">const</span>&nbsp;
-                    <span className="code-var">phone</span>
-                    <span className="code-op">=</span>
-                    <span className="code-string">"</span>
-                    <input
-                      className="code-input"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+1 305 555 0123"
-                      inputMode="tel"
-                      autoComplete="tel"
-                    />
-                    <span className="code-string">"</span>
-                    <span className="code-punc">;</span>
-                  </div>
-
-                  <div className="row-nowrap" style={{ marginTop: 6, gap: 8 }}>
-                    <button
-                      type="button"
-                      className={`commit-btn btn-link ${activated === 'link' ? 'btn-activated' : ''}`}
-                      onClick={onLink}
-                    >
-                      Link
-                    </button>
-                    <button
-                      type="button"
-                      className={`commit-btn btn-bypass ${activated === 'bypass' ? 'btn-activated' : ''}`}
-                      onClick={onBypass}
-                    >
-                      Bypass
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          )}
-
-          {/* Florida label (hidden once cascade triggers) */}
-          <button
-            type="button"
-            className={['ghost-btn','florida-link','florida-inline', floridaHot ? 'is-hot' : ''].join(' ')}
-            onClick={onFloridaClick}
-            onMouseEnter={() => setFloridaHot(true)}
-            onMouseLeave={() => setFloridaHot(false)}
-          >
-            Florida, USA
-          </button>
-        </div>
-      )}
-
-      {/* Cascade bands */}
-      {cascade && (
-        <div className="chakra-overlay">
-          <div className="chakra-band chakra-crown band-1" />
-          <div className="chakra-band chakra-thirdeye band-2" />
-          <div className="chakra-band chakra-throat band-3" />
-          <div className="chakra-band chakra-heart band-4" />
-          <div className="chakra-band chakra-plexus band-5" />
-          <div className="chakra-band chakra-sacral band-6" />
-          <div className="chakra-band chakra-root band-7" />
-        </div>
-      )}
-
-      {/* Small white "LAMEBOY, USA" OVER the cascade */}
-      {cascade && (
-        <div className="brand-overlay" aria-hidden="true">
-          <span className="brand-overlay-text">LAMEBOY, USA</span>
-        </div>
-      )}
-
-      {/* After cascade: full white screen */}
-      {whiteout && !cascade && <div className="whiteout" />}
-
-      <style jsx>{`
-        .brand-overlay {
-          position: fixed; inset: 0; display: grid; place-items: center;
-          z-index: 2000; pointer-events: none;
-        }
-        .brand-overlay-text {
-          color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-          font-size: clamp(11px, 1.3vw, 14px);
-          text-shadow: 0 0 8px rgba(0,0,0,0.25);
-        }
-        .whiteout { position: fixed; inset: 0; background: #fff; z-index: 1500; }
-      `}</style>
-    </div>
-  );
-}
+                    <span className="code-var">email<
