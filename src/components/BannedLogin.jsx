@@ -169,7 +169,6 @@ export default function BannedLogin() {
     setHideAll(true);
     setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
-
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
@@ -207,8 +206,18 @@ export default function BannedLogin() {
 
   // "is banned" click -> turn orb red (without triggering bubble click)
   const onBannedClick = useCallback((e) => {
+    e.preventDefault();
     e.stopPropagation();
     setOrbColor('#ff2a2a'); // neon red
+  }, []);
+
+  // keyboard support for "is banned"
+  const onBannedKey = useCallback((e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      setOrbColor('#ff2a2a');
+    }
   }, []);
 
   return (
@@ -226,6 +235,7 @@ export default function BannedLogin() {
         <div className="login-stack">
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
+              key={orbColor}          // force remount so color always updates
               rpm={14.4}
               color={orbColor}
               geomScale={1}
@@ -255,9 +265,13 @@ export default function BannedLogin() {
                   <span className="lb-seafoam">//</span>&nbsp;<ChakraWord word="Lameboy" suffix=".com" />
                   {'\n'}<span className="lb-seafoam">//</span>&nbsp;
                   <span
-                    className="code-banned"
-                    style={{ cursor:'pointer', textDecoration:'underline' }}
+                    role="button"
+                    tabIndex={0}
+                    className="code-banned banned-trigger"
                     onClick={onBannedClick}
+                    onPointerDown={(e)=>{e.stopPropagation();}}
+                    onMouseDown={(e)=>{e.stopPropagation();}}
+                    onKeyDown={onBannedKey}
                   >
                     is banned
                   </span>
@@ -279,7 +293,7 @@ export default function BannedLogin() {
                     <span className="code-string">"</span><span className="code-punc">;</span>
                   </div>
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
-                    {/* LINK looks exactly like old BYPASS (yellow) */}
+                    {/* LINK: exact old BYPASS look (yellow) */}
                     <button
                       type="button"
                       className={`commit-btn btn-bypass btn-link btn-yellow ${activated==='link'?'btn-activated':''}`}
@@ -287,7 +301,7 @@ export default function BannedLogin() {
                     >
                       Link
                     </button>
-                    {/* BYPASS: same style, recolored to red via hue-rotate (so look is identical, just red) */}
+                    {/* BYPASS: same style, recolored to red via hue rotate */}
                     <button
                       type="button"
                       className={`commit-btn btn-bypass btn-red ${activated==='bypass'?'btn-activated':''}`}
@@ -313,7 +327,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Global touches: base bg + shared seafoam glow + tiny color helpers */}
+      {/* Global touches: base bg + shared seafoam glow + tiny color helpers + banned trigger */}
       <style jsx global>{`
         html,body{ background:#000; }
         .lb-seafoam{
@@ -325,12 +339,21 @@ export default function BannedLogin() {
         /* Keep existing button look. Only recolor via filters. */
         .commit-btn.btn-bypass{ will-change: filter, transform; transition: filter .15s ease, transform .12s ease; }
         .btn-yellow{ filter: none; } /* original yellow look (no change) */
-        .btn-red{ filter: hue-rotate(-95deg) saturate(1.15); } /* shifts yellow glow to red while preserving style */
+        .btn-red{ filter: hue-rotate(-95deg) saturate(1.15); } /* shift yellow style to red */
         .commit-btn.btn-bypass:hover,
         .commit-btn.btn-bypass.btn-activated,
         .commit-btn.btn-bypass:focus-visible{
           transform: translateY(-0.5px);
           outline: none;
+        }
+
+        /* "is banned" as a true button: no permanent underline */
+        .code-banned.banned-trigger{
+          cursor:pointer; text-decoration:none;
+        }
+        .code-banned.banned-trigger:hover,
+        .code-banned.banned-trigger:focus-visible{
+          text-decoration:underline;
         }
       `}</style>
 
