@@ -4,7 +4,8 @@
 import dynamic from 'next/dynamic';
 const BlueOrbCross3D = dynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
@@ -63,6 +64,14 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', strong = true, classNam
   );
 }
 
+/** Simple portal that only renders on the client */
+function BodyPortal({ children }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
+
 export default function BannedLogin() {
   const [view, setView] = useState('banned');          // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);
@@ -84,7 +93,7 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Cascade: all UI hidden; screen starts BLACK then a RIGHT-ORIGIN WHITE SWEEP covers it; persists white after.
+  // Cascade: screen starts BLACK; a WHITE sweep from RIGHT reveals; then keep WHITE
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -94,21 +103,19 @@ export default function BannedLogin() {
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
-      setWhiteout(true); // keep white after sweep finishes
+      setWhiteout(true); // keep white after sweep
       after && after();
     }, CASCADE_MS);
 
     return () => clearTimeout(t);
   }, []);
 
-  // Bubble click → open login
   const onBubbleClick = useCallback(() => {
     setBubblePulse(true); setTimeout(() => setBubblePulse(false), 700);
     setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
     goLogin();
   }, [goLogin]);
 
-  // Florida toggles view if visible
   const onFloridaClick = useCallback(() => {
     if (hideAll) return;
     setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
@@ -116,7 +123,6 @@ export default function BannedLogin() {
     setView(v => (v === 'banned' ? 'login' : 'banned'));
   }, [hideAll]);
 
-  // Link & Bypass trigger cascade
   const onLink = useCallback(() => {
     setActivated('link'); setTimeout(() => setActivated(null), 650);
     runCascade(() => {}, { washAway: true });
@@ -134,25 +140,25 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* CASCADE VISUALS */}
-      {cascade && (
-        <>
-          {/* 1) All black base */}
-          <div className="cascade-black" />
-          {/* 2) White sweep from the RIGHT that covers the screen over CASCADE_MS */}
-          <div className="cascade-white-sweep" style={{ animationDuration: `${CASCADE_MS}ms` }} />
-        </>
+      {/* === CASCADE LAYERS IN A PORTAL (avoids clipping/stacking issues) === */}
+      {(cascade || whiteout) && (
+        <BodyPortal>
+          {/* Base black when cascade starts; hidden when whiteout only */}
+          {cascade && <div className="cascade-black" />}
+          {/* White sweep from the RIGHT during cascade */}
+          {cascade && <div className="cascade-white-sweep" style={{ animationDuration: `${CASCADE_MS}ms` }} />}
+          {/* Persist white after cascade */}
+          {whiteout && !cascade && <div className="whiteout" />}
+          {/* Brand stays on top through the whole sequence */}
+          {cascade && (
+            <div className="brand-overlay" aria-hidden="true">
+              <span className="brand-overlay-text">LAMEBOY, USA</span>
+            </div>
+          )}
+        </BodyPortal>
       )}
-      {/* After cascade: keep white */}
-      {whiteout && !cascade && <div className="whiteout" />}
 
-      {/* Brand stays ON TOP during cascade */}
-      {cascade && (
-        <div className="brand-overlay" aria-hidden="true">
-          <span className="brand-overlay-text">LAMEBOY, USA</span>
-        </div>
-      )}
-
+      {/* === Normal UI (hidden during cascade) === */}
       {!hideAll && (
         <div className="login-stack">
           {/* Orb — clickable only on mesh via 3D raycasting */}
@@ -267,29 +273,27 @@ export default function BannedLogin() {
       )}
 
       <style jsx>{`
-        /* CASCADE VISUALS */
+        /* CASCADE (via portal) */
         .cascade-black {
           position: fixed; inset: 0;
           background: #000;
-          z-index: 1200;
+          z-index: 9997;
+          pointer-events: none;
         }
         .cascade-white-sweep {
-          position: fixed; top: 0; right: 0; height: 100vh;
-          width: 0%;
+          position: fixed; top: 0; right: 0; height: 100vh; width: 0%;
           background: #fff;
-          z-index: 1300;
+          z-index: 9999;
+          pointer-events: none;
           animation-name: whiteRevealFromRight;
           animation-timing-function: cubic-bezier(.2,.6,.2,1);
           animation-fill-mode: forwards;
         }
-        @keyframes whiteRevealFromRight {
-          from { width: 0%; }
-          to   { width: 100%; }
-        }
+        @keyframes whiteRevealFromRight { from { width: 0%; } to { width: 100%; } }
 
         .brand-overlay {
           position: fixed; inset: 0; display: grid; place-items: center;
-          z-index: 2000; pointer-events: none;
+          z-index: 10001; pointer-events: none;
         }
         .brand-overlay-text {
           color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
@@ -297,7 +301,10 @@ export default function BannedLogin() {
           text-shadow: 0 0 8px rgba(0,0,0,0.25);
         }
 
-        .whiteout { position: fixed; inset: 0; background: #fff; z-index: 1500; }
+        .whiteout {
+          position: fixed; inset: 0; background: #fff;
+          z-index: 9998; pointer-events: none;
+        }
 
         /* Orb row */
         .orb-row { width: 100%; }
