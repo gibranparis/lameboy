@@ -12,7 +12,7 @@ function OrbCross({
   r = 0.072,          // a bit bigger than before
   armR = 0.024,
   color = '#32ffc7',  // neon seafoam
-  rpm = 6,            // fast spin
+  rpm = 9,            // fast spin
   glow = true,
   glowOpacity = 0.6,
   glowScale = 1.35,
@@ -87,8 +87,8 @@ function OrbCross({
 
 export default function BlueOrbCross3D({
   height = '10vh',      // a little bigger
-  rpm = 6,
-  color = '#32ffc7',
+  rpm = 9,
+  color = '#00ffbbff',
   r = 0.072,
   armR = 0.024,
   glow = true,
