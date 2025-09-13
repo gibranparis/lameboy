@@ -49,9 +49,9 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
   );
 }
 
-/* SOLID vertical chakra cascade (no blur), with white follower from the right */
+/* SOLID vertical cascade with white follower */
 function CascadeOverlay({ durationMs = 2400 }) {
-  const [p, setP] = useState(0); // 0..1 timeline
+  const [p, setP] = useState(0);
   const rafRef = useRef();
 
   useEffect(() => {
@@ -66,48 +66,31 @@ function CascadeOverlay({ durationMs = 2400 }) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [durationMs]);
 
-  // White follower grows from the right.
   const whiteW = (p * 100).toFixed(3);
-
-  // Color block: fixed width in vw, slides right -> left beyond screen.
   const COLOR_VW = 120;
-  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // in vw
+  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
 
   return createPortal(
     <>
-      {/* WHITE follower under the colors */}
       <div
         aria-hidden="true"
         style={{
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          height: '100vh',
-          width: `${whiteW}%`,
-          background: '#fff',
-          zIndex: 9998,
-          pointerEvents: 'none',
-          willChange: 'width',
-          transition: 'width 16ms linear',
-          transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
+          position:'fixed', top:0, right:0, height:'100vh',
+          width:`${whiteW}%`,
+          background:'#fff',
+          zIndex:9998, pointerEvents:'none',
+          willChange:'width', transition:'width 16ms linear',
+          transform:'translateZ(0)', backfaceVisibility:'hidden'
         }}
       />
-
-      {/* COLOR stripes moving as one block (hard edges) */}
       <div
         aria-hidden="true"
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          height: '100vh',
-          width: `${COLOR_VW}vw`,
-          transform: `translate3d(${tx}vw,0,0)`,
-          zIndex: 9999,
-          pointerEvents: 'none',
-          willChange: 'transform',
-          backfaceVisibility: 'hidden',
+          position:'fixed', top:0, left:0, height:'100vh',
+          width:`${COLOR_VW}vw`,
+          transform:`translate3d(${tx}vw,0,0)`,
+          zIndex:9999, pointerEvents:'none',
+          willChange:'transform', backfaceVisibility:'hidden'
         }}
       >
         <div className="lb-cascade">
@@ -120,58 +103,17 @@ function CascadeOverlay({ durationMs = 2400 }) {
           <div className="lb-band lb-b7" />
         </div>
       </div>
-
-      {/* BRAND stays on top during the whole sweep */}
       <div className="lb-brand" aria-hidden="true" style={{ zIndex: 10001 }}>
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
 
-      {/* Hard-edged, fully opaque stripes — no glows, no filters */}
       <style jsx global>{`
-        .lb-cascade {
-          position: absolute;
-          inset: 0;
-          display: grid;
-          grid-template-columns: repeat(7, 1fr); /* vertical bars */
-          height: 100%;
-          width: 100%;
-          pointer-events: none;
-          mix-blend-mode: initial;
-          contain: layout paint size style;
-        }
-        .lb-band {
-          width: 100%;
-          height: 100%;
-          opacity: 1;
-          background: var(--c);
-          box-shadow: none !important;
-          filter: none !important;
-          image-rendering: crisp-edges;
-        }
-        /* Chakra colors (crown → root) */
-        .lb-b1 { --c: #c084fc; }
-        .lb-b2 { --c: #4f46e5; }
-        .lb-b3 { --c: #3b82f6; }
-        .lb-b4 { --c: #22c55e; }
-        .lb-b5 { --c: #facc15; }
-        .lb-b6 { --c: #f97316; }
-        .lb-b7 { --c: #ef4444; }
-
-        .lb-brand {
-          position: fixed;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          pointer-events: none;
-        }
-        .lb-brand-text {
-          color: #fff;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          font-size: clamp(11px, 1.3vw, 14px);
-          text-shadow: 0 0 8px rgba(0,0,0,.25);
-        }
+        .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); height:100%; width:100%; pointer-events:none; contain:layout paint size style; }
+        .lb-band{ width:100%; height:100%; opacity:1; background:var(--c); }
+        .lb-b1{ --c:#c084fc; } .lb-b2{ --c:#4f46e5; } .lb-b3{ --c:#3b82f6; }
+        .lb-b4{ --c:#22c55e; } .lb-b5{ --c:#facc15; } .lb-b6{ --c:#f97316; } .lb-b7{ --c:#ef4444; }
+        .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
+        .lb-brand-text{ color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25); }
       `}</style>
     </>,
     document.body
@@ -206,7 +148,6 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Hide UI → run cascade → keep white
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -244,19 +185,15 @@ export default function BannedLogin() {
     runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
-  // Orb click == Bypass (true 3D hit only)
+  // Orb click == Bypass
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
   // "is banned" -> scary red. "Lameboy" -> chakra.
   const setRed = useCallback(() => {
-    setOrbMode('red');
-    setOrbGlow(1.0);
-    setOrbVersion(v => v + 1);
+    setOrbMode('red'); setOrbGlow(1.0); setOrbVersion(v => v + 1);
   }, []);
   const setChakra = useCallback(() => {
-    setOrbMode('chakra');
-    setOrbGlow(0.9);
-    setOrbVersion(v => v + 1);
+    setOrbMode('chakra'); setOrbGlow(0.9); setOrbVersion(v => v + 1);
   }, []);
 
   const onBannedClick = useCallback((e) => { e.preventDefault(); e.stopPropagation(); setRed(); }, [setRed]);
@@ -277,8 +214,8 @@ export default function BannedLogin() {
         <div className="login-stack">
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
-              key={`${orbMode}-${orbGlow}-${orbVersion}`} // hard remount on changes
-              rpm={44}                      // spin faster
+              key={`${orbMode}-${orbGlow}-${orbVersion}`}
+              rpm={44}
               color={SEAFOAM}
               geomScale={1}
               glow
@@ -326,45 +263,41 @@ export default function BannedLogin() {
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
                   <div className="code-line"><span className="lb-seafoam">// login</span></div>
 
-                  {/* email line — glow on name, equals, opening quote + INPUT text + closing quote and ; */}
+                  {/* EMAIL — no "const"; purple glowing input + purple glowing quotes & semicolon */}
                   <div className="code-line">
-                    <span className="code-keyword">const</span>&nbsp;
-                    <span className="neon-chunk">
-                      <span className="code-var">email</span>
-                      <span className="code-op">=</span>
-                      <span className="code-string">"</span>
-                    </span>
+                    <span className="code-var">email</span>
+                    <span className="code-op">=</span>
+                    <span className="code-string">"</span>
                     <input
                       ref={emailRef}
-                      className="code-input glow-text"
+                      className="code-input code-input-violet"
                       value={email}
                       onChange={(e)=>setEmail(e.target.value)}
                       placeholder="you@example.com"
                       inputMode="email"
                       autoComplete="email"
+                      spellCheck={false}
                     />
-                    <span className="code-string glow-tail">"</span>
-                    <span className="code-punc glow-tail">;</span>
+                    <span className="code-string">"</span>
+                    <span className="code-string">;</span>
                   </div>
 
-                  {/* phone line — same glow treatment */}
+                  {/* PHONE — no "const"; purple glowing input + purple glowing quotes & semicolon */}
                   <div className="code-line">
-                    <span className="code-keyword">const</span>&nbsp;
-                    <span className="neon-chunk">
-                      <span className="code-var">phone</span>
-                      <span className="code-op">=</span>
-                      <span className="code-string">"</span>
-                    </span>
+                    <span className="code-var">phone</span>
+                    <span className="code-op">=</span>
+                    <span className="code-string">"</span>
                     <input
-                      className="code-input glow-text"
+                      className="code-input code-input-violet"
                       value={phone}
                       onChange={(e)=>setPhone(e.target.value)}
                       placeholder="+1 305 555 0123"
                       inputMode="tel"
                       autoComplete="tel"
+                      spellCheck={false}
                     />
-                    <span className="code-string glow-tail">"</span>
-                    <span className="code-punc glow-tail">;</span>
+                    <span className="code-string">"</span>
+                    <span className="code-string">;</span>
                   </div>
 
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
@@ -400,53 +333,49 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Global tweaks (incl. NEW glow rules for inputs and trailing tokens) */}
+      {/* Global tweaks (adds purple glow to inputs & string tokens) */}
       <style jsx global>{`
         html,body{ background:#000; }
 
+        /* seafoam markers */
         .lb-seafoam{
           color:#32ffc7; font-weight:800;
           text-shadow:0 0 8px #32ffc7,0 0 20px #32ffc7,0 0 44px #32ffc7,0 0 80px #32ffc7;
           filter:saturate(1.35) brightness(1.06);
         }
 
-        /* Neon block for the tokens before the inputs */
-        .neon-chunk > .code-var,
-        .neon-chunk > .code-op,
-        .neon-chunk > .code-string {
-          position: relative;
-          text-shadow:
-            0 0 6px currentColor,
-            0 0 16px currentColor,
-            0 0 36px currentColor,
-            0 0 64px currentColor;
-          filter: saturate(1.25) brightness(1.06);
-          mix-blend-mode: screen;
+        /* Purple "string" tokens (quotes + semicolons) */
+        .code-string{
+          color:#c084fc;
+          text-shadow:0 0 6px #c084fc, 0 0 14px #c084fc, 0 0 26px #c084fc;
+          font-weight:700;
         }
 
-        /* NEW: make the INPUT text itself glow, keeping its existing color */
-        .code-input.glow-text {
-          color: inherit;
-          text-shadow:
-            0 0 6px currentColor,
-            0 0 16px currentColor,
-            0 0 36px currentColor,
-            0 0 64px currentColor;
-          filter: saturate(1.2) brightness(1.06);
-          background: transparent;
+        /* Make the typed text match that same glowing purple, including iOS autofill */
+        .code-input.code-input-violet{
+          color:#c084fc;
+          -webkit-text-fill-color:#c084fc;  /* iOS */
+          caret-color:#c084fc;
+          background:transparent;
+          text-shadow:0 0 6px #c084fc, 0 0 14px #c084fc, 0 0 26px #c084fc;
+        }
+        .code-input.code-input-violet::placeholder{
+          color:#c084fcaa;
+          text-shadow:none;
+        }
+        /* iOS autofill overrides */
+        input.code-input-violet:-webkit-autofill{
+          -webkit-text-fill-color:#c084fc !important;
+          transition: background-color 9999s ease-in-out 0s !important;
+          box-shadow: 0 0 0px 1000px transparent inset !important;
+          background-clip: content-box !important;
+        }
+        input.code-input-violet:autofill{
+          -webkit-text-fill-color:#c084fc !important;
+          box-shadow: 0 0 0px 1000px transparent inset !important;
         }
 
-        /* NEW: glow on the closing quote and semicolon */
-        .glow-tail {
-          text-shadow:
-            0 0 6px currentColor,
-            0 0 16px currentColor,
-            0 0 36px currentColor,
-            0 0 64px currentColor;
-          filter: saturate(1.2) brightness(1.06);
-        }
-
-        /* Button color treatment preserved */
+        /* Keep your button look; recolor via filters only */
         .commit-btn.btn-bypass{ will-change: filter, transform; transition: filter .15s ease, transform .12s ease; }
         .btn-yellow{ filter: none; }
         .btn-red{ filter: hue-rotate(-95deg) saturate(1.15); }
@@ -458,33 +387,15 @@ export default function BannedLogin() {
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
-        /* iOS/Safari mobile: tone down bloom for rainbow/seafoam and input glow */
+        /* Tame heavy mobile bloom for rainbow + seafoam, but keep inputs glowing */
         @media (hover: none) and (pointer: coarse){
-          .lb-letter{
-            text-shadow: 0 0 2px currentColor, 0 0 6px currentColor, 0 0 10px currentColor !important;
-            filter: none !important;
-          }
-          .lb-seafoam{
-            text-shadow: 0 0 2px #32ffc7, 0 0 6px #32ffc7, 0 0 12px #32ffc7 !important;
-            filter: none !important;
-          }
-          .code-input.glow-text,
-          .glow-tail,
-          .neon-chunk > .code-var,
-          .neon-chunk > .code-op,
-          .neon-chunk > .code-string{
-            text-shadow: 0 0 3px currentColor, 0 0 8px currentColor, 0 0 18px currentColor !important;
-            filter: none !important;
-          }
+          .lb-letter{ text-shadow:0 0 2px currentColor, 0 0 6px currentColor, 0 0 10px currentColor !important; filter:none !important; }
+          .lb-seafoam{ text-shadow:0 0 2px #32ffc7, 0 0 6px #32ffc7, 0 0 12px #32ffc7 !important; filter:none !important; }
         }
       `}</style>
 
       <style jsx>{`
-        .orb-row{
-          width:100%;
-          contain: layout paint style;
-          isolation: isolate;
-        }
+        .orb-row{ width:100%; contain:layout paint style; isolation:isolate; }
       `}</style>
     </div>
   );
