@@ -2,25 +2,15 @@
 'use client';
 
 import * as THREE from 'three';
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 
 /**
- * 3-axis orb-cross (±X, ±Y, ±Z) with per-orb chakra glows.
- * Normal mode = chakra spheres + seafoam bars (sharp on mobile).
- * If `overrideAllColor` is provided, EVERYTHING (spheres + bars + halos) uses that color,
- * with multi-layer halo and a subtle pulse to feel “scarier”.
- *
- * Props
- * - height: CSS height for canvas (e.g., "10vh")
- * - rpm: rotations per minute (Y axis only; stable)
- * - color: bar color in normal mode (default seafoam)
- * - geomScale, offsetFactor, armRatio: geometry sizing
- * - glow, glowOpacity, glowScale: neon halo controls
- * - includeZAxis: add ±Z spheres so "+" silhouette holds while spinning
- * - onActivate: fired only when sphere/arm geometry is actually clicked
- * - overrideAllColor: when set (e.g., "#ff002a"), force ALL parts to that color (scary red)
- * - overrideGlowOpacity: optional halo strength used when overrideAllColor is active
+ * Same behavior as before (chakra orbs, scary-red toggle, pulse),
+ * but with mobile crispness:
+ *  - dynamic DPR up to 3x on iPhone
+ *  - canvas/container isolation to avoid parent transform rasterization
+ *  - slightly tempered halos on coarse pointers
  */
 
 function OrbCross({
@@ -39,37 +29,29 @@ function OrbCross({
 }) {
   const group = useRef();
 
-  // Mobile/coarse pointer → reduce glow (looks sharper) and we’ll let the canvas use DPR up to 3
   const coarse =
     typeof window !== 'undefined' &&
     window.matchMedia &&
     window.matchMedia('(pointer:coarse)').matches;
-  const coarseGlowFactor = coarse ? 0.6 : 1.0; // tame halos on mobile
+  const coarseGlowFactor = coarse ? 0.55 : 1.0; // a touch more restraint on mobile
 
   useFrame((state, dt) => {
     if (!group.current) return;
-    const rps = (rpm * Math.PI * 2) / 60;
-    group.current.rotation.y += rps * dt;
+    group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt;
 
-    // "Scarier" pulse only when override red is on
     if (overrideAllColor && group.current.userData?.pulseMats) {
       const t = state.clock.getElapsedTime();
-      const pulse = 0.85 + Math.sin(t * 3.6) * 0.15; // 0.7..1.0-ish after factors
-      const { barHaloMat, sphereHaloMats, extraHaloMats } = group.current.userData.pulseMats;
-      const base = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * coarseGlowFactor;
+      const pulse = 0.85 + Math.sin(t * 3.6) * 0.15;
+      const { barHaloMat, sphereHaloMats, extraHaloMats, base } =
+        group.current.userData.pulseMats;
 
-      // bar halo
-      if (barHaloMat) barHaloMat.opacity = base * 0.55 * pulse;
+      const b = base * pulse;
 
-      // sphere halos (base layer)
-      sphereHaloMats?.forEach((m) => (m.opacity = base * pulse));
-
-      // extra halo layers (thicker outer glow when red)
+      if (barHaloMat) barHaloMat.opacity = b * 0.55;
+      sphereHaloMats?.forEach((m) => (m.opacity = b));
       if (extraHaloMats) {
-        // near layer (1.6x)
-        extraHaloMats[0].opacity = base * 0.65 * pulse;
-        // mid layer (1.95x)
-        extraHaloMats[1].opacity = base * 0.35 * pulse;
+        if (extraHaloMats[0]) extraHaloMats[0].opacity = b * 0.65;
+        if (extraHaloMats[1]) extraHaloMats[1].opacity = b * 0.35;
       }
     }
   });
@@ -80,7 +62,6 @@ function OrbCross({
     const offset = r * offsetFactor;
     const armLen = 2 * (offset - r * 0.12);
 
-    // Geometries
     const sphereGeo   = new THREE.SphereGeometry(r, 48, 32);
     const armGeoX     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
     const armGeoY     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
@@ -90,7 +71,16 @@ function OrbCross({
     const armGlowGeoY = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
     const armGlowGeoZ = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
 
-    // Chakra palette (root→crown)
+    const centers = [
+      [0, 0, 0],
+      [ offset, 0, 0],
+      [-offset, 0, 0],
+      [0,  offset, 0],
+      [0, -offset, 0],
+      [0, 0,  offset],
+      [0, 0, -offset],
+    ];
+
     const CHAKRA = {
       root:     '#ef4444',
       sacral:   '#f97316',
@@ -102,27 +92,12 @@ function OrbCross({
       crownW:   '#f6f3ff',
     };
 
-    // Positions (center, ±X, ±Y, ±Z)
-    const centers = [
-      [0, 0, 0],
-      [ offset, 0, 0],
-      [-offset, 0, 0],
-      [0,  offset, 0],
-      [0, -offset, 0],
-    ];
-    if (includeZAxis) {
-      centers.push([0, 0,  offset]);
-      centers.push([0, 0, -offset]);
-    }
-
     return {
-      r,
       sphereGeo, armGeoX, armGeoY, armGeoZ,
       armGlowGeoX, armGlowGeoY, armGlowGeoZ,
-      centers,
-      CHAKRA,
+      centers, CHAKRA,
     };
-  }, [geomScale, armRatio, offsetFactor, glowScale, includeZAxis]);
+  }, [geomScale, armRatio, offsetFactor, glowScale]);
 
   const {
     sphereGeo, armGeoX, armGeoY, armGeoZ,
@@ -130,15 +105,14 @@ function OrbCross({
     centers, CHAKRA,
   } = memo;
 
-  // Materials depend on override vs chakra mode
   const useOverride = !!overrideAllColor;
   const barColor = useOverride ? overrideAllColor : color;
 
-  const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * (coarse ? 0.6 : 1.0);
-  const coreEmissive = useOverride ? 2.25 : 1.25;  // brighter when red
+  const haloBase =
+    (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * coarseGlowFactor;
+  const coreEmissive = useOverride ? 2.25 : 1.25;
   const barEmissive  = useOverride ? 1.35 : 0.6;
 
-  // Bars
   const barCoreMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: barColor,
     roughness: 0.32,
@@ -157,21 +131,16 @@ function OrbCross({
     toneMapped: false,
   }), [barColor, glow, haloBase]);
 
-  // Spheres (either all override or chakra set)
   const sphereDefs = useOverride
     ? new Array(centers.length).fill({ core: barColor, halo: barColor, haloOp: haloBase })
     : [
-        { core: CHAKRA.crownW, halo: CHAKRA.crownV, haloOp: 0.9 * (coarse ? 0.7 : 1) }, // center
-        { core: CHAKRA.root,     halo: CHAKRA.root,     haloOp: glowOpacity * (coarse ? 0.7 : 1) },
-        { core: CHAKRA.sacral,   halo: CHAKRA.sacral,   haloOp: glowOpacity * (coarse ? 0.7 : 1) },
-        { core: CHAKRA.solar,    halo: CHAKRA.solar,    haloOp: glowOpacity * (coarse ? 0.7 : 1) },
-        { core: CHAKRA.heart,    halo: CHAKRA.heart,    haloOp: glowOpacity * (coarse ? 0.7 : 1) },
-        ...(includeZAxis
-          ? [
-              { core: CHAKRA.throat,   halo: CHAKRA.throat,   haloOp: glowOpacity * (coarse ? 0.7 : 1) },
-              { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: glowOpacity * (coarse ? 0.7 : 1) },
-            ]
-          : []),
+        { core: CHAKRA.crownW, halo: CHAKRA.crownV, haloOp: 0.9 * coarseGlowFactor },
+        { core: CHAKRA.root,     halo: CHAKRA.root,     haloOp: glowOpacity * coarseGlowFactor },
+        { core: CHAKRA.sacral,   halo: CHAKRA.sacral,   haloOp: glowOpacity * coarseGlowFactor },
+        { core: CHAKRA.solar,    halo: CHAKRA.solar,    haloOp: glowOpacity * coarseGlowFactor },
+        { core: CHAKRA.heart,    halo: CHAKRA.heart,    haloOp: glowOpacity * coarseGlowFactor },
+        { core: CHAKRA.throat,   halo: CHAKRA.throat,   haloOp: glowOpacity * coarseGlowFactor },
+        { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: glowOpacity * coarseGlowFactor },
       ];
 
   const sphereCoreMats = useMemo(
@@ -200,12 +169,10 @@ function OrbCross({
     [useOverride ? barColor : JSON.stringify(sphereDefs), glow]
   );
 
-  // Only fires when real geometry is hit (r3f raycast)
   const handlePointerDown = (e) => {
     e.stopPropagation();
     onActivate && onActivate();
   };
-
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -217,11 +184,11 @@ function OrbCross({
     <group
       ref={(node) => {
         if (node) {
-          // expose mats for pulse in useFrame
           node.userData.pulseMats = {
             barHaloMat,
             sphereHaloMats,
-            extraHaloMats: [], // will fill if override (see below)
+            extraHaloMats: [],
+            base: haloBase,
           };
         }
         group.current = node;
@@ -230,32 +197,28 @@ function OrbCross({
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
-      {/* Bars */}
+      {/* bars */}
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
       <mesh geometry={armGeoY} material={barCoreMat} />
-      {includeZAxis && (
-        <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
-      )}
+      <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
 
-      {/* Orbs (cores) */}
+      {/* cores */}
       {centers.map((p, i) => (
         <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />
       ))}
 
-      {/* Neon halos (base) */}
+      {/* base halos */}
       {glow && (
         <>
           <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} />
           <mesh geometry={armGlowGeoY} material={barHaloMat} />
-          {includeZAxis && (
-            <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />
-          )}
+          <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />
           {centers.map((p, i) => (
             <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />
           ))}
 
-          {/* Extra halo layers ONLY when scary override is active — gives thicker, scarier red */}
-          {useOverride && (
+          {/* extra thick halos only in override (scarier) */}
+          {overrideAllColor && (
             <>
               {centers.map((p, i) => (
                 <mesh
@@ -326,10 +289,27 @@ export default function BlueOrbCross3D({
   style = {},
   className = '',
 }) {
+  // Dynamically pick DPR on client for sharp mobile
+  const [maxDpr, setMaxDpr] = useState(2);
+  useEffect(() => {
+    const pr = Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+    setMaxDpr(Math.max(2, pr)); // at least 2x
+  }, []);
+
   return (
-    <div className={className} style={{ height, width: '100%', ...style }}>
+    <div
+      className={className}
+      style={{
+        height,
+        width: '100%',
+        // isolate the canvas from any ancestor transform/compositing
+        contain: 'layout paint style',
+        isolation: 'isolate',
+        ...style,
+      }}
+    >
       <Canvas
-        dpr={[1, 3]}                           // allow DPR up to 3 → sharper on iPhone
+        dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         style={{ pointerEvents: 'auto' }}

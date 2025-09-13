@@ -10,7 +10,7 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
 
-/* Rainbow "Lameboy" + seafoam ".com" (mobile bloom tamed in global CSS below) */
+/* Rainbow "Lameboy" + seafoam ".com" */
 function ChakraWord({ word = 'Lameboy', suffix = '.com' }) {
   const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7'];
   return (
@@ -38,7 +38,6 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com' }) {
   );
 }
 
-/* Body portal so overlays never get clipped */
 function BodyPortal({ children }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -46,7 +45,6 @@ function BodyPortal({ children }) {
   return createPortal(children, document.body);
 }
 
-/* Cascade: vertical bands with a white follower */
 function CascadeOverlay({ durationMs = 2400, leadPct = 18 }) {
   const [progress, setProgress] = useState(0);
   const rafRef = useRef();
@@ -150,7 +148,6 @@ export default function BannedLogin() {
   const [phone, setPhone] = useState('');
   const emailRef = useRef(null);
 
-  /* ORB color & glow (toggle red on/off; force remount on change) */
   const SEAFOAM = '#32ffc7';
   const RED = '#ff002a';
   const [orbColor, setOrbColor] = useState(SEAFOAM);
@@ -163,7 +160,6 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Cascade control
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -201,13 +197,9 @@ export default function BannedLogin() {
     runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
-  // Orb click == Bypass (true 3D hit only inside BlueOrbCross3D)
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
-  // "is banned" click -> TOGGLE scary red on/off; force remount
-  const onBannedClick = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const toggleRed = useCallback(() => {
     setOrbColor((prev) => {
       const next = prev === RED ? SEAFOAM : RED;
       setOrbGlow(next === RED ? 1.0 : 0.85);
@@ -215,21 +207,11 @@ export default function BannedLogin() {
       return next;
     });
   }, []);
-  const onBannedKey = useCallback((e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault(); e.stopPropagation();
-      setOrbColor((prev) => {
-        const next = prev === RED ? SEAFOAM : RED;
-        setOrbGlow(next === RED ? 1.0 : 0.85);
-        setOrbVersion((v) => v + 1);
-        return next;
-      });
-    }
-  }, []);
+  const onBannedClick = useCallback((e) => { e.preventDefault(); e.stopPropagation(); toggleRed(); }, [toggleRed]);
+  const onBannedKey = useCallback((e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); e.stopPropagation(); toggleRed(); }}, [toggleRed]);
 
   return (
     <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:10 }}>
-      {/* CASCADE */}
       {cascade && <CascadeOverlay durationMs={CASCADE_MS} />}
       {whiteout && !cascade && (
         <BodyPortal>
@@ -237,21 +219,20 @@ export default function BannedLogin() {
         </BodyPortal>
       )}
 
-      {/* UI (hidden during cascade) */}
       {!hideAll && (
         <div className="login-stack">
+          {/* isolate canvas to keep it sharp on mobile */}
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
-              key={`${orbColor}-${orbGlow}-${orbVersion}`} // hard remount on changes
+              key={`${orbColor}-${orbGlow}-${orbVersion}`}
               rpm={14.4}
-              color={SEAFOAM}                 // normal bar color (seafoam)
+              color={SEAFOAM}
               geomScale={1}
               glow
               glowOpacity={orbGlow}
               includeZAxis
               height="10vh"
               onActivate={onOrbActivate}
-              /* When in scary red mode, override ALL parts to red + extra halo + pulse */
               overrideAllColor={orbColor === RED ? RED : null}
               overrideGlowOpacity={orbColor === RED ? 1.0 : undefined}
             />
@@ -335,9 +316,10 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Global tweaks: base bg, seafoam glow, button color helpers, mobile glow tame, "is banned" UX */}
+      {/* global tweaks + MOBILE anti-bloom */}
       <style jsx global>{`
         html,body{ background:#000; }
+
         .lb-seafoam{
           color:#32ffc7; font-weight:800;
           text-shadow:0 0 8px #32ffc7,0 0 20px #32ffc7,0 0 44px #32ffc7,0 0 80px #32ffc7;
@@ -348,28 +330,32 @@ export default function BannedLogin() {
         .btn-red{ filter: hue-rotate(-95deg) saturate(1.15); }
         .commit-btn.btn-bypass:hover,
         .commit-btn.btn-bypass.btn-activated,
-        .commit-btn.btn-bypass:focus-visible{
-          transform: translateY(-0.5px);
-          outline: none;
-        }
+        .commit-btn.btn-bypass:focus-visible{ transform: translateY(-0.5px); outline: none; }
+
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
-        /* Mobile: reduce rainbow/seafoam blooming so text stays crisp */
+        /* MOBILE: minimize bloom so text looks crisp on iPhone */
         @media (hover: none) and (pointer: coarse){
           .lb-letter{
-            text-shadow: 0 0 4px currentColor, 0 0 10px currentColor, 0 0 18px currentColor;
-            filter: saturate(1.1) contrast(1.06) brightness(1.03);
+            text-shadow: 0 0 2px currentColor, 0 0 6px currentColor, 0 0 10px currentColor !important;
+            filter: none !important;
           }
           .lb-seafoam{
-            text-shadow: 0 0 4px #32ffc7, 0 0 10px #32ffc7, 0 0 16px #32ffc7;
-            filter: saturate(1.15) brightness(1.03);
+            text-shadow: 0 0 2px #32ffc7, 0 0 6px #32ffc7, 0 0 12px #32ffc7 !important;
+            filter: none !important;
           }
         }
       `}</style>
 
-      <style jsx>{`.orb-row{ width:100%; }`}</style>
+      <style jsx>{`
+        .orb-row{
+          width:100%;
+          contain: layout paint style;
+          isolation: isolate;   /* prevents ancestor transforms from rasterizing the canvas */
+        }
+      `}</style>
     </div>
   );
 }
