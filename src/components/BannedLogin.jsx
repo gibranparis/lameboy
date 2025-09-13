@@ -140,15 +140,15 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* === CASCADE LAYERS IN A PORTAL (avoids clipping/stacking issues) === */}
+      {/* === CASCADE LAYERS IN A PORTAL (global-styled so they render) === */}
       {(cascade || whiteout) && (
         <BodyPortal>
-          {/* Base black when cascade starts; hidden when whiteout only */}
-          {cascade && <div className="cascade-black" />}
-          {/* White sweep from the RIGHT during cascade */}
-          {cascade && <div className="cascade-white-sweep" style={{ animationDuration: `${CASCADE_MS}ms` }} />}
+          {/* Base black when cascade starts */}
+          {cascade && <div className="cascade-black" data-cascade="black" />}
+          {/* White sweep from RIGHT during cascade */}
+          {cascade && <div className="cascade-white-sweep" data-cascade="sweep" style={{ animationDuration: `${CASCADE_MS}ms` }} />}
           {/* Persist white after cascade */}
-          {whiteout && !cascade && <div className="whiteout" />}
+          {whiteout && !cascade && <div className="whiteout" data-cascade="whiteout" />}
           {/* Brand stays on top through the whole sequence */}
           {cascade && (
             <div className="brand-overlay" aria-hidden="true">
@@ -272,8 +272,8 @@ export default function BannedLogin() {
         </div>
       )}
 
-      <style jsx>{`
-        /* CASCADE (via portal) */
+      {/* GLOBAL styles for portal content (critical for visibility) */}
+      <style jsx global>{`
         .cascade-black {
           position: fixed; inset: 0;
           background: #000;
@@ -305,8 +305,10 @@ export default function BannedLogin() {
           position: fixed; inset: 0; background: #fff;
           z-index: 9998; pointer-events: none;
         }
+      `}</style>
 
-        /* Orb row */
+      {/* Local page styles can stay scoped */}
+      <style jsx>{`
         .orb-row { width: 100%; }
       `}</style>
     </div>
