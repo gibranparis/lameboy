@@ -11,7 +11,7 @@ const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
 /** Chakra-colored "Lameboy" with pulsing glow; ".com" stays plain */
 function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = '' }) {
-  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7']; // root→crown
+  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7'];
   return (
     <span className={`chakra-word ${className}`}>
       {word.split('').map((ch, i) => (
@@ -45,9 +45,9 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
 
 export default function BannedLogin() {
   const [view, setView] = useState('banned');          // 'banned' | 'login'
-  const [cascade, setCascade] = useState(false);       // overlay is running
-  const [hideAll, setHideAll] = useState(false);       // hide all UI while/after cascade
-  const [whiteout, setWhiteout] = useState(false);     // show white screen AFTER cascade
+  const [cascade, setCascade] = useState(false);
+  const [hideAll, setHideAll] = useState(false);
+  const [whiteout, setWhiteout] = useState(false);
 
   const [hideBubble, setHideBubble] = useState(false);
   const [bubblePulse, setBubblePulse] = useState(false);
@@ -64,7 +64,6 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Start cascade: hide everything, show text over the bands; when done -> white screen
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -106,13 +105,19 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* Normal UI hidden while/after cascade */}
       {!hideAll && (
         <div className="login-stack">
-          {/* 3D orb cross ABOVE the blue bubble — slightly bigger & tucked closer */}
-          <BlueOrbCross3D height="10vh" rpm={6} color="#32ffc7" style={{ marginBottom: -6 }} />
+          {/* 3D orb cross — 2× bigger, 20% faster, 50% closer (more negative margin) */}
+          <BlueOrbCross3D
+            height="10vh"
+            rpm={7.2}
+            color="#32ffc7"
+            r={0.144}
+            armR={0.048}
+            style={{ marginBottom: -9 }}  // was -6 → bring 50% closer
+          />
 
-          {/* Blue bubble (is a button in banned view) */}
+          {/* Blue bubble */}
           {!hideBubble && (
             <div
               className={[
@@ -243,17 +248,14 @@ export default function BannedLogin() {
       {/* After cascade: full white screen */}
       {whiteout && !cascade && <div className="whiteout" />}
 
-      {/* Local styles */}
       <style jsx>{`
         .brand-overlay {
-          position: fixed; inset: 0;
-          display: grid; place-items: center;
+          position: fixed; inset: 0; display: grid; place-items: center;
           z-index: 2000; pointer-events: none;
         }
         .brand-overlay-text {
-          color: #fff; font-weight: 700;
-          letter-spacing: 0.08em; text-transform: uppercase;
-          font-size: clamp(11px, 1.3vw, 14px); /* small like Florida label */
+          color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+          font-size: clamp(11px, 1.3vw, 14px);
           text-shadow: 0 0 8px rgba(0,0,0,0.25);
         }
         .whiteout { position: fixed; inset: 0; background: #fff; z-index: 1500; }

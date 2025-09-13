@@ -4,15 +4,12 @@ import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 
-/**
- * 3D "orb cross" with emissive + additive halo glow.
- * Transparent background; wrapper forwards style/className so you can nudge spacing.
- */
+/** 3D "orb cross" with emissive + additive halo glow (transparent background). */
 function OrbCross({
-  r = 0.072,          // a bit bigger than before
-  armR = 0.024,
+  r = 0.144,          // ⟵ doubled from 0.072
+  armR = 0.048,       // ⟵ doubled from 0.024
   color = '#32ffc7',  // neon seafoam
-  rpm = 9,            // fast spin
+  rpm = 7.2,          // ⟵ 20% faster than 6
   glow = true,
   glowOpacity = 0.6,
   glowScale = 1.35,
@@ -29,7 +26,6 @@ function OrbCross({
     coreMat, haloMat, offset,
   } = useMemo(() => {
     const sphereGeo = new THREE.SphereGeometry(r, 48, 32);
-
     const offset = r * 2.1;
     const armLen = 2 * (offset - r * 0.12);
 
@@ -63,14 +59,12 @@ function OrbCross({
       {/* Arms */}
       <mesh geometry={armGeoX} material={coreMat} rotation={[0, 0, Math.PI / 2]} />
       <mesh geometry={armGeoY} material={coreMat} />
-
       {/* Center + 4 orbs */}
       <mesh geometry={sphereGeo} material={coreMat} position={[0, 0, 0]} />
       <mesh geometry={sphereGeo} material={coreMat} position={[ offset, 0, 0]} />
       <mesh geometry={sphereGeo} material={coreMat} position={[-offset, 0, 0]} />
       <mesh geometry={sphereGeo} material={coreMat} position={[0,  offset, 0]} />
       <mesh geometry={sphereGeo} material={coreMat} position={[0, -offset, 0]} />
-
       {/* Halos */}
       {glow && (
         <>
@@ -86,13 +80,13 @@ function OrbCross({
 }
 
 export default function BlueOrbCross3D({
-  height = '10vh',      // a little bigger
-  rpm = 9,
-  color = '#00ffbbff',
-  r = 0.072,
-  armR = 0.024,
+  height = '10vh',   // keep canvas height; size comes from geometry above
+  rpm = 7.2,
+  color = '#32ffc7',
+  r = 0.144,
+  armR = 0.048,
   glow = true,
-  style = {},           // pass-through so caller can tighten spacing
+  style = {},
   className = '',
 }) {
   return (
