@@ -41,14 +41,10 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', strong = true, classNam
           animation: glowPulseMega 1.6s ease-in-out infinite alternate;
         }
         @keyframes glowPulseMega {
-          0% {
-            text-shadow: 0 0 10px currentColor, 0 0 26px currentColor, 0 0 54px currentColor, 0 0 96px currentColor, 0 0 150px currentColor;
-            filter: saturate(1.4) contrast(1.15) brightness(1.04);
-          }
-          100% {
-            text-shadow: 0 0 14px currentColor, 0 0 36px currentColor, 0 0 80px currentColor, 0 0 130px currentColor, 0 0 180px currentColor;
-            filter: saturate(1.75) contrast(1.25) brightness(1.08);
-          }
+          0% { text-shadow: 0 0 10px currentColor, 0 0 26px currentColor, 0 0 54px currentColor, 0 0 96px currentColor, 0 0 150px currentColor;
+               filter: saturate(1.4) contrast(1.15) brightness(1.04); }
+          100% { text-shadow: 0 0 14px currentColor, 0 0 36px currentColor, 0 0 80px currentColor, 0 0 130px currentColor, 0 0 180px currentColor;
+                 filter: saturate(1.75) contrast(1.25) brightness(1.08); }
         }
 
         /* seafoam glow utility (used for .com and //) */
@@ -128,6 +124,19 @@ export default function BannedLogin() {
     runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
+  // Make the ORB clickable like Bypass: just call onBypass
+  const onOrbClick = useCallback((e) => {
+    e.preventDefault();
+    onBypass();
+  }, [onBypass]);
+
+  const onOrbKey = useCallback((e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onBypass();
+    }
+  }, [onBypass]);
+
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
       {/* During cascade: white base + a black sweep that grows left→right */}
@@ -143,16 +152,25 @@ export default function BannedLogin() {
 
       {!hideAll && (
         <div className="login-stack">
-          {/* Orb — 6 outer orbs w/ chakra glows; 2× speed; close to bubble */}
-          <BlueOrbCross3D
-            rpm={14.4}
-            color="#32ffc7"
-            geomScale={1}
-            glow
-            glowOpacity={0.85}
-            includeZAxis
-            style={{ marginBottom: -28, height: '10vh' }}
-          />
+          {/* Orb wrap: keeps your existing 3D orb, with an invisible hit-area button over it */}
+          <div className="orb-wrap">
+            <BlueOrbCross3D
+              rpm={14.4}              // 2× speed
+              color="#32ffc7"         // bar color
+              geomScale={1}
+              glow
+              glowOpacity={0.85}
+              includeZAxis            // 6 outer orbs
+              style={{ height: '100%' }}  // fill the wrapper height
+            />
+            <button
+              type="button"
+              className="orb-hit"
+              aria-label="Bypass via orb"
+              onClick={onOrbClick}
+              onKeyDown={onOrbKey}
+            />
+          </div>
 
           {/* Blue bubble */}
           {!hideBubble && (
@@ -272,15 +290,26 @@ export default function BannedLogin() {
       )}
 
       <style jsx>{`
-        /* Split underlay: right side is white, left side is a black bar growing to the right */
+        /* Split underlay: right side is white, left side grows black during cascade */
         .white-underlay { position: fixed; inset: 0; background: #fff; z-index: 1200; }
         .black-sweep { position: fixed; top: 0; left: 0; height: 100vh; width: 0%; background: #000; z-index: 1300;
           animation-name: blackGrow; animation-timing-function: cubic-bezier(.2,.6,.2,1); animation-fill-mode: forwards;
         }
-        @keyframes blackGrow {
-          from { width: 0%; }
-          to   { width: 100%; }
+        @keyframes blackGrow { from { width: 0%; } to { width: 100%; } }
+
+        /* Orb wrapper + hit area (makes the orb clickable like Bypass) */
+        .orb-wrap {
+          position: relative;
+          width: 100%;
+          height: 10vh;
+          margin-bottom: -28px; /* pulls orb closer to the blue card */
         }
+        .orb-hit {
+          position: absolute; inset: 0;
+          background: transparent; border: 0;
+          cursor: pointer; z-index: 5;
+        }
+        .orb-hit:focus-visible { outline: 2px solid #32ffc7; outline-offset: 2px; }
 
         .brand-overlay { position: fixed; inset: 0; display: grid; place-items: center; z-index: 2000; pointer-events: none; }
         .brand-overlay-text { color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: clamp(11px, 1.3vw, 14px); text-shadow: 0 0 8px rgba(0,0,0,0.25); }
