@@ -9,9 +9,9 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
 
-/** Chakra-colored "Lameboy" with EXTRA bright pulsing glow; ".com" stays plain */
-function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = '' }) {
-  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7'];
+/** Chakra-colored "Lameboy" with BRIGHT pulsing glow; ".com" glows seafoam */
+function ChakraWord({ word = 'Lameboy', suffix = '.com', strong = true, className = '' }) {
+  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7']; // root→crown
   return (
     <span className={`chakra-word ${className}`}>
       {word.split('').map((ch, i) => (
@@ -23,15 +23,14 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
           {ch}
         </span>
       ))}
-      {suffix ? <span className="chakra-suffix">{suffix}</span> : null}
+      {suffix ? <span className="chakra-suffix seafoam-glow">{suffix}</span> : null}
       <style jsx>{`
         .chakra-word { display: inline-flex; letter-spacing: 0.06em; gap: 0.02em; }
-        .chakra-suffix { margin-left: 0.06em; font-weight: 700; }
 
-        /* SHARPER & MORE SATURATED (no blend washing) */
+        /* rainbow letters, extra punch */
         .chakra-letter.glow-plus {
           position: relative;
-          -webkit-text-stroke: 0.6px currentColor;  /* edge crispness */
+          -webkit-text-stroke: 0.6px currentColor;
           text-shadow:
             0 0 10px  currentColor,
             0 0 26px  currentColor,
@@ -51,13 +50,26 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
             filter: saturate(1.75) contrast(1.25) brightness(1.08);
           }
         }
+
+        /* seafoam suffix (.com) glow */
+        .chakra-suffix.seafoam-glow {
+          margin-left: 0.06em;
+          font-weight: 800;
+          color: #32ffc7;
+          text-shadow:
+            0 0 8px  #32ffc7,
+            0 0 20px #32ffc7,
+            0 0 44px #32ffc7,
+            0 0 80px #32ffc7;
+          filter: saturate(1.4) brightness(1.1);
+        }
       `}</style>
     </span>
   );
 }
 
 export default function BannedLogin() {
-  const [view, setView] = useState('banned');
+  const [view, setView] = useState('banned');          // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
   const [whiteout, setWhiteout] = useState(false);
@@ -120,14 +132,14 @@ export default function BannedLogin() {
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
       {!hideAll && (
         <div className="login-stack">
-          {/* Orb — same size/speed, HALF the gap closer + brighter halo */}
+          {/* Orb */}
           <BlueOrbCross3D
             rpm={7.2}
             color="#32ffc7"
             geomScale={1}
             glow
             glowOpacity={0.85}
-            style={{ marginBottom: -28, height: '10vh' }}  /* was -9 → much closer */
+            style={{ marginBottom: -28, height: '10vh' }}
           />
 
           {/* Blue bubble */}
@@ -150,10 +162,12 @@ export default function BannedLogin() {
             >
               {view === 'banned' ? (
                 <pre className="code-line" style={{ margin: 0 }}>
-                  <span className="code-comment">// </span>
+                  {/* SEAFOAM "//" + rainbow "Lameboy" + SEAFOAM ".com" */}
+                  <span className="seafoam-glow">//</span>&nbsp;
                   <ChakraWord word="Lameboy" suffix=".com" />
                   {'\n'}
-                  <span className="code-comment">// </span>
+                  {/* SEAFOAM "//" before “is banned” */}
+                  <span className="seafoam-glow">//</span>&nbsp;
                   <span className="code-banned">is banned</span>
                   {'\n'}
                   <span className="code-keyword">const</span>&nbsp;
@@ -244,7 +258,18 @@ export default function BannedLogin() {
 
       {whiteout && !cascade && <div className="whiteout" />}
 
+      {/* SEAFOAM utility used for // and elsewhere */}
       <style jsx>{`
+        .seafoam-glow {
+          color: #32ffc7;
+          font-weight: 800;
+          text-shadow:
+            0 0 8px  #32ffc7,
+            0 0 20px #32ffc7,
+            0 0 44px #32ffc7,
+            0 0 80px #32ffc7;
+          filter: saturate(1.35) brightness(1.06);
+        }
         .brand-overlay { position: fixed; inset: 0; display: grid; place-items: center; z-index: 2000; pointer-events: none; }
         .brand-overlay-text { color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: clamp(11px, 1.3vw, 14px); text-shadow: 0 0 8px rgba(0,0,0,0.25); }
         .whiteout { position: fixed; inset: 0; background: #fff; z-index: 1500; }
