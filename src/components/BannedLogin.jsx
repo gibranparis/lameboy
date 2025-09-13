@@ -46,8 +46,8 @@ function BodyPortal({ children }) {
   return createPortal(children, document.body);
 }
 
-/* JS-driven cascade with MOVING COLOR WINDOW ahead of the white follower */
-function CascadeOverlay({ durationMs = 2400, leadPct = 18 /* color window leads white by N% */ }) {
+/* JS-driven cascade with MOVING COLOR WINDOW (vertical bands) ahead of white follower */
+function CascadeOverlay({ durationMs = 2400, leadPct = 18 }) {
   const [progress, setProgress] = useState(0); // 0..1 -> white width
   const rafRef = useRef();
 
@@ -92,7 +92,7 @@ function CascadeOverlay({ durationMs = 2400, leadPct = 18 /* color window leads 
           transform:'translateZ(0)'
         }}
       >
-        <div className="lb-cascade" style={{ ['--lbDur']: `${durationMs}ms` }}>
+        <div className="lb-cascade" style={{ '--lbDur': `${durationMs}ms` }}>
           <div className="lb-band lb-b1" />
           <div className="lb-band lb-b2" />
           <div className="lb-band lb-b3" />
@@ -111,7 +111,7 @@ function CascadeOverlay({ durationMs = 2400, leadPct = 18 /* color window leads 
       <style jsx global>{`
         .lb-cascade{
           position:absolute; inset:0;
-          display:grid; grid-template-rows:repeat(7,1fr);
+          display:grid; grid-template-columns:repeat(7,1fr); /* vertical bands */
           pointer-events:none; mix-blend-mode:screen;
           height:100%; width:100%;
           contain:layout paint size style;
@@ -153,6 +153,9 @@ export default function BannedLogin() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const emailRef = useRef(null);
+
+  /* ORB color: default seafoam; turns red when clicking "is banned" */
+  const [orbColor, setOrbColor] = useState('#32ffc7');
 
   const goLogin = useCallback(() => {
     setHideBubble(false);
@@ -202,6 +205,12 @@ export default function BannedLogin() {
   // Orb click == Bypass (true 3D hit only inside BlueOrbCross3D)
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
+  // "is banned" click -> turn orb red (without triggering bubble click)
+  const onBannedClick = useCallback((e) => {
+    e.stopPropagation();
+    setOrbColor('#ff2a2a'); // neon red
+  }, []);
+
   return (
     <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:10 }}>
       {/* CASCADE */}
@@ -218,7 +227,7 @@ export default function BannedLogin() {
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
               rpm={14.4}
-              color="#32ffc7"
+              color={orbColor}
               geomScale={1}
               glow
               glowOpacity={0.85}
@@ -244,7 +253,14 @@ export default function BannedLogin() {
               {view==='banned'?(
                 <pre className="code-line" style={{ margin:0 }}>
                   <span className="lb-seafoam">//</span>&nbsp;<ChakraWord word="Lameboy" suffix=".com" />
-                  {'\n'}<span className="lb-seafoam">//</span>&nbsp;<span className="code-banned">is banned</span>
+                  {'\n'}<span className="lb-seafoam">//</span>&nbsp;
+                  <span
+                    className="code-banned"
+                    style={{ cursor:'pointer', textDecoration:'underline' }}
+                    onClick={onBannedClick}
+                  >
+                    is banned
+                  </span>
                   {'\n'}<span className="code-keyword">const</span>&nbsp;<span className="code-var">msg</span><span className="code-op">=</span><span className="code-string">"hi..."</span><span className="code-punc">;</span>
                 </pre>
               ):(
