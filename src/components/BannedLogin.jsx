@@ -9,7 +9,7 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400; // keep in sync with your cascade CSS
 
-// (optional) Chakra-colored "Lameboy" helper used in the bubble headline
+/** Chakra-colored "Lameboy" with pulsing glow; ".com" stays plain */
 function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = '' }) {
   const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7']; // root→crown
   return (
@@ -17,7 +17,8 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
       {word.split('').map((ch, i) => (
         <span
           key={`${ch}-${i}`}
-          style={{ color: colors[i % colors.length], fontWeight: strong ? 800 : 700, textShadow: '0 0 8px rgba(255,255,255,0.25)' }}
+          className="chakra-letter glow"
+          style={{ color: colors[i % colors.length], fontWeight: strong ? 800 : 700 }}
         >
           {ch}
         </span>
@@ -26,6 +27,17 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
       <style jsx>{`
         .chakra-word { display: inline-flex; letter-spacing: 0.06em; gap: 0.02em; }
         .chakra-suffix { margin-left: 0.06em; font-weight: 700; }
+        .chakra-letter.glow {
+          text-shadow:
+            0 0 6px  currentColor,
+            0 0 14px currentColor,
+            0 0 22px currentColor;
+          animation: glowPulse 2.2s ease-in-out infinite alternate;
+        }
+        @keyframes glowPulse {
+          from { text-shadow: 0 0 6px currentColor, 0 0 14px currentColor, 0 0 22px currentColor; }
+          to   { text-shadow: 0 0 10px currentColor, 0 0 22px currentColor, 0 0 34px currentColor; }
+        }
       `}</style>
     </span>
   );
@@ -52,17 +64,17 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Start cascade: hide everything, show text OVER the cascade; when done -> white screen
+  // Start cascade: hide everything, show text over the bands; when done -> white screen
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
-    setHideAll(true);     // hide all UI immediately
-    setWhiteout(false);   // white screen appears only AFTER cascade
+    setHideAll(true);
+    setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
 
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
-      setWhiteout(true);  // final state: white screen
+      setWhiteout(true);
       after && after();
     }, CASCADE_MS);
 
@@ -97,8 +109,8 @@ export default function BannedLogin() {
       {/* Normal UI hidden while/after cascade */}
       {!hideAll && (
         <div className="login-stack">
-          {/* 3D orb cross ABOVE the blue bubble (both views) */}
-          <BlueOrbCross3D height="7.5vh" rpm={6} color="#32ffc7" />
+          {/* 3D orb cross ABOVE the blue bubble — slightly bigger & tucked closer */}
+          <BlueOrbCross3D height="10vh" rpm={6} color="#32ffc7" style={{ marginBottom: -6 }} />
 
           {/* Blue bubble (is a button in banned view) */}
           {!hideBubble && (
@@ -221,7 +233,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* SMALL white "LAMEBOY, USA" OVER the cascade (centered) */}
+      {/* Small white "LAMEBOY, USA" OVER the cascade */}
       {cascade && (
         <div className="brand-overlay" aria-hidden="true">
           <span className="brand-overlay-text">LAMEBOY, USA</span>
@@ -234,28 +246,17 @@ export default function BannedLogin() {
       {/* Local styles */}
       <style jsx>{`
         .brand-overlay {
-          position: fixed;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          z-index: 2000;       /* above the bands */
-          pointer-events: none;
+          position: fixed; inset: 0;
+          display: grid; place-items: center;
+          z-index: 2000; pointer-events: none;
         }
         .brand-overlay-text {
-          color: #fff;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          /* small like the Florida label */
-          font-size: clamp(11px, 1.3vw, 14px);
+          color: #fff; font-weight: 700;
+          letter-spacing: 0.08em; text-transform: uppercase;
+          font-size: clamp(11px, 1.3vw, 14px); /* small like Florida label */
           text-shadow: 0 0 8px rgba(0,0,0,0.25);
         }
-        .whiteout {
-          position: fixed;
-          inset: 0;
-          background: #fff;
-          z-index: 1500;       /* above app chrome, below any future modals */
-        }
+        .whiteout { position: fixed; inset: 0; background: #fff; z-index: 1500; }
       `}</style>
     </div>
   );
