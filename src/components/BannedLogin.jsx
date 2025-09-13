@@ -49,8 +49,7 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
   );
 }
 
-/* STRONG OPAQUE VERTICAL CHAKRA CASCADE that keeps traveling off-screen,
-   while a WHITE follower reveals the white from the right. */
+/* SOLID vertical chakra cascade (no blur), with white follower from the right */
 function CascadeOverlay({ durationMs = 2400 }) {
   const [p, setP] = useState(0); // 0..1 timeline
   const rafRef = useRef();
@@ -67,14 +66,12 @@ function CascadeOverlay({ durationMs = 2400 }) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [durationMs]);
 
-  // White follower grows from right (0% → 100%).
+  // White follower grows from the right.
   const whiteW = (p * 100).toFixed(3);
 
-  // Color block: fixed width in vw and slides from right → left beyond the screen.
-  // Pick a block wider than the viewport so the stripes “keep going” off the left.
-  const COLOR_VW = 120; // width of the color block
-  // translateX in vw:  +COLOR_VW (fully off right)  →  -COLOR_VW (fully off left)
-  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // vw
+  // Color block: fixed width in vw, slides right -> left beyond screen.
+  const COLOR_VW = 120;
+  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // in vw
 
   return createPortal(
     <>
@@ -93,10 +90,11 @@ function CascadeOverlay({ durationMs = 2400 }) {
           willChange: 'width',
           transition: 'width 16ms linear',
           transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
         }}
       />
 
-      {/* COLOR stripes moving as one block */}
+      {/* COLOR stripes moving as one block (hard edges) */}
       <div
         aria-hidden="true"
         style={{
@@ -105,11 +103,11 @@ function CascadeOverlay({ durationMs = 2400 }) {
           left: 0,
           height: '100vh',
           width: `${COLOR_VW}vw`,
-          transform: `translateX(${tx}vw)`,
+          transform: `translate3d(${tx}vw,0,0)`,
           zIndex: 9999,
           pointerEvents: 'none',
           willChange: 'transform',
-          transformStyle: 'preserve-3d',
+          backfaceVisibility: 'hidden',
         }}
       >
         <div className="lb-cascade">
@@ -128,28 +126,27 @@ function CascadeOverlay({ durationMs = 2400 }) {
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
 
-      {/* Styles for vivid, opaque stripes */}
+      {/* Hard-edged, fully opaque stripes — no glows, no filters */}
       <style jsx global>{`
         .lb-cascade {
           position: absolute;
           inset: 0;
           display: grid;
-          grid-template-columns: repeat(7, 1fr); /* vertical bars inside the moving block */
+          grid-template-columns: repeat(7, 1fr); /* vertical bars */
           height: 100%;
           width: 100%;
           pointer-events: none;
-          mix-blend-mode: initial; /* important: not screen */
+          mix-blend-mode: initial;
           contain: layout paint size style;
         }
         .lb-band {
           width: 100%;
           height: 100%;
           opacity: 1;
-          filter: saturate(1.35) contrast(1.08) brightness(1.04);
-          box-shadow:
-            0 0 40px var(--c),
-            0 0 120px var(--c);
           background: var(--c);
+          box-shadow: none !important;
+          filter: none !important;
+          image-rendering: crisp-edges;
         }
         /* Chakra colors (crown → root) */
         .lb-b1 { --c: #c084fc; }
@@ -281,7 +278,7 @@ export default function BannedLogin() {
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
               key={`${orbMode}-${orbGlow}-${orbVersion}`} // hard remount on changes
-              rpm={28.4}
+              rpm={44}                      // <— spin faster
               color={SEAFOAM}
               geomScale={1}
               glow
@@ -289,7 +286,7 @@ export default function BannedLogin() {
               includeZAxis
               height="10vh"
               onActivate={onOrbActivate}
-              overrideAllColor={orbMode==='red' ? '#ff001a' : null}
+              overrideAllColor={orbMode==='red' ? RED : null}
               overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
             />
           </div>
