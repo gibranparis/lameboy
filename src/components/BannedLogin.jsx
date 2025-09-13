@@ -12,7 +12,7 @@ const CASCADE_MS = 2400;
 
 /* Rainbow "Lameboy" + seafoam ".com" (clicking resets orb to chakra mode) */
 function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
-  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7'];
+  const colors = ['#ff5ad9','#8b5cf6','#38bdf8','#22c55e','#fde047','#fb923c','#ef4444'];
   const handle = (e) => { e.preventDefault(); e.stopPropagation(); onActivate?.(); };
   return (
     <span
@@ -49,9 +49,9 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
   );
 }
 
-/* SOLID vertical chakra cascade — crisp bars with same-color neon bloom. White reveals from right. */
+/* SOLID vertical chakra cascade + neon glow rails (crown → root) with white follower */
 function CascadeOverlay({ durationMs = 2400 }) {
-  const [p, setP] = useState(0); // 0..1 timeline
+  const [p, setP] = useState(0); // 0..1
   const rafRef = useRef();
 
   useEffect(() => {
@@ -66,116 +66,100 @@ function CascadeOverlay({ durationMs = 2400 }) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [durationMs]);
 
-  // White follower grows from the right.
+  // follower white grows from right as cascade advances
   const whiteW = (p * 100).toFixed(3);
 
-  // Color block: fixed width in vw, slides right -> left beyond screen.
-  const COLOR_VW = 120;
-  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // in vw
+  // color block (wide) slides right → left off screen
+  const COLOR_VW = 160;
+  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // vw
+
+  const CHAKRA = ['#ff5ad9','#8b5cf6','#38bdf8','#22c55e','#fde047','#fb923c','#ef4444'];
 
   return createPortal(
     <>
-      {/* WHITE follower under the colors */}
+      {/* WHITE follower (under colors) */}
       <div
         aria-hidden="true"
         style={{
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          height: '100vh',
-          width: `${whiteW}%`,
-          background: '#fff',
-          zIndex: 9998,
-          pointerEvents: 'none',
-          willChange: 'width',
-          transition: 'width 16ms linear',
-          transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
+          position:'fixed', top:0, right:0, height:'100vh',
+          width:`${whiteW}%`, background:'#fff',
+          zIndex:9998, pointerEvents:'none',
+          willChange:'width', transition:'width 16ms linear',
+          transform:'translateZ(0)', backfaceVisibility:'hidden'
         }}
       />
-
-      {/* COLOR stripes moving as one block (hard edges + neon tint glow) */}
+      {/* COLOR stripes block (solid centers) */}
       <div
         aria-hidden="true"
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          height: '100vh',
-          width: `${COLOR_VW}vw`,
-          transform: `translate3d(${tx}vw,0,0)`,
-          zIndex: 9999,
-          pointerEvents: 'none',
-          willChange: 'transform',
-          backfaceVisibility: 'hidden',
+          position:'fixed', top:0, left:0, height:'100vh',
+          width:`${COLOR_VW}vw`,
+          transform:`translate3d(${tx}vw,0,0)`,
+          zIndex:9999, pointerEvents:'none',
+          willChange:'transform', backfaceVisibility:'hidden'
         }}
       >
-        <div className="lb-cascade">
-          {['#c084fc','#4f46e5','#3b82f6','#22c55e','#facc15','#f97316','#ef4444'].map((c,i)=>(
-            <div key={i} className="lb-band" style={{ '--c': c }}>
-              <div className="lb-neon" />
-            </div>
+        {/* SOLID centers */}
+        <div className="lb-stripes">
+          {CHAKRA.map((c,i)=>(<div key={i} className="stripe" style={{'--c':c}} />))}
+        </div>
+        {/* NEON glow rails sitting on top (doesn't blur edges) */}
+        <div className="lb-glow">
+          {CHAKRA.map((c,i)=>(
+            <div
+              key={i}
+              className="rail"
+              style={{'--c':c}}
+            />
           ))}
         </div>
       </div>
 
-      {/* BRAND stays on top during the whole sweep */}
+      {/* BRAND on top for the whole sweep */}
       <div className="lb-brand" aria-hidden="true" style={{ zIndex: 10001 }}>
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
 
       <style jsx global>{`
-        .lb-cascade {
-          position: absolute;
-          inset: 0;
-          display: grid;
-          grid-template-columns: repeat(7, 1fr); /* vertical bars */
-          height: 100%;
-          width: 100%;
-          pointer-events: none;
-          contain: layout paint size style;
-        }
-        .lb-band {
-          position:relative;
-          width:100%;
-          height:100%;
-          background: var(--c);
-          image-rendering: crisp-edges;
-          overflow:hidden;          /* keep glow inside */
-          color: var(--c);          /* used by currentColor in glow */
-        }
-        /* same-color NEON bloom (no white), edges remain razor-sharp */
-        .lb-neon{
+        .lb-stripes{
           position:absolute; inset:0;
-          /* slightly inset so edges stay solid */
-          margin: 0 clamp(8px, 1vw, 16px);
+          display:grid; grid-template-columns:repeat(7,1fr);
+          height:100%; width:100%; pointer-events:none;
+          contain:layout paint size style;
+        }
+        .stripe{ background: var(--c); }
+
+        /* Neon rails layer: each column paints a hard center + outward aura.
+           Using screen blend to keep centers solid while boosting edges. */
+        .lb-glow{
+          position:absolute; inset:0; display:grid;
+          grid-template-columns:repeat(7,1fr);
+          mix-blend-mode:screen; pointer-events:none;
+          filter:saturate(1.4) brightness(1.05);
+        }
+        .lb-glow .rail{
+          position:relative;
+          /* vertical beam with bright core and fading edges */
           background:
-            linear-gradient(90deg, transparent 0 18%, currentColor 50%, transparent 82%);
-          mix-blend-mode: screen;
-          filter: blur(22px) brightness(1.75) saturate(1.6);
-          opacity:.80;
-          pointer-events:none;
+            linear-gradient(90deg,
+              rgba(0,0,0,0) 0%,
+              color-mix(in oklab, var(--c) 40%, white) 20%,
+              var(--c) 50%,
+              color-mix(in oklab, var(--c) 40%, white) 80%,
+              rgba(0,0,0,0) 100%);
+          opacity: .95;
+          /* outer aura using two side shadows (keeps center crisp) */
+          box-shadow:
+            0 0 28px 12px var(--c) inset,
+            0 0 42px 14px var(--c) inset,
+            0 0 34px 8px var(--c),
+            0 0 64px 18px var(--c);
         }
 
-        /* mobile: a touch less blur to avoid banding */
-        @media (hover:none) and (pointer:coarse){
-          .lb-neon{ filter: blur(16px) brightness(1.6) saturate(1.5); opacity:.78; }
-        }
-
-        .lb-brand {
-          position: fixed;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          pointer-events: none;
-        }
-        .lb-brand-text {
-          color: #fff;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          font-size: clamp(11px, 1.3vw, 14px);
-          text-shadow: 0 0 8px rgba(0,0,0,.25);
+        .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
+        .lb-brand-text{
+          color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+          font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25);
         }
       `}</style>
     </>,
@@ -203,6 +187,7 @@ export default function BannedLogin() {
   const RED = '#ff001a';
   const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
   const [orbGlow, setOrbGlow] = useState(0.9);
+  const [orbVersion, setOrbVersion] = useState(0);
 
   const goLogin = useCallback(() => {
     setHideBubble(false);
@@ -252,8 +237,12 @@ export default function BannedLogin() {
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
   // "is banned" -> scary red. "Lameboy" -> chakra.
-  const setRed = useCallback(() => { setOrbMode('red'); setOrbGlow(1.0); }, []);
-  const setChakra = useCallback(() => { setOrbMode('chakra'); setOrbGlow(0.9); }, []);
+  const setRed = useCallback(() => {
+    setOrbMode('red'); setOrbGlow(1.0); setOrbVersion(v => v + 1);
+  }, []);
+  const setChakra = useCallback(() => {
+    setOrbMode('chakra'); setOrbGlow(0.9); setOrbVersion(v => v + 1);
+  }, []);
 
   const onBannedClick = useCallback((e) => { e.preventDefault(); e.stopPropagation(); setRed(); }, [setRed]);
   const onBannedKey = useCallback((e) => {
@@ -273,8 +262,10 @@ export default function BannedLogin() {
         <div className="login-stack">
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
-              rpm={44}
+              key={`${orbMode}-${orbGlow}-${orbVersion}`}
+              rpm={44}                      // faster spin
               color={SEAFOAM}
+              geomScale={1}
               glow
               glowOpacity={orbGlow}
               includeZAxis
@@ -384,9 +375,10 @@ export default function BannedLogin() {
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
+        /* tame mobile bloom */
         @media (hover: none) and (pointer: coarse){
           .lb-letter{
-            text-shadow: 0 0 2px currentColor, 0 0 6px currentColor, 0 0 12px currentColor !important;
+            text-shadow: 0 0 2px currentColor, 0 0 6px currentColor, 0 0 10px currentColor !important;
             filter: none !important;
           }
           .lb-seafoam{
@@ -397,11 +389,7 @@ export default function BannedLogin() {
       `}</style>
 
       <style jsx>{`
-        .orb-row{
-          width:100%;
-          contain: layout paint style;
-          isolation: isolate;
-        }
+        .orb-row{ width:100%; contain: layout paint style; isolation:isolate; }
       `}</style>
     </div>
   );
