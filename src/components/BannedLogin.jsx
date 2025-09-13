@@ -84,7 +84,7 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Cascade: hide UI; show split underlay (left black grows over white); then final whiteout
+  // Cascade: all UI hidden; screen starts BLACK then a RIGHT-ORIGIN WHITE SWEEP covers it; persists white after.
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -94,19 +94,21 @@ export default function BannedLogin() {
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
-      setWhiteout(true);
+      setWhiteout(true); // keep white after sweep finishes
       after && after();
     }, CASCADE_MS);
 
     return () => clearTimeout(t);
   }, []);
 
+  // Bubble click → open login
   const onBubbleClick = useCallback(() => {
     setBubblePulse(true); setTimeout(() => setBubblePulse(false), 700);
     setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
     goLogin();
   }, [goLogin]);
 
+  // Florida toggles view if visible
   const onFloridaClick = useCallback(() => {
     if (hideAll) return;
     setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
@@ -114,6 +116,7 @@ export default function BannedLogin() {
     setView(v => (v === 'banned' ? 'login' : 'banned'));
   }, [hideAll]);
 
+  // Link & Bypass trigger cascade
   const onLink = useCallback(() => {
     setActivated('link'); setTimeout(() => setActivated(null), 650);
     runCascade(() => {}, { washAway: true });
@@ -124,51 +127,45 @@ export default function BannedLogin() {
     runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
-  // Make the ORB clickable like Bypass: just call onBypass
-  const onOrbClick = useCallback((e) => {
-    e.preventDefault();
+  // ORB click should behave EXACTLY like Bypass
+  const onOrbActivate = useCallback(() => {
     onBypass();
-  }, [onBypass]);
-
-  const onOrbKey = useCallback((e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onBypass();
-    }
   }, [onBypass]);
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* During cascade: white base + a black sweep that grows left→right */}
+      {/* CASCADE VISUALS */}
       {cascade && (
         <>
-          <div className="white-underlay" />
-          <div className="black-sweep" style={{ animationDuration: `${CASCADE_MS}ms` }} />
+          {/* 1) All black base */}
+          <div className="cascade-black" />
+          {/* 2) White sweep from the RIGHT that covers the screen over CASCADE_MS */}
+          <div className="cascade-white-sweep" style={{ animationDuration: `${CASCADE_MS}ms` }} />
         </>
       )}
-
-      {/* After cascade: full white screen */}
+      {/* After cascade: keep white */}
       {whiteout && !cascade && <div className="whiteout" />}
+
+      {/* Brand stays ON TOP during cascade */}
+      {cascade && (
+        <div className="brand-overlay" aria-hidden="true">
+          <span className="brand-overlay-text">LAMEBOY, USA</span>
+        </div>
+      )}
 
       {!hideAll && (
         <div className="login-stack">
-          {/* Orb wrap: keeps your existing 3D orb, with an invisible hit-area button over it */}
-          <div className="orb-wrap">
+          {/* Orb — clickable only on mesh via 3D raycasting */}
+          <div className="orb-row" style={{ marginBottom: -28 }}>
             <BlueOrbCross3D
               rpm={14.4}              // 2× speed
               color="#32ffc7"         // bar color
               geomScale={1}
               glow
               glowOpacity={0.85}
-              includeZAxis            // 6 outer orbs
-              style={{ height: '100%' }}  // fill the wrapper height
-            />
-            <button
-              type="button"
-              className="orb-hit"
-              aria-label="Bypass via orb"
-              onClick={onOrbClick}
-              onKeyDown={onOrbKey}
+              includeZAxis
+              height="10vh"
+              onActivate={onOrbActivate}  // click on orb == Bypass
             />
           </div>
 
@@ -269,52 +266,41 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Cascade bands (above split underlay) */}
-      {cascade && (
-        <div className="chakra-overlay" style={{ zIndex: 1400 }}>
-          <div className="chakra-band chakra-crown band-1" />
-          <div className="chakra-band chakra-thirdeye band-2" />
-          <div className="chakra-band chakra-throat band-3" />
-          <div className="chakra-band chakra-heart band-4" />
-          <div className="chakra-band chakra-plexus band-5" />
-          <div className="chakra-band chakra-sacral band-6" />
-          <div className="chakra-band chakra-root band-7" />
-        </div>
-      )}
-
-      {/* Small white "LAMEBOY, USA" OVER the cascade */}
-      {cascade && (
-        <div className="brand-overlay" aria-hidden="true">
-          <span className="brand-overlay-text">LAMEBOY, USA</span>
-        </div>
-      )}
-
       <style jsx>{`
-        /* Split underlay: right side is white, left side grows black during cascade */
-        .white-underlay { position: fixed; inset: 0; background: #fff; z-index: 1200; }
-        .black-sweep { position: fixed; top: 0; left: 0; height: 100vh; width: 0%; background: #000; z-index: 1300;
-          animation-name: blackGrow; animation-timing-function: cubic-bezier(.2,.6,.2,1); animation-fill-mode: forwards;
+        /* CASCADE VISUALS */
+        .cascade-black {
+          position: fixed; inset: 0;
+          background: #000;
+          z-index: 1200;
         }
-        @keyframes blackGrow { from { width: 0%; } to { width: 100%; } }
+        .cascade-white-sweep {
+          position: fixed; top: 0; right: 0; height: 100vh;
+          width: 0%;
+          background: #fff;
+          z-index: 1300;
+          animation-name: whiteRevealFromRight;
+          animation-timing-function: cubic-bezier(.2,.6,.2,1);
+          animation-fill-mode: forwards;
+        }
+        @keyframes whiteRevealFromRight {
+          from { width: 0%; }
+          to   { width: 100%; }
+        }
 
-        /* Orb wrapper + hit area (makes the orb clickable like Bypass) */
-        .orb-wrap {
-          position: relative;
-          width: 100%;
-          height: 10vh;
-          margin-bottom: -28px; /* pulls orb closer to the blue card */
+        .brand-overlay {
+          position: fixed; inset: 0; display: grid; place-items: center;
+          z-index: 2000; pointer-events: none;
         }
-        .orb-hit {
-          position: absolute; inset: 0;
-          background: transparent; border: 0;
-          cursor: pointer; z-index: 5;
+        .brand-overlay-text {
+          color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+          font-size: clamp(11px, 1.3vw, 14px);
+          text-shadow: 0 0 8px rgba(0,0,0,0.25);
         }
-        .orb-hit:focus-visible { outline: 2px solid #32ffc7; outline-offset: 2px; }
-
-        .brand-overlay { position: fixed; inset: 0; display: grid; place-items: center; z-index: 2000; pointer-events: none; }
-        .brand-overlay-text { color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: clamp(11px, 1.3vw, 14px); text-shadow: 0 0 8px rgba(0,0,0,0.25); }
 
         .whiteout { position: fixed; inset: 0; background: #fff; z-index: 1500; }
+
+        /* Orb row */
+        .orb-row { width: 100%; }
       `}</style>
     </div>
   );

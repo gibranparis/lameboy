@@ -7,9 +7,10 @@ import { useMemo, useRef } from 'react';
 /**
  * 3-axis orb-cross (±X, ±Y, ±Z) with per-orb chakra glows.
  * Bars use the `color` prop (default seafoam). Each sphere gets its own core/halo color.
+ * Clicks/presses only register when the actual 3D geometry is hit.
  */
 function OrbCross({
-  rpm = 7.2,
+  rpm = 14.4,
   color = '#32ffc7',     // bar color (seafoam)
   geomScale = 1,
   offsetFactor = 2.05,   // center→outer orb distance as multiple of r
@@ -18,6 +19,7 @@ function OrbCross({
   glowOpacity = 0.7,     // base halo opacity (outer orbs)
   glowScale = 1.35,
   includeZAxis = true,   // keep 6 outer orbs
+  onActivate = null,     // called when clicking the orb geometry
 }) {
   const group = useRef();
 
@@ -70,20 +72,20 @@ function OrbCross({
       crownW:   '#f6f3ff', // near-white violet-tinted
     };
 
-    // Sphere positions in fixed order so we can map colors consistently
+    // Sphere positions (center first, then ±X, ±Y, ±Z)
     const centers = [
-      [0, 0, 0],           // center  (crown: white/violet)
-      [ offset, 0, 0],     // +X  -> root (red)
-      [-offset, 0, 0],     // -X  -> sacral (orange)
-      [0,  offset, 0],     // +Y  -> solar (yellow)
-      [0, -offset, 0],     // -Y  -> heart (green)
+      [0, 0, 0],
+      [ offset, 0, 0],  // +X
+      [-offset, 0, 0],  // -X
+      [0,  offset, 0],  // +Y
+      [0, -offset, 0],  // -Y
     ];
     if (includeZAxis) {
-      centers.push([0, 0,  offset]);  // +Z -> throat (blue)
-      centers.push([0, 0, -offset]);  // -Z -> third eye (indigo)
+      centers.push([0, 0,  offset]);  // +Z
+      centers.push([0, 0, -offset]);  // -Z
     }
 
-    // Per-sphere colors (core + halo). Center gets white/violet combo.
+    // Per-sphere colors
     const sphereColors = [
       { core: CHAKRA.crownW, halo: CHAKRA.crownV, haloOp: 0.9 }, // center
       { core: CHAKRA.root,     halo: CHAKRA.root,     haloOp: glowOpacity },
@@ -98,7 +100,6 @@ function OrbCross({
         : []),
     ];
 
-    // Build per-sphere materials
     const sphereCoreMats = sphereColors.map(({ core }) =>
       new THREE.MeshStandardMaterial({
         color: core,
@@ -139,8 +140,26 @@ function OrbCross({
     sphereHaloMats,
   } = memo;
 
+  const handlePointerDown = (e) => {
+    // Fires only when a mesh is actually hit (true 3D raycast)
+    e.stopPropagation();
+    if (onActivate) onActivate();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (onActivate) onActivate();
+    }
+  };
+
   return (
-    <group ref={group}>
+    <group
+      ref={group}
+      onPointerDown={handlePointerDown}
+      onKeyDown={handleKeyDown}
+      tabIndex={0} // a11y focusable
+    >
       {/* Bars */}
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
       <mesh geometry={armGeoY} material={barCoreMat} />
@@ -148,7 +167,7 @@ function OrbCross({
         <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
       )}
 
-      {/* Orbs (per-sphere materials) */}
+      {/* Orbs */}
       {centers.map((p, i) => (
         <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />
       ))}
@@ -172,8 +191,8 @@ function OrbCross({
 
 export default function BlueOrbCross3D({
   height = '10vh',
-  rpm = 7.2,
-  color = '#32ffc7',     // bar color
+  rpm = 14.4,
+  color = '#32ffc7',
   geomScale = 1,
   offsetFactor = 2.05,
   armRatio = 0.33,
@@ -181,12 +200,18 @@ export default function BlueOrbCross3D({
   glowOpacity = 0.7,
   glowScale = 1.35,
   includeZAxis = true,
+  onActivate = null,
   style = {},
   className = '',
 }) {
   return (
-    <div className={className} style={{ height, width: '100%', pointerEvents: 'none', ...style }}>
-      <Canvas dpr={[1, 2]} camera={{ position: [0, 0, 3], fov: 45 }} gl={{ antialias: true, alpha: true }}>
+    <div className={className} style={{ height, width: '100%', /* IMPORTANT: allow pointer events */ ...style }}>
+      <Canvas
+        dpr={[1, 2]}
+        camera={{ position: [0, 0, 3], fov: 45 }}
+        gl={{ antialias: true, alpha: true }}
+        style={{ pointerEvents: 'auto' }}
+      >
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />
         <directionalLight position={[-3, -2, -4]} intensity={0.35} />
@@ -200,6 +225,7 @@ export default function BlueOrbCross3D({
           glowOpacity={glowOpacity}
           glowScale={glowScale}
           includeZAxis={includeZAxis}
+          onActivate={onActivate}
         />
       </Canvas>
     </div>
