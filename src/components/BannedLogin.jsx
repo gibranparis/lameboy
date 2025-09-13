@@ -125,7 +125,16 @@ export default function BannedLogin() {
       {!hideAll && (
         <div className="login-stack">
           {/* Orb — safe geometry, 20% faster spin, close to the bubble */}
-          <BlueOrbCross3D rpm={7.2} color="#32ffc7" geomScale={1} style={{ marginBottom: -9, height: '10vh' }} />
+          
+          <BlueOrbCross3D
+  rpm={7.2}                 // 20% faster
+  color="#32ffc7"           // neon seafoam
+  geomScale={1}             // overall geometry scale
+  offsetFactor={2.05}       // center→outer orb distance (2.0–2.2)
+  armRatio={0.33}           // bar thickness as fraction of orb radius (0.30–0.36)
+  glow                      // keep neon halos
+  style={{ marginBottom: -9, height: '10vh' }}
+/>
 
           {/* Blue bubble */}
           {!hideBubble && (
