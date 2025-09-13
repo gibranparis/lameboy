@@ -31,7 +31,7 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
         /* SUPER shiny rainbow glow */
         .chakra-letter.glow-plus {
           position: relative;
-          mix-blend-mode: screen; /* brighter on dark bg */
+          mix-blend-mode: screen;
           text-shadow:
             0 0 8px   currentColor,
             0 0 18px  currentColor,
@@ -44,31 +44,14 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
             drop-shadow(0 0 26px currentColor);
           animation: glowPulseMega 1.8s ease-in-out infinite alternate;
         }
-
         @keyframes glowPulseMega {
           0% {
-            text-shadow:
-              0 0 8px  currentColor,
-              0 0 18px currentColor,
-              0 0 32px currentColor,
-              0 0 54px currentColor,
-              0 0 88px currentColor;
-            filter:
-              drop-shadow(0 0 6px currentColor)
-              drop-shadow(0 0 14px currentColor)
-              drop-shadow(0 0 26px currentColor);
+            text-shadow: 0 0 8px currentColor, 0 0 18px currentColor, 0 0 32px currentColor, 0 0 54px currentColor, 0 0 88px currentColor;
+            filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 14px currentColor) drop-shadow(0 0 26px currentColor);
           }
           100% {
-            text-shadow:
-              0 0 12px currentColor,
-              0 0 28px currentColor,
-              0 0 50px currentColor,
-              0 0 84px currentColor,
-              0 0 120px currentColor;
-            filter:
-              drop-shadow(0 0 8px currentColor)
-              drop-shadow(0 0 22px currentColor)
-              drop-shadow(0 0 40px currentColor);
+            text-shadow: 0 0 12px currentColor, 0 0 28px currentColor, 0 0 50px currentColor, 0 0 84px currentColor, 0 0 120px currentColor;
+            filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 22px currentColor) drop-shadow(0 0 40px currentColor);
           }
         }
       `}</style>
@@ -97,6 +80,7 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
+  // Start cascade: hide everything, show text over the bands; when done -> white screen
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -169,12 +153,11 @@ export default function BannedLogin() {
                   <span className="code-comment">// </span>
                   <span className="code-banned">is banned</span>
                   {'\n'}
-                  <span className="code-keyword">console</span>
-                  <span className="code-punc">.</span>
-                  <span className="code-var">log</span>
-                  <span className="code-punc">(</span>
+                  <span className="code-keyword">const</span>&nbsp;
+                  <span className="code-var">msg</span>
+                  <span className="code-op">=</span>
                   <span className="code-string">"hi..."</span>
-                  <span className="code-punc">);</span>
+                  <span className="code-punc">;</span>
                 </pre>
               ) : (
                 <form onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -184,4 +167,96 @@ export default function BannedLogin() {
 
                   <div className="code-line">
                     <span className="code-keyword">const</span>&nbsp;
-                    <span className="code-var">email<
+                    <span className="code-var">email</span>
+                    <span className="code-op">=</span>
+                    <span className="code-string">"</span>
+                    <input
+                      ref={emailRef}
+                      className="code-input"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      inputMode="email"
+                      autoComplete="email"
+                    />
+                    <span className="code-string">"</span>
+                    <span className="code-punc">;</span>
+                  </div>
+
+                  <div className="code-line">
+                    <span className="code-keyword">const</span>&nbsp;
+                    <span className="code-var">phone</span>
+                    <span className="code-op">=</span>
+                    <span className="code-string">"</span>
+                    <input
+                      className="code-input"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+1 305 555 0123"
+                      inputMode="tel"
+                      autoComplete="tel"
+                    />
+                    <span className="code-string">"</span>
+                    <span className="code-punc">;</span>
+                  </div>
+
+                  <div className="row-nowrap" style={{ marginTop: 6, gap: 8 }}>
+                    <button type="button" className={`commit-btn btn-link ${activated === 'link' ? 'btn-activated' : ''}`} onClick={onLink}>Link</button>
+                    <button type="button" className={`commit-btn btn-bypass ${activated === 'bypass' ? 'btn-activated' : ''}`} onClick={onBypass}>Bypass</button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* Florida label (hidden once cascade triggers) */}
+          <button
+            type="button"
+            className={['ghost-btn','florida-link','florida-inline', floridaHot ? 'is-hot' : ''].join(' ')}
+            onClick={onFloridaClick}
+            onMouseEnter={() => setFloridaHot(true)}
+            onMouseLeave={() => setFloridaHot(false)}
+          >
+            Florida, USA
+          </button>
+        </div>
+      )}
+
+      {/* Cascade bands */}
+      {cascade && (
+        <div className="chakra-overlay">
+          <div className="chakra-band chakra-crown band-1" />
+          <div className="chakra-band chakra-thirdeye band-2" />
+          <div className="chakra-band chakra-throat band-3" />
+          <div className="chakra-band chakra-heart band-4" />
+          <div className="chakra-band chakra-plexus band-5" />
+          <div className="chakra-band chakra-sacral band-6" />
+          <div className="chakra-band chakra-root band-7" />
+        </div>
+      )}
+
+      {/* Small white "LAMEBOY, USA" OVER the cascade */}
+      {cascade && (
+        <div className="brand-overlay" aria-hidden="true">
+          <span className="brand-overlay-text">LAMEBOY, USA</span>
+        </div>
+      )}
+
+      {/* After cascade: full white screen */}
+      {whiteout && !cascade && <div className="whiteout" />}
+
+      <style jsx>{`
+        .brand-overlay {
+          position: fixed; inset: 0; display: grid; place-items: center;
+          z-index: 2000; pointer-events: none;
+        }
+        .brand-overlay-text {
+          color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+          font-size: clamp(11px, 1.3vw, 14px);
+          text-shadow: 0 0 8px rgba(0,0,0,0.25);
+        }
+        .whiteout { position: fixed; inset: 0; background: #fff; z-index: 1500; }
+      `}</style>
+    </div>
+  );
+}
