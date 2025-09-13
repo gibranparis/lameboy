@@ -281,7 +281,7 @@ export default function BannedLogin() {
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
               key={`${orbMode}-${orbGlow}-${orbVersion}`} // hard remount on changes
-              rpm={14.4}
+              rpm={28.4}
               color={SEAFOAM}
               geomScale={1}
               glow
