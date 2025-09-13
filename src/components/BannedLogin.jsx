@@ -49,48 +49,42 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
   );
 }
 
-/* SOLID vertical cascade with white follower */
+/* SOLID vertical chakra cascade with white follower from the right */
 function CascadeOverlay({ durationMs = 2400 }) {
-  const [p, setP] = useState(0);
-  const rafRef = useRef();
-
+  const [p, setP] = useState(0); // 0..1 timeline
   useEffect(() => {
-    let start;
+    let start; let id;
     const step = (t) => {
       if (start == null) start = t;
       const k = Math.min(1, (t - start) / durationMs);
       setP(k);
-      if (k < 1) rafRef.current = requestAnimationFrame(step);
+      if (k < 1) id = requestAnimationFrame(step);
     };
-    rafRef.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafRef.current);
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
   }, [durationMs]);
 
   const whiteW = (p * 100).toFixed(3);
   const COLOR_VW = 120;
-  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
+  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // slide block R→L
 
   return createPortal(
     <>
       <div
         aria-hidden="true"
         style={{
-          position:'fixed', top:0, right:0, height:'100vh',
-          width:`${whiteW}%`,
-          background:'#fff',
-          zIndex:9998, pointerEvents:'none',
-          willChange:'width', transition:'width 16ms linear',
-          transform:'translateZ(0)', backfaceVisibility:'hidden'
+          position: 'fixed', top: 0, right: 0, height: '100vh',
+          width: `${whiteW}%`, background: '#fff',
+          zIndex: 9998, pointerEvents: 'none', willChange: 'width',
+          transition: 'width 16ms linear', transform: 'translateZ(0)',
         }}
       />
       <div
         aria-hidden="true"
         style={{
-          position:'fixed', top:0, left:0, height:'100vh',
-          width:`${COLOR_VW}vw`,
-          transform:`translate3d(${tx}vw,0,0)`,
-          zIndex:9999, pointerEvents:'none',
-          willChange:'transform', backfaceVisibility:'hidden'
+          position: 'fixed', top: 0, left: 0, height: '100vh', width: `${COLOR_VW}vw`,
+          transform: `translate3d(${tx}vw,0,0)`,
+          zIndex: 9999, pointerEvents: 'none', willChange: 'transform',
         }}
       >
         <div className="lb-cascade">
@@ -108,10 +102,16 @@ function CascadeOverlay({ durationMs = 2400 }) {
       </div>
 
       <style jsx global>{`
-        .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); height:100%; width:100%; pointer-events:none; contain:layout paint size style; }
+        .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); height:100%; width:100%; }
         .lb-band{ width:100%; height:100%; opacity:1; background:var(--c); }
-        .lb-b1{ --c:#c084fc; } .lb-b2{ --c:#4f46e5; } .lb-b3{ --c:#3b82f6; }
-        .lb-b4{ --c:#22c55e; } .lb-b5{ --c:#facc15; } .lb-b6{ --c:#f97316; } .lb-b7{ --c:#ef4444; }
+        .lb-b1{ --c:#c084fc }  /* violet */
+        .lb-b2{ --c:#4f46e5 }  /* indigo */
+        .lb-b3{ --c:#3b82f6 }  /* blue   */
+        .lb-b4{ --c:#22c55e }  /* green  */
+        .lb-b5{ --c:#facc15 }  /* yellow */
+        .lb-b6{ --c:#f97316 }  /* orange */
+        .lb-b7{ --c:#ef4444 }  /* red    */
+
         .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
         .lb-brand-text{ color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25); }
       `}</style>
@@ -148,6 +148,7 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
+  // Hide UI → run cascade → keep white
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -185,7 +186,7 @@ export default function BannedLogin() {
     runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
-  // Orb click == Bypass
+  // Orb click == Bypass (true 3D hit only)
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
   // "is banned" -> scary red. "Lameboy" -> chakra.
@@ -214,7 +215,7 @@ export default function BannedLogin() {
         <div className="login-stack">
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
-              key={`${orbMode}-${orbGlow}-${orbVersion}`}
+              key={`${orbMode}-${orbGlow}-${orbVersion}`} // hard remount on changes
               rpm={44}
               color={SEAFOAM}
               geomScale={1}
@@ -257,17 +258,18 @@ export default function BannedLogin() {
                   >
                     is banned
                   </span>
-                  {'\n'}<span className="code-keyword">const</span>&nbsp;<span className="code-var">msg</span><span className="code-op">=</span><span className="code-string">"hi..."</span><span className="code-punc">;</span>
+                  {'\n'}
+                  <span className="code-keyword">const</span>&nbsp;<span className="code-var">msg</span>
+                  <span className="code-op">=</span><span className="code-string">"hi..."</span><span className="code-punc">;</span>
                 </pre>
               ):(
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
                   <div className="code-line"><span className="lb-seafoam">// login</span></div>
 
-                  {/* EMAIL — no "const"; purple glowing input + purple glowing quotes & semicolon */}
                   <div className="code-line">
                     <span className="code-var">email</span>
                     <span className="code-op">=</span>
-                    <span className="code-string">"</span>
+                    <span className="code-string neon-violet">"</span>
                     <input
                       ref={emailRef}
                       className="code-input code-input-violet"
@@ -276,17 +278,18 @@ export default function BannedLogin() {
                       placeholder="you@example.com"
                       inputMode="email"
                       autoComplete="email"
-                      spellCheck={false}
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      size={24}
                     />
-                    <span className="code-string">"</span>
-                    <span className="code-string">;</span>
+                    <span className="code-string neon-violet">"</span>
+                    <span className="code-punc neon-violet">;</span>
                   </div>
 
-                  {/* PHONE — no "const"; purple glowing input + purple glowing quotes & semicolon */}
                   <div className="code-line">
                     <span className="code-var">phone</span>
                     <span className="code-op">=</span>
-                    <span className="code-string">"</span>
+                    <span className="code-string neon-violet">"</span>
                     <input
                       className="code-input code-input-violet"
                       value={phone}
@@ -294,10 +297,10 @@ export default function BannedLogin() {
                       placeholder="+1 305 555 0123"
                       inputMode="tel"
                       autoComplete="tel"
-                      spellCheck={false}
+                      size={18}
                     />
-                    <span className="code-string">"</span>
-                    <span className="code-string">;</span>
+                    <span className="code-string neon-violet">"</span>
+                    <span className="code-punc neon-violet">;</span>
                   </div>
 
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
@@ -333,64 +336,64 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Global tweaks (adds purple glow to inputs & string tokens) */}
+      {/* Global tweaks (glows + input color control) */}
       <style jsx global>{`
         html,body{ background:#000; }
 
-        /* seafoam markers */
         .lb-seafoam{
           color:#32ffc7; font-weight:800;
           text-shadow:0 0 8px #32ffc7,0 0 20px #32ffc7,0 0 44px #32ffc7,0 0 80px #32ffc7;
           filter:saturate(1.35) brightness(1.06);
         }
 
-        /* Purple "string" tokens (quotes + semicolons) */
-        .code-string{
-          color:#c084fc;
-          text-shadow:0 0 6px #c084fc, 0 0 14px #c084fc, 0 0 26px #c084fc;
-          font-weight:700;
+        /* Purple neon for quotes/semicolons */
+        .neon-violet{
+          color:#a78bfa;
+          text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa, 0 0 26px #a78bfa;
+          filter:saturate(1.25);
         }
 
-        /* Make the typed text match that same glowing purple, including iOS autofill */
-        .code-input.code-input-violet{
-          color:#c084fc;
-          -webkit-text-fill-color:#c084fc;  /* iOS */
-          caret-color:#c084fc;
-          background:transparent;
-          text-shadow:0 0 6px #c084fc, 0 0 14px #c084fc, 0 0 26px #c084fc;
+        /* Purple input that STAYS purple on iOS */
+        .code-input-violet{
+          color:#a78bfa;
+          -webkit-text-fill-color:#a78bfa !important;
+          caret-color:#a78bfa;
+          background:transparent; border:0; outline:0; font:inherit;
+          text-shadow:0 0 4px #a78bfa, 0 0 10px #a78bfa, 0 0 18px #a78bfa;
+          filter:saturate(1.15);
+          padding:0; margin:0; width:auto;
         }
-        .code-input.code-input-violet::placeholder{
-          color:#c084fcaa;
-          text-shadow:none;
+        .code-input-violet::placeholder{
+          color:#9a8aec; opacity:.9;
+          text-shadow:0 0 3px #9a8aec, 0 0 8px #9a8aec;
         }
-        /* iOS autofill overrides */
-        input.code-input-violet:-webkit-autofill{
-          -webkit-text-fill-color:#c084fc !important;
-          transition: background-color 9999s ease-in-out 0s !important;
-          box-shadow: 0 0 0px 1000px transparent inset !important;
-          background-clip: content-box !important;
-        }
-        input.code-input-violet:autofill{
-          -webkit-text-fill-color:#c084fc !important;
-          box-shadow: 0 0 0px 1000px transparent inset !important;
+        .code-input-violet::selection{
+          background: rgba(167,139,250,.25);
         }
 
-        /* Keep your button look; recolor via filters only */
+        /* Buttons: keep original style, recolor via filters */
         .commit-btn.btn-bypass{ will-change: filter, transform; transition: filter .15s ease, transform .12s ease; }
-        .btn-yellow{ filter: none; }
-        .btn-red{ filter: hue-rotate(-95deg) saturate(1.15); }
+        .btn-yellow{ filter:none; }
+        .btn-red{ filter:hue-rotate(-95deg) saturate(1.15); }
         .commit-btn.btn-bypass:hover,
         .commit-btn.btn-bypass.btn-activated,
-        .commit-btn.btn-bypass:focus-visible{ transform: translateY(-0.5px); outline: none; }
+        .commit-btn.btn-bypass:focus-visible{ transform: translateY(-0.5px); outline:none; }
 
+        /* "is banned" as a real button; underline only on hover/focus */
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
-        /* Tame heavy mobile bloom for rainbow + seafoam, but keep inputs glowing */
-        @media (hover: none) and (pointer: coarse){
-          .lb-letter{ text-shadow:0 0 2px currentColor, 0 0 6px currentColor, 0 0 10px currentColor !important; filter:none !important; }
-          .lb-seafoam{ text-shadow:0 0 2px #32ffc7, 0 0 6px #32ffc7, 0 0 12px #32ffc7 !important; filter:none !important; }
+        /* Mobile: tone down excessive bloom on coarse pointers */
+        @media (hover:none) and (pointer:coarse){
+          .lb-letter{
+            text-shadow:0 0 2px currentColor,0 0 6px currentColor,0 0 12px currentColor !important;
+            filter:none !important;
+          }
+          .lb-seafoam{
+            text-shadow:0 0 2px #32ffc7,0 0 6px #32ffc7,0 0 12px #32ffc7 !important;
+            filter:none !important;
+          }
         }
       `}</style>
 

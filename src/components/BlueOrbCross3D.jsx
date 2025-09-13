@@ -1,3 +1,4 @@
+// src/components/BlueOrbCross3D.jsx
 'use client';
 
 import * as THREE from 'three';
@@ -5,13 +6,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 
 function OrbCross({
-  rpm = 44,
+  rpm = 14.4,
   color = '#32ffc7',
   geomScale = 1,
   offsetFactor = 2.05,
   armRatio = 0.33,
   glow = true,
-  glowOpacity = 0.8,
+  glowOpacity = 0.7,
   glowScale = 1.35,
   includeZAxis = true,
   onActivate = null,
@@ -51,14 +52,14 @@ function OrbCross({
     const offset = r * offsetFactor;
     const armLen = 2 * (offset - r * 0.12);
 
-    const sphereGeo   = new THREE.SphereGeometry(r, 64, 48);
-    const armGeoX     = new THREE.CylinderGeometry(armR, armR, armLen, 64, 1, true);
-    const armGeoY     = new THREE.CylinderGeometry(armR, armR, armLen, 64, 1, true);
-    const armGeoZ     = new THREE.CylinderGeometry(armR, armR, armLen, 64, 1, true);
+    const sphereGeo   = new THREE.SphereGeometry(r, 48, 32);
+    const armGeoX     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
+    const armGeoY     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
+    const armGeoZ     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
 
-    const armGlowGeoX = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 64, 1, true);
-    const armGlowGeoY = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 64, 1, true);
-    const armGlowGeoZ = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 64, 1, true);
+    const armGlowGeoX = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
+    const armGlowGeoY = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
+    const armGlowGeoZ = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
 
     const centers = [
       [0, 0, 0],
@@ -158,10 +159,8 @@ function OrbCross({
     [useOverride ? barColor : JSON.stringify(sphereDefs), glow]
   );
 
-  const handlePointerDown = (e) => { e.stopPropagation(); onActivate?.(); };
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate?.(); }
-  };
+  const handlePointerDown = (e) => { e.stopPropagation(); onActivate && onActivate(); };
+  const handleKeyDown = (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } };
 
   return (
     <group
@@ -202,20 +201,12 @@ function OrbCross({
           {overrideAllColor && (
             <>
               {centers.map((p, i) => (
-                <mesh
-                  key={`halo2-${i}`}
-                  geometry={sphereGeo}
-                  position={p}
-                  scale={glowScale * 1.6}
+                <mesh key={`halo2-${i}`} geometry={sphereGeo} position={p} scale={glowScale * 1.6}
                   ref={(m) => {
                     if (group.current && m) {
                       const mat = new THREE.MeshBasicMaterial({
-                        color: barColor,
-                        transparent: true,
-                        opacity: haloBase * 0.6,
-                        blending: THREE.AdditiveBlending,
-                        depthWrite: false,
-                        toneMapped: false,
+                        color: barColor, transparent: true, opacity: haloBase * 0.6,
+                        blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
                       });
                       m.material = mat;
                       group.current.userData.pulseMats.extraHaloMats[0] = mat;
@@ -224,20 +215,12 @@ function OrbCross({
                 />
               ))}
               {centers.map((p, i) => (
-                <mesh
-                  key={`halo3-${i}`}
-                  geometry={sphereGeo}
-                  position={p}
-                  scale={glowScale * 1.95}
+                <mesh key={`halo3-${i}`} geometry={sphereGeo} position={p} scale={glowScale * 1.95}
                   ref={(m) => {
                     if (group.current && m) {
                       const mat = new THREE.MeshBasicMaterial({
-                        color: barColor,
-                        transparent: true,
-                        opacity: haloBase * 0.32,
-                        blending: THREE.AdditiveBlending,
-                        depthWrite: false,
-                        toneMapped: false,
+                        color: barColor, transparent: true, opacity: haloBase * 0.32,
+                        blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
                       });
                       m.material = mat;
                       group.current.userData.pulseMats.extraHaloMats[1] = mat;
@@ -255,13 +238,13 @@ function OrbCross({
 
 export default function BlueOrbCross3D({
   height = '10vh',
-  rpm = 44,
+  rpm = 14.4,
   color = '#32ffc7',
   geomScale = 1,
   offsetFactor = 2.05,
   armRatio = 0.33,
   glow = true,
-  glowOpacity = 0.8,
+  glowOpacity = 0.7,
   glowScale = 1.35,
   includeZAxis = true,
   onActivate = null,
@@ -277,15 +260,7 @@ export default function BlueOrbCross3D({
   }, []);
 
   return (
-    <div
-      className={className}
-      style={{
-        height, width: '100%',
-        contain: 'layout paint style',
-        isolation: 'isolate',
-        ...style,
-      }}
-    >
+    <div className={className} style={{ height, width:'100%', contain:'layout paint style', isolation:'isolate', ...style }}>
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
