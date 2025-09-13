@@ -7,11 +7,11 @@ const BlueOrbCross3D = dynamic(() => import('@/components/BlueOrbCross3D'), { ss
 import { useCallback, useRef, useState } from 'react';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
-const CASCADE_MS = 2400; // keep in sync with your cascade CSS
+const CASCADE_MS = 2400;
 
-/** Chakra-colored "Lameboy" with BRIGHT pulsing glow; ".com" stays plain */
+/** Chakra-colored "Lameboy" with EXTRA bright pulsing glow; ".com" stays plain */
 function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = '' }) {
-  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7']; // root→crown
+  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7'];
   return (
     <span className={`chakra-word ${className}`}>
       {word.split('').map((ch, i) => (
@@ -28,30 +28,27 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
         .chakra-word { display: inline-flex; letter-spacing: 0.06em; gap: 0.02em; }
         .chakra-suffix { margin-left: 0.06em; font-weight: 700; }
 
-        /* SUPER shiny rainbow glow */
+        /* SHARPER & MORE SATURATED (no blend washing) */
         .chakra-letter.glow-plus {
           position: relative;
-          mix-blend-mode: screen;
+          -webkit-text-stroke: 0.6px currentColor;  /* edge crispness */
           text-shadow:
-            0 0 8px   currentColor,
-            0 0 18px  currentColor,
-            0 0 32px  currentColor,
+            0 0 10px  currentColor,
+            0 0 26px  currentColor,
             0 0 54px  currentColor,
-            0 0 88px  currentColor;
-          filter:
-            drop-shadow(0 0 6px currentColor)
-            drop-shadow(0 0 14px currentColor)
-            drop-shadow(0 0 26px currentColor);
-          animation: glowPulseMega 1.8s ease-in-out infinite alternate;
+            0 0 96px  currentColor,
+            0 0 150px currentColor;
+          filter: saturate(1.55) contrast(1.2) brightness(1.06);
+          animation: glowPulseMega 1.6s ease-in-out infinite alternate;
         }
         @keyframes glowPulseMega {
           0% {
-            text-shadow: 0 0 8px currentColor, 0 0 18px currentColor, 0 0 32px currentColor, 0 0 54px currentColor, 0 0 88px currentColor;
-            filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 14px currentColor) drop-shadow(0 0 26px currentColor);
+            text-shadow: 0 0 10px currentColor, 0 0 26px currentColor, 0 0 54px currentColor, 0 0 96px currentColor, 0 0 150px currentColor;
+            filter: saturate(1.4) contrast(1.15) brightness(1.04);
           }
           100% {
-            text-shadow: 0 0 12px currentColor, 0 0 28px currentColor, 0 0 50px currentColor, 0 0 84px currentColor, 0 0 120px currentColor;
-            filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 22px currentColor) drop-shadow(0 0 40px currentColor);
+            text-shadow: 0 0 14px currentColor, 0 0 36px currentColor, 0 0 80px currentColor, 0 0 130px currentColor, 0 0 180px currentColor;
+            filter: saturate(1.75) contrast(1.25) brightness(1.08);
           }
         }
       `}</style>
@@ -60,7 +57,7 @@ function ChakraWord({ word = 'Lameboy', suffix = '', strong = true, className = 
 }
 
 export default function BannedLogin() {
-  const [view, setView] = useState('banned');          // 'banned' | 'login'
+  const [view, setView] = useState('banned');
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
   const [whiteout, setWhiteout] = useState(false);
@@ -80,7 +77,6 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Start cascade: hide everything, show text over the bands; when done -> white screen
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -124,17 +120,15 @@ export default function BannedLogin() {
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
       {!hideAll && (
         <div className="login-stack">
-          {/* Orb — safe geometry, 20% faster spin, close to the bubble */}
-          
+          {/* Orb — same size/speed, HALF the gap closer + brighter halo */}
           <BlueOrbCross3D
-  rpm={7.2}                 // 20% faster
-  color="#32ffc7"           // neon seafoam
-  geomScale={1}             // overall geometry scale
-  offsetFactor={2.05}       // center→outer orb distance (2.0–2.2)
-  armRatio={0.33}           // bar thickness as fraction of orb radius (0.30–0.36)
-  glow                      // keep neon halos
-  style={{ marginBottom: -9, height: '10vh' }}
-/>
+            rpm={7.2}
+            color="#32ffc7"
+            geomScale={1}
+            glow
+            glowOpacity={0.85}
+            style={{ marginBottom: -28, height: '10vh' }}  /* was -9 → much closer */
+          />
 
           {/* Blue bubble */}
           {!hideBubble && (
@@ -218,7 +212,6 @@ export default function BannedLogin() {
             </div>
           )}
 
-          {/* Florida label (hidden once cascade triggers) */}
           <button
             type="button"
             className={['ghost-btn','florida-link','florida-inline', floridaHot ? 'is-hot' : ''].join(' ')}
@@ -231,7 +224,6 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Cascade bands */}
       {cascade && (
         <div className="chakra-overlay">
           <div className="chakra-band chakra-crown band-1" />
@@ -244,26 +236,17 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Small white "LAMEBOY, USA" OVER the cascade */}
       {cascade && (
         <div className="brand-overlay" aria-hidden="true">
           <span className="brand-overlay-text">LAMEBOY, USA</span>
         </div>
       )}
 
-      {/* After cascade: full white screen */}
       {whiteout && !cascade && <div className="whiteout" />}
 
       <style jsx>{`
-        .brand-overlay {
-          position: fixed; inset: 0; display: grid; place-items: center;
-          z-index: 2000; pointer-events: none;
-        }
-        .brand-overlay-text {
-          color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-          font-size: clamp(11px, 1.3vw, 14px);
-          text-shadow: 0 0 8px rgba(0,0,0,0.25);
-        }
+        .brand-overlay { position: fixed; inset: 0; display: grid; place-items: center; z-index: 2000; pointer-events: none; }
+        .brand-overlay-text { color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: clamp(11px, 1.3vw, 14px); text-shadow: 0 0 8px rgba(0,0,0,0.25); }
         .whiteout { position: fixed; inset: 0; background: #fff; z-index: 1500; }
       `}</style>
     </div>

@@ -4,35 +4,29 @@ import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 
-/**
- * World-Govt style orb-cross: 5 spheres joined by equal-width bars.
- * Safe geometry (internal ratios) + optional neon halo.
- */
+/** World-Govt style orb-cross with safe internal ratios + optional neon halo. */
 function OrbCross({
   rpm = 7.2,
   color = '#32ffc7',
   geomScale = 1,
-  offsetFactor = 2.05, // center→outer orb distance as multiple of r
-  armRatio = 0.33,     // bar radius as fraction of r
+  offsetFactor = 2.05,
+  armRatio = 0.33,
   glow = true,
   glowOpacity = 0.6,
   glowScale = 1.35,
 }) {
   const group = useRef();
 
-  // spin
   useFrame((_, dt) => {
     if (!group.current) return;
-    const speed = (rpm * Math.PI * 2) / 60; // rad/s
-    group.current.rotation.y += speed * dt;
+    group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt;
   });
 
-  // build geometry + materials once per relevant prop change
   const memo = useMemo(() => {
-    const r = 0.144 * geomScale;                   // base orb radius (you liked this scale)
-    const armR = Math.max(0.001, r * armRatio);    // bar radius
-    const offset = r * offsetFactor;               // distance to outer orbs
-    const armLen = 2 * (offset - r * 0.12);        // tuck into spheres slightly
+    const r = 0.144 * geomScale;
+    const armR = Math.max(0.001, r * armRatio);
+    const offset = r * offsetFactor;
+    const armLen = 2 * (offset - r * 0.12);
 
     const sphereGeo   = new THREE.SphereGeometry(r, 48, 32);
     const armGeoX     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
@@ -64,44 +58,24 @@ function OrbCross({
       [0, -offset, 0],
     ];
 
-    return {
-      sphereGeo,
-      armGeoX,
-      armGeoY,
-      armGlowGeoX,
-      armGlowGeoY,
-      coreMat,
-      haloMat,
-      centers,
-    };
+    return { sphereGeo, armGeoX, armGeoY, armGlowGeoX, armGlowGeoY, coreMat, haloMat, centers };
   }, [geomScale, armRatio, offsetFactor, color, glowOpacity, glowScale]);
 
-  const {
-    sphereGeo,
-    armGeoX, armGeoY,
-    armGlowGeoX, armGlowGeoY,
-    coreMat, haloMat,
-    centers,
-  } = memo;
+  const { sphereGeo, armGeoX, armGeoY, armGlowGeoX, armGlowGeoY, coreMat, haloMat, centers } = memo;
 
   return (
     <group ref={group}>
-      {/* bars */}
       <mesh geometry={armGeoX} material={coreMat} rotation={[0, 0, Math.PI / 2]} />
       <mesh geometry={armGeoY} material={coreMat} />
-
-      {/* orbs */}
       {centers.map((p, i) => (
         <mesh key={`core-${i}`} geometry={sphereGeo} material={coreMat} position={p} />
       ))}
-
-      {/* neon halos */}
       {glow && (
         <>
           <mesh geometry={armGlowGeoX} material={haloMat} rotation={[0, 0, Math.PI / 2]} />
           <mesh geometry={armGlowGeoY} material={haloMat} />
           {centers.map((p, i) => (
-            <mesh key={`halo-${i}`} geometry={sphereGeo} material={haloMat} position={p} scale={1.35} />
+            <mesh key={`halo-${i}`} geometry={sphereGeo} material={haloMat} position={p} scale={glowScale} />
           ))}
         </>
       )}
@@ -117,6 +91,8 @@ export default function BlueOrbCross3D({
   offsetFactor = 2.05,
   armRatio = 0.33,
   glow = true,
+  glowOpacity = 0.6,
+  glowScale = 1.35,
   style = {},
   className = '',
 }) {
@@ -133,6 +109,8 @@ export default function BlueOrbCross3D({
           offsetFactor={offsetFactor}
           armRatio={armRatio}
           glow={glow}
+          glowOpacity={glowOpacity}
+          glowScale={glowScale}
         />
       </Canvas>
     </div>
