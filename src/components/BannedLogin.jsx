@@ -49,7 +49,7 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
   );
 }
 
-/* SOLID vertical chakra cascade with BRIGHT inner glow + white follower from the right */
+/* SOLID vertical chakra cascade — crisp bars with same-color neon bloom. White reveals from right. */
 function CascadeOverlay({ durationMs = 2400 }) {
   const [p, setP] = useState(0); // 0..1 timeline
   const rafRef = useRef();
@@ -94,7 +94,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
         }}
       />
 
-      {/* COLOR stripes moving as one block (crisp edges + internal glow) */}
+      {/* COLOR stripes moving as one block (hard edges + neon tint glow) */}
       <div
         aria-hidden="true"
         style={{
@@ -113,7 +113,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
         <div className="lb-cascade">
           {['#c084fc','#4f46e5','#3b82f6','#22c55e','#facc15','#f97316','#ef4444'].map((c,i)=>(
             <div key={i} className="lb-band" style={{ '--c': c }}>
-              <div className="lb-core" />
+              <div className="lb-neon" />
             </div>
           ))}
         </div>
@@ -124,7 +124,6 @@ function CascadeOverlay({ durationMs = 2400 }) {
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
 
-      {/* Hard edges + inner glow that never touches edges */}
       <style jsx global>{`
         .lb-cascade {
           position: absolute;
@@ -138,22 +137,31 @@ function CascadeOverlay({ durationMs = 2400 }) {
         }
         .lb-band {
           position:relative;
-          width: 100%;
-          height: 100%;
+          width:100%;
+          height:100%;
           background: var(--c);
           image-rendering: crisp-edges;
+          overflow:hidden;          /* keep glow inside */
+          color: var(--c);          /* used by currentColor in glow */
         }
-        /* inner glow — inset so edges remain razor-sharp */
-        .lb-core{
+        /* same-color NEON bloom (no white), edges remain razor-sharp */
+        .lb-neon{
           position:absolute; inset:0;
+          /* slightly inset so edges stay solid */
           margin: 0 clamp(8px, 1vw, 16px);
-          background: radial-gradient(50% 140% at 50% 50%,
-            rgba(255,255,255,.88) 0%,
-            rgba(255,255,255,.55) 28%,
-            rgba(255,255,255,0) 62%);
+          background:
+            linear-gradient(90deg, transparent 0 18%, currentColor 50%, transparent 82%);
           mix-blend-mode: screen;
+          filter: blur(22px) brightness(1.75) saturate(1.6);
+          opacity:.80;
           pointer-events:none;
         }
+
+        /* mobile: a touch less blur to avoid banding */
+        @media (hover:none) and (pointer:coarse){
+          .lb-neon{ filter: blur(16px) brightness(1.6) saturate(1.5); opacity:.78; }
+        }
+
         .lb-brand {
           position: fixed;
           inset: 0;
@@ -376,7 +384,6 @@ export default function BannedLogin() {
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
-        /* mobile: keep glow strong but not blown out */
         @media (hover: none) and (pointer: coarse){
           .lb-letter{
             text-shadow: 0 0 2px currentColor, 0 0 6px currentColor, 0 0 12px currentColor !important;
