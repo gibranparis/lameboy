@@ -28,7 +28,6 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', strong = true, classNam
       <style jsx>{`
         .chakra-word { display: inline-flex; letter-spacing: 0.06em; gap: 0.02em; }
 
-        /* rainbow letters, extra punch */
         .chakra-letter.glow-plus {
           position: relative;
           -webkit-text-stroke: 0.6px currentColor;
@@ -48,7 +47,6 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', strong = true, classNam
                  filter: saturate(1.75) contrast(1.25) brightness(1.08); }
         }
 
-        /* seafoam glow utility (used for .com and //) */
         .seafoam-glow {
           color: #32ffc7;
           font-weight: 800;
@@ -64,7 +62,7 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', strong = true, classNam
   );
 }
 
-/** Client-only portal to body (so overlays never get clipped) */
+/** Body portal (so overlays never get clipped by parent transforms/overflow) */
 function BodyPortal({ children }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -72,11 +70,76 @@ function BodyPortal({ children }) {
   return createPortal(children, document.body);
 }
 
+/** JS-driven white sweep from the right (no CSS keyframes required) */
+function CascadeOverlay({ durationMs = 2400, showBrand = true }) {
+  const [progress, setProgress] = useState(0); // 0..1 width
+  const rafRef = useRef();
+
+  useEffect(() => {
+    let start;
+    const step = (t) => {
+      if (start == null) start = t;
+      const p = Math.min(1, (t - start) / durationMs);
+      setProgress(p);
+      if (p < 1) rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [durationMs]);
+
+  return (
+    <BodyPortal>
+      {/* White sweep grows from the RIGHT */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          height: '100vh',
+          width: `${(progress * 100).toFixed(3)}%`,
+          background: '#fff',
+          zIndex: 9999,
+          pointerEvents: 'none',
+          willChange: 'width',
+          transition: 'width 16ms linear', // keeps it smooth between RAF frames
+        }}
+      />
+      {showBrand && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 10001,
+            pointerEvents: 'none',
+          }}
+        >
+          <span
+            style={{
+              color: '#fff',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              fontSize: 'clamp(11px, 1.3vw, 14px)',
+              textShadow: '0 0 8px rgba(0,0,0,0.25)',
+            }}
+          >
+            LAMEBOY, USA
+          </span>
+        </div>
+      )}
+    </BodyPortal>
+  );
+}
+
 export default function BannedLogin() {
   const [view, setView] = useState('banned');          // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);       // cascade running
   const [hideAll, setHideAll] = useState(false);       // hide UI during cascade
-  const [whiteout, setWhiteout] = useState(false);     // final full white screen
+  const [whiteout, setWhiteout] = useState(false);     // full white after
 
   const [hideBubble, setHideBubble] = useState(false);
   const [bubblePulse, setBubblePulse] = useState(false);
@@ -93,17 +156,17 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Start cascade: HIDE EVERYTHING (leaving black page bg), sweep in white, then keep white
+  // Start cascade: hide UI (leaving site bg), white sweep from right, then hold white.
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
-    setHideAll(true);     // this removes all UI, including orb + card + florida label
+    setHideAll(true);
     setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
 
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
-      setWhiteout(true);  // lock white screen after sweep finishes
+      setWhiteout(true); // lock white after sweep completes
       after && after();
     }, CASCADE_MS);
 
@@ -136,33 +199,25 @@ export default function BannedLogin() {
     runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
-  // ORB click behaves exactly like Bypass (3D hit only; implemented in BlueOrbCross3D)
+  // ORB click behaves exactly like Bypass (3D hit only)
   const onOrbActivate = useCallback(() => {
     onBypass();
   }, [onBypass]);
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
-      {/* === CASCADE IN PORTAL (global styled) === */}
-      {(cascade || whiteout) && (
+      {/* === CASCADE OVERLAYS (portal) === */}
+      {cascade && <CascadeOverlay durationMs={CASCADE_MS} showBrand />}
+      {/* After cascade: persistent white */}
+      {whiteout && !cascade && (
         <BodyPortal>
-          {/* During cascade: only the white sweep (no black overlay) */}
-          {cascade && (
-            <>
-              <div
-                className="cascade-white-sweep"
-                data-cascade="sweep"
-                style={{ animationDuration: `${CASCADE_MS}ms` }}
-                aria-hidden="true"
-              />
-              {/* LAMEBOY on top while cascading */}
-              <div className="brand-overlay" aria-hidden="true">
-                <span className="brand-overlay-text">LAMEBOY, USA</span>
-              </div>
-            </>
-          )}
-          {/* After cascade: persistent white screen */}
-          {whiteout && !cascade && <div className="whiteout" data-cascade="whiteout" aria-hidden="true" />}
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'fixed', inset: 0, background: '#fff',
+              zIndex: 9998, pointerEvents: 'none',
+            }}
+          />
         </BodyPortal>
       )}
 
@@ -203,11 +258,9 @@ export default function BannedLogin() {
             >
               {view === 'banned' ? (
                 <pre className="code-line" style={{ margin: 0 }}>
-                  {/* SEAFOAM "//" + rainbow "Lameboy" + SEAFOAM ".com" */}
                   <span className="seafoam-glow">//</span>&nbsp;
                   <ChakraWord word="Lameboy" suffix=".com" />
                   {'\n'}
-                  {/* SEAFOAM "//" before “is banned” */}
                   <span className="seafoam-glow">//</span>&nbsp;
                   <span className="code-banned">is banned</span>
                   {'\n'}
@@ -220,7 +273,6 @@ export default function BannedLogin() {
               ) : (
                 <form onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div className="code-line">
-                    {/* Make `// login` glow like .com */}
                     <span className="seafoam-glow">// login</span>
                   </div>
 
@@ -280,53 +332,7 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* GLOBAL styles for portal content (critical so they apply inside <body>) */}
-      <style jsx global>{`
-        /* White sweep from RIGHT across the screen */
-        .cascade-white-sweep {
-          position: fixed;
-          top: 0;
-          right: 0;
-          height: 100vh;
-          width: 0%;
-          background: #fff;
-          z-index: 9999;
-          pointer-events: none;
-          animation-name: whiteRevealFromRight;
-          animation-timing-function: cubic-bezier(.2,.6,.2,1);
-          animation-fill-mode: forwards;
-        }
-        @keyframes whiteRevealFromRight { from { width: 0%; } to { width: 100%; } }
-
-        /* Brand stays on top while cascade runs */
-        .brand-overlay {
-          position: fixed;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          z-index: 10001;
-          pointer-events: none;
-        }
-        .brand-overlay-text {
-          color: #fff;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          font-size: clamp(11px, 1.3vw, 14px);
-          text-shadow: 0 0 8px rgba(0,0,0,0.25);
-        }
-
-        /* Final persistent white screen after the sweep completes */
-        .whiteout {
-          position: fixed;
-          inset: 0;
-          background: #fff;
-          z-index: 9998;
-          pointer-events: none;
-        }
-      `}</style>
-
-      {/* Local page styles */}
+      {/* tiny local styles */}
       <style jsx>{`
         .orb-row { width: 100%; }
       `}</style>
