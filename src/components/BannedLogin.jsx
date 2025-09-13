@@ -10,7 +10,7 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
 
-/* Rainbow "Lameboy" + seafoam ".com" */
+/* Rainbow "Lameboy" + seafoam ".com" (mobile bloom tamed in global CSS below) */
 function ChakraWord({ word = 'Lameboy', suffix = '.com' }) {
   const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7'];
   return (
@@ -46,9 +46,9 @@ function BodyPortal({ children }) {
   return createPortal(children, document.body);
 }
 
-/* JS-driven cascade with MOVING COLOR WINDOW (vertical bands) ahead of white follower */
+/* Cascade: vertical bands with a white follower */
 function CascadeOverlay({ durationMs = 2400, leadPct = 18 }) {
-  const [progress, setProgress] = useState(0); // 0..1 -> white width
+  const [progress, setProgress] = useState(0);
   const rafRef = useRef();
 
   useEffect(() => {
@@ -68,7 +68,6 @@ function CascadeOverlay({ durationMs = 2400, leadPct = 18 }) {
 
   return (
     <BodyPortal>
-      {/* WHITE follower (under the colors) */}
       <div
         aria-hidden="true"
         style={{
@@ -80,7 +79,6 @@ function CascadeOverlay({ durationMs = 2400, leadPct = 18 }) {
           transform:'translateZ(0)'
         }}
       />
-      {/* COLOR WINDOW (rides ahead of white) */}
       <div
         className="lb-color-window"
         aria-hidden="true"
@@ -102,16 +100,14 @@ function CascadeOverlay({ durationMs = 2400, leadPct = 18 }) {
           <div className="lb-band lb-b7" />
         </div>
       </div>
-      {/* BRAND above all during the sweep */}
       <div className="lb-brand" aria-hidden="true" style={{ zIndex: 10001 }}>
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
 
-      {/* GLOBAL styles for portal content */}
       <style jsx global>{`
         .lb-cascade{
           position:absolute; inset:0;
-          display:grid; grid-template-columns:repeat(7,1fr); /* vertical bands */
+          display:grid; grid-template-columns:repeat(7,1fr);
           pointer-events:none; mix-blend-mode:screen;
           height:100%; width:100%;
           contain:layout paint size style;
@@ -154,8 +150,10 @@ export default function BannedLogin() {
   const [phone, setPhone] = useState('');
   const emailRef = useRef(null);
 
-  /* ORB color & glow (force remount on change) */
-  const [orbColor, setOrbColor] = useState('#32ffc7');
+  /* ORB color & glow (toggle red on/off; force remount on change) */
+  const SEAFOAM = '#32ffc7';
+  const RED = '#ff002a';
+  const [orbColor, setOrbColor] = useState(SEAFOAM);
   const [orbGlow, setOrbGlow] = useState(0.85);
   const [orbVersion, setOrbVersion] = useState(0);
 
@@ -165,7 +163,7 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Hide UI -> run cascade -> hold white
+  // Cascade control
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -206,21 +204,26 @@ export default function BannedLogin() {
   // Orb click == Bypass (true 3D hit only inside BlueOrbCross3D)
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
-  // "is banned" click -> set scary red + stronger glow; force remount
+  // "is banned" click -> TOGGLE scary red on/off; force remount
   const onBannedClick = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    setOrbColor('#ff002a');   // scary neon red
-    setOrbGlow(1.0);          // max glow
-    setOrbVersion(v => v + 1);
+    setOrbColor((prev) => {
+      const next = prev === RED ? SEAFOAM : RED;
+      setOrbGlow(next === RED ? 1.0 : 0.85);
+      setOrbVersion((v) => v + 1);
+      return next;
+    });
   }, []);
   const onBannedKey = useCallback((e) => {
     if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      e.stopPropagation();
-      setOrbColor('#ff002a');
-      setOrbGlow(1.0);
-      setOrbVersion(v => v + 1);
+      e.preventDefault(); e.stopPropagation();
+      setOrbColor((prev) => {
+        const next = prev === RED ? SEAFOAM : RED;
+        setOrbGlow(next === RED ? 1.0 : 0.85);
+        setOrbVersion((v) => v + 1);
+        return next;
+      });
     }
   }, []);
 
@@ -241,16 +244,16 @@ export default function BannedLogin() {
             <BlueOrbCross3D
               key={`${orbColor}-${orbGlow}-${orbVersion}`} // hard remount on changes
               rpm={14.4}
-              color="#32ffc7"                 // normal bar color
+              color={SEAFOAM}                 // normal bar color (seafoam)
               geomScale={1}
               glow
               glowOpacity={orbGlow}
               includeZAxis
               height="10vh"
               onActivate={onOrbActivate}
-              /* When in scary red mode, override ALL parts to red + extra halo */
-              overrideAllColor={orbColor === '#ff002a' ? '#ff002a' : null}
-              overrideGlowOpacity={orbColor === '#ff002a' ? 1.0 : undefined}
+              /* When in scary red mode, override ALL parts to red + extra halo + pulse */
+              overrideAllColor={orbColor === RED ? RED : null}
+              overrideGlowOpacity={orbColor === RED ? 1.0 : undefined}
             />
           </div>
 
@@ -300,7 +303,6 @@ export default function BannedLogin() {
                     <span className="code-string">"</span><span className="code-punc">;</span>
                   </div>
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
-                    {/* LINK = old yellow look (unchanged) */}
                     <button
                       type="button"
                       className={`commit-btn btn-bypass btn-link btn-yellow ${activated==='link'?'btn-activated':''}`}
@@ -308,7 +310,6 @@ export default function BannedLogin() {
                     >
                       Link
                     </button>
-                    {/* BYPASS = same style but red via hue rotate */}
                     <button
                       type="button"
                       className={`commit-btn btn-bypass btn-red ${activated==='bypass'?'btn-activated':''}`}
@@ -342,8 +343,6 @@ export default function BannedLogin() {
           text-shadow:0 0 8px #32ffc7,0 0 20px #32ffc7,0 0 44px #32ffc7,0 0 80px #32ffc7;
           filter:saturate(1.35) brightness(1.06);
         }
-
-        /* Keep existing button look. Only recolor via filters. */
         .commit-btn.btn-bypass{ will-change: filter, transform; transition: filter .15s ease, transform .12s ease; }
         .btn-yellow{ filter: none; }
         .btn-red{ filter: hue-rotate(-95deg) saturate(1.15); }
@@ -353,13 +352,11 @@ export default function BannedLogin() {
           transform: translateY(-0.5px);
           outline: none;
         }
-
-        /* "is banned" as a true button; underline only on hover/focus */
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
-        /* iOS/Safari mobile: tame the bloom around Lameboy + seafoam marks (stronger reduction) */
+        /* Mobile: reduce rainbow/seafoam blooming so text stays crisp */
         @media (hover: none) and (pointer: coarse){
           .lb-letter{
             text-shadow: 0 0 4px currentColor, 0 0 10px currentColor, 0 0 18px currentColor;
