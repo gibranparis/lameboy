@@ -5,7 +5,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 
 /**
- * 3-axis orb cross (±X, ±Y, ±Z) with per-orb chakra glows.
+ * 3-axis orb-cross (±X, ±Y, ±Z) with per-orb chakra glows.
  * Bars use the `color` prop (default seafoam). Each sphere gets its own core/halo color.
  */
 function OrbCross({

@@ -51,17 +51,16 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', strong = true, classNam
           }
         }
 
-        /* seafoam suffix (.com) glow */
-        .chakra-suffix.seafoam-glow {
-          margin-left: 0.06em;
-          font-weight: 800;
+        /* seafoam glow utility (used for .com and //) */
+        .seafoam-glow {
           color: #32ffc7;
+          font-weight: 800;
           text-shadow:
             0 0 8px  #32ffc7,
             0 0 20px #32ffc7,
             0 0 44px #32ffc7,
             0 0 80px #32ffc7;
-          filter: saturate(1.4) brightness(1.1);
+          filter: saturate(1.35) brightness(1.06);
         }
       `}</style>
     </span>
@@ -89,6 +88,7 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
+  // Cascade: hide everything; keep white underlay during/after to avoid black flash
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -130,15 +130,19 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position: 'relative', flexDirection: 'column', gap: 10 }}>
+      {/* White underlay prevents black flash during cascade and remains for whiteout */}
+      {(cascade || whiteout) && <div className="white-underlay" />}
+
       {!hideAll && (
         <div className="login-stack">
-          {/* Orb */}
+          {/* Orb — 6 outer orbs w/ chakra glows; 2× speed; half-gap closer */}
           <BlueOrbCross3D
-            rpm={33}
-            color="#32ffc7"
+            rpm={44}              // 2× faster
+            color="#32ffc7"         // bar color
             geomScale={1}
             glow
             glowOpacity={0.85}
+            includeZAxis            // 6 outer orbs
             style={{ marginBottom: -28, height: '10vh' }}
           />
 
@@ -179,7 +183,8 @@ export default function BannedLogin() {
               ) : (
                 <form onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div className="code-line">
-                    <span className="code-comment">// login</span>
+                    {/* Make `// login` glow like .com */}
+                    <span className="seafoam-glow">// login</span>
                   </div>
 
                   <div className="code-line">
@@ -238,8 +243,9 @@ export default function BannedLogin() {
         </div>
       )}
 
+      {/* Cascade bands (ensure above white-underlay) */}
       {cascade && (
-        <div className="chakra-overlay">
+        <div className="chakra-overlay" style={{ zIndex: 1400 }}>
           <div className="chakra-band chakra-crown band-1" />
           <div className="chakra-band chakra-thirdeye band-2" />
           <div className="chakra-band chakra-throat band-3" />
@@ -250,28 +256,23 @@ export default function BannedLogin() {
         </div>
       )}
 
+      {/* Small white "LAMEBOY, USA" OVER the cascade */}
       {cascade && (
         <div className="brand-overlay" aria-hidden="true">
           <span className="brand-overlay-text">LAMEBOY, USA</span>
         </div>
       )}
 
+      {/* After cascade: full white screen */}
       {whiteout && !cascade && <div className="whiteout" />}
 
-      {/* SEAFOAM utility used for // and elsewhere */}
       <style jsx>{`
-        .seafoam-glow {
-          color: #32ffc7;
-          font-weight: 800;
-          text-shadow:
-            0 0 8px  #32ffc7,
-            0 0 20px #32ffc7,
-            0 0 44px #32ffc7,
-            0 0 80px #32ffc7;
-          filter: saturate(1.35) brightness(1.06);
-        }
+        /* White surface shown during cascade and after */
+        .white-underlay { position: fixed; inset: 0; background: #fff; z-index: 1200; }
+
         .brand-overlay { position: fixed; inset: 0; display: grid; place-items: center; z-index: 2000; pointer-events: none; }
         .brand-overlay-text { color: #fff; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: clamp(11px, 1.3vw, 14px); text-shadow: 0 0 8px rgba(0,0,0,0.25); }
+
         .whiteout { position: fixed; inset: 0; background: #fff; z-index: 1500; }
       `}</style>
     </div>
