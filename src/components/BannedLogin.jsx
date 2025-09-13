@@ -110,11 +110,11 @@ export default function BannedLogin() {
           {/* 3D orb cross — 2× bigger, 20% faster, 50% closer (more negative margin) */}
           <BlueOrbCross3D
             height="10vh"
-            rpm={7.2}
+            rpm={12}
             color="#32ffc7"
-            r={0.144}
-            armR={0.048}
-            style={{ marginBottom: -9 }}  // was -6 → bring 50% closer
+            r={0.288}
+            armR={0.96}
+            style={{ marginBottom: -12 }}  // was -6 → bring 50% closer
           />
 
           {/* Blue bubble */}
