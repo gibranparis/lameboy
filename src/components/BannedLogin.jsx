@@ -49,7 +49,7 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
   );
 }
 
-/* SOLID vertical chakra cascade (no blur), with white follower from the right */
+/* SOLID vertical chakra cascade with BRIGHT inner glow + white follower from the right */
 function CascadeOverlay({ durationMs = 2400 }) {
   const [p, setP] = useState(0); // 0..1 timeline
   const rafRef = useRef();
@@ -94,7 +94,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
         }}
       />
 
-      {/* COLOR stripes moving as one block (hard edges) */}
+      {/* COLOR stripes moving as one block (crisp edges + internal glow) */}
       <div
         aria-hidden="true"
         style={{
@@ -111,13 +111,11 @@ function CascadeOverlay({ durationMs = 2400 }) {
         }}
       >
         <div className="lb-cascade">
-          <div className="lb-band lb-b1" />
-          <div className="lb-band lb-b2" />
-          <div className="lb-band lb-b3" />
-          <div className="lb-band lb-b4" />
-          <div className="lb-band lb-b5" />
-          <div className="lb-band lb-b6" />
-          <div className="lb-band lb-b7" />
+          {['#c084fc','#4f46e5','#3b82f6','#22c55e','#facc15','#f97316','#ef4444'].map((c,i)=>(
+            <div key={i} className="lb-band" style={{ '--c': c }}>
+              <div className="lb-core" />
+            </div>
+          ))}
         </div>
       </div>
 
@@ -126,7 +124,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
 
-      {/* Hard-edged, fully opaque stripes — no glows, no filters */}
+      {/* Hard edges + inner glow that never touches edges */}
       <style jsx global>{`
         .lb-cascade {
           position: absolute;
@@ -136,27 +134,26 @@ function CascadeOverlay({ durationMs = 2400 }) {
           height: 100%;
           width: 100%;
           pointer-events: none;
-          mix-blend-mode: initial;
           contain: layout paint size style;
         }
         .lb-band {
+          position:relative;
           width: 100%;
           height: 100%;
-          opacity: 1;
           background: var(--c);
-          box-shadow: none !important;
-          filter: none !important;
           image-rendering: crisp-edges;
         }
-        /* Chakra colors (crown → root) */
-        .lb-b1 { --c: #c084fc; }
-        .lb-b2 { --c: #4f46e5; }
-        .lb-b3 { --c: #3b82f6; }
-        .lb-b4 { --c: #22c55e; }
-        .lb-b5 { --c: #facc15; }
-        .lb-b6 { --c: #f97316; }
-        .lb-b7 { --c: #ef4444; }
-
+        /* inner glow — inset so edges remain razor-sharp */
+        .lb-core{
+          position:absolute; inset:0;
+          margin: 0 clamp(8px, 1vw, 16px);
+          background: radial-gradient(50% 140% at 50% 50%,
+            rgba(255,255,255,.88) 0%,
+            rgba(255,255,255,.55) 28%,
+            rgba(255,255,255,0) 62%);
+          mix-blend-mode: screen;
+          pointer-events:none;
+        }
         .lb-brand {
           position: fixed;
           inset: 0;
@@ -198,7 +195,6 @@ export default function BannedLogin() {
   const RED = '#ff001a';
   const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
   const [orbGlow, setOrbGlow] = useState(0.9);
-  const [orbVersion, setOrbVersion] = useState(0);
 
   const goLogin = useCallback(() => {
     setHideBubble(false);
@@ -248,16 +244,8 @@ export default function BannedLogin() {
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
   // "is banned" -> scary red. "Lameboy" -> chakra.
-  const setRed = useCallback(() => {
-    setOrbMode('red');
-    setOrbGlow(1.0);
-    setOrbVersion(v => v + 1);
-  }, []);
-  const setChakra = useCallback(() => {
-    setOrbMode('chakra');
-    setOrbGlow(0.9);
-    setOrbVersion(v => v + 1);
-  }, []);
+  const setRed = useCallback(() => { setOrbMode('red'); setOrbGlow(1.0); }, []);
+  const setChakra = useCallback(() => { setOrbMode('chakra'); setOrbGlow(0.9); }, []);
 
   const onBannedClick = useCallback((e) => { e.preventDefault(); e.stopPropagation(); setRed(); }, [setRed]);
   const onBannedKey = useCallback((e) => {
@@ -277,10 +265,8 @@ export default function BannedLogin() {
         <div className="login-stack">
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
-              key={`${orbMode}-${orbGlow}-${orbVersion}`} // hard remount on changes
-              rpm={44}                      // <— spin faster
+              rpm={44}
               color={SEAFOAM}
-              geomScale={1}
               glow
               glowOpacity={orbGlow}
               includeZAxis
@@ -390,9 +376,10 @@ export default function BannedLogin() {
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
+        /* mobile: keep glow strong but not blown out */
         @media (hover: none) and (pointer: coarse){
           .lb-letter{
-            text-shadow: 0 0 2px currentColor, 0 0 6px currentColor, 0 0 10px currentColor !important;
+            text-shadow: 0 0 2px currentColor, 0 0 6px currentColor, 0 0 12px currentColor !important;
             filter: none !important;
           }
           .lb-seafoam{
