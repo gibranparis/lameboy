@@ -10,84 +10,21 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
 
-/* Rainbow "Lameboy" + seafoam ".com" with a WHITE run-through like the orb */
-function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
-  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7'];
-  const handle = (e) => { e.preventDefault(); e.stopPropagation(); onActivate?.(); };
-
+/* White-glow 'Lameboy' + seafoam '.com' (NOT clickable) */
+function Wordmark({ word = 'Lameboy', suffix = '.com' }) {
   return (
-    <span
-      role="button"
-      tabIndex={0}
-      onClick={handle}
-      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ handle(e); }}}
-      onPointerDown={(e)=>e.stopPropagation()}
-      onMouseDown={(e)=>e.stopPropagation()}
-      className="lb-word clickable has-run"
-      title="Reset orb to chakra colors"
-    >
-      {word.split('').map((ch, i) => (
-        <span key={i} className="lb-letter" style={{ color: colors[i % colors.length] }}>{ch}</span>
-      ))}
+    <span className="lb-word">
+      <span className="lb-white">{word}</span>
       <span className="lb-seafoam">{suffix}</span>
-
-      {/* white sweep + tiny spark, screen-blended */}
-      <span aria-hidden className="lb-run" />
-      <span aria-hidden className="lb-spark" />
-
       <style jsx>{`
-        .lb-word { position:relative; display:inline-flex; letter-spacing:.06em; gap:.02em; }
-        .lb-word.clickable { cursor:pointer; }
-        .lb-letter {
-          font-weight:800; -webkit-text-stroke:.6px currentColor;
+        .lb-word{display:inline-flex;letter-spacing:.06em;gap:.02em}
+        .lb-white{
+          color:#fff;font-weight:800;
           text-shadow:
-            0 0 10px currentColor, 0 0 26px currentColor, 0 0 54px currentColor,
-            0 0 96px currentColor, 0 0 150px currentColor;
-          filter:saturate(1.55) contrast(1.2) brightness(1.06);
-          animation: lbGlow 1.6s ease-in-out infinite alternate;
-        }
-        @keyframes lbGlow {
-          from { filter:saturate(1.4) contrast(1.15) brightness(1.04); }
-          to   { filter:saturate(1.75) contrast(1.25) brightness(1.08); }
-        }
-
-        /* WHITE run-through */
-        .has-run { isolation:isolate; }
-        .lb-run{
-          position:absolute; inset:-35% -6%;
-          width:16%;
-          transform:translateX(-25%);
-          background: linear-gradient(90deg,
-            rgba(255,255,255,0) 0%,
-            rgba(255,255,255,.35) 38%,
-            rgba(255,255,255,.95) 50%,
-            rgba(255,255,255,.35) 62%,
-            rgba(255,255,255,0) 100%);
-          filter: blur(10px);
-          mix-blend-mode: screen;
-          animation: lbSweep 2.6s linear infinite;
-          pointer-events:none;
-        }
-        .lb-spark{
-          position:absolute; top:50%; left:0;
-          width:14px; height:14px; transform:translate(-30%, -50%);
-          background: radial-gradient(closest-side, rgba(255,255,255,1), rgba(255,255,255,0) 70%);
-          filter: blur(2px);
-          mix-blend-mode: screen;
-          opacity:.95;
-          animation: lbSpark 2.6s linear infinite;
-          pointer-events:none;
-        }
-        @keyframes lbSweep{ 0%{transform:translateX(-25%)} 100%{transform:translateX(125%)} }
-        @keyframes lbSpark{
-          0%{ left:-8%;  opacity:.95; filter:blur(2px); }
-          50%{ left:52%; opacity:1;   filter:blur(1.5px); }
-          100%{ left:108%; opacity:.92; filter:blur(2px); }
-        }
-
-        @media (hover:none) and (pointer:coarse){
-          .lb-run{ filter: blur(8px); }
-          .lb-spark{ filter: blur(2.5px); }
+            0 0 8px #fff,
+            0 0 18px #fff,
+            0 0 36px #fff,
+            0 0 70px #fff;
         }
       `}</style>
     </span>
@@ -121,7 +58,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
           position: 'fixed', top: 0, right: 0, height: '100vh',
           width: `${whiteW}%`, background: '#fff',
           zIndex: 9998, pointerEvents: 'none', willChange: 'width',
-          transition: 'width 16ms linear', transform: 'translateZ(0)',
+          transition: 'width 16ms linear'
         }}
       />
       <div
@@ -129,7 +66,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
         style={{
           position: 'fixed', top: 0, left: 0, height: '100vh', width: `${COLOR_VW}vw`,
           transform: `translate3d(${tx}vw,0,0)`,
-          zIndex: 9999, pointerEvents: 'none', willChange: 'transform',
+          zIndex: 9999, pointerEvents: 'none', willChange: 'transform'
         }}
       >
         <div className="lb-cascade">
@@ -193,7 +130,6 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 260);
   }, []);
 
-  // Hide UI → run cascade → keep white
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true);
     setHideAll(true);
@@ -208,19 +144,6 @@ export default function BannedLogin() {
     return () => clearTimeout(t);
   }, []);
 
-  const onBubbleClick = useCallback(() => {
-    setBubblePulse(true); setTimeout(() => setBubblePulse(false), 700);
-    setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
-    goLogin();
-  }, [goLogin]);
-
-  const onFloridaClick = useCallback(() => {
-    if (hideAll) return;
-    setFloridaHot(true); setTimeout(() => setFloridaHot(false), 700);
-    setHideBubble(false);
-    setView(v => (v === 'banned' ? 'login' : 'banned'));
-  }, [hideAll]);
-
   const onLink = useCallback(() => {
     setActivated('link'); setTimeout(() => setActivated(null), 650);
     runCascade(() => {}, { washAway: true });
@@ -234,18 +157,10 @@ export default function BannedLogin() {
   // Orb click == Bypass (true 3D hit only)
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
-  // "is banned" -> scary red. "Lameboy" -> chakra.
+  // "is banned" -> scary red. (Lameboy is not interactive now)
   const setRed = useCallback(() => {
     setOrbMode('red'); setOrbGlow(1.0); setOrbVersion(v => v + 1);
   }, []);
-  const setChakra = useCallback(() => {
-    setOrbMode('chakra'); setOrbGlow(0.9); setOrbVersion(v => v + 1);
-  }, []);
-
-  const onBannedClick = useCallback((e) => { e.preventDefault(); e.stopPropagation(); setRed(); }, [setRed]);
-  const onBannedKey = useCallback((e) => {
-    if (e.key==='Enter'||e.key===' ') { e.preventDefault(); e.stopPropagation(); setRed(); }
-  }, [setRed]);
 
   return (
     <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:10 }}>
@@ -282,38 +197,48 @@ export default function BannedLogin() {
                 'bubble-button', bubblePulse?'bubble-glow-blue':'',
               ].join(' ')}
               style={{ minWidth:260 }}
-              role={view==='banned'?'button':undefined}
-              tabIndex={view==='banned'?0:-1}
-              onClick={view==='banned'?onBubbleClick:undefined}
-              onKeyDown={view==='banned'?(e)=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();onBubbleClick();}}:undefined}
+              /* Not clickable in 'banned' view anymore */
+              role={view==='login'?'form':undefined}
+              tabIndex={view==='login'?0:-1}
             >
               {view==='banned'?(
                 <pre className="code-line" style={{ margin:0 }}>
                   <span className="lb-seafoam">//</span>&nbsp;
-                  <ChakraWord word="Lameboy" suffix=".com" onActivate={setChakra} />
+                  <Wordmark />
                   {'\n'}<span className="lb-seafoam">//</span>&nbsp;
                   <span
                     role="button"
                     tabIndex={0}
                     className="code-banned banned-trigger"
-                    onClick={onBannedClick}
-                    onPointerDown={(e)=>{e.stopPropagation();}}
-                    onMouseDown={(e)=>{e.stopPropagation();}}
-                    onKeyDown={onBannedKey}
+                    onClick={(e)=>{e.preventDefault();e.stopPropagation();setRed();}}
+                    onPointerDown={(e)=>e.stopPropagation()}
+                    onMouseDown={(e)=>e.stopPropagation()}
+                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); setRed(); }}}
                   >
                     is banned
                   </span>
                   {'\n'}
                   <span className="code-keyword">const</span>&nbsp;<span className="code-var">msg</span>
-                  <span className="code-op">=</span><span className="code-string">"hi..."</span><span className="code-punc">;</span>
+                  <span className="code-op">=</span>
+                  {/* Only this string is clickable to open login */}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="code-string code-link"
+                    onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
+                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
+                  >
+                    "hi..."
+                  </span>
+                  <span className="code-punc">;</span>
                 </pre>
               ):(
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
                   <div className="code-line"><span className="lb-seafoam">// login</span></div>
 
                   <div className="code-line">
-                    <span className="code-var">email</span>
-                    <span className="code-op">=</span>
+                    <span className="code-var neon-violet">email</span>
+                    <span className="code-op neon-violet">=</span>
                     <span className="code-string neon-violet">"</span>
                     <input
                       ref={emailRef}
@@ -332,8 +257,8 @@ export default function BannedLogin() {
                   </div>
 
                   <div className="code-line">
-                    <span className="code-var">phone</span>
-                    <span className="code-op">=</span>
+                    <span className="code-var neon-violet">phone</span>
+                    <span className="code-op neon-violet">=</span>
                     <span className="code-string neon-violet">"</span>
                     <input
                       className="code-input code-input-violet"
@@ -372,7 +297,7 @@ export default function BannedLogin() {
           <button
             type="button"
             className={['ghost-btn','florida-link','florida-inline', floridaHot?'is-hot':''].join(' ')}
-            onClick={onFloridaClick}
+            onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
             onMouseEnter={()=>setFloridaHot(true)}
             onMouseLeave={()=>setFloridaHot(false)}
           >
@@ -391,12 +316,16 @@ export default function BannedLogin() {
           filter:saturate(1.35) brightness(1.06);
         }
 
-        /* Purple neon for quotes/semicolons */
+        /* Purple neon for labels/equals/quotes/semicolons */
         .neon-violet{
           color:#a78bfa;
           text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa, 0 0 26px #a78bfa;
           filter:saturate(1.25);
         }
+
+        /* Keep the code string link styled like code, just clickable */
+        .code-link{ cursor:pointer; text-decoration:none; }
+        .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
 
         /* Purple input that STAYS purple on iOS */
         .code-input-violet{
@@ -421,22 +350,17 @@ export default function BannedLogin() {
         .commit-btn.btn-bypass:hover,
         .commit-btn.btn-bypass.btn-activated,
         .commit-btn.btn-bypass:focus-visible{ transform: translateY(-0.5px); outline:none; }
-
-        /* "is banned" as a real button; underline only on hover/focus */
+        
+        /* "is banned" button underline only on hover/focus */
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover,
         .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
-        /* Mobile: tone down excessive bloom on coarse pointers */
+        /* Mobile: soften overly strong bloom */
         @media (hover:none) and (pointer:coarse){
-          .lb-letter{
-            text-shadow:0 0 2px currentColor,0 0 6px currentColor,0 0 12px currentColor !important;
-            filter:none !important;
-          }
-          .lb-seafoam{
-            text-shadow:0 0 2px #32ffc7,0 0 6px #32ffc7,0 0 12px #32ffc7 !important;
-            filter:none !important;
-          }
+          .lb-white{ text-shadow:0 0 6px #fff,0 0 12px #fff,0 0 22px #fff !important; }
+          .lb-seafoam{ text-shadow:0 0 4px #32ffc7,0 0 10px #32ffc7,0 0 16px #32ffc7 !important; }
+          .neon-violet{ text-shadow:0 0 4px #a78bfa,0 0 10px #a78bfa,0 0 16px #a78bfa !important; }
         }
       `}</style>
 
