@@ -10,10 +10,11 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
 
-/* Rainbow "Lameboy" + seafoam ".com" (clicking resets orb to chakra mode) */
+/* Rainbow "Lameboy" + seafoam ".com" with a WHITE run-through like the orb */
 function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
   const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#a855f7'];
   const handle = (e) => { e.preventDefault(); e.stopPropagation(); onActivate?.(); };
+
   return (
     <span
       role="button"
@@ -22,16 +23,21 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
       onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ handle(e); }}}
       onPointerDown={(e)=>e.stopPropagation()}
       onMouseDown={(e)=>e.stopPropagation()}
-      className="lb-word clickable"
+      className="lb-word clickable has-run"
       title="Reset orb to chakra colors"
     >
       {word.split('').map((ch, i) => (
         <span key={i} className="lb-letter" style={{ color: colors[i % colors.length] }}>{ch}</span>
       ))}
       <span className="lb-seafoam">{suffix}</span>
+
+      {/* white sweep + tiny spark, screen-blended */}
+      <span aria-hidden className="lb-run" />
+      <span aria-hidden className="lb-spark" />
+
       <style jsx>{`
-        .lb-word { display:inline-flex; letter-spacing:.06em; gap:.02em; }
-        .lb-word.clickable { cursor: pointer; }
+        .lb-word { position:relative; display:inline-flex; letter-spacing:.06em; gap:.02em; }
+        .lb-word.clickable { cursor:pointer; }
         .lb-letter {
           font-weight:800; -webkit-text-stroke:.6px currentColor;
           text-shadow:
@@ -43,6 +49,45 @@ function ChakraWord({ word = 'Lameboy', suffix = '.com', onActivate }) {
         @keyframes lbGlow {
           from { filter:saturate(1.4) contrast(1.15) brightness(1.04); }
           to   { filter:saturate(1.75) contrast(1.25) brightness(1.08); }
+        }
+
+        /* WHITE run-through */
+        .has-run { isolation:isolate; }
+        .lb-run{
+          position:absolute; inset:-35% -6%;
+          width:16%;
+          transform:translateX(-25%);
+          background: linear-gradient(90deg,
+            rgba(255,255,255,0) 0%,
+            rgba(255,255,255,.35) 38%,
+            rgba(255,255,255,.95) 50%,
+            rgba(255,255,255,.35) 62%,
+            rgba(255,255,255,0) 100%);
+          filter: blur(10px);
+          mix-blend-mode: screen;
+          animation: lbSweep 2.6s linear infinite;
+          pointer-events:none;
+        }
+        .lb-spark{
+          position:absolute; top:50%; left:0;
+          width:14px; height:14px; transform:translate(-30%, -50%);
+          background: radial-gradient(closest-side, rgba(255,255,255,1), rgba(255,255,255,0) 70%);
+          filter: blur(2px);
+          mix-blend-mode: screen;
+          opacity:.95;
+          animation: lbSpark 2.6s linear infinite;
+          pointer-events:none;
+        }
+        @keyframes lbSweep{ 0%{transform:translateX(-25%)} 100%{transform:translateX(125%)} }
+        @keyframes lbSpark{
+          0%{ left:-8%;  opacity:.95; filter:blur(2px); }
+          50%{ left:52%; opacity:1;   filter:blur(1.5px); }
+          100%{ left:108%; opacity:.92; filter:blur(2px); }
+        }
+
+        @media (hover:none) and (pointer:coarse){
+          .lb-run{ filter: blur(8px); }
+          .lb-spark{ filter: blur(2.5px); }
         }
       `}</style>
     </span>
@@ -140,6 +185,7 @@ export default function BannedLogin() {
   const RED = '#ff001a';
   const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
   const [orbGlow, setOrbGlow] = useState(0.9);
+  const [orbVersion, setOrbVersion] = useState(0);
 
   const goLogin = useCallback(() => {
     setHideBubble(false);
@@ -189,8 +235,12 @@ export default function BannedLogin() {
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
   // "is banned" -> scary red. "Lameboy" -> chakra.
-  const setRed = useCallback(() => { setOrbMode('red'); setOrbGlow(1.0); }, []);
-  const setChakra = useCallback(() => { setOrbMode('chakra'); setOrbGlow(0.9); }, []);
+  const setRed = useCallback(() => {
+    setOrbMode('red'); setOrbGlow(1.0); setOrbVersion(v => v + 1);
+  }, []);
+  const setChakra = useCallback(() => {
+    setOrbMode('chakra'); setOrbGlow(0.9); setOrbVersion(v => v + 1);
+  }, []);
 
   const onBannedClick = useCallback((e) => { e.preventDefault(); e.stopPropagation(); setRed(); }, [setRed]);
   const onBannedKey = useCallback((e) => {
@@ -210,6 +260,7 @@ export default function BannedLogin() {
         <div className="login-stack">
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
+              key={`${orbMode}-${orbGlow}-${orbVersion}`} // hard remount on changes
               rpm={44}
               color={SEAFOAM}
               geomScale={1}
@@ -361,9 +412,7 @@ export default function BannedLogin() {
           color:#9a8aec; opacity:.9;
           text-shadow:0 0 3px #9a8aec, 0 0 8px #9a8aec;
         }
-        .code-input-violet::selection{
-          background: rgba(167,139,250,.25);
-        }
+        .code-input-violet::selection{ background: rgba(167,139,250,.25); }
 
         /* Buttons: keep original style, recolor via filters */
         .commit-btn.btn-bypass{ will-change: filter, transform; transition: filter .15s ease, transform .12s ease; }
