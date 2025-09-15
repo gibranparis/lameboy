@@ -15,7 +15,11 @@ function Wordmark({ word = 'Lameboy', suffix = '.com' }) {
       <span className="lb-white">{word}</span>
       <span className="lb-seafoam">{suffix}</span>
       <style jsx>{`
-        .lb-word{display:inline-flex;letter-spacing:.06em;gap:.02em}
+        .lb-word{
+          display:inline-flex;
+          letter-spacing:.02em; /* tighter tracking */
+          gap:.02em;
+        }
         .lb-white{
           color:#fff;font-weight:800;
           text-shadow:0 0 8px #fff,0 0 18px #fff,0 0 36px #fff,0 0 70px #fff;
@@ -101,7 +105,7 @@ export default function BannedLogin() {
 
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
-  const [orbMode, setOrbMode] = useState('chakra');
+  const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
@@ -116,7 +120,7 @@ export default function BannedLogin() {
   const goLogin = useCallback(() => {
     setHideBubble(false);
     setView('login');
-    setTimeout(() => emailRef.current?.focus(), 260);
+    setTimeout(() => emailRef.current?.focus(), 200);
   }, []);
 
   const runCascade = useCallback((after, { washAway = false } = {}) => {
@@ -145,8 +149,14 @@ export default function BannedLogin() {
 
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
-  const setRed = useCallback(() => {
-    setOrbMode('red'); setOrbGlow(1.0); setOrbVersion(v => v + 1);
+  // NEW: toggle orb color when clicking "is banned"
+  const toggleOrbColor = useCallback(() => {
+    setOrbMode(prev => {
+      const next = prev === 'red' ? 'chakra' : 'red';
+      setOrbGlow(next === 'red' ? 1.0 : 0.9);
+      setOrbVersion(v => v + 1); // refresh materials
+      return next;
+    });
   }, []);
 
   return (
@@ -187,22 +197,25 @@ export default function BannedLogin() {
               tabIndex={view==='login'?0:-1}
             >
               {view==='banned'?(
-                <pre className="code-line" style={{ margin:0 }}>
-                  <span className="lb-seafoam">//</span>&nbsp;
+                <pre className="code-line code-tight" style={{ margin:0 }}>
+                  <span className="lb-seafoam">//</span>
                   <Wordmark />
-                  {'\n'}<span className="lb-seafoam">//</span>&nbsp;
+                  {'\n'}
+                  <span className="lb-seafoam">//</span>
                   <span
                     role="button" tabIndex={0}
                     className="code-banned banned-trigger"
-                    onClick={(e)=>{e.preventDefault();e.stopPropagation();setRed();}}
+                    onClick={(e)=>{e.preventDefault();e.stopPropagation();toggleOrbColor();}}
                     onPointerDown={(e)=>e.stopPropagation()}
                     onMouseDown={(e)=>e.stopPropagation()}
-                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); setRed(); }}}
+                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
+                    title="Toggle orb color"
                   >
                     is banned
                   </span>
                   {'\n'}
-                  <span className="code-keyword">const</span>&nbsp;<span className="code-var">msg</span>
+                  <span className="code-keyword">const</span>
+                  <span className="code-var">msg</span>
                   <span className="code-op">=</span>
                   <span
                     role="button" tabIndex={0}
@@ -216,9 +229,9 @@ export default function BannedLogin() {
                 </pre>
               ):(
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
-                  <div className="code-line"><span className="lb-seafoam">// login</span></div>
+                  <div className="code-line code-tight"><span className="lb-seafoam">// login</span></div>
 
-                  <div className="code-line">
+                  <div className="code-line code-tight">
                     <span className="code-var neon-violet">email</span>
                     <span className="code-op neon-violet">=</span>
                     <span className="code-string neon-violet">"</span>
@@ -232,13 +245,13 @@ export default function BannedLogin() {
                       autoComplete="email"
                       autoCapitalize="none"
                       autoCorrect="off"
-                      size={24}
+                      size={Math.max(1, (email || '').length)}  /* shrink to content */
                     />
                     <span className="code-string neon-violet">"</span>
                     <span className="code-punc neon-violet">;</span>
                   </div>
 
-                  <div className="code-line">
+                  <div className="code-line code-tight">
                     <span className="code-var neon-violet">phone</span>
                     <span className="code-op neon-violet">=</span>
                     <span className="code-string neon-violet">"</span>
@@ -249,7 +262,7 @@ export default function BannedLogin() {
                       placeholder="+1 305 555 0123"
                       inputMode="tel"
                       autoComplete="tel"
-                      size={18}
+                      size={Math.max(1, (phone || '').length)}   /* shrink to content */
                     />
                     <span className="code-string neon-violet">"</span>
                     <span className="code-punc neon-violet">;</span>
@@ -288,18 +301,15 @@ export default function BannedLogin() {
         </div>
       )}
 
+      {/* local spacing tweaks */}
       <style jsx global>{`
-        html,body{ background:#000; }
-
-        .lb-seafoam{
-          color:#32ffc7; font-weight:800;
-          text-shadow:0 0 8px #32ffc7,0 0 20px #32ffc7,0 0 44px #32ffc7,0 0 80px #32ffc7;
-          filter:saturate(1.35) brightness(1.06);
-        }
-        .neon-violet{
-          color:#a78bfa;
-          text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa, 0 0 26px #a78bfa;
-          filter:saturate(1.25);
+        .code-line.code-tight{
+          display:flex;
+          align-items:baseline;
+          gap:2px;                 /* tighter between tokens */
+          line-height:1.35;
+          flex-wrap:wrap;
+          letter-spacing:0;
         }
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
@@ -313,16 +323,8 @@ export default function BannedLogin() {
           text-shadow:0 0 3px #9a8aec, 0 0 8px #9a8aec; }
         .code-input-violet::selection{ background: rgba(167,139,250,.25); }
 
-        .commit-btn.btn-bypass{ will-change: filter, transform; transition: filter .15s ease, transform .12s ease; }
-        .btn-yellow{ filter:none; } .btn-red{ filter:hue-rotate(-95deg) saturate(1.15); }
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover, .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
-
-        @media (hover:none) and (pointer:coarse){
-          .lb-white{ text-shadow:0 0 6px #fff,0 0 12px #fff,0 0 22px #fff !important; }
-          .lb-seafoam{ text-shadow:0 0 4px #32ffc7,0 0 10px #32ffc7,0 0 16px #32ffc7 !important; }
-          .neon-violet{ text-shadow:0 0 4px #a78bfa,0 0 10px #a78bfa,0 0 16px #a78bfa !important; }
-        }
       `}</style>
 
       <style jsx>{`.orb-row{ width:100%; contain:layout paint style; isolation:isolate; }`}</style>
