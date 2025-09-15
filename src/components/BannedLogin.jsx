@@ -29,12 +29,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
   const [p, setP] = useState(0);
   useEffect(() => {
     let start; let id;
-    const step = (t) => {
-      if (start == null) start = t;
-      const k = Math.min(1, (t - start) / durationMs);
-      setP(k);
-      if (k < 1) id = requestAnimationFrame(step);
-    };
+    const step = (t) => { if (start == null) start = t; const k = Math.min(1, (t - start) / durationMs); setP(k); if (k < 1) id = requestAnimationFrame(step); };
     id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
   }, [durationMs]);
@@ -45,22 +40,11 @@ function CascadeOverlay({ durationMs = 2400 }) {
 
   return createPortal(
     <>
-      <div aria-hidden="true" style={{
-        position:'fixed', inset:'0 0 0 auto', height:'100vh',
-        width:`${whiteW}%`, background:'#fff',
-        zIndex:9998, pointerEvents:'none', willChange:'width',
-        transition:'width 16ms linear'
-      }} />
-      <div aria-hidden="true" style={{
-        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
-        transform:`translate3d(${tx}vw,0,0)`,
-        zIndex:9999, pointerEvents:'none', willChange:'transform'
-      }}>
+      <div aria-hidden="true" style={{ position:'fixed', inset:'0 0 0 auto', height:'100vh', width:`${whiteW}%`, background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'width', transition:'width 16ms linear' }} />
+      <div aria-hidden="true" style={{ position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`, transform:`translate3d(${tx}vw,0,0)`, zIndex:9999, pointerEvents:'none', willChange:'transform' }}>
         <div className="lb-cascade">
-          <div className="lb-band lb-b1" /><div className="lb-band lb-b2" />
-          <div className="lb-band lb-b3" /><div className="lb-band lb-b4" />
-          <div className="lb-band lb-b5" /><div className="lb-band lb-b6" />
-          <div className="lb-band lb-b7" />
+          <div className="lb-band lb-b1" /><div className="lb-band lb-b2" /><div className="lb-band lb-b3" />
+          <div className="lb-band lb-b4" /><div className="lb-band lb-b5" /><div className="lb-band lb-b6" /><div className="lb-band lb-b7" />
         </div>
       </div>
       <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
@@ -88,7 +72,6 @@ export default function BannedLogin() {
   const [whiteout, setWhiteout] = useState(false);
 
   const [hideBubble, setHideBubble] = useState(false);
-  const [bubblePulse, setBubblePulse] = useState(false);
   const [floridaHot, setFloridaHot] = useState(false);
   const [activated, setActivated] = useState(null);
 
@@ -117,29 +100,14 @@ export default function BannedLogin() {
   }, []);
 
   const runCascade = useCallback((after, { washAway = false } = {}) => {
-    setCascade(true);
-    setHideAll(true);
-    setWhiteout(false);
+    setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
-    const t = setTimeout(() => {
-      setCascade(false);
-      if (washAway) setHideBubble(true);
-      setWhiteout(true);
-      after && after();
-    }, CASCADE_MS);
+    const t = setTimeout(() => { setCascade(false); if (washAway) setHideBubble(true); setWhiteout(true); after && after(); }, CASCADE_MS);
     return () => clearTimeout(t);
   }, []);
 
-  const onLink = useCallback(() => {
-    setActivated('link'); setTimeout(() => setActivated(null), 650);
-    runCascade(() => {}, { washAway: true });
-  }, [runCascade]);
-
-  const onBypass = useCallback(() => {
-    setActivated('bypass'); setTimeout(() => setActivated(null), 650);
-    runCascade(() => {}, { washAway: true });
-  }, [runCascade]);
-
+  const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
+  const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
   // Toggle orb color when clicking "is banned"
@@ -151,6 +119,17 @@ export default function BannedLogin() {
       return next;
     });
   }, []);
+
+  // Helper token row with stable spacing
+  const Row = ({ children }) => (
+    <div className="code-row">{children}<style jsx>{`
+      .code-row{
+        --gap: 4px;               /* <— adjust here if you want tighter/looser spacing */
+        display:flex; align-items:baseline; flex-wrap:wrap;
+        gap:var(--gap); line-height:1.35; letter-spacing:0;
+      }
+    `}</style></div>
+  );
 
   return (
     <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:10 }}>
@@ -183,38 +162,33 @@ export default function BannedLogin() {
               className={[
                 'vscode-card','card-ultra-tight','login-card',
                 view==='banned'?'slide-in-left':'slide-in-right',
-                'bubble-button', bubblePulse?'bubble-glow-blue':'',
+                'bubble-button',
               ].join(' ')}
               style={{ minWidth:260 }}
               role={view==='login'?'form':undefined}
               tabIndex={view==='login'?0:-1}
             >
               {view==='banned'?(
-                <div style={{ display:'grid', gap:'2px' }}>
-                  {/* Line 1: // Lameboy.com */}
-                  <div className="code-row tiny">
+                <div style={{ display:'grid', gap:'4px' }}>
+                  <Row>
                     <span className="lb-seafoam">//</span>
                     <Wordmark />
-                  </div>
+                  </Row>
 
-                  {/* Line 2: // is banned  (click/keyboard toggles orb color) */}
-                  <div className="code-row tiny">
+                  <Row>
                     <span className="lb-seafoam">//</span>
                     <span
                       role="button" tabIndex={0}
                       className="code-banned banned-trigger"
                       onClick={(e)=>{e.preventDefault();e.stopPropagation();toggleOrbColor();}}
-                      onPointerDown={(e)=>e.stopPropagation()}
-                      onMouseDown={(e)=>e.stopPropagation()}
                       onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
                       title="Toggle orb color"
                     >
                       is banned
                     </span>
-                  </div>
+                  </Row>
 
-                  {/* Line 3: const msg="hi..."; */}
-                  <div className="code-row tiny">
+                  <Row>
                     <span className="code-keyword">const</span>
                     <span className="code-var">msg</span>
                     <span className="code-op">=</span>
@@ -227,13 +201,13 @@ export default function BannedLogin() {
                       "hi..."
                     </span>
                     <span className="code-punc">;</span>
-                  </div>
+                  </Row>
                 </div>
               ):(
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
-                  <div className="code-row tiny"><span className="lb-seafoam">// login</span></div>
+                  <Row><span className="lb-seafoam">// login</span></Row>
 
-                  <div className="code-row tiny">
+                  <Row>
                     <span className="code-var neon-violet">email</span>
                     <span className="code-op neon-violet">=</span>
                     <span className="code-string neon-violet">"</span>
@@ -251,9 +225,9 @@ export default function BannedLogin() {
                     />
                     <span className="code-string neon-violet">"</span>
                     <span className="code-punc neon-violet">;</span>
-                  </div>
+                  </Row>
 
-                  <div className="code-row tiny">
+                  <Row>
                     <span className="code-var neon-violet">phone</span>
                     <span className="code-op neon-violet">=</span>
                     <span className="code-string neon-violet">"</span>
@@ -268,23 +242,11 @@ export default function BannedLogin() {
                     />
                     <span className="code-string neon-violet">"</span>
                     <span className="code-punc neon-violet">;</span>
-                  </div>
+                  </Row>
 
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
-                    <button
-                      type="button"
-                      className={`commit-btn btn-bypass btn-link btn-yellow ${activated==='link'?'btn-activated':''}`}
-                      onClick={onLink}
-                    >
-                      Link
-                    </button>
-                    <button
-                      type="button"
-                      className={`commit-btn btn-bypass btn-red ${activated==='bypass'?'btn-activated':''}`}
-                      onClick={onBypass}
-                    >
-                      Bypass
-                    </button>
+                    <button type="button" className={`commit-btn btn-bypass btn-link btn-yellow ${activated==='link'?'btn-activated':''}`} onClick={onLink}>Link</button>
+                    <button type="button" className={`commit-btn btn-bypass btn-red ${activated==='bypass'?'btn-activated':''}`} onClick={onBypass}>Bypass</button>
                   </div>
                 </form>
               )}
@@ -303,27 +265,17 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* spacing + inputs */}
       <style jsx global>{`
-        .code-row{
-          display:flex; align-items:baseline; flex-wrap:wrap;
-          line-height:1.35; letter-spacing:0;
-        }
-        .code-row.tiny{ gap:1px; }   /* <- ultra-tight spacing */
-
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
-
         .code-input-violet{
           color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa;
           background:transparent; border:0; outline:0; font:inherit;
           text-shadow:0 0 4px #a78bfa, 0 0 10px #a78bfa, 0 0 18px #a78bfa; filter:saturate(1.15);
           padding:0; margin:0; width:auto;
         }
-        .code-input-violet::placeholder{ color:#9a8aec; opacity:.9;
-          text-shadow:0 0 3px #9a8aec, 0 0 8px #9a8aec; }
+        .code-input-violet::placeholder{ color:#9a8aec; opacity:.9; text-shadow:0 0 3px #9a8aec, 0 0 8px #9a8aec; }
         .code-input-violet::selection{ background: rgba(167,139,250,.25); }
-
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover, .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
       `}</style>
