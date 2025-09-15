@@ -1,4 +1,3 @@
-// src/components/BannedLogin.jsx
 'use client';
 
 import dynamic from 'next/dynamic';
@@ -10,7 +9,6 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
 
-/* White-glow 'Lameboy' + seafoam '.com' (NOT clickable) */
 function Wordmark({ word = 'Lameboy', suffix = '.com' }) {
   return (
     <span className="lb-word">
@@ -20,20 +18,15 @@ function Wordmark({ word = 'Lameboy', suffix = '.com' }) {
         .lb-word{display:inline-flex;letter-spacing:.06em;gap:.02em}
         .lb-white{
           color:#fff;font-weight:800;
-          text-shadow:
-            0 0 8px #fff,
-            0 0 18px #fff,
-            0 0 36px #fff,
-            0 0 70px #fff;
+          text-shadow:0 0 8px #fff,0 0 18px #fff,0 0 36px #fff,0 0 70px #fff;
         }
       `}</style>
     </span>
   );
 }
 
-/* SOLID vertical chakra cascade with white follower from the right */
 function CascadeOverlay({ durationMs = 2400 }) {
-  const [p, setP] = useState(0); // 0..1 timeline
+  const [p, setP] = useState(0);
   useEffect(() => {
     let start; let id;
     const step = (t) => {
@@ -48,27 +41,21 @@ function CascadeOverlay({ durationMs = 2400 }) {
 
   const whiteW = (p * 100).toFixed(3);
   const COLOR_VW = 120;
-  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // slide block R→L
+  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
 
   return createPortal(
     <>
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed', top: 0, right: 0, height: '100vh',
-          width: `${whiteW}%`, background: '#fff',
-          zIndex: 9998, pointerEvents: 'none', willChange: 'width',
-          transition: 'width 16ms linear'
-        }}
-      />
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed', top: 0, left: 0, height: '100vh', width: `${COLOR_VW}vw`,
-          transform: `translate3d(${tx}vw,0,0)`,
-          zIndex: 9999, pointerEvents: 'none', willChange: 'transform'
-        }}
-      >
+      <div aria-hidden="true" style={{
+        position:'fixed', inset:'0 0 0 auto', height:'100vh',
+        width:`${whiteW}%`, background:'#fff',
+        zIndex:9998, pointerEvents:'none', willChange:'width',
+        transition:'width 16ms linear'
+      }} />
+      <div aria-hidden="true" style={{
+        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
+        transform:`translate3d(${tx}vw,0,0)`,
+        zIndex:9999, pointerEvents:'none', willChange:'transform'
+      }}>
         <div className="lb-cascade">
           <div className="lb-band lb-b1" />
           <div className="lb-band lb-b2" />
@@ -79,23 +66,18 @@ function CascadeOverlay({ durationMs = 2400 }) {
           <div className="lb-band lb-b7" />
         </div>
       </div>
-      <div className="lb-brand" aria-hidden="true" style={{ zIndex: 10001 }}>
+      <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
 
       <style jsx global>{`
-        .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); height:100%; width:100%; }
-        .lb-band{ width:100%; height:100%; opacity:1; background:var(--c); }
-        .lb-b1{ --c:#c084fc }  /* violet */
-        .lb-b2{ --c:#4f46e5 }  /* indigo */
-        .lb-b3{ --c:#3b82f6 }  /* blue   */
-        .lb-b4{ --c:#22c55e }  /* green  */
-        .lb-b5{ --c:#facc15 }  /* yellow */
-        .lb-b6{ --c:#f97316 }  /* orange */
-        .lb-b7{ --c:#ef4444 }  /* red    */
-
+        .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); }
+        .lb-band{ width:100%; height:100%; background:var(--c); }
+        .lb-b1{ --c:#c084fc } .lb-b2{ --c:#4f46e5 } .lb-b3{ --c:#3b82f6 }
+        .lb-b4{ --c:#22c55e } .lb-b5{ --c:#facc15 } .lb-b6{ --c:#f97316 } .lb-b7{ --c:#ef4444 }
         .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
-        .lb-brand-text{ color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase; font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25); }
+        .lb-brand-text{ color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+                        font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25); }
       `}</style>
     </>,
     document.body
@@ -117,12 +99,19 @@ export default function BannedLogin() {
   const [phone, setPhone] = useState('');
   const emailRef = useRef(null);
 
-  /* ORB mode + glow */
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
-  const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
+  const [orbMode, setOrbMode] = useState('chakra');
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
+
+  // lock body scroll during cascade/whiteout
+  useEffect(() => {
+    const lock = cascade || whiteout;
+    const prev = document.body.style.overflow;
+    if (lock) document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [cascade, whiteout]);
 
   const goLogin = useCallback(() => {
     setHideBubble(false);
@@ -154,28 +143,25 @@ export default function BannedLogin() {
     runCascade(() => {}, { washAway: true });
   }, [runCascade]);
 
-  // Orb click == Bypass (true 3D hit only)
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
-  // "is banned" -> scary red. (Lameboy is not interactive now)
   const setRed = useCallback(() => {
     setOrbMode('red'); setOrbGlow(1.0); setOrbVersion(v => v + 1);
   }, []);
 
   return (
     <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:10 }}>
-      {/* CASCADE */}
       {cascade && <CascadeOverlay durationMs={CASCADE_MS} />}
-      {whiteout && !cascade && (
-        createPortal(<div aria-hidden="true" style={{ position:'fixed', inset:0, background:'#fff', zIndex:10002, pointerEvents:'none' }}/>, document.body)
+      {whiteout && !cascade && createPortal(
+        <div aria-hidden="true" style={{ position:'fixed', inset:0, background:'#fff', zIndex:10002, pointerEvents:'none' }}/>,
+        document.body
       )}
 
-      {/* UI (hidden during cascade) */}
       {!hideAll && (
         <div className="login-stack">
           <div className="orb-row" style={{ marginBottom:-28 }}>
             <BlueOrbCross3D
-              key={`${orbMode}-${orbGlow}-${orbVersion}`} // hard remount on changes
+              key={`${orbMode}-${orbGlow}-${orbVersion}`}
               rpm={44}
               color={SEAFOAM}
               geomScale={1}
@@ -197,7 +183,6 @@ export default function BannedLogin() {
                 'bubble-button', bubblePulse?'bubble-glow-blue':'',
               ].join(' ')}
               style={{ minWidth:260 }}
-              /* Not clickable in 'banned' view anymore */
               role={view==='login'?'form':undefined}
               tabIndex={view==='login'?0:-1}
             >
@@ -207,8 +192,7 @@ export default function BannedLogin() {
                   <Wordmark />
                   {'\n'}<span className="lb-seafoam">//</span>&nbsp;
                   <span
-                    role="button"
-                    tabIndex={0}
+                    role="button" tabIndex={0}
                     className="code-banned banned-trigger"
                     onClick={(e)=>{e.preventDefault();e.stopPropagation();setRed();}}
                     onPointerDown={(e)=>e.stopPropagation()}
@@ -220,10 +204,8 @@ export default function BannedLogin() {
                   {'\n'}
                   <span className="code-keyword">const</span>&nbsp;<span className="code-var">msg</span>
                   <span className="code-op">=</span>
-                  {/* Only this string is clickable to open login */}
                   <span
-                    role="button"
-                    tabIndex={0}
+                    role="button" tabIndex={0}
                     className="code-string code-link"
                     onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
                     onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
@@ -306,7 +288,6 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Global tweaks (glows + input color control) */}
       <style jsx global>{`
         html,body{ background:#000; }
 
@@ -315,48 +296,28 @@ export default function BannedLogin() {
           text-shadow:0 0 8px #32ffc7,0 0 20px #32ffc7,0 0 44px #32ffc7,0 0 80px #32ffc7;
           filter:saturate(1.35) brightness(1.06);
         }
-
-        /* Purple neon for labels/equals/quotes/semicolons */
         .neon-violet{
           color:#a78bfa;
           text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa, 0 0 26px #a78bfa;
           filter:saturate(1.25);
         }
-
-        /* Keep the code string link styled like code, just clickable */
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
-
-        /* Purple input that STAYS purple on iOS */
         .code-input-violet{
-          color:#a78bfa;
-          -webkit-text-fill-color:#a78bfa !important;
-          caret-color:#a78bfa;
+          color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa;
           background:transparent; border:0; outline:0; font:inherit;
-          text-shadow:0 0 4px #a78bfa, 0 0 10px #a78bfa, 0 0 18px #a78bfa;
-          filter:saturate(1.15);
+          text-shadow:0 0 4px #a78bfa, 0 0 10px #a78bfa, 0 0 18px #a78bfa; filter:saturate(1.15);
           padding:0; margin:0; width:auto;
         }
-        .code-input-violet::placeholder{
-          color:#9a8aec; opacity:.9;
-          text-shadow:0 0 3px #9a8aec, 0 0 8px #9a8aec;
-        }
+        .code-input-violet::placeholder{ color:#9a8aec; opacity:.9;
+          text-shadow:0 0 3px #9a8aec, 0 0 8px #9a8aec; }
         .code-input-violet::selection{ background: rgba(167,139,250,.25); }
 
-        /* Buttons: keep original style, recolor via filters */
         .commit-btn.btn-bypass{ will-change: filter, transform; transition: filter .15s ease, transform .12s ease; }
-        .btn-yellow{ filter:none; }
-        .btn-red{ filter:hue-rotate(-95deg) saturate(1.15); }
-        .commit-btn.btn-bypass:hover,
-        .commit-btn.btn-bypass.btn-activated,
-        .commit-btn.btn-bypass:focus-visible{ transform: translateY(-0.5px); outline:none; }
-        
-        /* "is banned" button underline only on hover/focus */
+        .btn-yellow{ filter:none; } .btn-red{ filter:hue-rotate(-95deg) saturate(1.15); }
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
-        .code-banned.banned-trigger:hover,
-        .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
+        .code-banned.banned-trigger:hover, .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
 
-        /* Mobile: soften overly strong bloom */
         @media (hover:none) and (pointer:coarse){
           .lb-white{ text-shadow:0 0 6px #fff,0 0 12px #fff,0 0 22px #fff !important; }
           .lb-seafoam{ text-shadow:0 0 4px #32ffc7,0 0 10px #32ffc7,0 0 16px #32ffc7 !important; }
@@ -364,9 +325,7 @@ export default function BannedLogin() {
         }
       `}</style>
 
-      <style jsx>{`
-        .orb-row{ width:100%; contain:layout paint style; isolation:isolate; }
-      `}</style>
+      <style jsx>{`.orb-row{ width:100%; contain:layout paint style; isolation:isolate; }`}</style>
     </div>
   );
 }

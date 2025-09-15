@@ -1,4 +1,3 @@
-// src/components/BlueOrbCross3D.jsx
 'use client';
 
 import * as THREE from 'three';
@@ -29,11 +28,8 @@ function OrbCross({
 
   useFrame((state, dt) => {
     if (!group.current) return;
-
-    // spin
     group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt;
 
-    // pulsing only when override (scary red) is active
     const u = group.current.userData;
     if (overrideAllColor && glow && u?.pulse) {
       const t = state.clock.getElapsedTime();
@@ -46,7 +42,6 @@ function OrbCross({
     }
   });
 
-  // ----- geometry & constants -----
   const memo = useMemo(() => {
     const r = 0.144 * geomScale;
     const armR = Math.max(0.001, r * armRatio);
@@ -74,14 +69,9 @@ function OrbCross({
     }
 
     const CHAKRA = {
-      root:     '#ef4444',
-      sacral:   '#f97316',
-      solar:    '#facc15',
-      heart:    '#22c55e',
-      throat:   '#3b82f6',
-      thirdEye: '#4f46e5',
-      crownV:   '#c084fc',
-      crownW:   '#f6f3ff',
+      root:     '#ef4444', sacral: '#f97316', solar: '#facc15',
+      heart:    '#22c55e', throat:'#3b82f6', thirdEye:'#4f46e5',
+      crownV:   '#c084fc', crownW: '#f6f3ff',
     };
 
     return { sphereGeo, armGeoX, armGeoY, armGeoZ, armGlowGeoX, armGlowGeoY, armGlowGeoZ, centers, CHAKRA };
@@ -89,7 +79,6 @@ function OrbCross({
 
   const { sphereGeo, armGeoX, armGeoY, armGeoZ, armGlowGeoX, armGlowGeoY, armGlowGeoZ, centers, CHAKRA } = memo;
 
-  // ----- materials -----
   const useOverride = !!overrideAllColor;
   const barColor = useOverride ? overrideAllColor : color;
 
@@ -98,21 +87,13 @@ function OrbCross({
   const barEmissive  = useOverride ? 1.35 : 0.6;
 
   const barCoreMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: barColor,
-    roughness: 0.32,
-    metalness: 0.25,
-    emissive: new THREE.Color(barColor),
-    emissiveIntensity: barEmissive,
-    toneMapped: true,
+    color: barColor, roughness:0.32, metalness:0.25,
+    emissive:new THREE.Color(barColor), emissiveIntensity:barEmissive, toneMapped:true,
   }), [barColor, barEmissive]);
 
   const barHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: barColor,
-    transparent: true,
-    opacity: glow ? haloBase * 0.5 : 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    toneMapped: false,
+    color: barColor, transparent:true, opacity: glow ? haloBase * 0.5 : 0,
+    blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
   }), [barColor, glow, haloBase]);
 
   const sphereDefs = useOverride
@@ -129,12 +110,8 @@ function OrbCross({
 
   const sphereCoreMats = useMemo(
     () => sphereDefs.map(({ core }) => new THREE.MeshStandardMaterial({
-      color: core,
-      roughness: 0.28,
-      metalness: 0.25,
-      emissive: new THREE.Color(core),
-      emissiveIntensity: coreEmissive,
-      toneMapped: true,
+      color: core, roughness:0.28, metalness:0.25,
+      emissive:new THREE.Color(core), emissiveIntensity: coreEmissive, toneMapped:true,
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [useOverride ? barColor : JSON.stringify(sphereDefs), coreEmissive]
@@ -142,83 +119,49 @@ function OrbCross({
 
   const sphereHaloMats = useMemo(
     () => sphereDefs.map(({ halo, haloOp }) => new THREE.MeshBasicMaterial({
-      color: halo,
-      transparent: true,
-      opacity: glow ? haloOp : 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      toneMapped: false,
+      color: halo, transparent:true, opacity: glow ? haloOp : 0,
+      blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [useOverride ? barColor : JSON.stringify(sphereDefs), glow]
   );
 
-  // Extra scary halos as stable memoized materials (no ref injection)
   const halo2Mat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: barColor,
-    transparent: true,
-    opacity: haloBase * 0.6,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    toneMapped: false,
+    color: barColor, transparent:true, opacity: haloBase * 0.6,
+    blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
   }), [barColor, haloBase]);
 
   const halo3Mat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: barColor,
-    transparent: true,
-    opacity: haloBase * 0.32,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    toneMapped: false,
+    color: barColor, transparent:true, opacity: haloBase * 0.32,
+    blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
   }), [barColor, haloBase]);
 
-  // Expose pointers for the pulse step
   useEffect(() => {
     if (!group.current) return;
-    group.current.userData = {
-      pulse: true,
-      base: haloBase,
-      barHalo: barHaloMat,
-      sphereHalos: sphereHaloMats,
-      halo2: halo2Mat,
-      halo3: halo3Mat,
-    };
+    group.current.userData = { pulse:true, base:haloBase, barHalo:barHaloMat, sphereHalos:sphereHaloMats, halo2:halo2Mat, halo3:halo3Mat };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
-  // ----- events -----
   const handlePointerDown = (e) => { e.stopPropagation(); onActivate && onActivate(); };
   const handleKeyDown = (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } };
 
-  // ----- scene graph -----
   return (
     <group ref={group} onPointerDown={handlePointerDown} onKeyDown={handleKeyDown} tabIndex={0}>
-      {/* bars */}
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
       <mesh geometry={armGeoY} material={barCoreMat} />
       <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
 
-      {/* cores */}
-      {centers.map((p, i) => (
-        <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />
-      ))}
+      {centers.map((p, i) => <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />)}
 
-      {/* halos */}
       {glow && (
         <>
           <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} />
           <mesh geometry={armGlowGeoY} material={barHaloMat} />
           <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />
-          {centers.map((p, i) => (
-            <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />
-          ))}
+          {centers.map((p, i) => <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />)}
           {overrideAllColor && (
             <>
-              {centers.map((p, i) => (
-                <mesh key={`halo2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />
-              ))}
-              {centers.map((p, i) => (
-                <mesh key={`halo3-${i}`} geometry={sphereGeo} material={halo3Mat} position={p} scale={glowScale * 1.95} />
-              ))}
+              {centers.map((p, i) => <mesh key={`h2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />)}
+              {centers.map((p, i) => <mesh key={`h3-${i}`} geometry={sphereGeo} material={halo3Mat} position={p} scale={glowScale * 1.95} />)}
             </>
           )}
         </>
@@ -244,18 +187,21 @@ export default function BlueOrbCross3D({
   style = {},
   className = '',
 }) {
-  // Sharper on mobile: DPR up to 3
   const [maxDpr, setMaxDpr] = useState(2);
+  const [reduced, setReduced] = useState(false);
+
   useEffect(() => {
     const pr = Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
     setMaxDpr(Math.max(2, pr));
+    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    setReduced(!!mq?.matches);
+    const onChange = (e) => setReduced(e.matches);
+    mq?.addEventListener?.('change', onChange);
+    return () => mq?.removeEventListener?.('change', onChange);
   }, []);
 
   return (
-    <div
-      className={className}
-      style={{ height, width:'100%', contain:'layout paint style', isolation:'isolate', ...style }}
-    >
+    <div className={className} style={{ height, width:'100%', contain:'layout paint style', isolation:'isolate', ...style }}>
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
@@ -266,7 +212,7 @@ export default function BlueOrbCross3D({
         <directionalLight position={[3, 2, 4]} intensity={1.25} />
         <directionalLight position={[-3, -2, -4]} intensity={0.35} />
         <OrbCross
-          rpm={rpm}
+          rpm={reduced ? 0 : rpm}
           color={color}
           geomScale={geomScale}
           offsetFactor={offsetFactor}
