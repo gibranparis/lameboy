@@ -13,7 +13,9 @@ export function CartProvider({ children }) {
     setBumpKey((k) => k + 1);
   };
 
-  const value = useMemo(() => ({ count, add, bumpKey }), [count, bumpKey]);
+  const reset = () => setCount(0);
+
+  const value = useMemo(() => ({ count, add, reset, bumpKey }), [count, bumpKey]);
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 }
 

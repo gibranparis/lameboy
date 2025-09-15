@@ -2,6 +2,7 @@
 
 import ShopGrid from '@/components/ShopGrid';
 
+// Keep your demo data for local dev; swap to live later.
 const demoProducts = [
   { id: 'tee-01', name: 'TEE 01', price: 4000, images: [{ url: '/placeholder.png' }] },
   { id: 'tee-02', name: 'TEE 02', price: 4200, images: [{ url: '/placeholder.png' }] },

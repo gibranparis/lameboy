@@ -42,6 +42,16 @@ html,body{
   -moz-osx-font-smoothing:grayscale;
 }
 
+/* Prefer-reduced-motion: disable global animations if requested */
+@media (prefers-reduced-motion: reduce){
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Layout */
 .page-center{
   min-height:100dvh;
@@ -351,8 +361,6 @@ html,body{
 .hero-plus:hover{ transform:translateY(-1px); background:rgba(0,0,0,.07); }
 
 /* === Action buttons on login (Link & Bypass) === */
-
-/* Carolina blue glow for Link */
 .btn-link{
   border-color:#4b9cd3;
   background: linear-gradient(180deg, rgba(75,156,211,.22) 0%, rgba(75,156,211,.12) 100%);
@@ -400,6 +408,7 @@ html,body{
   border-color: #0bf05f !important;
   color:#0b3a25 !important;
 }
+
 /* 3D logo canvas sits behind UI and cascade */
 .logo-3d{
   position: fixed;
