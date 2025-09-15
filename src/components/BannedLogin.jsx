@@ -15,11 +15,7 @@ function Wordmark({ word = 'Lameboy', suffix = '.com' }) {
       <span className="lb-white">{word}</span>
       <span className="lb-seafoam">{suffix}</span>
       <style jsx>{`
-        .lb-word{
-          display:inline-flex;
-          letter-spacing:.02em; /* tighter tracking */
-          gap:.02em;
-        }
+        .lb-word{ display:inline-flex; letter-spacing:.02em; gap:.02em }
         .lb-white{
           color:#fff;font-weight:800;
           text-shadow:0 0 8px #fff,0 0 18px #fff,0 0 36px #fff,0 0 70px #fff;
@@ -61,12 +57,9 @@ function CascadeOverlay({ durationMs = 2400 }) {
         zIndex:9999, pointerEvents:'none', willChange:'transform'
       }}>
         <div className="lb-cascade">
-          <div className="lb-band lb-b1" />
-          <div className="lb-band lb-b2" />
-          <div className="lb-band lb-b3" />
-          <div className="lb-band lb-b4" />
-          <div className="lb-band lb-b5" />
-          <div className="lb-band lb-b6" />
+          <div className="lb-band lb-b1" /><div className="lb-band lb-b2" />
+          <div className="lb-band lb-b3" /><div className="lb-band lb-b4" />
+          <div className="lb-band lb-b5" /><div className="lb-band lb-b6" />
           <div className="lb-band lb-b7" />
         </div>
       </div>
@@ -149,12 +142,12 @@ export default function BannedLogin() {
 
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
-  // NEW: toggle orb color when clicking "is banned"
+  // Toggle orb color when clicking "is banned"
   const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
       setOrbGlow(next === 'red' ? 1.0 : 0.9);
-      setOrbVersion(v => v + 1); // refresh materials
+      setOrbVersion(v => v + 1);
       return next;
     });
   }, []);
@@ -197,41 +190,50 @@ export default function BannedLogin() {
               tabIndex={view==='login'?0:-1}
             >
               {view==='banned'?(
-                <pre className="code-line code-tight" style={{ margin:0 }}>
-                  <span className="lb-seafoam">//</span>
-                  <Wordmark />
-                  {'\n'}
-                  <span className="lb-seafoam">//</span>
-                  <span
-                    role="button" tabIndex={0}
-                    className="code-banned banned-trigger"
-                    onClick={(e)=>{e.preventDefault();e.stopPropagation();toggleOrbColor();}}
-                    onPointerDown={(e)=>e.stopPropagation()}
-                    onMouseDown={(e)=>e.stopPropagation()}
-                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
-                    title="Toggle orb color"
-                  >
-                    is banned
-                  </span>
-                  {'\n'}
-                  <span className="code-keyword">const</span>
-                  <span className="code-var">msg</span>
-                  <span className="code-op">=</span>
-                  <span
-                    role="button" tabIndex={0}
-                    className="code-string code-link"
-                    onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
-                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
-                  >
-                    "hi..."
-                  </span>
-                  <span className="code-punc">;</span>
-                </pre>
+                <div style={{ display:'grid', gap:'2px' }}>
+                  {/* Line 1: // Lameboy.com */}
+                  <div className="code-row tiny">
+                    <span className="lb-seafoam">//</span>
+                    <Wordmark />
+                  </div>
+
+                  {/* Line 2: // is banned  (click/keyboard toggles orb color) */}
+                  <div className="code-row tiny">
+                    <span className="lb-seafoam">//</span>
+                    <span
+                      role="button" tabIndex={0}
+                      className="code-banned banned-trigger"
+                      onClick={(e)=>{e.preventDefault();e.stopPropagation();toggleOrbColor();}}
+                      onPointerDown={(e)=>e.stopPropagation()}
+                      onMouseDown={(e)=>e.stopPropagation()}
+                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
+                      title="Toggle orb color"
+                    >
+                      is banned
+                    </span>
+                  </div>
+
+                  {/* Line 3: const msg="hi..."; */}
+                  <div className="code-row tiny">
+                    <span className="code-keyword">const</span>
+                    <span className="code-var">msg</span>
+                    <span className="code-op">=</span>
+                    <span
+                      role="button" tabIndex={0}
+                      className="code-string code-link"
+                      onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
+                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
+                    >
+                      "hi..."
+                    </span>
+                    <span className="code-punc">;</span>
+                  </div>
+                </div>
               ):(
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
-                  <div className="code-line code-tight"><span className="lb-seafoam">// login</span></div>
+                  <div className="code-row tiny"><span className="lb-seafoam">// login</span></div>
 
-                  <div className="code-line code-tight">
+                  <div className="code-row tiny">
                     <span className="code-var neon-violet">email</span>
                     <span className="code-op neon-violet">=</span>
                     <span className="code-string neon-violet">"</span>
@@ -245,13 +247,13 @@ export default function BannedLogin() {
                       autoComplete="email"
                       autoCapitalize="none"
                       autoCorrect="off"
-                      size={Math.max(1, (email || '').length)}  /* shrink to content */
+                      size={Math.max(1, (email || '').length)}
                     />
                     <span className="code-string neon-violet">"</span>
                     <span className="code-punc neon-violet">;</span>
                   </div>
 
-                  <div className="code-line code-tight">
+                  <div className="code-row tiny">
                     <span className="code-var neon-violet">phone</span>
                     <span className="code-op neon-violet">=</span>
                     <span className="code-string neon-violet">"</span>
@@ -262,7 +264,7 @@ export default function BannedLogin() {
                       placeholder="+1 305 555 0123"
                       inputMode="tel"
                       autoComplete="tel"
-                      size={Math.max(1, (phone || '').length)}   /* shrink to content */
+                      size={Math.max(1, (phone || '').length)}
                     />
                     <span className="code-string neon-violet">"</span>
                     <span className="code-punc neon-violet">;</span>
@@ -301,18 +303,17 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* local spacing tweaks */}
+      {/* spacing + inputs */}
       <style jsx global>{`
-        .code-line.code-tight{
-          display:flex;
-          align-items:baseline;
-          gap:2px;                 /* tighter between tokens */
-          line-height:1.35;
-          flex-wrap:wrap;
-          letter-spacing:0;
+        .code-row{
+          display:flex; align-items:baseline; flex-wrap:wrap;
+          line-height:1.35; letter-spacing:0;
         }
+        .code-row.tiny{ gap:1px; }   /* <- ultra-tight spacing */
+
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
+
         .code-input-violet{
           color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa;
           background:transparent; border:0; outline:0; font:inherit;
