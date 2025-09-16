@@ -1,3 +1,4 @@
+// src/components/BannedLogin.jsx
 'use client';
 
 import dynamic from 'next/dynamic';
@@ -9,27 +10,35 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
 
-/** Brand word with .com glued to the word (no spacing glitches) */
+/** Brand: glue ".com" to "Lameboy" (no spacing glitches) */
 function Wordmark() {
   return (
     <span className="lb-word">
       <span className="lb-white">
         Lameboy<span className="lb-seafoam">.com</span>
       </span>
+
       <style jsx>{`
-        .lb-word { display:inline; }
+        /* Keep the brand as a single inline run so there's never "Lameboy . com" */
+        .lb-word { display: inline; }
         .lb-white {
-          color:#fff; font-weight:800;
-          text-shadow:0 0 8px #fff,0 0 18px #fff,0 0 36px #fff,0 0 70px #fff;
-          letter-spacing:0;
+          color: #fff;
+          font-weight: 800;
+          letter-spacing: 0;
+          word-spacing: 0;
+          text-shadow:
+            0 0 8px #fff,
+            0 0 18px #fff,
+            0 0 36px #fff,
+            0 0 70px #fff;
         }
-        /* keep the dot snug to 'Lameboy' */
-        .lb-seafoam { letter-spacing:0; }
+        .lb-seafoam { letter-spacing: 0; word-spacing: 0; }
       `}</style>
     </span>
   );
 }
 
+/* Cascade overlay */
 function CascadeOverlay({ durationMs = 2400 }) {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -51,7 +60,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
   return createPortal(
     <>
       <div aria-hidden="true" style={{
-        position:'fixed', inset:'0 0 0 auto', height:'100vh',
+        position:'fixed', top:0, right:0, height:'100vh',
         width:`${whiteW}%`, background:'#fff',
         zIndex:9998, pointerEvents:'none', willChange:'width',
         transition:'width 16ms linear'
@@ -62,9 +71,8 @@ function CascadeOverlay({ durationMs = 2400 }) {
         zIndex:9999, pointerEvents:'none', willChange:'transform'
       }}>
         <div className="lb-cascade">
-          <div className="lb-band lb-b1" /><div className="lb-band lb-b2" /><div className="lb-band lb-b3" />
-          <div className="lb-band lb-b4" /><div className="lb-band lb-b5" /><div className="lb-band lb-b6" />
-          <div className="lb-band lb-b7" />
+          <div className="lb-band lb-b1"/><div className="lb-band lb-b2"/><div className="lb-band lb-b3"/>
+          <div className="lb-band lb-b4"/><div className="lb-band lb-b5"/><div className="lb-band lb-b6"/><div className="lb-band lb-b7"/>
         </div>
       </div>
       <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
@@ -88,22 +96,23 @@ function CascadeOverlay({ durationMs = 2400 }) {
 }
 
 export default function BannedLogin() {
-  const [view, setView] = useState<'banned'|'login'>('banned');
+  const [view, setView] = useState('banned'); // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
   const [whiteout, setWhiteout] = useState(false);
 
   const [hideBubble, setHideBubble] = useState(false);
   const [floridaHot, setFloridaHot] = useState(false);
-  const [activated, setActivated] = useState<'link'|'bypass'|null>(null);
+  const [activated, setActivated] = useState(null); // 'link' | 'bypass' | null
 
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const emailRef = useRef<HTMLInputElement|null>(null);
+  const emailRef = useRef(null);
 
+  // Orb state
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
-  const [orbMode, setOrbMode] = useState<'chakra'|'red'>('chakra');
+  const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
@@ -121,10 +130,8 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 200);
   }, []);
 
-  const runCascade = useCallback((after?: () => void, { washAway = false } = {}) => {
-    setCascade(true);
-    setHideAll(true);
-    setWhiteout(false);
+  const runCascade = useCallback((after, { washAway = false } = {}) => {
+    setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
     const t = setTimeout(() => {
       setCascade(false);
@@ -193,7 +200,7 @@ export default function BannedLogin() {
                   <span
                     role="button" tabIndex={0}
                     className="code-banned banned-trigger"
-                    onClick={(e)=>{e.preventDefault();e.stopPropagation();toggleOrbColor();}}
+                    onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}
                     onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
                     title="Toggle orb color"
                   >
@@ -274,24 +281,27 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Local, surgical CSS: tight spacing without breaking colors */}
+      {/* Local, surgical CSS so we don't touch your theme */}
       <style jsx global>{`
-        /* Tighten only actual spaces inside the code bubble */
+        /* Tighten only spaces inside the bubble; don't collapse tokens */
         .login-card pre.code-tight{
-          letter-spacing:0;
-          word-spacing:-0.12ch;    /* tweak -0.10ch … -0.16ch to taste */
-          white-space:pre;
-          line-height:1.35;
+          letter-spacing: 0;
+          word-spacing: -0.12ch;   /* tweak to -0.10ch or -0.14ch to taste */
+          white-space: pre;
+          line-height: 1.35;
         }
+
         .code-row{ display:flex; align-items:baseline; gap:.35ch; line-height:1.35; }
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
 
-        /* Ensure brand spans never inherit funky spacing */
+        /* Ensure brand spans never inherit funky spacing in the bubble */
         .login-card pre.code-tight .lb-word,
         .login-card pre.code-tight .lb-white,
         .login-card pre.code-tight .lb-seafoam{
-          letter-spacing:0; word-spacing:0;
+          display: inline;
+          letter-spacing: 0;
+          word-spacing: 0;
         }
 
         /* Inputs in the violet code lines */
@@ -302,7 +312,7 @@ export default function BannedLogin() {
         }
         .code-input-violet::placeholder{ color:#9a8aec; opacity:.9; text-shadow:0 0 3px #9a8aec, 0 0 8px #9a8aec; }
 
-        /* "is banned" is an interactive token */
+        /* Clickable "is banned" */
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover, .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
       `}</style>
