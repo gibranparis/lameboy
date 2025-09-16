@@ -9,15 +9,22 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
 
-function Wordmark({ word = 'Lameboy', suffix = '.com' }) {
+/** Brand word with .com glued to the word (no spacing glitches) */
+function Wordmark() {
   return (
     <span className="lb-word">
-      <span className="lb-white">{word}</span>
-      <span className="lb-seafoam">{suffix}</span>
+      <span className="lb-white">
+        Lameboy<span className="lb-seafoam">.com</span>
+      </span>
       <style jsx>{`
-        .lb-word { display:inline-flex; letter-spacing:.02em; gap:.02em; }
-        .lb-white { color:#fff; font-weight:800;
-          text-shadow:0 0 8px #fff,0 0 18px #fff,0 0 36px #fff,0 0 70px #fff; }
+        .lb-word { display:inline; }
+        .lb-white {
+          color:#fff; font-weight:800;
+          text-shadow:0 0 8px #fff,0 0 18px #fff,0 0 36px #fff,0 0 70px #fff;
+          letter-spacing:0;
+        }
+        /* keep the dot snug to 'Lameboy' */
+        .lb-seafoam { letter-spacing:0; }
       `}</style>
     </span>
   );
@@ -70,8 +77,10 @@ function CascadeOverlay({ durationMs = 2400 }) {
         .lb-b1{ --c:#c084fc } .lb-b2{ --c:#4f46e5 } .lb-b3{ --c:#3b82f6 }
         .lb-b4{ --c:#22c55e } .lb-b5{ --c:#facc15 } .lb-b6{ --c:#f97316 } .lb-b7{ --c:#ef4444 }
         .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
-        .lb-brand-text{ color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
-                        font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25); }
+        .lb-brand-text{
+          color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+          font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25);
+        }
       `}</style>
     </>,
     document.body
@@ -79,25 +88,26 @@ function CascadeOverlay({ durationMs = 2400 }) {
 }
 
 export default function BannedLogin() {
-  const [view, setView] = useState('banned');
+  const [view, setView] = useState<'banned'|'login'>('banned');
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
   const [whiteout, setWhiteout] = useState(false);
 
   const [hideBubble, setHideBubble] = useState(false);
   const [floridaHot, setFloridaHot] = useState(false);
-  const [activated, setActivated] = useState(null);
+  const [activated, setActivated] = useState<'link'|'bypass'|null>(null);
 
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const emailRef = useRef(null);
+  const emailRef = useRef<HTMLInputElement|null>(null);
 
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
-  const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
+  const [orbMode, setOrbMode] = useState<'chakra'|'red'>('chakra');
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
+  // lock body scroll during cascade/whiteout
   useEffect(() => {
     const lock = cascade || whiteout;
     const prev = document.body.style.overflow;
@@ -111,8 +121,10 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 200);
   }, []);
 
-  const runCascade = useCallback((after, { washAway = false } = {}) => {
-    setCascade(true); setHideAll(true); setWhiteout(false);
+  const runCascade = useCallback((after?: () => void, { washAway = false } = {}) => {
+    setCascade(true);
+    setHideAll(true);
+    setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
     const t = setTimeout(() => {
       setCascade(false);
@@ -123,12 +135,11 @@ export default function BannedLogin() {
     return () => clearTimeout(t);
   }, []);
 
-  const onLink = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
+  const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
-
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
-  // Toggle orb color by clicking "is banned"
+  /** Toggle orb color via “is banned” */
   const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
@@ -177,8 +188,8 @@ export default function BannedLogin() {
             >
               {view === 'banned' ? (
                 <pre className="code-tight" style={{ margin:0 }}>
-                  <span className="code-comment">//</span> <Wordmark />{'\n'}
-                  <span className="code-comment">//</span>{' '}
+                  <span className="lb-seafoam">//</span>{' '}<Wordmark />{'\n'}
+                  <span className="lb-seafoam">//</span>{' '}
                   <span
                     role="button" tabIndex={0}
                     className="code-banned banned-trigger"
@@ -203,7 +214,7 @@ export default function BannedLogin() {
                 </pre>
               ) : (
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
-                  <div className="code-row"><span className="code-comment">// login</span></div>
+                  <div className="code-row"><span className="lb-seafoam">// login</span></div>
 
                   <div className="code-row">
                     <span className="code-var neon-violet">email</span>
@@ -263,23 +274,35 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Local spacing helper—only affects the code bubbles */}
+      {/* Local, surgical CSS: tight spacing without breaking colors */}
       <style jsx global>{`
-        .login-card .code-tight{
+        /* Tighten only actual spaces inside the code bubble */
+        .login-card pre.code-tight{
           letter-spacing:0;
-          word-spacing:-0.14ch;    /* tighten words safely; adjust between -0.10ch and -0.18ch */
+          word-spacing:-0.12ch;    /* tweak -0.10ch … -0.16ch to taste */
+          white-space:pre;
           line-height:1.35;
-          white-space:pre;         /* keep exact spaces/newlines */
         }
         .code-row{ display:flex; align-items:baseline; gap:.35ch; line-height:1.35; }
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
+
+        /* Ensure brand spans never inherit funky spacing */
+        .login-card pre.code-tight .lb-word,
+        .login-card pre.code-tight .lb-white,
+        .login-card pre.code-tight .lb-seafoam{
+          letter-spacing:0; word-spacing:0;
+        }
+
+        /* Inputs in the violet code lines */
         .code-input-violet{
           color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa;
           background:transparent; border:0; outline:0; font:inherit; padding:0; margin:0; width:auto;
           text-shadow:0 0 4px #a78bfa, 0 0 10px #a78bfa, 0 0 18px #a78bfa; filter:saturate(1.15);
         }
         .code-input-violet::placeholder{ color:#9a8aec; opacity:.9; text-shadow:0 0 3px #9a8aec, 0 0 8px #9a8aec; }
+
+        /* "is banned" is an interactive token */
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover, .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
       `}</style>
