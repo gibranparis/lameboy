@@ -419,3 +419,5 @@ html,body{
 @media (prefers-reduced-motion: reduce){
   .logo-3d{ display:none; }
 }
+/* Tighten spaces inside the code bubble without affecting token colors */
+.login-card pre.code-tight { letter-spacing: 0; word-spacing: -0.14ch; }
