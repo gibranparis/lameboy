@@ -189,10 +189,10 @@ export default function BannedLogin() {
                   <span className="code-keyword">const</span>{' '}
                   <span className="code-var">msg</span>{' '}
                   <span className="code-op">=</span>{' '}
-                  {/* glue " and ; together */}
                   <span className="nogap">
-                    <span className="code-string code-link"
+                    <span
                       role="button" tabIndex={0}
+                      className="code-string code-link"
                       onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
                       onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
                     >
@@ -203,7 +203,6 @@ export default function BannedLogin() {
                 </pre>
               ) : (
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
-                  {/* SEAFOAM + glow + normal spacing */}
                   <div className="code-row">
                     <span className="lb-seafoam code-comment glow-seafoam">// login</span>
                   </div>
@@ -225,7 +224,6 @@ export default function BannedLogin() {
                       size={Math.max(1, (email || '').length)}
                       style={{ minWidth: '18ch' }}
                     />
-                    {/* glue closing quote + semicolon */}
                     <span className="nogap">
                       <span className="code-string neon-violet">"</span>
                       <span className="code-punc neon-violet">;</span>
@@ -246,7 +244,6 @@ export default function BannedLogin() {
                       size={Math.max(1, (phone || '').length)}
                       style={{ minWidth: '16ch' }}
                     />
-                    {/* glue closing quote + semicolon */}
                     <span className="nogap">
                       <span className="code-string neon-violet">"</span>
                       <span className="code-punc neon-violet">;</span>
@@ -254,8 +251,20 @@ export default function BannedLogin() {
                   </div>
 
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
-                    <button type="button" className={`commit-btn btn-bypass btn-link btn-yellow ${activated==='link'?'btn-activated':''}`} onClick={onLink}>Link</button>
-                    <button type="button" className={`commit-btn btn-bypass btn-red ${activated==='bypass'?'btn-activated':''}`} onClick={onBypass}>Bypass</button>
+                    <button
+                      type="button"
+                      className={`commit-btn btn-yellow ${activated==='link'?'btn-activated':''}`}
+                      onClick={onLink}
+                    >
+                      Link
+                    </button>
+                    <button
+                      type="button"
+                      className={`commit-btn btn-red ${activated==='bypass'?'btn-activated':''}`}
+                      onClick={onBypass}
+                    >
+                      Bypass
+                    </button>
                   </div>
                 </form>
               )}
@@ -274,32 +283,26 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Local CSS: spacing + glow + nogap utility */}
+      {/* Local CSS (scoped to login bubble) */}
       <style jsx global>{`
         :root { --lb-seafoam:#32ffc7; }
 
-        /* tighten spaces only in the pre (banned) block */
         .login-card pre.code-tight{
           letter-spacing:0;
-          word-spacing:-0.10ch;  /* adjust if you want tighter/looser */
+          word-spacing:-0.10ch;
           white-space:pre;
           line-height:1.35;
         }
-
         .code-row{ display:flex; align-items:baseline; gap:.35ch; line-height:1.35; }
-
-        /* 'nogap' makes two tokens behave as one flex item (no gap between them) */
         .nogap{ display:inline-flex; gap:0; }
 
-        /* Seafoam comments + glow */
         .login-card .lb-seafoam,
         .login-card .code-comment{
           color:var(--lb-seafoam) !important;
           text-shadow:0 0 6px var(--lb-seafoam), 0 0 14px var(--lb-seafoam);
-          letter-spacing:0; word-spacing:normal; /* normal spacing for the comment line */
+          letter-spacing:0; word-spacing:normal;
         }
 
-        /* Glow for all tokens using their current color */
         .login-card .code-keyword,
         .login-card .code-var,
         .login-card .code-op,
@@ -309,7 +312,36 @@ export default function BannedLogin() {
           text-shadow:0 0 6px currentColor, 0 0 14px currentColor;
         }
 
-        /* Violet inputs */
+        /* ===== Buttons ===== */
+        .login-card .commit-btn{
+          border:none; border-radius:10px; padding:6px 10px; font-weight:700;
+          line-height:1; cursor:pointer; transition:color .15s ease, box-shadow .15s ease, filter .15s ease;
+        }
+        .login-card .btn-yellow{
+          background:linear-gradient(#ffd84a,#f7b400);
+          color:#2a2000;
+          box-shadow:0 0 14px rgba(255,214,64,.35), 0 0 28px rgba(255,214,64,.18);
+        }
+        /* Force BYPASS to be red */
+        .login-card .btn-red{
+          background:linear-gradient(#ff4b66,#d90f1c);
+          color:#330004;
+          box-shadow:0 0 14px rgba(255,76,97,.40), 0 0 28px rgba(255,76,97,.22);
+        }
+        /* Glow WHITE text when activated or pressed */
+        .login-card .commit-btn.btn-activated,
+        .login-card .commit-btn:active{
+          color:#fff !important;
+          text-shadow:0 0 6px #fff, 0 0 14px #fff, 0 0 26px #fff;
+          filter:saturate(1.15) brightness(1.15);
+        }
+        /* keep focus visible */
+        .login-card .commit-btn:focus-visible{
+          outline:2px solid rgba(255,255,255,.65);
+          outline-offset:2px;
+        }
+
+        /* Inputs */
         .code-input-violet{
           color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa;
           background:transparent; border:0; outline:0; font:inherit; padding:0; margin:0; width:auto;
@@ -319,7 +351,6 @@ export default function BannedLogin() {
           color:#9a8aec; opacity:.95; text-shadow:0 0 4px #9a8aec, 0 0 10px #9a8aec;
         }
 
-        /* Interactions */
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
