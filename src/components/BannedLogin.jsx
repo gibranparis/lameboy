@@ -29,6 +29,7 @@ function Wordmark() {
   );
 }
 
+/* Cascade overlay */
 function CascadeOverlay({ durationMs = 2400 }) {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -117,12 +118,7 @@ export default function BannedLogin() {
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
-    const t = setTimeout(() => {
-      setCascade(false);
-      if (washAway) setHideBubble(true);
-      setWhiteout(true);
-      after && after();
-    }, CASCADE_MS);
+    const t = setTimeout(() => { setCascade(false); if (washAway) setHideBubble(true); setWhiteout(true); after && after(); }, CASCADE_MS);
     return () => clearTimeout(t);
   }, []);
 
@@ -161,8 +157,8 @@ export default function BannedLogin() {
               includeZAxis
               height="10vh"
               onActivate={onOrbActivate}
-              overrideAllColor={orbMode === 'red' ? RED : null}
-              overrideGlowOpacity={orbMode === 'red' ? 1.0 : undefined}
+              overrideAllColor={orbMode==='red' ? RED : null}
+              overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
             />
           </div>
 
@@ -177,7 +173,7 @@ export default function BannedLogin() {
               role={view==='login' ? 'form' : undefined}
               tabIndex={view==='login' ? 0 : -1}
             >
-              {view === 'banned' ? (
+              {view==='banned' ? (
                 <pre className="code-tight" style={{ margin:0 }}>
                   <span className="lb-seafoam code-comment">//</span>{' '}<Wordmark />{'\n'}
                   <span className="lb-seafoam code-comment">//</span>{' '}
@@ -193,19 +189,24 @@ export default function BannedLogin() {
                   <span className="code-keyword">const</span>{' '}
                   <span className="code-var">msg</span>{' '}
                   <span className="code-op">=</span>{' '}
-                  <span
-                    role="button" tabIndex={0}
-                    className="code-string code-link"
-                    onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
-                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
-                  >
-                    "hi..."
+                  {/* glue " and ; together */}
+                  <span className="nogap">
+                    <span className="code-string code-link"
+                      role="button" tabIndex={0}
+                      onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
+                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
+                    >
+                      "hi..."
+                    </span>
+                    <span className="code-punc">;</span>
                   </span>
-                  <span className="code-punc">;</span>
                 </pre>
               ) : (
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:4 }}>
-                  <div className="code-row"><span className="lb-seafoam code-comment">// login</span></div>
+                  {/* SEAFOAM + glow + normal spacing */}
+                  <div className="code-row">
+                    <span className="lb-seafoam code-comment glow-seafoam">// login</span>
+                  </div>
 
                   <div className="code-row">
                     <span className="code-var neon-violet">email</span>
@@ -222,10 +223,13 @@ export default function BannedLogin() {
                       autoCapitalize="none"
                       autoCorrect="off"
                       size={Math.max(1, (email || '').length)}
-                      style={{ minWidth: '18ch' }}   // ← keep it from crunching
+                      style={{ minWidth: '18ch' }}
                     />
-                    <span className="code-string neon-violet">"</span>
-                    <span className="code-punc neon-violet">;</span>
+                    {/* glue closing quote + semicolon */}
+                    <span className="nogap">
+                      <span className="code-string neon-violet">"</span>
+                      <span className="code-punc neon-violet">;</span>
+                    </span>
                   </div>
 
                   <div className="code-row">
@@ -242,8 +246,11 @@ export default function BannedLogin() {
                       size={Math.max(1, (phone || '').length)}
                       style={{ minWidth: '16ch' }}
                     />
-                    <span className="code-string neon-violet">"</span>
-                    <span className="code-punc neon-violet">;</span>
+                    {/* glue closing quote + semicolon */}
+                    <span className="nogap">
+                      <span className="code-string neon-violet">"</span>
+                      <span className="code-punc neon-violet">;</span>
+                    </span>
                   </div>
 
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
@@ -267,28 +274,32 @@ export default function BannedLogin() {
         </div>
       )}
 
-      {/* Local, surgical CSS: re-apply colors + glow and keep spacing tight */}
+      {/* Local CSS: spacing + glow + nogap utility */}
       <style jsx global>{`
-        :root { --lb-seafoam: #32ffc7; }
+        :root { --lb-seafoam:#32ffc7; }
 
-        /* tighten spaces only inside the bubble */
+        /* tighten spaces only in the pre (banned) block */
         .login-card pre.code-tight{
           letter-spacing:0;
-          word-spacing:-0.12ch;   /* tweak -0.10ch … -0.14ch if you want */
+          word-spacing:-0.10ch;  /* adjust if you want tighter/looser */
           white-space:pre;
           line-height:1.35;
         }
+
         .code-row{ display:flex; align-items:baseline; gap:.35ch; line-height:1.35; }
 
-        /* SEAFOAM comments (and // lines) */
+        /* 'nogap' makes two tokens behave as one flex item (no gap between them) */
+        .nogap{ display:inline-flex; gap:0; }
+
+        /* Seafoam comments + glow */
         .login-card .lb-seafoam,
         .login-card .code-comment{
           color:var(--lb-seafoam) !important;
           text-shadow:0 0 6px var(--lb-seafoam), 0 0 14px var(--lb-seafoam);
-          filter:saturate(1.1);
+          letter-spacing:0; word-spacing:normal; /* normal spacing for the comment line */
         }
 
-        /* Make all code tokens glow in their own color */
+        /* Glow for all tokens using their current color */
         .login-card .code-keyword,
         .login-card .code-var,
         .login-card .code-op,
@@ -298,22 +309,19 @@ export default function BannedLogin() {
           text-shadow:0 0 6px currentColor, 0 0 14px currentColor;
         }
 
-        /* inputs (violet) */
+        /* Violet inputs */
         .code-input-violet{
           color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa;
-          background:transparent; border:0; outline:0; font:inherit;
-          padding:0; margin:0; width:auto;
-          text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa;
-          filter:saturate(1.15);
+          background:transparent; border:0; outline:0; font:inherit; padding:0; margin:0; width:auto;
+          text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa; filter:saturate(1.15);
         }
         .code-input-violet::placeholder{
           color:#9a8aec; opacity:.95; text-shadow:0 0 4px #9a8aec, 0 0 10px #9a8aec;
         }
 
-        /* clickable tokens */
+        /* Interactions */
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
-
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover, .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
       `}</style>
