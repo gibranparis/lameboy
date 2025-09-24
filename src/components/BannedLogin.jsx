@@ -4,18 +4,21 @@
 import dynamic from 'next/dynamic';
 const BlueOrbCross3D = dynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
+import ButterflyChakra from '@/components/ButterflyChakra';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
 
-/** Brand: glue ".com" to "Lameboy" (no spacing glitches) */
-function Wordmark() {
+/** Brand: glue ".com" to "Lameboy" (no spacing glitches). Click to launch butterfly. */
+function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
-    <span className="lb-word">
+    <span className="lb-word" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
       <span className="lb-white">
-        Lameboy<span className="lb-seafoam">.com</span>
+        <span ref={lRef}>L</span>amebo<span ref={yRef}>y</span>
+        <span className="lb-seafoam">.com</span>
       </span>
       <style jsx>{`
         .lb-word { display:inline; }
@@ -102,6 +105,11 @@ export default function BannedLogin() {
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
+  // butterfly state + letter refs
+  const lRef = useRef(null);
+  const yRef = useRef(null);
+  const [flyOnce, setFlyOnce] = useState(false);
+
   useEffect(() => {
     const lock = cascade || whiteout;
     const prev = document.body.style.overflow;
@@ -138,6 +146,16 @@ export default function BannedLogin() {
 
   return (
     <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:10 }}>
+      {/* Butterfly overlay (mounted for a single flight) */}
+      {flyOnce && (
+        <ButterflyChakra
+          startEl={lRef.current}
+          endEl={yRef.current}
+          durationMs={1600}
+          onDone={() => setFlyOnce(false)}
+        />
+      )}
+
       {cascade && <CascadeOverlay durationMs={CASCADE_MS} />}
       {whiteout && !cascade && createPortal(
         <div aria-hidden="true" style={{ position:'fixed', inset:0, background:'#fff', zIndex:10002, pointerEvents:'none' }}/>,
@@ -175,7 +193,13 @@ export default function BannedLogin() {
             >
               {view==='banned' ? (
                 <pre className="code-tight" style={{ margin:0 }}>
-                  <span className="lb-seafoam code-comment">//</span>{' '}<Wordmark />{'\n'}
+                  <span className="lb-seafoam code-comment">//</span>{' '}
+                  <Wordmark
+                    onClickWordmark={() => setFlyOnce(true)}
+                    lRef={lRef}
+                    yRef={yRef}
+                  />
+                  {'\n'}
                   <span className="lb-seafoam code-comment">//</span>{' '}
                   <span
                     role="button" tabIndex={0}
@@ -322,20 +346,17 @@ export default function BannedLogin() {
           color:#2a2000;
           box-shadow:0 0 14px rgba(255,214,64,.35), 0 0 28px rgba(255,214,64,.18);
         }
-        /* Force BYPASS to be red */
         .login-card .btn-red{
           background:linear-gradient(#ff4b66,#d90f1c);
           color:#330004;
           box-shadow:0 0 14px rgba(255,76,97,.40), 0 0 28px rgba(255,76,97,.22);
         }
-        /* Glow WHITE text when activated or pressed */
         .login-card .commit-btn.btn-activated,
         .login-card .commit-btn:active{
           color:#fff !important;
           text-shadow:0 0 6px #fff, 0 0 14px #fff, 0 0 26px #fff;
           filter:saturate(1.15) brightness(1.15);
         }
-        /* keep focus visible */
         .login-card .commit-btn:focus-visible{
           outline:2px solid rgba(255,255,255,.65);
           outline-offset:2px;
