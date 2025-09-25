@@ -5,14 +5,15 @@ import dynamic from 'next/dynamic';
 const BlueOrbCross3D = dynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 import ButterflyChakra from '@/components/ButterflyChakra';
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
+import { useRouter } from 'next/navigation';
 
 const CASCADE_MS = 2400;
+const HOP_PATH = '/preview/shop'; // <-- set your shop route
 
-/** Brand: glue ".com" to "Lameboy" (no spacing glitches). Click to launch butterfly. */
+/** Brand: glue ".com" to "Lameboy". Click to launch butterfly. */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
     <span className="lb-word" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
@@ -85,6 +86,8 @@ function CascadeOverlay({ durationMs = 2400 }) {
 }
 
 export default function BannedLogin() {
+  const router = useRouter();
+
   const [view, setView] = useState('banned'); // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
@@ -110,6 +113,9 @@ export default function BannedLogin() {
   const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
 
+  // Prefetch the shop so navigation is instant
+  useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
+
   useEffect(() => {
     const lock = cascade || whiteout;
     const prev = document.body.style.overflow;
@@ -123,12 +129,30 @@ export default function BannedLogin() {
     setTimeout(() => emailRef.current?.focus(), 200);
   }, []);
 
+  /**
+   * Start cascade immediately, then push to shop during the early white.
+   * We also set a session flag so ShopGrid can show a brief entry veil.
+   */
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
-    const t = setTimeout(() => { setCascade(false); if (washAway) setHideBubble(true); setWhiteout(true); after && after(); }, CASCADE_MS);
+
+    // mark origin for ShopGrid entry veil
+    try { sessionStorage.setItem('fromCascade', '1'); } catch {}
+
+    // push early so the grid mounts under the white
+    setTimeout(() => { try { router.push(HOP_PATH); } catch {} }, 100);
+
+    // keep the overlay running for those ~2.4s; when done, set whiteout
+    const t = setTimeout(() => {
+      setCascade(false);
+      if (washAway) setHideBubble(true);
+      setWhiteout(true);
+      after && after();
+    }, CASCADE_MS);
+
     return () => clearTimeout(t);
-  }, []);
+  }, [router]);
 
   const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
