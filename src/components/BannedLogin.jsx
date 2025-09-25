@@ -11,7 +11,7 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 import { useRouter } from 'next/navigation';
 
 const CASCADE_MS = 2400;
-const HOP_PATH = '/preview/shop'; // <-- set your shop route
+const HOP_PATH = '/shop'; // <-- set your shop route
 
 /** Brand: glue ".com" to "Lameboy". Click to launch butterfly. */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
