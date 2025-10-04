@@ -5,6 +5,9 @@ export const dynamic = 'force-static'; // keep the /shop shell prerenderable
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
+// 👇 add this: same component used on the banned page
+import BlueOrbCross3D from '@/components/BlueOrbCross3D';
+
 // Lazy-load the heavy grid so it doesn't compete with the intro animation
 const ShopGrid = dynamic(() => import('@/components/ShopGrid'), { ssr: false });
 
@@ -16,7 +19,7 @@ const demoProducts = [
 ];
 
 export default function ShopPage() {
-  const [phase, setPhase] = useState('waiting'); // 'waiting' | 'grid'
+  const [phase, setPhase] = useState<'waiting' | 'grid'>('waiting');
 
   useEffect(() => {
     let delay = 0;
@@ -44,24 +47,53 @@ export default function ShopPage() {
 
   return (
     <div className="shop-page">
+      {/* ✅ Same spinner as banned page; keep it visible at the top on all phases */}
+      <div className="shop-topbar">
+        <BlueOrbCross3D />
+      </div>
+
       <div className="shop-wrap">
         {phase === 'waiting' ? (
-          // Lightweight placeholder so the cascade can finish cleanly
-          <div className="shop-placeholder" aria-busy="true" />
+          // ✅ Use the same spinner as the placeholder while we wait
+          <div className="shop-waiting">
+            <BlueOrbCross3D />
+          </div>
         ) : (
           <ShopGrid products={demoProducts} />
         )}
       </div>
 
       <style jsx>{`
-        .shop-page { min-height: 100dvh; display: grid; }
+        .shop-page {
+          min-height: 100dvh;
+          display: grid;
+          background: #000; /* match banned background */
+          color: #fff;
+        }
+        .shop-topbar {
+          position: sticky;
+          top: 12px;
+          z-index: 20;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 12px 0;
+          pointer-events: none; /* spinner is decorative */
+        }
         .shop-wrap { width: 100%; }
-        .shop-placeholder {
+        .shop-waiting {
           height: 60vh;
           width: 100%;
-          opacity: 0.9;
-          /* simple neutral veil; no animations to avoid competing with cascade */
-          background: radial-gradient(60% 60% at 50% 40%, rgba(255,255,255,0.18), rgba(255,255,255,0.06) 70%, transparent 100%);
+          display: grid;
+          place-items: center;
+          opacity: 0.95;
+          /* neutral veil; avoid extra animations so it doesn't fight the cascade */
+          background: radial-gradient(
+            60% 60% at 50% 40%,
+            rgba(255,255,255,0.18),
+            rgba(255,255,255,0.06) 70%,
+            transparent 100%
+          );
         }
       `}</style>
     </div>
