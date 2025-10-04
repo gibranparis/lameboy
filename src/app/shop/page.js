@@ -1,13 +1,16 @@
 'use client';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-static';       // allow SSG
+export const runtime = 'nodejs';             // ⬅️ opt this page out of Edge so SSG works
 
 import nextDynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
+// Lazy-load the heavy grid so it doesn't compete with the intro animation
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false });
 
+// Demo data (keep/remove as you need)
 const demoProducts = [
   { id: 'tee-01', name: 'TEE 01', price: 4000, images: [{ url: '/placeholder.png' }] },
   { id: 'tee-02', name: 'TEE 02', price: 4200, images: [{ url: '/placeholder.png' }] },
@@ -22,9 +25,9 @@ export default function ShopPage() {
     try {
       const from = sessionStorage.getItem('fromCascade');
       if (from === '1') {
-        const CASCADE_MS = 2400;
-        const PUSH_OFFSET_MS = 150;
-        const CUSHION_MS = 120;
+        const CASCADE_MS = 2400;    // keep in sync with BannedLogin
+        const PUSH_OFFSET_MS = 150; // BannedLogin pushes ~100–150ms into the cascade
+        const CUSHION_MS = 120;     // tiny breathing room so it feels smooth
         delay = Math.max(0, CASCADE_MS - PUSH_OFFSET_MS + CUSHION_MS);
       }
     } catch {}
@@ -41,6 +44,7 @@ export default function ShopPage() {
 
   return (
     <div className="shop-page">
+      {/* Same spinner used on the banned page */}
       <div className="shop-topbar">
         <BlueOrbCross3D />
       </div>
