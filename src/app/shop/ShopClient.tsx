@@ -2,7 +2,7 @@
 
 import nextDynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import BlueOrbCross3D from '../../components/BlueOrbCross3D'; // relative import to avoid alias issues
+import BlueOrbCross3D from '../../components/BlueOrbCross3D';
 
 // Lazy-load the heavy grid so it doesn't compete with the intro animation
 const ShopGrid = nextDynamic(() => import('../../components/ShopGrid'), { ssr: false });
@@ -42,25 +42,38 @@ export default function ShopClient() {
   }, []);
 
   return (
-    <div className="min-h-[100dvh] grid bg-black text-white">
-      {/* Same spinner used on the banned page */}
-      <div className="sticky top-3 z-20 flex items-center justify-center py-3 pointer-events-none">
-        {/* TS requires overrideGlowOpacity; use your preferred value */}
-        <BlueOrbCross3D overrideGlowOpacity={0.7} />
-      </div>
+    <>
+      {/* 
+        HIDE the small site orb/logo that lives in the top-left (header) 
+        ONLY on /shop, without touching your header code.
+        - If your header gives that icon an id or data-attr (e.g., #site-orb or [data-orb="site"]),
+          this CSS will hide it when [data-page="shop"] is present (we added that in page.js).
+        - If your header uses a different selector, replace the two selectors below to match.
+      */}
+      <style jsx global>{`
+        [data-page="shop"] #site-orb,
+        [data-page="shop"] [data-orb="site"] { display: none !important; }
+      `}</style>
 
-      <div className="w-full">
-        {phase === 'waiting' ? (
-          <div
-            className="grid h-[60vh] w-full place-items-center opacity-95
-                       bg-[radial-gradient(60%_60%_at_50%_40%,rgba(255,255,255,0.18),rgba(255,255,255,0.06)_70%,transparent_100%)]"
-          >
-            <BlueOrbCross3D overrideGlowOpacity={0.7} />
-          </div>
-        ) : (
-          <ShopGrid products={demoProducts} />
-        )}
+      <div className="min-h-[100dvh] grid bg-[#F7F7F2] text-black">
+        {/* Centered chakra spinner (BlueOrbCross3D) */}
+        <div className="sticky top-3 z-20 flex items-center justify-center py-3 pointer-events-none">
+          <BlueOrbCross3D overrideGlowOpacity={0.7} />
+        </div>
+
+        <div className="w-full">
+          {phase === 'waiting' ? (
+            <div
+              className="grid h-[60vh] w-full place-items-center opacity-95
+                         bg-[radial-gradient(60%_60%_at_50%_40%,rgba(0,0,0,0.06),rgba(0,0,0,0.02)_70%,transparent_100%)]"
+            >
+              <BlueOrbCross3D overrideGlowOpacity={0.7} />
+            </div>
+          ) : (
+            <ShopGrid products={demoProducts} />
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
