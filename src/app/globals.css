@@ -421,3 +421,41 @@ html,body{
 }
 /* Tighten spaces inside the code bubble without affecting token colors */
 .login-card pre.code-tight { letter-spacing: 0; word-spacing: -0.14ch; }
+
+/* =========================
+   /shop global overrides (JS-free via :has())
+   When a descendant with [data-shop-root] exists, flip the theme + header.
+   ========================= */
+html:has([data-shop-root]) body {
+  background: #F7F7F2 !important; /* off-white */
+  color: #111 !important;
+}
+
+/* Kill the black header strip on /shop */
+html:has([data-shop-root]) header,
+html:has([data-shop-root]) [role="banner"],
+html:has([data-shop-root]) .topbar,
+html:has([data-shop-root]) .navbar {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Hide any left orb/spinner/canvas inside header on /shop (selector shotgun) */
+html:has([data-shop-root]) header canvas,
+html:has([data-shop-root]) [role="banner"] canvas,
+html:has([data-shop-root]) header svg[aria-label*="spinner"],
+html:has([data-shop-root]) header [data-orb],
+html:has([data-shop-root]) header [aria-label*="orb"],
+html:has([data-shop-root]) [role="banner"] [data-orb] {
+  display: none !important;
+}
+
+/* Smooth transforms for cascading tiles (helps reduce jitter) */
+html:has([data-shop-root]) .shop-grid,
+html:has([data-shop-root]) .product-box,
+html:has([data-shop-root]) .product-img {
+  will-change: transform, opacity;
+  transform: translateZ(0);           /* force GPU path */
+  backface-visibility: hidden;
+}
