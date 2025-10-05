@@ -2,10 +2,10 @@
 
 import nextDynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
-// Lazy-load the heavy grid so it doesn't compete with the intro animation
-const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false });
+// ⬇️ Use relative paths so we bypass the alias that TypeScript isn't picking up on Vercel
+import BlueOrbCross3D from '../../components/BlueOrbCross3D';
+const ShopGrid = nextDynamic(() => import('../../components/ShopGrid'), { ssr: false });
 
 // Demo data (keep/remove as you need)
 const demoProducts = [
@@ -14,8 +14,10 @@ const demoProducts = [
   { id: 'hood-01', name: 'HOOD 01', price: 9000, images: [{ url: '/placeholder.png' }] },
 ];
 
+type Phase = 'waiting' | 'grid';
+
 export default function ShopClient() {
-  const [phase, setPhase] = useState<'waiting' | 'grid'>('waiting');
+  const [phase, setPhase] = useState<Phase>('waiting');
 
   useEffect(() => {
     let delay = 0;
@@ -48,8 +50,10 @@ export default function ShopClient() {
 
       <div className="w-full">
         {phase === 'waiting' ? (
-          <div className="grid h-[60vh] w-full place-items-center opacity-95
-                          bg-[radial-gradient(60%_60%_at_50%_40%,rgba(255,255,255,0.18),rgba(255,255,255,0.06)_70%,transparent_100%)]">
+          <div
+            className="grid h-[60vh] w-full place-items-center opacity-95
+                       bg-[radial-gradient(60%_60%_at_50%_40%,rgba(255,255,255,0.18),rgba(255,255,255,0.06)_70%,transparent_100%)]"
+          >
             <BlueOrbCross3D />
           </div>
         ) : (
