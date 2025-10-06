@@ -443,3 +443,19 @@ html:has([data-shop-root]) .product-img {
   transform: translateZ(0);
   backface-visibility: hidden;
 }
+/* Promote the cart to its own layer to avoid “stagnated” shadows */
+html:has([data-shop-root]) .cart-fab {
+  background: #ffffffE6 !important;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Safety: never center the density orb via container styling */
+html:has([data-shop-root]) [data-orb="density"] {
+  position: fixed !important;
+  left: 18px !important;
+  top: 18px !important;
+  pointer-events: auto !important;
+  z-index: 120 !important;
+}

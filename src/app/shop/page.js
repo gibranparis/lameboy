@@ -1,11 +1,11 @@
-// Server component only — route config must live here.
-export const dynamic = 'force-static';
-export const runtime = 'nodejs';
+'use client';
+
+export const dynamic = 'force-static';  // allow SSG
+export const runtime = 'nodejs';        // opt out of edge so SSG works
 
 import ShopClient from './ShopClient';
 
-export default function Page() {
-  // The data-shop-root attribute lets CSS flip the global theme without JS.
+export default function ShopPage() {
   return (
     <div data-shop-root>
       <ShopClient />

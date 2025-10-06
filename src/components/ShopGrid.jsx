@@ -6,7 +6,7 @@ import Image from 'next/image';
 export default function ShopGrid({ products = [], cols = 5 }) {
   const [ready, setReady] = useState(false);
 
-  // small fade/slide-in once initial images ready (reduces jitter)
+  // fade/slide in once first images are ready (cuts perceived jitter)
   useEffect(() => {
     const imgs = Array.from(document.images || []).slice(0, 16);
     if (!imgs.length) return setReady(true);
@@ -18,6 +18,8 @@ export default function ShopGrid({ products = [], cols = 5 }) {
       img.addEventListener('error', mark, { once: true });
     });
   }, []);
+
+  const clamped = Math.max(1, Math.min(5, cols));
 
   return (
     <section
@@ -32,8 +34,7 @@ export default function ShopGrid({ products = [], cols = 5 }) {
       <div
         className="shop-grid"
         style={{
-          // Force exactly N columns (instead of auto-fill)
-          gridTemplateColumns: `repeat(${Math.max(1, Math.min(5, cols))}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${clamped}, minmax(0, 1fr))`, // force exact N columns
         }}
       >
         {products.map((p, idx) => {
