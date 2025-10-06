@@ -459,3 +459,22 @@ html:has([data-shop-root]) [data-orb="density"] {
   pointer-events: auto !important;
   z-index: 120 !important;
 }
+/* Pin the density orb & keep it clickable on the unified page */
+html:has([data-shop-root]) [data-orb="density"]{
+  position: fixed !important;
+  left: 18px !important;
+  top: 18px !important;
+  z-index: 120 !important;
+  pointer-events: auto !important;
+}
+
+/* Promote cart root so it never looks “double-layered” */
+html:has([data-shop-root]) [data-cart-root]{
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  isolation: isolate;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
