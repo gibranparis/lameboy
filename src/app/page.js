@@ -1,108 +1,83 @@
-// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static'; // allow SSG
 export const runtime = 'nodejs';       // avoid Edge so SSG prerender works
 
-import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import nextDynamic from 'next/dynamic';
 
-/* Lazy bits (no SSR to avoid competing with the cascade) */
-const BlueOrbCross3D = dynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
-const ShopGrid       = dynamic(() => import('@/components/ShopGrid'),       { ssr: false });
-const CartButton     = dynamic(() => import('@/components/CartButton'),     { ssr: false });
+// Lazy bits (no SSR so they don't compete with the cascade)
+const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
+const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false });
+const CartButton     = nextDynamic(() => import('@/components/CartButton'), { ssr: false });
 
-/* Timings */
-const CASCADE_MS  = 2400;     // total sweep
-const SWAP_AT_MS  = 2100;     // when we let the grid come in under the last bands
-
-/* --- “reverse curtain” cascade: equal bands over a white base --- */
-function CascadeOverlay({ duration = CASCADE_MS }) {
+// --- Simple cascade overlay (bands slide L->R over a white base) ---
+function CascadeOverlay({ duration = 2400 }) {
   const [p, setP] = useState(0);
+  const raf = useRef();
 
   useEffect(() => {
-    let start, raf;
-    const step = (t) => {
-      if (start == null) start = t;
-      const k = Math.min(1, (t - start) / duration);
+    const t0 = performance.now();
+    const tick = (t) => {
+      const k = Math.min(1, (t - t0) / duration);
       setP(k);
-      if (k < 1) raf = requestAnimationFrame(step);
+      if (k < 1) raf.current = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    raf.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf.current);
   }, [duration]);
 
-  // ease for the white base fade (fast to near-1 so bands glow over white)
-  const easeOut = (x) => 1 - Math.pow(1 - x, 3);
-  const whiteAlpha = easeOut(Math.min(1, p * 1.25)); // hits white quickly
-
-  // Slide a 100vw-wide, 7-column block across screen: -100% → +100%
-  // Keeps each band exactly the same width throughout.
-  const txPct = -100 + (200 * p); // from -100% (off left) to +100% (off right)
+  // seven equal bands, translate as one block
+  const bandWidthVW = 84; // total width of the colored block (vw)
+  const tx = (1 - p) * (100 + bandWidthVW) - bandWidthVW; // start offscreen left → exit right
 
   return (
     <>
-      {/* White base sits *under* the moving bands the whole time */}
+      {/* White base so colors glow over white, not black */}
       <div
         aria-hidden="true"
         style={{
-          position: 'fixed',
-          inset: 0,
-          background: `rgba(255,255,255,${whiteAlpha})`,
-          zIndex: 9997,
-          pointerEvents: 'none',
-          willChange: 'opacity',
+          position: 'fixed', inset: 0, background: '#fff',
+          zIndex: 998, pointerEvents: 'none'
         }}
       />
-
-      {/* Moving rainbow block (exactly 100vw wide; equal 7 columns) */}
+      {/* Color block that slides over the white */}
       <div
         aria-hidden="true"
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          height: '100vh',
-          width: '100vw',
-          transform: `translate3d(${txPct}%, 0, 0)`,
-          zIndex: 9999,
-          pointerEvents: 'none',
-          willChange: 'transform',
+          position: 'fixed', top: 0, left: 0, height: '100vh',
+          width: `${bandWidthVW}vw`,
+          transform: `translate3d(${tx}vw,0,0)`,
+          zIndex: 999, pointerEvents: 'none', willChange: 'transform'
         }}
       >
         <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
+            height: '100%', display: 'grid',
+            gridTemplateColumns: 'repeat(7, 1fr)'
           }}
         >
-          {['#c084fc','#4f46e5','#3b82f6','#22c55e','#facc15','#f97316','#ef4444'].map((c,i)=>(
+          {['#c084fc','#4f46e5','#3b82f6','#22c55e','#facc15','#f97316','#ef4444'].map((c, i) => (
             <div key={i} style={{ background: c }} />
           ))}
         </div>
       </div>
 
-      {/* Brand during sweep */}
+      {/* Brand in the middle */}
       <div
+        aria-hidden="true"
         style={{
-          position:'fixed',
-          inset:0,
-          display:'grid',
-          placeItems:'center',
-          zIndex: 10001,
-          pointerEvents:'none'
+          position: 'fixed', inset: 0, display: 'grid', placeItems: 'center',
+          zIndex: 1000, pointerEvents: 'none'
         }}
       >
-        <span style={{
-          color:'#fff',
-          fontWeight:700,
-          letterSpacing:'.08em',
-          textTransform:'uppercase',
-          fontSize:'clamp(11px,1.3vw,14px)',
-          textShadow:'0 0 8px rgba(0,0,0,.25)'
-        }}>
+        <span
+          style={{
+            color: '#fff', fontWeight: 700, letterSpacing: '.08em',
+            textTransform: 'uppercase', fontSize: 'clamp(11px,1.3vw,14px)',
+            textShadow: '0 0 8px rgba(0,0,0,.25)'
+          }}
+        >
           LAMEBOY, USA
         </span>
       </div>
@@ -110,75 +85,111 @@ function CascadeOverlay({ duration = CASCADE_MS }) {
   );
 }
 
-export default function HomePage() {
-  const [phase, setPhase] = useState('waiting'); // 'waiting' | 'grid'
+const demoProducts = [
+  { id: 'tee-01',  name: 'TEE 01',  price: 4000, images: [{ url: '/placeholder.png' }] },
+  { id: 'tee-02',  name: 'TEE 02',  price: 4200, images: [{ url: '/placeholder.png' }] },
+  { id: 'hood-01', name: 'HOOD 01', price: 9000, images: [{ url: '/placeholder.png' }] },
+];
 
-  // Smoothly move from cascade to grid without flashing
+export default function Page() {
+  const [showGrid, setShowGrid] = useState(false);
+  const [showCascade, setShowCascade] = useState(false);
+
+  // Shop mode: flip theme + hide global bg/header artifacts
   useEffect(() => {
-    const t = setTimeout(() => setPhase('grid'), SWAP_AT_MS);
-    return () => clearTimeout(t);
+    const html = document.documentElement;
+    const prev = html.getAttribute('data-shop-root');
+    html.setAttribute('data-shop-root', '1');
+    return () => {
+      if (prev == null) html.removeAttribute('data-shop-root');
+      else html.setAttribute('data-shop-root', prev);
+    };
   }, []);
 
-  // Make sure shop mode CSS is active (your globals look for this)
+  // Entry sequencing: if we arrived from the banned page, run cascade and
+  // delay the grid so it appears *after* the bands have mostly crossed.
   useEffect(() => {
-    // mark that we are the shop root to flip theme & hide the global bg canvas
-    document.documentElement.setAttribute('data-shop-root', '1');
-    return () => document.documentElement.removeAttribute('data-shop-root');
+    let delay = 0;
+    try {
+      if (sessionStorage.getItem('fromCascade') === '1') {
+        const CASCADE_MS = 2400;
+        const PUSH_OFFSET = 150; // early push from banned
+        const CUSHION = 180;
+        delay = Math.max(0, CASCADE_MS - PUSH_OFFSET + CUSHION);
+        setShowCascade(true);
+        // clear the flag so reloads don't re-run it
+        sessionStorage.removeItem('fromCascade');
+        // stop cascade after it completes
+        setTimeout(() => setShowCascade(false), CASCADE_MS + 80);
+      }
+    } catch {}
+
+    if (delay > 0) {
+      const t = setTimeout(() => setShowGrid(true), delay);
+      return () => clearTimeout(t);
+    } else {
+      // direct land on /
+      setShowGrid(true);
+    }
   }, []);
 
-  // Orb click → let ShopGrid handle density cycling (keeps your existing wiring)
-  const onOrbActivate = () => {
-    try { window.dispatchEvent(new CustomEvent('shop:cycle-density')); } catch {}
+  // Orb density control: 5 → 1 → 5 columns (state lives here; ShopGrid can
+  // read it via CSS var or prop if you wire it inside ShopGrid too)
+  const [cols, setCols] = useState(() => {
+    try { return parseInt(localStorage.getItem('shopCols') || '5', 10); } catch { return 5; }
+  });
+  const bumpCols = () => {
+    setCols(c => {
+      const next = c > 1 ? c - 1 : 5;
+      try { localStorage.setItem('shopCols', String(next)); } catch {}
+      return next;
+    });
   };
 
-  return (
-    <div data-shop-root className="shop-page" style={{ minHeight: '100dvh' }}>
-      {/* Cascade only while we’re in the waiting phase */}
-      {phase === 'waiting' && <CascadeOverlay duration={CASCADE_MS} />}
+  // Inline style to force exact column count on the grid wrapper (works even if
+  // ShopGrid uses its own class)
+  const gridStyle = useMemo(
+    () => ({ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gap: '28px' }),
+    [cols]
+  );
 
-      {/* Top-left orb (smaller; rpm matches banned page) */}
+  return (
+    <div className="shop-page" style={{ minHeight: '100dvh', background: '#F7F7F2', color: '#111' }}>
+      {/* Top-left orb (slightly smaller + synced speed) */}
       <div
-        style={{
-          position: 'fixed',
-          top: 18,
-          left: 18,
-          zIndex: 120,
-          width: 44,  // hit target
-          height: 44,
-          pointerEvents: 'auto',
-        }}
-        aria-label="density-orb"
+        aria-label="orb"
+        style={{ position: 'fixed', left: 18, top: 18, width: 32, height: 32, zIndex: 120, cursor: 'pointer' }}
+        onClick={bumpCols}
       >
         <BlueOrbCross3D
-          height="6.5vh"   // a tad smaller than before
-          rpm={44}         // same spin speed as banned page
-          onActivate={onOrbActivate}
+          height="32px"
+          rpm={44}           // matches banned page
+          geomScale={0.82}   // tad smaller
+          glowOpacity={0.9}
+          includeZAxis
         />
       </div>
 
       {/* Cart button (top-right) */}
-      <div style={{ position: 'fixed', top: 18, right: 18, zIndex: 130 }}>
+      <div style={{ position: 'fixed', right: 18, top: 18, zIndex: 130 }}>
         <CartButton />
       </div>
 
-      {/* Grid */}
-      <div className="shop-wrap">
-        {phase === 'waiting' ? (
-          // Light veil so the grid mounts cleanly under the cascade
-          <div
-            style={{
-              height: '60vh',
-              width: '100%',
-              opacity: 0.95,
-              background:
-                'radial-gradient(60% 60% at 50% 40%, rgba(0,0,0,0.05), rgba(0,0,0,0.02) 70%, transparent 100%)',
-            }}
-            aria-busy="true"
-          />
+      {/* Grid mount point */}
+      <div className="shop-wrap" style={{ padding: '86px 24px 24px' }}>
+        {showGrid ? (
+          // If your ShopGrid already outputs a grid, the wrapper's gridStyle
+          // will still constrain children evenly into `cols` columns.
+          <div style={gridStyle}>
+            <ShopGrid products={demoProducts} />
+          </div>
         ) : (
-          <ShopGrid />
+          // small placeholder while we hold for the cascade
+          <div style={{ height: '42vh' }} />
         )}
       </div>
+
+      {showCascade && <CascadeOverlay duration={2400} />}
     </div>
   );
 }
