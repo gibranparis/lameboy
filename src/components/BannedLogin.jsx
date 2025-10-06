@@ -32,6 +32,7 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
+/** Transform-based cascade (no layout reflow -> less “skip”). */
 function CascadeOverlay({ durationMs = 2400 }) {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -41,21 +42,24 @@ function CascadeOverlay({ durationMs = 2400 }) {
     return () => cancelAnimationFrame(id);
   }, [durationMs]);
 
-  const whiteW = (p * 100).toFixed(3);
+  // Move a full-viewport white panel from right→left entirely via transform.
+  const whiteTx = (1 - p) * 100;   // 100 → 0
   const COLOR_VW = 120;
-  const tx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
+  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // keeps bands leading edge
 
   return createPortal(
     <>
+      {/* white wipe */}
       <div aria-hidden="true" style={{
-        position:'fixed', top:0, right:0, height:'100vh',
-        width:`${whiteW}%`, background:'#fff',
-        zIndex:9998, pointerEvents:'none', willChange:'width',
-        transition:'width 16ms linear'
+        position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
+        background:'#fff', zIndex:9998, pointerEvents:'none',
+        willChange:'transform'
       }}/>
+
+      {/* color bands sweep */}
       <div aria-hidden="true" style={{
         position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
-        transform:`translate3d(${tx}vw,0,0)`,
+        transform:`translate3d(${bandsTx}vw,0,0)`,
         zIndex:9999, pointerEvents:'none', willChange:'transform'
       }}>
         <div className="lb-cascade">
@@ -63,6 +67,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
           <div className="lb-band lb-b4"/><div className="lb-band lb-b5"/><div className="lb-band lb-b6"/><div className="lb-band lb-b7"/>
         </div>
       </div>
+
       <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
@@ -110,7 +115,6 @@ export default function BannedLogin({ onCascadeToShop }) {
   const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
 
-  // Prefetch (harmless if single-page)
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
 
   useEffect(() => {
@@ -126,10 +130,6 @@ export default function BannedLogin({ onCascadeToShop }) {
     setTimeout(() => emailRef.current?.focus(), 200);
   }, []);
 
-  /**
-   * Start the cascade immediately; during the early white, switch to shop.
-   * If `onCascadeToShop` is provided, call it instead of routing.
-   */
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}

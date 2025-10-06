@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import nextDynamic from 'next/dynamic';
 import BannedLogin from '@/components/BannedLogin';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
+import CartButton from '@/components/CartButton';
 
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false });
+const ProductOverlay = nextDynamic(() => import('@/components/ProductOverlay'), { ssr: false });
 
 // demo data — replace when wired
 const demoProducts = [
@@ -18,8 +20,12 @@ export default function SinglePageApp() {
   const [mode, setMode] = useState('banned');      // 'banned' | 'shop'
   const [phase, setPhase] = useState('waiting');   // 'waiting' | 'grid'
   const [cols, setCols]   = useState(5);           // 5..1..5 ring
+  const [descending, setDescending] = useState(true);
 
-  // Called by BannedLogin during the early white of the cascade
+  // overlay state
+  const [activeProduct, setActiveProduct] = useState(null);
+
+  // called by BannedLogin during the early white of the cascade
   const onCascadeToShop = useCallback(() => {
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
     setMode('shop');
@@ -46,7 +52,6 @@ export default function SinglePageApp() {
   }, [mode]);
 
   // +/- behavior: 5 → 4 → 3 → 2 → 1 → 2 → ... → 5
-  const [descending, setDescending] = useState(true);
   const bumpDensity = useCallback(() => {
     setCols(c => {
       if (descending) {
@@ -67,26 +72,42 @@ export default function SinglePageApp() {
 
   return (
     <div className="shop-page" data-shop-root data-cols={cols}>
-      {/* Orb: top-left, ~2x bigger, acts as +/- */}
+      {/* Orb: top-left, matches Banned (rpm=44) but slightly smaller than before */}
       <button
         type="button"
         className="shop-density"
         aria-label="Change grid density"
         onClick={bumpDensity}
       >
-        <BlueOrbCross3D height="10vh" />
+        <BlueOrbCross3D height="9vh" rpm={44} />
       </button>
+
+      {/* Cart button back (top-right). If your CartContext drives the badge, it’ll wire up as before. */}
+      <div className="cart-fab" style={{ right: 18, top: 18, position: 'fixed', zIndex: 130 }}>
+        <CartButton />
+      </div>
 
       <div className="shop-wrap">
         {phase === 'waiting' ? (
           <div className="shop-waiting" aria-busy="true" />
         ) : (
-          // You can let ShopGrid ignore cols, we override with scoped CSS below
-          <ShopGrid products={demoProducts} />
+          <ShopGrid
+            products={demoProducts}
+            onOpen={setActiveProduct}      // ShopGrid can call this if it supports it
+          />
         )}
       </div>
 
-      {/* force exact column count via scoped CSS (overrides auto-fill) */}
+      {/* Product overlay (uses your existing component) */}
+      {activeProduct && (
+        <ProductOverlay
+          product={activeProduct}
+          onClose={() => setActiveProduct(null)}
+          onAddToCart={() => setActiveProduct(null)}
+        />
+      )}
+
+      {/* local style nudges */}
       <style jsx>{`
         .shop-page { min-height:100dvh; }
         .shop-wrap { width:100%; padding: 86px 24px 24px; }
@@ -105,7 +126,7 @@ export default function SinglePageApp() {
         }
         .shop-density{
           position:fixed; left:18px; top:18px; z-index:130;
-          width:64px; height:64px; padding:0; border:0; background:transparent; cursor:pointer;
+          width:56px; height:56px; padding:0; border:0; background:transparent; cursor:pointer;
         }
       `}</style>
 
