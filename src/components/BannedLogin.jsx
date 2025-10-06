@@ -11,9 +11,8 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 import { useRouter } from 'next/navigation';
 
 const CASCADE_MS = 2400;
-const HOP_PATH = '/shop'; // fallback when we still use the /shop route
+const HOP_PATH = '/shop'; // fallback if onCascadeToShop isn’t provided
 
-/** Brand: glue ".com" to "Lameboy". Click to launch butterfly. */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
     <span className="lb-word" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
@@ -33,7 +32,6 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/* Cascade overlay */
 function CascadeOverlay({ durationMs = 2400 }) {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -85,7 +83,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
   );
 }
 
-export default function BannedLogin({ onProceed }) {
+export default function BannedLogin({ onCascadeToShop }) {
   const router = useRouter();
 
   const [view, setView] = useState('banned'); // 'banned' | 'login'
@@ -108,12 +106,11 @@ export default function BannedLogin({ onProceed }) {
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
-  // butterfly state + letter refs
   const lRef = useRef(null);
   const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
 
-  // Prefetch /shop (fast nav when using separate route)
+  // Prefetch (harmless if single-page)
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
 
   useEffect(() => {
@@ -130,23 +127,21 @@ export default function BannedLogin({ onProceed }) {
   }, []);
 
   /**
-   * Start cascade immediately. If a parent passed onProceed (unified page),
-   * call that instead of pushing a new route; else push to /shop.
+   * Start the cascade immediately; during the early white, switch to shop.
+   * If `onCascadeToShop` is provided, call it instead of routing.
    */
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
-
-    // mark origin for downstream entry veil
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    if (typeof onProceed === 'function') {
-      // unified single-page handoff
-      setTimeout(() => { try { onProceed(); } catch {} }, 100);
-    } else {
-      // legacy separate route
-      setTimeout(() => { try { router.push(HOP_PATH); } catch {} }, 100);
-    }
+    setTimeout(() => {
+      if (typeof onCascadeToShop === 'function') {
+        onCascadeToShop();
+      } else {
+        try { router.push(HOP_PATH); } catch {}
+      }
+    }, 100);
 
     const t = setTimeout(() => {
       setCascade(false);
@@ -156,13 +151,12 @@ export default function BannedLogin({ onProceed }) {
     }, CASCADE_MS);
 
     return () => clearTimeout(t);
-  }, [router, onProceed]);
+  }, [onCascadeToShop, router]);
 
   const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
-  /** Toggle orb color via “is banned” */
   const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
@@ -174,7 +168,6 @@ export default function BannedLogin({ onProceed }) {
 
   return (
     <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:10 }}>
-      {/* Butterfly overlay (mounted for a single flight) */}
       {flyOnce && (
         <ButterflyChakra
           startEl={lRef.current}
@@ -303,20 +296,8 @@ export default function BannedLogin({ onProceed }) {
                   </div>
 
                   <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
-                    <button
-                      type="button"
-                      className={`commit-btn btn-yellow ${activated==='link'?'btn-activated':''}`}
-                      onClick={onLink}
-                    >
-                      Link
-                    </button>
-                    <button
-                      type="button"
-                      className={`commit-btn btn-red ${activated==='bypass'?'btn-activated':''}`}
-                      onClick={onBypass}
-                    >
-                      Bypass
-                    </button>
+                    <button type="button" className={`commit-btn btn-yellow ${activated==='link'?'btn-activated':''}`} onClick={onLink}>Link</button>
+                    <button type="button" className={`commit-btn btn-red ${activated==='bypass'?'btn-activated':''}`} onClick={onBypass}>Bypass</button>
                   </div>
                 </form>
               )}
@@ -335,7 +316,6 @@ export default function BannedLogin({ onProceed }) {
         </div>
       )}
 
-      {/* Local CSS (scoped to login bubble) */}
       <style jsx global>{`
         :root { --lb-seafoam:#32ffc7; }
         .login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.10ch; white-space:pre; line-height:1.35; }
@@ -346,20 +326,15 @@ export default function BannedLogin({ onProceed }) {
           text-shadow:0 0 6px var(--lb-seafoam), 0 0 14px var(--lb-seafoam);
           letter-spacing:0; word-spacing:normal;
         }
-        .login-card .code-keyword, .login-card .code-var, .login-card .code-op,
-        .login-card .code-string, .login-card .code-punc, .login-card .lb-white {
+        .login-card .code-keyword, .login-card .code-var, .login-card .code-op, .login-card .code-string, .login-card .code-punc, .login-card .lb-white {
           text-shadow:0 0 6px currentColor, 0 0 14px currentColor;
         }
         .login-card .commit-btn{ border:none; border-radius:10px; padding:6px 10px; font-weight:700; line-height:1; cursor:pointer; transition:color .15s ease, box-shadow .15s ease, filter .15s ease; }
         .login-card .btn-yellow{ background:linear-gradient(#ffd84a,#f7b400); color:#2a2000; box-shadow:0 0 14px rgba(255,214,64,.35), 0 0 28px rgba(255,214,64,.18); }
         .login-card .btn-red{ background:linear-gradient(#ff4b66,#d90f1c); color:#330004; box-shadow:0 0 14px rgba(255,76,97,.40), 0 0 28px rgba(255,76,97,.22); }
-        .login-card .commit-btn.btn-activated, .login-card .commit-btn:active{ color:#fff !important; text-shadow:0 0 6px #fff, 0 0 14px #fff, 0 0 26px #fff; filter:saturate(1.15) brightness(1.15); }
+        .login-card .commit-btn.btn-activated,.login-card .commit-btn:active{ color:#fff !important; text-shadow:0 0 6px #fff, 0 0 14px #fff, 0 0 26px #fff; filter:saturate(1.15) brightness(1.15); }
         .login-card .commit-btn:focus-visible{ outline:2px solid rgba(255,255,255,.65); outline-offset:2px; }
-        .code-input-violet{
-          color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa;
-          background:transparent; border:0; outline:0; font:inherit; padding:0; margin:0; width:auto;
-          text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa; filter:saturate(1.15);
-        }
+        .code-input-violet{ color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa; background:transparent; border:0; outline:0; font:inherit; padding:0; margin:0; width:auto; text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa; filter:saturate(1.15); }
         .code-input-violet::placeholder{ color:#9a8aec; opacity:.95; text-shadow:0 0 4px #9a8aec, 0 0 10px #9a8aec; }
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
