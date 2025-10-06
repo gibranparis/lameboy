@@ -1,57 +1,55 @@
+// src/app/page.js
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import nextDynamic from 'next/dynamic';
 import BannedLogin from '@/components/BannedLogin';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
-import CartButton from '@/components/CartButton';
 
+// Lazy things
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false });
 const ProductOverlay = nextDynamic(() => import('@/components/ProductOverlay'), { ssr: false });
 
-// demo data — replace when wired
+// Demo data (replace with real)
 const demoProducts = [
   { id: 'tee-01', name: 'TEE 01', price: 4000, images: [{ url: '/placeholder.png' }] },
   { id: 'tee-02', name: 'TEE 02', price: 4200, images: [{ url: '/placeholder.png' }] },
   { id: 'hood-01', name: 'HOOD 01', price: 9000, images: [{ url: '/placeholder.png' }] },
 ];
 
+const CASCADE_MS = 2400;
+
 export default function SinglePageApp() {
-  const [mode, setMode] = useState('banned');      // 'banned' | 'shop'
-  const [phase, setPhase] = useState('waiting');   // 'waiting' | 'grid'
-  const [cols, setCols]   = useState(5);           // 5..1..5 ring
+  // app mode
+  const [mode, setMode] = useState<'banned' | 'shop'>('banned');
+
+  // entry gating
+  const [cascading, setCascading] = useState(false); // true while the color bands/white wipe are running
+  const [phase, setPhase] = useState<'waiting' | 'grid'>('waiting');
+
+  // density control (5→1→5)
+  const [cols, setCols] = useState(5);
   const [descending, setDescending] = useState(true);
 
-  // overlay state
+  // product overlay
   const [activeProduct, setActiveProduct] = useState(null);
 
-  // called by BannedLogin during the early white of the cascade
+  // Called by BannedLogin when cascade starts
   const onCascadeToShop = useCallback(() => {
-    try { sessionStorage.setItem('fromCascade', '1'); } catch {}
-    setMode('shop');
+    setCascading(true);
+    setMode('shop');          // flip the view, but keep the grid hidden
+    setPhase('waiting');
+
+    // hard gate until the cascade completes
+    const t = setTimeout(() => {
+      setPhase('grid');
+      setCascading(false);
+    }, CASCADE_MS);
+
+    return () => clearTimeout(t);
   }, []);
 
-  // Defer grid mount until the cascade finishes
-  useEffect(() => {
-    if (mode !== 'shop') return;
-    let delay = 0;
-    try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
-        const CASCADE_MS = 2400, PUSH_OFFSET_MS = 150, CUSHION_MS = 120;
-        delay = Math.max(0, CASCADE_MS - PUSH_OFFSET_MS + CUSHION_MS);
-      }
-    } catch {}
-    if (delay > 0) {
-      const t = setTimeout(() => {
-        try { sessionStorage.removeItem('fromCascade'); } catch {}
-        setPhase('grid');
-      }, delay);
-      return () => clearTimeout(t);
-    }
-    setPhase('grid');
-  }, [mode]);
-
-  // +/- behavior: 5 → 4 → 3 → 2 → 1 → 2 → ... → 5
+  // +/- behavior: 5 → 4 → 3 → 2 → 1 → 2 → 3 → 4 → 5 …
   const bumpDensity = useCallback(() => {
     setCols(c => {
       if (descending) {
@@ -66,13 +64,15 @@ export default function SinglePageApp() {
     });
   }, [descending]);
 
+  // --- Views ---------------------------------------------------------------
   if (mode === 'banned') {
     return <BannedLogin onCascadeToShop={onCascadeToShop} />;
   }
 
   return (
     <div className="shop-page" data-shop-root data-cols={cols}>
-      {/* Orb: top-left, matches Banned (rpm=44) but slightly smaller than before */}
+      {/* Orb density control: top-left, match banned rpm (44).
+         If you want slightly smaller/larger tweak height here. */}
       <button
         type="button"
         className="shop-density"
@@ -82,23 +82,21 @@ export default function SinglePageApp() {
         <BlueOrbCross3D height="9vh" rpm={44} />
       </button>
 
-      {/* Cart button back (top-right). If your CartContext drives the badge, it’ll wire up as before. */}
-      <div className="cart-fab" style={{ right: 18, top: 18, position: 'fixed', zIndex: 130 }}>
-        <CartButton />
-      </div>
+      {/* NOTE: We DO NOT render a CartButton here to avoid duplicates.
+               ShopGrid already renders the cart FAB (top-right). */}
 
       <div className="shop-wrap">
-        {phase === 'waiting' ? (
+        {phase === 'waiting' || cascading ? (
           <div className="shop-waiting" aria-busy="true" />
         ) : (
           <ShopGrid
             products={demoProducts}
-            onOpen={setActiveProduct}      // ShopGrid can call this if it supports it
+            onOpen={setActiveProduct}   // optional: only if your tiles call it
           />
         )}
       </div>
 
-      {/* Product overlay (uses your existing component) */}
+      {/* Product overlay, if you use it from grid clicks */}
       {activeProduct && (
         <ProductOverlay
           product={activeProduct}
@@ -107,15 +105,13 @@ export default function SinglePageApp() {
         />
       )}
 
-      {/* local style nudges */}
+      {/* Minimal local nudges */}
       <style jsx>{`
         .shop-page { min-height:100dvh; }
         .shop-wrap { width:100%; padding: 86px 24px 24px; }
         .shop-waiting {
-          height: 60vh;
-          width: 100%;
-          display: grid;
-          place-items: center;
+          height: 60vh; width: 100%;
+          display: grid; place-items: center;
           opacity: 0.95;
           background: radial-gradient(
             60% 60% at 50% 40%,
@@ -130,7 +126,7 @@ export default function SinglePageApp() {
         }
       `}</style>
 
-      {/* hard-override ShopGrid columns using the dynamic value */}
+      {/* Force columns on the grid based on the current density */}
       <style jsx>{`
         [data-cols="${cols}"] :global(.shop-grid){
           display:grid !important;
