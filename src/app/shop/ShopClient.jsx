@@ -7,6 +7,7 @@ import CartButton from '../../components/CartButton';
 
 const ShopGrid = nextDynamic(() => import('../../components/ShopGrid'), { ssr: false });
 
+// Demo data — swap for real products when ready
 const demoProducts = [
   { id: 'tee-01', name: 'TEE 01', price: 4000, images: [{ url: '/placeholder.png' }] },
   { id: 'tee-02', name: 'TEE 02', price: 4200, images: [{ url: '/placeholder.png' }] },
@@ -14,27 +15,24 @@ const demoProducts = [
 ];
 
 export default function ShopClient() {
-  const [phase, setPhase] = useState('waiting'); // 'waiting' | 'grid'
+  // cascade handoff: 'waiting' → 'grid'
+  const [phase, setPhase] = useState('waiting');
 
-  // Hide any header orbs/spinners on /shop
-  useEffect(() => {
-    const header = document.querySelector('header, [role="banner"], .topbar, .navbar');
-    if (!header) return;
-    const selectors = [
-      'canvas',
-      '[data-orb]',
-      '[aria-label*="orb" i]',
-      'svg[aria-label*="spinner" i]',
-      'svg[aria-label*="logo" i]',
-    ];
-    header.querySelectorAll(selectors.join(',')).forEach((el) => {
-      el.setAttribute('data-hidden-by-shop', '1');
-      el.style.display = 'none';
-      el.style.visibility = 'hidden';
+  // grid density controller (columns)
+  const [cols, setCols] = useState(5);     // start at 5 per row
+  const [dir, setDir]   = useState(-1);    // first click will go 5→4 (then to 1, then back up to 5)
+
+  // Clicking the orb cycles 5→1→5, one step per click
+  const handleDensityToggle = () => {
+    setCols((c) => {
+      const next = c + dir;
+      if (next <= 1) { setDir(+1); return 1; }
+      if (next >= 5) { setDir(-1); return 5; }
+      return next;
     });
-  }, []);
+  };
 
-  // Cascade handoff + wait for initial images
+  // Banned→Shop timing + small “images ready” cushion to avoid jolt
   useEffect(() => {
     let delay = 0;
     try {
@@ -47,7 +45,7 @@ export default function ShopClient() {
       }
     } catch {}
 
-    const mountGrid = () => {
+    const mount = () => {
       const imgs = Array.from(document.images || []).slice(0, 12);
       if (!imgs.length) return setPhase('grid');
       let done = 0;
@@ -60,31 +58,36 @@ export default function ShopClient() {
     };
 
     if (delay > 0) {
-      const t = setTimeout(mountGrid, delay);
+      const t = setTimeout(mount, delay);
       return () => clearTimeout(t);
     }
-    mountGrid();
+    mount();
   }, []);
-
-  const ORB_HEIGHT = '10vh'; // same feel as banned page
 
   return (
     <div className="min-h-[100dvh] grid">
-      {/* Top-left chakra orb (same component; move left) */}
-      <div className="fixed left-[18px] top-[18px] z-[120] pointer-events-none">
+      {/* TOP-LEFT: the SAME BlueOrbCross3D used on banned page, now acting as +/- button */}
+      <div
+        className="fixed left-[18px] top-[18px] z-[120]"
+        style={{ pointerEvents: 'auto' }} // must be clickable
+        aria-label="change grid density"
+        role="button"
+      >
         <BlueOrbCross3D
-          height={ORB_HEIGHT}
+          height="56px"                // visible size as a button (bigger than 10vh on laptops)
           overrideGlowOpacity={0.7}
-          // If your banned page passes custom props (rpm/color/etc), copy them here.
+          onActivate={handleDensityToggle}   // <-- click/Enter/Space handled inside component
+          // If your banned page passes custom props, copy them here to match motion exactly:
           // rpm={14.4} color="#32ffc7" glowOpacity={0.7} glowScale={1.35} includeZAxis
         />
       </div>
 
-      {/* Top-right cart */}
+      {/* TOP-RIGHT: cart button (back) */}
       <div className="cart-fab" style={{ position: 'fixed', right: 18, top: 18, zIndex: 130 }}>
         <CartButton />
       </div>
 
+      {/* CONTENT */}
       <div className="w-full">
         {phase === 'waiting' ? (
           <div
@@ -95,7 +98,7 @@ export default function ShopClient() {
             }}
           />
         ) : (
-          <ShopGrid products={demoProducts} />
+          <ShopGrid products={demoProducts} cols={cols} />
         )}
       </div>
     </div>
