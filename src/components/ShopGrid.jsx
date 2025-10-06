@@ -1,202 +1,106 @@
-// src/components/ShopGrid.jsx
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import CartButton from './CartButton';
-import ProductOverlay from './ProductOverlay';
-import ChakraOrbButton from './ChakraOrbButton';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
+import BlueOrbCross3D from './BlueOrbCross3D';
+import CartButton from './CartButton';         // you already have this
+// If you had a previous left-orb component (e.g., ChakraOrbButton / LoopFab),
+// do NOT import it here. We’re replacing it with BlueOrbCross3D in the header.
 
-const MIN_COLS = 1;
-const MAX_COLS = 5;
-
+/**
+ * ShopGrid
+ * - Renders a simple header:
+ *    left:  BlueOrbCross3D (chakra spinner)  ✅
+ *    center: gender toggle pill (visual only here; wire as needed)
+ *    right: cart button (existing component)
+ * - Renders the product grid once images are ready to avoid janky cascade.
+ */
 export default function ShopGrid({ products = [] }) {
-  const [selected, setSelected] = useState(null);
-  const [gender, setGender] = useState('boy'); // 'boy' | 'girl'
-  const [glow, setGlow] = useState('');
-  const [perRow, setPerRow] = useState(MAX_COLS);
+  const [ready, setReady] = useState(false);
 
-  // If we arrived via the banned-page cascade, show a very brief white veil
-  const [veil, setVeil] = useState(false);
+  // ---- Cascade smoothing: wait for images to settle before reveal ----
   useEffect(() => {
-    let from = null;
-    try { from = sessionStorage.getItem('fromCascade'); sessionStorage.removeItem('fromCascade'); } catch {}
-    if (from === '1') {
-      setVeil(true);
-      const t = setTimeout(() => setVeil(false), 360);
-      return () => clearTimeout(t);
+    // collect the first batch of images on this page
+    const imgs = Array.from(document.images || []).slice(0, 16);
+    if (imgs.length === 0) {
+      setReady(true);
+      return;
     }
+    let done = 0;
+    const mark = () => {
+      done++;
+      if (done >= imgs.length) setReady(true);
+    };
+    imgs.forEach((img) => {
+      if (img.complete) return mark();
+      img.addEventListener('load', mark, { once: true });
+      img.addEventListener('error', mark, { once: true });
+    });
   }, []);
 
-  // When we're still above 1 col, clicking the orb *shrinks* (5→1). At 1, it flips to grow (1→5).
-  const isZoomInPhase = perRow > MIN_COLS; // controls +/- state
-  const orbSegments   = isZoomInPhase ? 7 : 5; // classic cue: 7 = '+', 5 = '−'
-
-  const onOrbClick = useCallback(() => {
-    if (isZoomInPhase) {
-      const next = Math.max(MIN_COLS, perRow - 1);
-      setPerRow(next);
-    } else {
-      const next = Math.min(MAX_COLS, perRow + 1);
-      setPerRow(next);
-    }
-  }, [isZoomInPhase, perRow]);
-
-  // When value reaches an end, flip the phase so the next taps go the other way
-  useEffect(() => {
-    if (perRow === MIN_COLS && isZoomInPhase) {
-      // reached 1 while shrinking -> flip to grow
-      // (do it on next tick so UI states settle)
-      const t = setTimeout(() => {}, 0); return () => clearTimeout(t);
-    }
-    if (perRow === MAX_COLS && !isZoomInPhase) {
-      const t = setTimeout(() => {}, 0); return () => clearTimeout(t);
-    }
-  }, [perRow, isZoomInPhase]);
-
-  const toggleGender = () => {
-    const next = gender === 'boy' ? 'girl' : 'boy';
-    setGender(next);
-    setGlow(next === 'boy' ? 'glow-blue' : 'glow-green');
-    setTimeout(() => setGlow(''), 800);
-  };
-
-  const gridStyle = useMemo(
-    () => ({ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }),
-    [perRow]
-  );
-
+  // ---- Render ----
   return (
-    <div className="shop-page">
-      {/* ENTRY VEIL */}
-      {veil && <div className="entry-veil" aria-hidden />}
-
-      {/* Header: gender pill centered, cart on right */}
-      <header className="shop-head">
-        <div className="left" />
-        <div className="center">
-          <button
-            className={`shop-toggle ${gender === 'boy' ? 'shop-toggle--boy' : 'shop-toggle--girl'} ${glow}`}
-            onClick={toggleGender}
-            aria-label="Switch gender"
-            title="Switch gender"
-          >
-            {gender === 'boy' ? 'BOY' : 'GIRL'}
-          </button>
+    <div>
+      {/* HEADER */}
+      <header className="shop-head" style={{ position: 'relative', zIndex: 75 }}>
+        {/* left: chakra spinner */}
+        <div style={{ position: 'fixed', left: 18, top: 18, zIndex: 120, pointerEvents: 'none' }}>
+          <BlueOrbCross3D overrideGlowOpacity={0.7} height="44px" />
         </div>
-        <div className="right"><CartButton /></div>
+
+        {/* center: gender toggle pill (keep your existing classes) */}
+        <div
+          className="shop-toggle shop-toggle--boy"
+          style={{
+            position: 'fixed',
+            left: '50%',
+            top: 18,
+            transform: 'translateX(-50%)',
+            zIndex: 75,
+          }}
+        >
+          BOY
+        </div>
+
+        {/* right: cart */}
+        <div className="cart-fab" aria-label="cart">
+          <CartButton />
+        </div>
       </header>
 
-      {/* ORB bead: fixed top-left as +/- control */}
-      <div className="orb-fixed">
-        <ChakraOrbButton
-          segments={orbSegments}
-          onClick={onOrbClick}
-          size={44}
-          title={isZoomInPhase ? 'Zoom in (5→1)' : 'Zoom out (1→5)'}
-          spinMs={isZoomInPhase ? 3200 : 3600}
-          revealMs={720}
-          flashMs={420}
-          flashColor="#0bf05f"
-        />
-      </div>
-
-      <div className="shop-wrap">
-        <div className="shop-grid" style={gridStyle} key={perRow /* tiny reflow aid */}>
-          {products.map((p, i) => {
-            const name    = p?.name ?? `ITEM ${i + 1}`;
-            const img     = p?.images?.[0]?.file?.url || p?.images?.[0]?.url || p?.image || '/placeholder.png';
-            const open    = () => setSelected(p);
-            const keydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
-
+      {/* GRID */}
+      <section
+        className="shop-wrap"
+        style={{
+          opacity: ready ? 1 : 0,
+          transform: ready ? 'translateY(0)' : 'translateY(6px)',
+          transition: 'opacity .36s cubic-bezier(.22,1,.36,1), transform .36s cubic-bezier(.22,1,.36,1)',
+          willChange: 'opacity, transform',
+        }}
+      >
+        <div className="shop-grid">
+          {products.map((p, idx) => {
+            const img = p?.images?.[0]?.url || '/placeholder.png';
+            const title = p?.name ?? `Item ${idx + 1}`;
             return (
-              <a
-                key={p?.id || p?.slug || name}
-                className="product-tile"
-                href="#"
-                onClick={(e)=>{ e.preventDefault(); open(); }}
-                onKeyDown={keydown}
-                role="button"
-                tabIndex={0}
-                aria-label={`Open ${name}`}
-              >
+              <a key={p.id ?? idx} className="product-tile" href="#" aria-label={title}>
                 <div className="product-box">
-                  <img className="product-img" src={img} alt={name} loading="lazy" />
+                  {/* Use next/image for stability; it respects container size */}
+                  <Image
+                    src={img}
+                    alt={title}
+                    width={800}
+                    height={800}
+                    className="product-img"
+                    priority={idx < 6}
+                  />
                 </div>
-                <div className="product-meta">{name}</div>
+                <div className="product-meta">{title}</div>
               </a>
             );
           })}
         </div>
-      </div>
-
-      {selected && <ProductOverlay product={selected} onClose={() => setSelected(null)} />}
-
-      <style jsx>{`
-        .shop-page { position:relative; padding-bottom:64px; background:#fff; color:#111; min-height:100dvh; overflow:hidden; }
-
-        /* entry veil */
-        .entry-veil{
-          position:fixed; inset:0; background:#fff; z-index:999;
-          animation: veilOut .36s ease-out forwards;
-        }
-        @keyframes veilOut { from{opacity:1;} to{opacity:0;} }
-
-        .shop-head { position:sticky; top:0; z-index:60; background:linear-gradient(#ffffff, rgba(255,255,255,.85) 70%, rgba(255,255,255,0)); padding:16px 16px 10px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
-        .left{ width:44px; }
-        .center{ display:flex; align-items:center; justify-content:center; flex:1; }
-        .right{ display:flex; align-items:center; gap:8px; }
-
-        /* Gender pill */
-        .shop-toggle {
-          padding: 6px 14px;
-          border-radius: 999px;
-          border: 1px solid rgba(0,0,0,.12);
-          font-weight: 800;
-          letter-spacing: 0.12em;
-          background: rgba(255,255,255,.88);
-          box-shadow: 0 2px 10px rgba(0,0,0,.10);
-          cursor: pointer;
-          backdrop-filter: blur(6px);
-        }
-        .shop-toggle--boy {
-          color: #0ea5e9;
-          text-shadow: 0 0 10px rgba(14, 165, 233, .45);
-        }
-        .shop-toggle--girl {
-          color: #22c55e;
-          text-shadow: 0 0 10px rgba(34, 197, 94, .45);
-        }
-        .glow-blue { animation: pulseBlue 800ms ease; }
-        .glow-green { animation: pulseGreen 800ms ease; }
-        @keyframes pulseBlue  { from{ box-shadow:0 0 0 0 rgba(14,165,233,.55); } to{ box-shadow:0 0 0 18px rgba(14,165,233,0);} }
-        @keyframes pulseGreen { from{ box-shadow:0 0 0 0 rgba(34,197,94,.55); }  to{ box-shadow:0 0 0 18px rgba(34,197,94,0);} }
-
-        /* Orb position */
-        .orb-fixed{ position:fixed; left:18px; top:18px; z-index:120; }
-
-        /* Grid */
-        .shop-wrap { padding: 10px 24px 24px; }
-        .shop-grid {
-          display:grid;
-          gap: 28px 32px;
-          transition: grid-template-columns 300ms ease, gap 160ms ease;
-        }
-
-        .product-tile {
-          display:grid; gap:10px; align-content:start;
-          text-decoration:none; color:inherit;
-        }
-        .product-box {
-          aspect-ratio: 4 / 3;
-          border-radius:12px; overflow:hidden;
-          background:#f3f3f3;
-          box-shadow:0 1px 0 rgba(0,0,0,.04) inset;
-          transition: transform 160ms ease, box-shadow 160ms ease;
-        }
-        .product-img { width:100%; height:100%; object-fit:contain; object-position:center; display:block; filter:saturate(1.02); }
-        .product-meta { font-weight:800; letter-spacing:.12em; }
-        .product-tile:hover .product-box { transform: translateY(-1px); box-shadow:0 8px 24px rgba(0,0,0,.08); }
-      `}</style>
+      </section>
     </div>
   );
 }
