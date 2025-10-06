@@ -11,7 +11,7 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 import { useRouter } from 'next/navigation';
 
 const CASCADE_MS = 2400;
-const HOP_PATH = '/shop'; // <-- set your shop route
+const HOP_PATH = '/shop'; // fallback when we still use the /shop route
 
 /** Brand: glue ".com" to "Lameboy". Click to launch butterfly. */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
@@ -85,7 +85,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
   );
 }
 
-export default function BannedLogin() {
+export default function BannedLogin({ onProceed }) {
   const router = useRouter();
 
   const [view, setView] = useState('banned'); // 'banned' | 'login'
@@ -113,7 +113,7 @@ export default function BannedLogin() {
   const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
 
-  // Prefetch the shop so navigation is instant
+  // Prefetch /shop (fast nav when using separate route)
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
 
   useEffect(() => {
@@ -130,20 +130,24 @@ export default function BannedLogin() {
   }, []);
 
   /**
-   * Start cascade immediately, then push to shop during the early white.
-   * We also set a session flag so ShopGrid can show a brief entry veil.
+   * Start cascade immediately. If a parent passed onProceed (unified page),
+   * call that instead of pushing a new route; else push to /shop.
    */
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
 
-    // mark origin for ShopGrid entry veil
+    // mark origin for downstream entry veil
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    // push early so the grid mounts under the white
-    setTimeout(() => { try { router.push(HOP_PATH); } catch {} }, 100);
+    if (typeof onProceed === 'function') {
+      // unified single-page handoff
+      setTimeout(() => { try { onProceed(); } catch {} }, 100);
+    } else {
+      // legacy separate route
+      setTimeout(() => { try { router.push(HOP_PATH); } catch {} }, 100);
+    }
 
-    // keep the overlay running for those ~2.4s; when done, set whiteout
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
@@ -152,7 +156,7 @@ export default function BannedLogin() {
     }, CASCADE_MS);
 
     return () => clearTimeout(t);
-  }, [router]);
+  }, [router, onProceed]);
 
   const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
@@ -334,68 +338,29 @@ export default function BannedLogin() {
       {/* Local CSS (scoped to login bubble) */}
       <style jsx global>{`
         :root { --lb-seafoam:#32ffc7; }
-
-        .login-card pre.code-tight{
-          letter-spacing:0;
-          word-spacing:-0.10ch;
-          white-space:pre;
-          line-height:1.35;
-        }
+        .login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.10ch; white-space:pre; line-height:1.35; }
         .code-row{ display:flex; align-items:baseline; gap:.35ch; line-height:1.35; }
         .nogap{ display:inline-flex; gap:0; }
-
-        .login-card .lb-seafoam,
-        .login-card .code-comment{
+        .login-card .lb-seafoam, .login-card .code-comment{
           color:var(--lb-seafoam) !important;
           text-shadow:0 0 6px var(--lb-seafoam), 0 0 14px var(--lb-seafoam);
           letter-spacing:0; word-spacing:normal;
         }
-
-        .login-card .code-keyword,
-        .login-card .code-var,
-        .login-card .code-op,
-        .login-card .code-string,
-        .login-card .code-punc,
-        .login-card .lb-white {
+        .login-card .code-keyword, .login-card .code-var, .login-card .code-op,
+        .login-card .code-string, .login-card .code-punc, .login-card .lb-white {
           text-shadow:0 0 6px currentColor, 0 0 14px currentColor;
         }
-
-        /* ===== Buttons ===== */
-        .login-card .commit-btn{
-          border:none; border-radius:10px; padding:6px 10px; font-weight:700;
-          line-height:1; cursor:pointer; transition:color .15s ease, box-shadow .15s ease, filter .15s ease;
-        }
-        .login-card .btn-yellow{
-          background:linear-gradient(#ffd84a,#f7b400);
-          color:#2a2000;
-          box-shadow:0 0 14px rgba(255,214,64,.35), 0 0 28px rgba(255,214,64,.18);
-        }
-        .login-card .btn-red{
-          background:linear-gradient(#ff4b66,#d90f1c);
-          color:#330004;
-          box-shadow:0 0 14px rgba(255,76,97,.40), 0 0 28px rgba(255,76,97,.22);
-        }
-        .login-card .commit-btn.btn-activated,
-        .login-card .commit-btn:active{
-          color:#fff !important;
-          text-shadow:0 0 6px #fff, 0 0 14px #fff, 0 0 26px #fff;
-          filter:saturate(1.15) brightness(1.15);
-        }
-        .login-card .commit-btn:focus-visible{
-          outline:2px solid rgba(255,255,255,.65);
-          outline-offset:2px;
-        }
-
-        /* Inputs */
+        .login-card .commit-btn{ border:none; border-radius:10px; padding:6px 10px; font-weight:700; line-height:1; cursor:pointer; transition:color .15s ease, box-shadow .15s ease, filter .15s ease; }
+        .login-card .btn-yellow{ background:linear-gradient(#ffd84a,#f7b400); color:#2a2000; box-shadow:0 0 14px rgba(255,214,64,.35), 0 0 28px rgba(255,214,64,.18); }
+        .login-card .btn-red{ background:linear-gradient(#ff4b66,#d90f1c); color:#330004; box-shadow:0 0 14px rgba(255,76,97,.40), 0 0 28px rgba(255,76,97,.22); }
+        .login-card .commit-btn.btn-activated, .login-card .commit-btn:active{ color:#fff !important; text-shadow:0 0 6px #fff, 0 0 14px #fff, 0 0 26px #fff; filter:saturate(1.15) brightness(1.15); }
+        .login-card .commit-btn:focus-visible{ outline:2px solid rgba(255,255,255,.65); outline-offset:2px; }
         .code-input-violet{
           color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa;
           background:transparent; border:0; outline:0; font:inherit; padding:0; margin:0; width:auto;
           text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa; filter:saturate(1.15);
         }
-        .code-input-violet::placeholder{
-          color:#9a8aec; opacity:.95; text-shadow:0 0 4px #9a8aec, 0 0 10px #9a8aec;
-        }
-
+        .code-input-violet::placeholder{ color:#9a8aec; opacity:.95; text-shadow:0 0 4px #9a8aec, 0 0 10px #9a8aec; }
         .code-link{ cursor:pointer; text-decoration:none; }
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }

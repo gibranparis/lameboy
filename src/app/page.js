@@ -6,11 +6,13 @@ export const runtime = 'nodejs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import nextDynamic from 'next/dynamic';
 
-// ✅ Your components are in src/components/*.jsx
+// Your components live in src/components
+import BannedLogin from '@/components/BannedLogin.jsx';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D.jsx';
 import CartButton from '@/components/CartButton.jsx';
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid.jsx'), { ssr: false });
 
+// Demo data – swap with real products
 const demoProducts = [
   { id: 'tee-01', name: 'TEE 01', price: 4000, images: [{ url: '/placeholder.png' }] },
   { id: 'tee-02', name: 'TEE 02', price: 4200, images: [{ url: '/placeholder.png' }] },
@@ -22,18 +24,20 @@ const PUSH_OFFSET_MS = 150;
 const CUSHION_MS = 120;
 
 export default function UnifiedPage() {
-  // 'banned' → cascade → 'shop' (no navigation)
-  const [mode, setMode] = useState('banned');
+  // 'banned' → cascade → 'shop' (same URL; no route change)
+  const [mode, setMode] = useState<'banned' | 'shop'>('banned');
   const [showBands, setShowBands] = useState(false);
   const [veil, setVeil] = useState(0);
 
-  // grid density 5 → 1 → 5
+  // grid density 5 → 1 → 5 (via orb)
   const [cols, setCols] = useState(5);
   const [dir, setDir] = useState(-1);
-  const orbWrapRef = useRef(null);
+  const orbWrapRef = useRef<HTMLDivElement | null>(null);
   const isShop = mode === 'shop';
 
+  // Called by the banned screen when user proceeds
   const beginCascadeToShop = () => {
+    try { sessionStorage.setItem('fromCascade', '1'); } catch {}
     setShowBands(true);
     setVeil(1);
     setTimeout(() => setVeil(0), 40);
@@ -45,7 +49,7 @@ export default function UnifiedPage() {
     }, handoff);
   };
 
-  // Pin the density orb & hide stray canvases on the shop view
+  // Pin orb; hide stray canvases/spinners in header on shop
   useEffect(() => {
     if (!isShop) return;
 
@@ -56,25 +60,24 @@ export default function UnifiedPage() {
       s.top = '18px';
       s.zIndex = '120';
       s.pointerEvents = 'auto';
-      s.width = '112px';  // 2× bigger
+      s.width = '112px'; // 2× bigger
       s.height = '112px';
       s.transform = 'none';
     }
 
-    // Hide any canvases not part of our orb
     const keep = new Set(orbWrapRef.current ? orbWrapRef.current.querySelectorAll('canvas') : []);
-    document.querySelectorAll('canvas').forEach(c => { if (!keep.has(c)) c.style.display = 'none'; });
+    document.querySelectorAll('canvas').forEach((c) => { if (!keep.has(c)) c.style.display = 'none'; });
 
-    // Neutralize any header visuals
     const header = document.querySelector('header, [role="banner"], .topbar, .navbar');
     if (header) {
       header.querySelectorAll('canvas,[data-orb],[aria-label*="orb" i],svg[aria-label*="spinner" i],svg[aria-label*="logo" i]')
-        .forEach(el => (el.style.display = 'none'));
+        .forEach((el) => (el as HTMLElement).style.display = 'none');
     }
   }, [isShop]);
 
+  // Orb +/- density
   const onDensity = () => {
-    setCols(c => {
+    setCols((c) => {
       const next = c + dir;
       if (next <= 1) { setDir(+1); return 1; }
       if (next >= 5) { setDir(-1); return 5; }
@@ -82,25 +85,13 @@ export default function UnifiedPage() {
     });
   };
 
-  // ===== Views =====
   const banned = useMemo(() => (
-    <div className="page-center">
-      <div className="login-card vscode-card card-ultra-tight login-stack">
-        <button
-          className="btn-link bubble-button lameboy-glow"
-          onClick={beginCascadeToShop}
-          style={{ padding: '8px 14px', borderRadius: 12, fontWeight: 900 }}
-        >
-          ENTER
-        </button>
-        <span className="florida-inline florida-link">Florida, USA</span>
-      </div>
-    </div>
+    <BannedLogin onProceed={beginCascadeToShop} />
   ), []);
 
   const shop = useMemo(() => (
     <div data-shop-root className="min-h-[100dvh] grid">
-      {/* 2× ORB DENSITY BUTTON — pinned top-left */}
+      {/* 2× density orb, pinned top-left */}
       <div ref={orbWrapRef} data-orb="density" aria-label="Change grid density" role="button">
         <BlueOrbCross3D
           height="112px"
@@ -110,11 +101,12 @@ export default function UnifiedPage() {
         />
       </div>
 
-      {/* CART — clean single layer */}
+      {/* Cart (single, crisp layer) */}
       <div data-cart-root style={{ position: 'fixed', right: 18, top: 18, zIndex: 130, pointerEvents: 'auto' }}>
         <CartButton />
       </div>
 
+      {/* Grid */}
       <div className="w-full">
         <ShopGrid products={demoProducts} cols={cols} />
       </div>
@@ -125,7 +117,7 @@ export default function UnifiedPage() {
     <div className="min-h-[100dvh]">
       {mode === 'banned' ? banned : shop}
 
-      {/* Chakra carry-over bands during cascade */}
+      {/* Chakra bands bridge the feel during handoff */}
       {showBands && (
         <div className="chakra-overlay" aria-hidden="true" style={{ pointerEvents: 'none' }}>
           <span className="chakra-band band-7 chakra-crown" />
@@ -138,13 +130,13 @@ export default function UnifiedPage() {
         </div>
       )}
 
-      {/* Black → white fade veil (makes it feel like one motion) */}
+      {/* Black → white veil so it reads as ONE motion */}
       <div
         aria-hidden="true"
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 110, // below orb (120) & cart (130)
+          zIndex: 110,
           background: '#000',
           opacity: veil,
           transition: 'opacity 600ms cubic-bezier(.22,1,.36,1)',
