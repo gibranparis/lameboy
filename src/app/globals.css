@@ -42,7 +42,7 @@ html,body{
   -moz-osx-font-smoothing:grayscale;
 }
 
-/* Prefer-reduced-motion: disable global animations if requested */
+/* Prefer-reduced-motion */
 @media (prefers-reduced-motion: reduce){
   * {
     animation-duration: 0.001ms !important;
@@ -75,14 +75,13 @@ html,body{
   width:fit-content; max-width:92vw;
 }
 
-/* Location link (Florida / LAMEBOY) */
+/* Location link */
 .ghost-btn{
   background:transparent; border:0; margin:0; padding:0;
   color:var(--muted); font:inherit; cursor:pointer; white-space:nowrap;
   transition: color .15s ease, text-shadow .15s ease;
 }
 .florida-link{ color:var(--muted); }
-/* Warm yellow glow when active/hover */
 .florida-link:hover,
 .florida-link.is-hot{
   color:#ffeb3b; font-weight:900;
@@ -166,38 +165,29 @@ html,body{
 .chakra-thirdeye{--c:#b300ff;background:#4B0082}
 .chakra-crown{--c:#faf5ff;background:#8B00FF}
 
-/* ===== Bubble-as-button (blue hover/click glow) ===== */
+/* Bubble-as-button */
 .bubble-button{ cursor:pointer; }
-/* Hover glow (blue) */
 .bubble-button:hover{
   box-shadow:
     0 0 0 1px rgba(25,145,255,.25),
     0 0 24px rgba(25,145,255,.22),
     0 0 50px rgba(25,145,255,.25);
 }
-/* Click pulse (blue) */
 @keyframes bubblePulseBlue{
   0%{   box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12); }
   35%{  box-shadow:0 0 0 1px rgba(25,145,255,.25), 0 0 28px rgba(25,145,255,.28), 0 0 56px rgba(25,145,255,.32); }
   100%{ box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12); }
 }
 .bubble-glow-blue{ animation: bubblePulseBlue .85s ease-out; }
-/* Accessible focus for bubble button */
 .bubble-button:focus-visible{
   outline:2px solid #4aa5ff;
   outline-offset:4px;
   border-radius:var(--radius-xl);
 }
 
-/* ----- Center stack (bubble + Florida underneath) ----- */
-.login-stack{
-  display:flex; flex-direction:column; align-items:center; gap:10px;
-}
-.florida-inline{
-  display:inline-block; margin-top:2px; /* default muted; glow via .is-hot */
-}
-
-/* LAMEBOY / login seafoam glow */
+/* Center stack (bubble + Florida) */
+.login-stack{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+.florida-inline{ display:inline-block; margin-top:2px; }
 .lameboy-glow{
   color:var(--seafoam);
   font-weight:900;
@@ -233,7 +223,7 @@ html,body{
   font-size:clamp(12px,1.7vw,18px); line-height:1.05;
 }
 
-/* Density button (top-left) */
+/* Density button (legacy style block kept for reference/use) */
 .shop-density{
   position:fixed; left:18px; top:18px; z-index:75;
   width:36px; height:36px; border-radius:10px;
@@ -264,15 +254,9 @@ html,body{
   border:1px solid rgba(0,0,0,.12);
 }
 
-/* Toggle glow pulses */
-@keyframes textGlowBlue { 0%{text-shadow:0 0 0 rgba(74,125,255,0);} 50%{text-shadow:0 0 24px rgba(74,125,255,.7);} 100%{text-shadow:0 0 0 rgba(74,125,255,0);} }
-@keyframes textGlowGreen{ 0%{text-shadow:0 0 0 rgba(11,240,95,0);} 50%{text-shadow:0 0 24px rgba(11,240,95,.7);} 100%{text-shadow:0 0 0 rgba(11,240,95,0);} }
-.shop-toggle.glow-blue  { animation: textGlowBlue  .7s ease-out; }
-.shop-toggle.glow-green { animation: textGlowGreen .7s ease-out; }
-
-/* Cart FAB (icon-only) — raised above overlay */
+/* Cart FAB */
 .cart-fab{
-  position:fixed; right:18px; top:18px; z-index:130; /* keep visible over product overlay */
+  position:fixed; right:18px; top:18px; z-index:130;
   width:42px; height:36px; border-radius:10px; padding:0;
   display:inline-flex; align-items:center; justify-content:center;
   border:1px solid rgba(0,0,0,.12);
@@ -282,7 +266,7 @@ html,body{
 .cart-fab:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
 .cart-fab svg{ width:20px; height:20px; }
 
-/* Always-green badge + bump & pulse */
+/* Cart badge + animations */
 .cart-badge{
   position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px;
   border-radius:999px; color:#fff; font-size:11px; font-weight:900;
@@ -360,7 +344,7 @@ html,body{
 }
 .hero-plus:hover{ transform:translateY(-1px); background:rgba(0,0,0,.07); }
 
-/* === Action buttons on login (Link & Bypass) === */
+/* Action buttons on login */
 .btn-link{
   border-color:#4b9cd3;
   background: linear-gradient(180deg, rgba(75,156,211,.22) 0%, rgba(75,156,211,.12) 100%);
@@ -376,8 +360,6 @@ html,body{
     0 0 26px rgba(75,156,211,.35),
     0 0 56px rgba(75,156,211,.25);
 }
-
-/* Gold glow for Bypass (like the star) */
 .btn-bypass{
   border-color:#f1b800;
   background: radial-gradient(circle at 35% 35%, #fff6b2 0%, #ffe34d 40%, #ffd600 72%, #f1b800 100%);
@@ -394,8 +376,6 @@ html,body{
     0 0 26px rgba(241,184,0,.45),
     0 0 62px rgba(241,184,0,.30);
 }
-
-/* Lime-green activation pulse for BOTH buttons */
 @keyframes btnPulseLime {
   0%   { transform: scale(1);   box-shadow: 0 0 0 0 rgba(11,240,95,0); }
   35%  { transform: scale(1.04); box-shadow: 0 0 24px 10px rgba(11,240,95,.30); }
@@ -409,29 +389,30 @@ html,body{
   color:#0b3a25 !important;
 }
 
-/* 3D logo canvas sits behind UI and cascade */
+/* Global 3D logo canvas */
 .logo-3d{
   position: fixed;
   inset: 0;
-  z-index: 8;          /* bubble/card default > 8; cascade is 60 */
+  z-index: 8;
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce){
   .logo-3d{ display:none; }
 }
-/* Tighten spaces inside the code bubble without affecting token colors */
 .login-card pre.code-tight { letter-spacing: 0; word-spacing: -0.14ch; }
 
 /* =========================
-   /shop global overrides (JS-free via :has())
-   When a descendant with [data-shop-root] exists, flip the theme + header.
+   /shop overrides via :has([data-shop-root])
    ========================= */
+
+/* Flip BOTH html and body to off-white so nothing black bleeds through */
+html:has([data-shop-root]),
 html:has([data-shop-root]) body {
-  background: #F7F7F2 !important; /* off-white */
+  background: #F7F7F2 !important;
   color: #111 !important;
 }
 
-/* Kill the black header strip on /shop */
+/* Transparent header/topbar */
 html:has([data-shop-root]) header,
 html:has([data-shop-root]) [role="banner"],
 html:has([data-shop-root]) .topbar,
@@ -441,53 +422,16 @@ html:has([data-shop-root]) .navbar {
   border: 0 !important;
 }
 
-/* Hide any left orb/spinner/canvas inside header on /shop (selector shotgun) */
-html:has([data-shop-root]) header canvas,
-html:has([data-shop-root]) [role="banner"] canvas,
-html:has([data-shop-root]) header svg[aria-label*="spinner"],
-html:has([data-shop-root]) header [data-orb],
-html:has([data-shop-root]) header [aria-label*="orb"],
-html:has([data-shop-root]) [role="banner"] [data-orb] {
-  display: none !important;
-}
+/* Hide global full-screen canvas on /shop (prevents black area) */
+html:has([data-shop-root]) .logo-3d { display: none !important; }
 
-/* Smooth transforms for cascading tiles (helps reduce jitter) */
-html:has([data-shop-root]) .shop-grid,
-html:has([data-shop-root]) .product-box,
-html:has([data-shop-root]) .product-img {
-  will-change: transform, opacity;
-  transform: translateZ(0);           /* force GPU path */
-  backface-visibility: hidden;
-}
-
-/* /shop global mode via data-shop-root marker */
-html:has([data-shop-root]) body {
-  background: #F7F7F2 !important; /* off-white */
-  color: #111 !important;
-}
-
-/* Make any header/topbar transparent (no black strip) */
-html:has([data-shop-root]) header,
-html:has([data-shop-root]) [role="banner"],
-html:has([data-shop-root]) .topbar,
-html:has([data-shop-root]) .navbar {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-}
-
-/* Hide the global Three.js background canvas on /shop (that’s the black area) */
-html:has([data-shop-root]) .logo-3d {
-  display: none !important;
-}
-
-/* Also hide any spinner/canvas/logo inside header just in case */
+/* Safety: hide any spinner/canvas/logo inside header */
 html:has([data-shop-root]) header canvas,
 html:has([data-shop-root]) [role="banner"] canvas,
 html:has([data-shop-root]) header [data-orb],
-html:has([data-shop-root]) header [aria-label*="orb"],
-html:has([data-shop-root]) header svg[aria-label*="spinner"],
-html:has([data-shop-root]) header svg[aria-label*="logo"] {
+html:has([data-shop-root]) header [aria-label*="orb" i],
+html:has([data-shop-root]) header svg[aria-label*="spinner" i],
+html:has([data-shop-root]) header svg[aria-label*="logo" i] {
   display: none !important;
 }
 
