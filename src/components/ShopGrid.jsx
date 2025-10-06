@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
-/** Minimal grid; header only contains the center toggle.
- *  Cart FAB is handled globally so we DO NOT render another one here. */
 export default function ShopGrid({ products = [] }) {
   const [ready, setReady] = useState(false);
 
@@ -22,7 +20,7 @@ export default function ShopGrid({ products = [] }) {
 
   return (
     <div>
-      {/* Center toggle pill only (keep your existing classes) */}
+      {/* Center toggle pill only */}
       <div
         className="shop-toggle shop-toggle--boy"
         style={{ position: 'fixed', left: '50%', top: 18, transform: 'translateX(-50%)', zIndex: 75 }}

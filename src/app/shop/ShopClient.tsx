@@ -3,6 +3,7 @@
 import nextDynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import BlueOrbCross3D from '../../components/BlueOrbCross3D';
+import CartButton from '../../components/CartButton';
 
 const ShopGrid = nextDynamic(() => import('../../components/ShopGrid'), { ssr: false });
 
@@ -17,7 +18,7 @@ const demoProducts = [
 export default function ShopClient() {
   const [phase, setPhase] = useState<Phase>('waiting');
 
-  // Hide ANY orb/spinner/logo living inside a header/topbar on /shop
+  // Hide any header orbs/spinners on /shop (small left orb, etc.)
   useEffect(() => {
     const header = document.querySelector('header, [role="banner"], .topbar, .navbar');
     if (!header) return;
@@ -35,7 +36,7 @@ export default function ShopClient() {
     });
   }, []);
 
-  // Match the banned->shop cascade and wait for images to settle
+  // Cascade handoff: match banned timing, then also wait for initial images
   useEffect(() => {
     let delay = 0;
     try {
@@ -48,54 +49,56 @@ export default function ShopClient() {
       }
     } catch {}
 
-    const startGrid = () => setPhase('grid');
+    const mountGrid = () => {
+      // wait for first batch of images (reduces jolt)
+      const imgs = Array.from(document.images || []).slice(0, 12);
+      if (!imgs.length) return setPhase('grid');
+      let done = 0;
+      const mark = () => { if (++done >= imgs.length) setPhase('grid'); };
+      imgs.forEach((img) => {
+        if (img.complete) return mark();
+        img.addEventListener('load', mark, { once: true });
+        img.addEventListener('error', mark, { once: true });
+      });
+    };
 
     if (delay > 0) {
-      const t = setTimeout(startGrid, delay);
+      const t = setTimeout(mountGrid, delay);
       return () => clearTimeout(t);
     }
-
-    // if no cascade handoff, still avoid a pop: wait first batch of images
-    const imgs = Array.from(document.images || []).slice(0, 12);
-    if (imgs.length === 0) return startGrid();
-    let done = 0;
-    const mark = () => { if (++done >= imgs.length) startGrid(); };
-    imgs.forEach((img) => {
-      if (img.complete) return mark();
-      img.addEventListener('load', mark, { once: true });
-      img.addEventListener('error', mark, { once: true });
-    });
+    mountGrid();
   }, []);
+
+  // Use the SAME size/feel as banned page (default component height is '10vh')
+  const ORB_HEIGHT = '10vh';
 
   return (
     <div className="min-h-[100dvh] grid">
-      {/* The ONLY spinner on /shop — identical component used on banned page,
-          just positioned in the top-left. 
-          IMPORTANT: If your banned page passes custom props (rpm/color/etc.),
-          COPY THEM HERE 1:1 so speed/appearance are identical. */}
-      <div id="shop-orb-left" className="fixed left-[18px] top-[18px] z-[120] pointer-events-none">
+      {/* ✅ Top-left chakra orb (same component/feel as banned page, just moved) */}
+      <div className="fixed left-[18px] top-[18px] z-[120] pointer-events-none">
         <BlueOrbCross3D
-          /* ⬇️ If banned page uses custom props, paste them here */
-          /* rpm={14.4} color="#32ffc7" glowOpacity={0.7} glowScale={1.35} includeZAxis */
-          overrideGlowOpacity={0.7}
-          height="44px"
+          height={ORB_HEIGHT}
+          overrideGlowOpacity={0.7}   // TS requirement; banned page feel
+          // If banned page passes custom props (rpm/color/etc), copy them here 1:1.
+          // rpm={14.4} color="#32ffc7" glowOpacity={0.7} glowScale={1.35} includeZAxis
         />
       </div>
 
-      {/* no centered spinner */}
+      {/* ✅ Top-right cart (bring it back explicitly) */}
+      <div className="cart-fab" style={{ position: 'fixed', right: 18, top: 18, zIndex: 130 }}>
+        <CartButton />
+      </div>
 
       <div className="w-full">
         {phase === 'waiting' ? (
+          // Light veil while the cascade finishes + images settle
           <div
             className="grid h-[60vh] w-full place-items-center opacity-95"
             style={{
               backgroundImage:
                 'radial-gradient(60% 60% at 50% 40%, rgba(0,0,0,0.06), rgba(0,0,0,0.02) 70%, transparent 100%)',
             }}
-          >
-            {/* small echo while we wait — same component/props */}
-            <BlueOrbCross3D overrideGlowOpacity={0.7} height="44px" />
-          </div>
+          />
         ) : (
           <ShopGrid products={demoProducts} />
         )}
