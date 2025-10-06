@@ -1,36 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import BlueOrbCross3D from './BlueOrbCross3D';
-import CartButton from './CartButton';         // you already have this
-// If you had a previous left-orb component (e.g., ChakraOrbButton / LoopFab),
-// do NOT import it here. We’re replacing it with BlueOrbCross3D in the header.
 
-/**
- * ShopGrid
- * - Renders a simple header:
- *    left:  BlueOrbCross3D (chakra spinner)  ✅
- *    center: gender toggle pill (visual only here; wire as needed)
- *    right: cart button (existing component)
- * - Renders the product grid once images are ready to avoid janky cascade.
- */
+/** Minimal grid; header only contains the center toggle.
+ *  Cart FAB is handled globally so we DO NOT render another one here. */
 export default function ShopGrid({ products = [] }) {
   const [ready, setReady] = useState(false);
 
-  // ---- Cascade smoothing: wait for images to settle before reveal ----
   useEffect(() => {
-    // collect the first batch of images on this page
     const imgs = Array.from(document.images || []).slice(0, 16);
-    if (imgs.length === 0) {
-      setReady(true);
-      return;
-    }
+    if (!imgs.length) return setReady(true);
     let done = 0;
-    const mark = () => {
-      done++;
-      if (done >= imgs.length) setReady(true);
-    };
+    const mark = () => { if (++done >= imgs.length) setReady(true); };
     imgs.forEach((img) => {
       if (img.complete) return mark();
       img.addEventListener('load', mark, { once: true });
@@ -38,37 +20,16 @@ export default function ShopGrid({ products = [] }) {
     });
   }, []);
 
-  // ---- Render ----
   return (
     <div>
-      {/* HEADER */}
-      <header className="shop-head" style={{ position: 'relative', zIndex: 75 }}>
-        {/* left: chakra spinner */}
-        <div style={{ position: 'fixed', left: 18, top: 18, zIndex: 120, pointerEvents: 'none' }}>
-          <BlueOrbCross3D overrideGlowOpacity={0.7} height="44px" />
-        </div>
+      {/* Center toggle pill only (keep your existing classes) */}
+      <div
+        className="shop-toggle shop-toggle--boy"
+        style={{ position: 'fixed', left: '50%', top: 18, transform: 'translateX(-50%)', zIndex: 75 }}
+      >
+        BOY
+      </div>
 
-        {/* center: gender toggle pill (keep your existing classes) */}
-        <div
-          className="shop-toggle shop-toggle--boy"
-          style={{
-            position: 'fixed',
-            left: '50%',
-            top: 18,
-            transform: 'translateX(-50%)',
-            zIndex: 75,
-          }}
-        >
-          BOY
-        </div>
-
-        {/* right: cart */}
-        <div className="cart-fab" aria-label="cart">
-          <CartButton />
-        </div>
-      </header>
-
-      {/* GRID */}
       <section
         className="shop-wrap"
         style={{
@@ -85,7 +46,6 @@ export default function ShopGrid({ products = [] }) {
             return (
               <a key={p.id ?? idx} className="product-tile" href="#" aria-label={title}>
                 <div className="product-box">
-                  {/* Use next/image for stability; it respects container size */}
                   <Image
                     src={img}
                     alt={title}

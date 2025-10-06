@@ -17,6 +17,25 @@ const demoProducts = [
 export default function ShopClient() {
   const [phase, setPhase] = useState<Phase>('waiting');
 
+  // Hide ANY orb/spinner/logo living inside a header/topbar on /shop
+  useEffect(() => {
+    const header = document.querySelector('header, [role="banner"], .topbar, .navbar');
+    if (!header) return;
+    const selectors = [
+      'canvas',
+      '[data-orb]',
+      '[aria-label*="orb" i]',
+      'svg[aria-label*="spinner" i]',
+      'svg[aria-label*="logo" i]',
+    ];
+    header.querySelectorAll<HTMLElement>(selectors.join(',')).forEach((el) => {
+      el.setAttribute('data-hidden-by-shop', '1');
+      el.style.display = 'none';
+      el.style.visibility = 'hidden';
+    });
+  }, []);
+
+  // Match the banned->shop cascade and wait for images to settle
   useEffect(() => {
     let delay = 0;
     try {
@@ -29,22 +48,41 @@ export default function ShopClient() {
       }
     } catch {}
 
+    const startGrid = () => setPhase('grid');
+
     if (delay > 0) {
-      const t = setTimeout(() => {
-        try { sessionStorage.removeItem('fromCascade'); } catch {}
-        setPhase('grid');
-      }, delay);
+      const t = setTimeout(startGrid, delay);
       return () => clearTimeout(t);
     }
-    setPhase('grid');
+
+    // if no cascade handoff, still avoid a pop: wait first batch of images
+    const imgs = Array.from(document.images || []).slice(0, 12);
+    if (imgs.length === 0) return startGrid();
+    let done = 0;
+    const mark = () => { if (++done >= imgs.length) startGrid(); };
+    imgs.forEach((img) => {
+      if (img.complete) return mark();
+      img.addEventListener('load', mark, { once: true });
+      img.addEventListener('error', mark, { once: true });
+    });
   }, []);
 
   return (
     <div className="min-h-[100dvh] grid">
-      {/* Centered chakra spinner (only spinner visible on /shop) */}
-      <div className="sticky top-3 z-20 flex items-center justify-center py-3 pointer-events-none">
-        <BlueOrbCross3D overrideGlowOpacity={0.7} />
+      {/* The ONLY spinner on /shop — identical component used on banned page,
+          just positioned in the top-left. 
+          IMPORTANT: If your banned page passes custom props (rpm/color/etc.),
+          COPY THEM HERE 1:1 so speed/appearance are identical. */}
+      <div id="shop-orb-left" className="fixed left-[18px] top-[18px] z-[120] pointer-events-none">
+        <BlueOrbCross3D
+          /* ⬇️ If banned page uses custom props, paste them here */
+          /* rpm={14.4} color="#32ffc7" glowOpacity={0.7} glowScale={1.35} includeZAxis */
+          overrideGlowOpacity={0.7}
+          height="44px"
+        />
       </div>
+
+      {/* no centered spinner */}
 
       <div className="w-full">
         {phase === 'waiting' ? (
@@ -55,7 +93,8 @@ export default function ShopClient() {
                 'radial-gradient(60% 60% at 50% 40%, rgba(0,0,0,0.06), rgba(0,0,0,0.02) 70%, transparent 100%)',
             }}
           >
-            <BlueOrbCross3D overrideGlowOpacity={0.7} />
+            {/* small echo while we wait — same component/props */}
+            <BlueOrbCross3D overrideGlowOpacity={0.7} height="44px" />
           </div>
         ) : (
           <ShopGrid products={demoProducts} />
