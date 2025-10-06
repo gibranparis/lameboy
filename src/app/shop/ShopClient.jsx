@@ -7,8 +7,6 @@ import CartButton from '../../components/CartButton';
 
 const ShopGrid = nextDynamic(() => import('../../components/ShopGrid'), { ssr: false });
 
-type Phase = 'waiting' | 'grid';
-
 const demoProducts = [
   { id: 'tee-01', name: 'TEE 01', price: 4000, images: [{ url: '/placeholder.png' }] },
   { id: 'tee-02', name: 'TEE 02', price: 4200, images: [{ url: '/placeholder.png' }] },
@@ -16,9 +14,9 @@ const demoProducts = [
 ];
 
 export default function ShopClient() {
-  const [phase, setPhase] = useState<Phase>('waiting');
+  const [phase, setPhase] = useState('waiting'); // 'waiting' | 'grid'
 
-  // Hide any header orbs/spinners on /shop (small left orb, etc.)
+  // Hide any header orbs/spinners on /shop
   useEffect(() => {
     const header = document.querySelector('header, [role="banner"], .topbar, .navbar');
     if (!header) return;
@@ -29,14 +27,14 @@ export default function ShopClient() {
       'svg[aria-label*="spinner" i]',
       'svg[aria-label*="logo" i]',
     ];
-    header.querySelectorAll<HTMLElement>(selectors.join(',')).forEach((el) => {
+    header.querySelectorAll(selectors.join(',')).forEach((el) => {
       el.setAttribute('data-hidden-by-shop', '1');
       el.style.display = 'none';
       el.style.visibility = 'hidden';
     });
   }, []);
 
-  // Cascade handoff: match banned timing, then also wait for initial images
+  // Cascade handoff + wait for initial images
   useEffect(() => {
     let delay = 0;
     try {
@@ -50,7 +48,6 @@ export default function ShopClient() {
     } catch {}
 
     const mountGrid = () => {
-      // wait for first batch of images (reduces jolt)
       const imgs = Array.from(document.images || []).slice(0, 12);
       if (!imgs.length) return setPhase('grid');
       let done = 0;
@@ -69,29 +66,27 @@ export default function ShopClient() {
     mountGrid();
   }, []);
 
-  // Use the SAME size/feel as banned page (default component height is '10vh')
-  const ORB_HEIGHT = '10vh';
+  const ORB_HEIGHT = '10vh'; // same feel as banned page
 
   return (
     <div className="min-h-[100dvh] grid">
-      {/* ✅ Top-left chakra orb (same component/feel as banned page, just moved) */}
+      {/* Top-left chakra orb (same component; move left) */}
       <div className="fixed left-[18px] top-[18px] z-[120] pointer-events-none">
         <BlueOrbCross3D
           height={ORB_HEIGHT}
-          overrideGlowOpacity={0.7}   // TS requirement; banned page feel
-          // If banned page passes custom props (rpm/color/etc), copy them here 1:1.
+          overrideGlowOpacity={0.7}
+          // If your banned page passes custom props (rpm/color/etc), copy them here.
           // rpm={14.4} color="#32ffc7" glowOpacity={0.7} glowScale={1.35} includeZAxis
         />
       </div>
 
-      {/* ✅ Top-right cart (bring it back explicitly) */}
+      {/* Top-right cart */}
       <div className="cart-fab" style={{ position: 'fixed', right: 18, top: 18, zIndex: 130 }}>
         <CartButton />
       </div>
 
       <div className="w-full">
         {phase === 'waiting' ? (
-          // Light veil while the cascade finishes + images settle
           <div
             className="grid h-[60vh] w-full place-items-center opacity-95"
             style={{
