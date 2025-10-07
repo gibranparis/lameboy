@@ -1,3 +1,4 @@
+// src/components/BlueOrbCross3D.jsx
 'use client';
 
 import * as THREE from 'three';
@@ -206,7 +207,10 @@ export default function BlueOrbCross3D({
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        style={{ pointerEvents: 'auto' }}
+        style={{ pointerEvents: 'auto', background: 'transparent' }}   // transparent canvas
+        onCreated={({ gl }) => {
+          gl.setClearColor(0x000000, 0); // fully transparent (no black)
+        }}
       >
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />

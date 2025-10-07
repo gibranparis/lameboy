@@ -1,3 +1,4 @@
+/* src/app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -294,6 +295,41 @@ html:has([data-shop-root]) [data-cart-root]{
 
 /* Density orb: pin & keep clickable on unified page */
 html:has([data-shop-root]) [data-orb="density"]{
+  position: fixed !important;
+  left: 18px !important;
+  top: 18px !important;
+  z-index: 120 !important;
+  pointer-events: auto !important;
+}
+
+/* ===== ADDITIONS: token-driven shop mode for unified page (data-mode="shop") ===== */
+:root { --shop-offwhite: #F7F7F2; }
+
+[data-mode="shop"] {
+  --bg: var(--shop-offwhite);
+  --panel: var(--shop-offwhite);
+  --text: #111;
+}
+
+/* Ensure the page paints the token background */
+html, body { background: var(--bg, #000); }
+
+/* Any WebGL/2D canvas should be transparent in shop */
+[data-mode="shop"] canvas { background: transparent !important; }
+
+/* Header/topbar should match off-white when in shop mode */
+[data-mode="shop"] header,
+[data-mode="shop"] [role="banner"],
+[data-mode="shop"] .topbar,
+[data-mode="shop"] .navbar {
+  background: var(--shop-offwhite) !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Optional parity with data-shop-root helpers */
+[data-mode="shop"] .logo-3d { display: none !important; }
+[data-mode="shop"] [data-orb="density"]{
   position: fixed !important;
   left: 18px !important;
   top: 18px !important;

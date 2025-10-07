@@ -32,56 +32,56 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Transform-based cascade (no layout reflow -> less “skip”). */
+/** Bold sweep-in cascade (left→right), not a slide-out */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
+
   useEffect(() => {
-    let start; let id;
-    const step = (t) => { if (start == null) start = t; const k=Math.min(1,(t-start)/durationMs); setP(k); if(k<1) id=requestAnimationFrame(step); };
+    let id = 0, t0 = 0;
+    const step = (t) => {
+      if (!t0) t0 = t;
+      const k = Math.min(1, (t - t0) / durationMs);
+      setP(k);
+      if (k < 1) id = requestAnimationFrame(step);
+    };
     id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
   }, [durationMs]);
 
-  // Move a full-viewport white panel from right→left entirely via transform.
-  const whiteTx = (1 - p) * 100;   // 100 → 0
-  const COLOR_VW = 120;
-  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // keeps bands leading edge
+  // Bands grow 0vw → 100vw to read as a strong sweep IN.
+  const sweepW = `${Math.max(0, Math.min(100, p * 100))}vw`;
 
   return createPortal(
     <>
-      {/* white wipe */}
+      {/* Color bands cover the view as they grow */}
       <div aria-hidden="true" style={{
-        position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
-        background:'#fff', zIndex:9998, pointerEvents:'none',
-        willChange:'transform'
-      }}/>
-
-      {/* color bands sweep */}
-      <div aria-hidden="true" style={{
-        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
-        transform:`translate3d(${bandsTx}vw,0,0)`,
-        zIndex:9999, pointerEvents:'none', willChange:'transform'
+        position:'fixed', inset:0, zIndex:9999, pointerEvents:'none', overflow:'hidden'
       }}>
-        <div className="lb-cascade">
+        <div className="lb-cascade" style={{ width: sweepW, height:'100vh' }}>
           <div className="lb-band lb-b1"/><div className="lb-band lb-b2"/><div className="lb-band lb-b3"/>
           <div className="lb-band lb-b4"/><div className="lb-band lb-b5"/><div className="lb-band lb-b6"/><div className="lb-band lb-b7"/>
         </div>
       </div>
 
-      <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
-        <span className="lb-brand-text">LAMEBOY, USA</span>
-      </div>
+      {/* White veil on top — parent fades this after switching to shop */}
+      <div aria-hidden="true" style={{
+        position:'fixed', inset:0, zIndex:10000, background:'#fff',
+        opacity: p >= 1 ? 1 : 0, transition:'opacity .001s linear',
+        pointerEvents:'none'
+      }}/>
 
       <style jsx global>{`
-        .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); }
-        .lb-band{ width:100%; height:100%; background:var(--c); }
-        .lb-b1{ --c:#c084fc } .lb-b2{ --c:#4f46e5 } .lb-b3{ --c:#3b82f6 }
-        .lb-b4{ --c:#22c55e } .lb-b5{ --c:#facc15 } .lb-b6{ --c:#f97316 } .lb-b7{ --c:#ef4444 }
-        .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
-        .lb-brand-text{
-          color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
-          font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25);
-        }
+        .lb-cascade { display:grid; grid-template-columns:repeat(7,1fr); }
+        .lb-band    { height:100%; background:var(--c); }
+
+        /* RED → ORANGE → YELLOW → GREEN → BLUE → INDIGO → VIOLET */
+        .lb-b1{ --c:#ef4444 }  /* red    */
+        .lb-b2{ --c:#f97316 }  /* orange */
+        .lb-b3{ --c:#facc15 }  /* yellow */
+        .lb-b4{ --c:#22c55e }  /* green  */
+        .lb-b5{ --c:#3b82f6 }  /* blue   */
+        .lb-b6{ --c:#4f46e5 }  /* indigo */
+        .lb-b7{ --c:#c084fc }  /* violet */
       `}</style>
     </>,
     document.body
@@ -143,7 +143,7 @@ export default function BannedLogin({ onProceed }) {
       after && after();
 
       if (typeof onProceed === 'function') {
-        onProceed(); // parent decides how to switch to shop inline (single-page)
+        onProceed(); // parent flips to shop inline
       } else {
         try { router.push(HOP_PATH); } catch {}
       }

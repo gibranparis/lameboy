@@ -1,25 +1,23 @@
 // src/app/page.js
 'use client';
 
-export const dynamic = 'force-static';   // ok to SSG /
-export const runtime = 'nodejs';         // keep Node runtime
+export const dynamic = 'force-static';
+export const runtime = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
-// Lazy components so GPU/cascade stays smooth
 const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
 const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 
 export default function Page() {
-  // 'gate' = banned/login screen; 'shop' = product grid
-  const [mode, setMode] = useState('gate');
-  const [veil, setVeil] = useState(false);   // quick white veil after cascade
-  const [cols, setCols] = useState(5);       // 1..5 grid density
+  const [mode, setMode] = useState('gate'); // 'gate' | 'shop'
+  const [veil, setVeil] = useState(false);
+  const [cols, setCols] = useState(5);
 
-  // If we just came back from the cascade (BannedLogin sets this), enter the shop and fade the veil
+  // If we just came back from cascade, go shop + fade veil
   useEffect(() => {
     let from = '0';
     try { from = sessionStorage.getItem('fromCascade') || '0'; } catch {}
@@ -32,21 +30,19 @@ export default function Page() {
     }
   }, []);
 
-  // Orb click: 5→4→3→2→1→2→3→4→5…
-  const bumpCols = () =>
-    setCols((c) => (c <= 1 ? 2 : c >= 5 ? 4 : c + (c < 5 ? 1 : -1)));
-
+  const bumpCols = () => setCols(c => (c <= 1 ? 2 : c >= 5 ? 4 : c + (c < 5 ? 1 : -1)));
   const isShop = mode === 'shop';
 
   return (
     <div
-      data-mode={isShop ? 'shop' : 'gate'}  // globals.css can key off this
+      data-mode={isShop ? 'shop' : 'gate'}
+      {...(isShop ? { 'data-shop-root': '' } : {})}   // make your existing :has([data-shop-root]) CSS apply
       className="min-h-[100dvh] w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
-      {/* Density orb pinned top-left (shop only) */}
+      {/* Density orb (shop only) */}
       {isShop && (
-        <div style={{ position: 'fixed', top: 12, left: 12, width: 88, height: 88, zIndex: 60 }}>
+        <div style={{ position: 'fixed', top: 12, left: 12, width: 88, height: 88, zIndex: 120 }} data-orb="density">
           <button
             aria-label="Toggle grid density"
             onClick={bumpCols}
@@ -56,9 +52,9 @@ export default function Page() {
         </div>
       )}
 
-      {/* Cart button in shop */}
+      {/* Cart button */}
       {isShop && (
-        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 60 }}>
+        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 130 }} data-cart-root>
           <CartButton />
         </div>
       )}
@@ -67,22 +63,20 @@ export default function Page() {
       {!isShop ? (
         <BannedLogin
           onProceed={() => {
-            // Stay on the same page, flip to shop, fade veil for a continuous handoff
             try { sessionStorage.setItem('fromCascade','1'); } catch {}
-            setMode('shop');
-            setVeil(true);
-            setTimeout(() => setVeil(false), 420);
+            setVeil(true);      // 1) show veil first (prevents black flash)
+            setMode('shop');    // 2) then flip to shop
+            setTimeout(() => setVeil(false), 480); // 3) fade away
           }}
         />
       ) : (
         <>
-          {/* Spacer so the orb/cart don’t overlap the grid header row */}
           <div style={{ paddingTop: 110 }} />
           <ShopGrid columns={cols} />
         </>
       )}
 
-      {/* White veil fade after cascade */}
+      {/* White veil */}
       {veil && (
         <div
           aria-hidden="true"
@@ -92,7 +86,7 @@ export default function Page() {
             background: '#fff',
             opacity: 1,
             transition: 'opacity .42s ease-out',
-            zIndex: 80,
+            zIndex: 200,
             pointerEvents: 'none',
           }}
           ref={(el) => el && requestAnimationFrame(() => (el.style.opacity = 0))}
