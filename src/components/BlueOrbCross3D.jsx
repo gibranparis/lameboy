@@ -207,9 +207,9 @@ export default function BlueOrbCross3D({
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        style={{ pointerEvents: 'auto', background: 'transparent' }}   // transparent canvas
+        style={{ pointerEvents: 'auto', background: 'transparent' }}
         onCreated={({ gl }) => {
-          gl.setClearColor(0x000000, 0); // fully transparent (no black)
+          gl.setClearColor(0x000000, 0); // fully transparent
         }}
       >
         <ambientLight intensity={0.9} />

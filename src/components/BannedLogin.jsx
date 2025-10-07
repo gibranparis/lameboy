@@ -32,56 +32,90 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Bold sweep-in cascade (left→right), not a slide-out */
+/** Bold sweep-in cascade with eased transform + leading glare */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
+
+  // cubic ease-out feels punchy like earlier deploy
+  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
   useEffect(() => {
     let id = 0, t0 = 0;
     const step = (t) => {
       if (!t0) t0 = t;
-      const k = Math.min(1, (t - t0) / durationMs);
-      setP(k);
-      if (k < 1) id = requestAnimationFrame(step);
+      const raw = Math.min(1, (t - t0) / durationMs);
+      setP(easeOut(raw));
+      if (raw < 1) id = requestAnimationFrame(step);
     };
     id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
   }, [durationMs]);
 
-  // Bands grow 0vw → 100vw to read as a strong sweep IN.
-  const sweepW = `${Math.max(0, Math.min(100, p * 100))}vw`;
+  // Sweep the bands from left: -110vw → 0
+  const sweepTx = `translate3d(${(-110 + p * 110)}vw,0,0)`;
+  // Leading white glare just ahead of bands
+  const glareTx = `translate3d(${(-112 + p * 112)}vw,0,0)`;
+  // Snap white at the end so parent can fade veil
+  const veilOpacity = p >= 0.995 ? 1 : 0;
 
   return createPortal(
     <>
-      {/* Color bands cover the view as they grow */}
-      <div aria-hidden="true" style={{
-        position:'fixed', inset:0, zIndex:9999, pointerEvents:'none', overflow:'hidden'
-      }}>
-        <div className="lb-cascade" style={{ width: sweepW, height:'100vh' }}>
+      {/* Bands container (GPU-friendly transform + slight skew) */}
+      <div
+        aria-hidden="true"
+        style={{
+          position:'fixed', inset:0, zIndex:9999, pointerEvents:'none',
+          overflow:'hidden', willChange:'transform'
+        }}
+      >
+        <div
+          style={{
+            position:'absolute', top:0, left:0, height:'100vh', width:'100vw',
+            display:'grid', gridTemplateColumns:'repeat(7,1fr)',
+            transformOrigin:'left center',
+            transform: `${sweepTx} skewX(${(1 - p) * 6}deg)`,
+            willChange:'transform'
+          }}
+        >
           <div className="lb-band lb-b1"/><div className="lb-band lb-b2"/><div className="lb-band lb-b3"/>
           <div className="lb-band lb-b4"/><div className="lb-band lb-b5"/><div className="lb-band lb-b6"/><div className="lb-band lb-b7"/>
         </div>
+
+        {/* Leading glare strip */}
+        <div
+          style={{
+            position:'absolute', top:0, left:0, height:'100vh', width:'18vw',
+            transform:glareTx, willChange:'transform', zIndex:1,
+            background:'linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.88) 65%, #fff 100%)',
+            filter:'blur(1.2px)', opacity:0.95
+          }}
+        />
       </div>
 
-      {/* White veil on top — parent fades this after switching to shop */}
-      <div aria-hidden="true" style={{
-        position:'fixed', inset:0, zIndex:10000, background:'#fff',
-        opacity: p >= 1 ? 1 : 0, transition:'opacity .001s linear',
-        pointerEvents:'none'
-      }}/>
+      {/* Snap white at the very end */}
+      <div
+        aria-hidden="true"
+        style={{
+          position:'fixed', inset:0, zIndex:10000, background:'#fff',
+          opacity: veilOpacity, transition:'opacity .001s linear',
+          pointerEvents:'none'
+        }}
+      />
 
       <style jsx global>{`
-        .lb-cascade { display:grid; grid-template-columns:repeat(7,1fr); }
-        .lb-band    { height:100%; background:var(--c); }
-
+        .lb-band { height:100%; background:var(--c); }
         /* RED → ORANGE → YELLOW → GREEN → BLUE → INDIGO → VIOLET */
-        .lb-b1{ --c:#ef4444 }  /* red    */
-        .lb-b2{ --c:#f97316 }  /* orange */
-        .lb-b3{ --c:#facc15 }  /* yellow */
-        .lb-b4{ --c:#22c55e }  /* green  */
-        .lb-b5{ --c:#3b82f6 }  /* blue   */
-        .lb-b6{ --c:#4f46e5 }  /* indigo */
-        .lb-b7{ --c:#c084fc }  /* violet */
+        .lb-b1{ --c:#ef4444 }
+        .lb-b2{ --c:#f97316 }
+        .lb-b3{ --c:#facc15 }
+        .lb-b4{ --c:#22c55e }
+        .lb-b5{ --c:#3b82f6 }
+        .lb-b6{ --c:#4f46e5 }
+        .lb-b7{ --c:#c084fc }
+
+        @media (prefers-reduced-motion: reduce){
+          .lb-band { display:none; }
+        }
       `}</style>
     </>,
     document.body
@@ -135,7 +169,6 @@ export default function BannedLogin({ onProceed }) {
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    // finish cascade, then proceed
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);

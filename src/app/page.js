@@ -36,7 +36,7 @@ export default function Page() {
   return (
     <div
       data-mode={isShop ? 'shop' : 'gate'}
-      {...(isShop ? { 'data-shop-root': '' } : {})}   // make your existing :has([data-shop-root]) CSS apply
+      {...(isShop ? { 'data-shop-root': '' } : {})}
       className="min-h-[100dvh] w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
@@ -64,9 +64,9 @@ export default function Page() {
         <BannedLogin
           onProceed={() => {
             try { sessionStorage.setItem('fromCascade','1'); } catch {}
-            setVeil(true);      // 1) show veil first (prevents black flash)
-            setMode('shop');    // 2) then flip to shop
-            setTimeout(() => setVeil(false), 480); // 3) fade away
+            setVeil(true);      // show white veil first (no black flash)
+            setMode('shop');    // then flip to shop
+            setTimeout(() => setVeil(false), 480); // fade away
           }}
         />
       ) : (
@@ -81,13 +81,9 @@ export default function Page() {
         <div
           aria-hidden="true"
           style={{
-            position: 'fixed',
-            inset: 0,
-            background: '#fff',
-            opacity: 1,
-            transition: 'opacity .42s ease-out',
-            zIndex: 200,
-            pointerEvents: 'none',
+            position: 'fixed', inset: 0, background: '#fff',
+            opacity: 1, transition: 'opacity .42s ease-out',
+            zIndex: 200, pointerEvents: 'none',
           }}
           ref={(el) => el && requestAnimationFrame(() => (el.style.opacity = 0))}
         />
