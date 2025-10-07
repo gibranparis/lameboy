@@ -448,3 +448,12 @@ html, body { background: var(--bg, #000); }
 [data-mode="shop"]{
   transition: background-color .35s ease, color .35s ease;
 }
+/* EXTRA pop for cascade tiles (used by BannedLogin cascade) */
+.lb-tile{ filter: saturate(1.12) brightness(1.02); }
+.lb-tile + .lb-tile{ box-shadow: -1px 0 0 rgba(255,255,255,.06) inset; }
+
+/* Fixed header sits on top of shop background without a bar */
+[data-mode="shop"] header[role="banner"]{
+  background: transparent !important;
+  box-shadow: none !important;
+}

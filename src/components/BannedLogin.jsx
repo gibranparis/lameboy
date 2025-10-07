@@ -32,11 +32,11 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Bold sweep-in cascade with eased transform + leading glare */
+/** Bright “tile-in” cascade (no swing) with leading white glare. */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
 
-  // cubic ease-out feels punchy like earlier deploy
+  // cubic-out for a punchy finish
   const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
   useEffect(() => {
@@ -51,48 +51,46 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
     return () => cancelAnimationFrame(id);
   }, [durationMs]);
 
-  // Sweep the bands from left: -110vw → 0
-  const sweepTx = `translate3d(${(-110 + p * 110)}vw,0,0)`;
-  // Leading white glare just ahead of bands
-  const glareTx = `translate3d(${(-112 + p * 112)}vw,0,0)`;
-  // Snap white at the end so parent can fade veil
+  // Sweep straight L→R, overscan so colors fully cover
+  const sweepTx = `translate3d(${(-140 + p * 140)}vw,0,0)`;
+  const glareTx = `translate3d(${(-142 + p * 142)}vw,0,0)`;
   const veilOpacity = p >= 0.995 ? 1 : 0;
 
   return createPortal(
     <>
-      {/* Bands container (GPU-friendly transform + slight skew) */}
+      {/* Bands block */}
       <div
         aria-hidden="true"
         style={{
           position:'fixed', inset:0, zIndex:9999, pointerEvents:'none',
-          overflow:'hidden', willChange:'transform'
+          overflow:'hidden'
         }}
       >
+        {/* color tiles with inner glow */}
         <div
           style={{
-            position:'absolute', top:0, left:0, height:'100vh', width:'100vw',
+            position:'absolute', top:0, left:0, height:'100vh', width:'120vw',
             display:'grid', gridTemplateColumns:'repeat(7,1fr)',
-            transformOrigin:'left center',
-            transform: `${sweepTx} skewX(${(1 - p) * 6}deg)`,
-            willChange:'transform'
+            transform: sweepTx, willChange:'transform'
           }}
         >
-          <div className="lb-band lb-b1"/><div className="lb-band lb-b2"/><div className="lb-band lb-b3"/>
-          <div className="lb-band lb-b4"/><div className="lb-band lb-b5"/><div className="lb-band lb-b6"/><div className="lb-band lb-b7"/>
+          {/* Each band gets a bright core + soft outer glow for the “neon” pop */}
+          <div className="lb-tile t1"/><div className="lb-tile t2"/><div className="lb-tile t3"/>
+          <div className="lb-tile t4"/><div className="lb-tile t5"/><div className="lb-tile t6"/><div className="lb-tile t7"/>
         </div>
 
-        {/* Leading glare strip */}
+        {/* Leading glare ahead of the tiles */}
         <div
           style={{
-            position:'absolute', top:0, left:0, height:'100vh', width:'18vw',
-            transform:glareTx, willChange:'transform', zIndex:1,
-            background:'linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.88) 65%, #fff 100%)',
-            filter:'blur(1.2px)', opacity:0.95
+            position:'absolute', top:0, left:0, height:'100vh', width:'20vw',
+            transform: glareTx, willChange:'transform',
+            background:'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.9) 60%, #fff 100%)',
+            filter:'blur(1.2px)', opacity:.98
           }}
         />
       </div>
 
-      {/* Snap white at the very end */}
+      {/* Snap white veil at end so parent can fade it off without any black frame */}
       <div
         aria-hidden="true"
         style={{
@@ -103,18 +101,22 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
       />
 
       <style jsx global>{`
-        .lb-band { height:100%; background:var(--c); }
-        /* RED → ORANGE → YELLOW → GREEN → BLUE → INDIGO → VIOLET */
-        .lb-b1{ --c:#ef4444 }
-        .lb-b2{ --c:#f97316 }
-        .lb-b3{ --c:#facc15 }
-        .lb-b4{ --c:#22c55e }
-        .lb-b5{ --c:#3b82f6 }
-        .lb-b6{ --c:#4f46e5 }
-        .lb-b7{ --c:#c084fc }
+        /* Ultra-bright tiles (color + inner glow) */
+        .lb-tile{ position:relative; height:100%; }
+        .lb-tile::before{
+          content:""; position:absolute; inset:0;
+          box-shadow: inset 0 0 120px rgba(255,255,255,.38), inset 0 0 220px rgba(255,255,255,.28);
+        }
+        .t1{ background:#ef4444 }  /* red */
+        .t2{ background:#f97316 }  /* orange */
+        .t3{ background:#facc15 }  /* yellow */
+        .t4{ background:#22c55e }  /* green */
+        .t5{ background:#3b82f6 }  /* blue */
+        .t6{ background:#4f46e5 }  /* indigo */
+        .t7{ background:#c084fc }  /* violet */
 
         @media (prefers-reduced-motion: reduce){
-          .lb-band { display:none; }
+          .lb-tile{ display:none; }
         }
       `}</style>
     </>,
