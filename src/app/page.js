@@ -11,13 +11,15 @@ const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    
 const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
+const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
 export default function Page() {
   const [mode, setMode] = useState('gate'); // 'gate' | 'shop'
   const [veil, setVeil] = useState(false);
   const [cols, setCols] = useState(5);
+  const [theme, setTheme] = useState('day'); // 'day' | 'night'
 
-  // If we just came back from cascade, go shop + fade veil
+  // If we just arrived from the cascade, enter shop and fade veil
   useEffect(() => {
     let from = '0';
     try { from = sessionStorage.getItem('fromCascade') || '0'; } catch {}
@@ -36,6 +38,7 @@ export default function Page() {
   return (
     <div
       data-mode={isShop ? 'shop' : 'gate'}
+      data-theme={theme}
       {...(isShop ? { 'data-shop-root': '' } : {})}
       className="min-h-[100dvh] w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
@@ -52,10 +55,21 @@ export default function Page() {
         </div>
       )}
 
-      {/* Cart button */}
+      {/* Cart */}
       {isShop && (
         <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 130 }} data-cart-root>
           <CartButton />
+        </div>
+      )}
+
+      {/* Day/Night Toggle — top right, under cart */}
+      {isShop && (
+        <div style={{ position: 'fixed', top: 64, right: 16, zIndex: 125 }}>
+          <DayNightToggle
+            value={theme}
+            onChange={setTheme}
+            size={110}
+          />
         </div>
       )}
 
@@ -64,9 +78,9 @@ export default function Page() {
         <BannedLogin
           onProceed={() => {
             try { sessionStorage.setItem('fromCascade','1'); } catch {}
-            setVeil(true);      // show white veil first (no black flash)
+            setVeil(true);      // white veil first (avoids black flash)
             setMode('shop');    // then flip to shop
-            setTimeout(() => setVeil(false), 480); // fade away
+            setTimeout(() => setVeil(false), 480);
           }}
         />
       ) : (
