@@ -11,7 +11,7 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 import { useRouter } from 'next/navigation';
 
 const CASCADE_MS = 2400;
-const HOP_PATH = '/shop'; // fallback if onCascadeToShop isn’t provided
+const HOP_PATH = '/shop'; // fallback if parent doesn't provide onProceed
 
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
@@ -33,7 +33,7 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
 }
 
 /** Transform-based cascade (no layout reflow -> less “skip”). */
-function CascadeOverlay({ durationMs = 2400 }) {
+function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
   useEffect(() => {
     let start; let id;
@@ -88,7 +88,7 @@ function CascadeOverlay({ durationMs = 2400 }) {
   );
 }
 
-export default function BannedLogin({ onCascadeToShop }) {
+export default function BannedLogin({ onProceed }) {
   const router = useRouter();
 
   const [view, setView] = useState('banned'); // 'banned' | 'login'
@@ -135,23 +135,22 @@ export default function BannedLogin({ onCascadeToShop }) {
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    setTimeout(() => {
-      if (typeof onCascadeToShop === 'function') {
-        onCascadeToShop();
-      } else {
-        try { router.push(HOP_PATH); } catch {}
-      }
-    }, 100);
-
+    // finish cascade, then proceed
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
       setWhiteout(true);
       after && after();
+
+      if (typeof onProceed === 'function') {
+        onProceed(); // parent decides how to switch to shop inline (single-page)
+      } else {
+        try { router.push(HOP_PATH); } catch {}
+      }
     }, CASCADE_MS);
 
     return () => clearTimeout(t);
-  }, [onCascadeToShop, router]);
+  }, [onProceed, router]);
 
   const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
