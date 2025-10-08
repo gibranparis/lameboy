@@ -2,8 +2,13 @@
 'use client';
 
 import * as THREE from 'three';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
+
+/**
+ * IMPORTANT: We purposely disable raycast on any "halo" mesh so only the
+ * visible solid geometry (bars + core spheres) are clickable/focusable.
+ */
 
 function OrbCross({
   rpm = 14.4,
@@ -21,16 +26,19 @@ function OrbCross({
 }) {
   const group = useRef();
 
-  const coarse =
-    typeof window !== 'undefined' &&
-    window.matchMedia &&
-    window.matchMedia('(pointer:coarse)').matches;
-  const coarseGlowFactor = coarse ? 0.55 : 1.0;
+  // Disable raycast helper for halo meshes only
+  const NO_RAYCAST = useCallback(() => null, []);
+  const handleActivate = useCallback((e) => {
+    e.stopPropagation();
+    onActivate && onActivate();
+  }, [onActivate]);
 
+  // rotate
   useFrame((state, dt) => {
     if (!group.current) return;
     group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt;
 
+    // soft pulsing when override red is active
     const u = group.current.userData;
     if (overrideAllColor && glow && u?.pulse) {
       const t = state.clock.getElapsedTime();
@@ -83,30 +91,32 @@ function OrbCross({
   const useOverride = !!overrideAllColor;
   const barColor = useOverride ? overrideAllColor : color;
 
+  const coarse =
+    typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(pointer:coarse)').matches;
+  const coarseGlowFactor = coarse ? 0.55 : 1.0;
+
   const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * coarseGlowFactor;
   const coreEmissive = useOverride ? 2.25 : 1.25;
   const barEmissive  = useOverride ? 1.35 : 0.6;
 
+  // SOLID, CLICKABLE materials
   const barCoreMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: barColor, roughness:0.32, metalness:0.25,
     emissive:new THREE.Color(barColor), emissiveIntensity:barEmissive, toneMapped:true,
   }), [barColor, barEmissive]);
 
-  const barHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: barColor, transparent:true, opacity: glow ? haloBase * 0.5 : 0,
-    blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
-  }), [barColor, glow, haloBase]);
-
   const sphereDefs = useOverride
-    ? new Array(centers.length).fill({ core: barColor, halo: barColor, haloOp: haloBase })
+    ? new Array(centers.length).fill({ core: barColor })
     : [
-        { core: CHAKRA.crownW, halo: CHAKRA.crownV, haloOp: 0.9 * coarseGlowFactor },
-        { core: CHAKRA.root,     halo: CHAKRA.root,     haloOp: glowOpacity * coarseGlowFactor },
-        { core: CHAKRA.sacral,   halo: CHAKRA.sacral,   haloOp: glowOpacity * coarseGlowFactor },
-        { core: CHAKRA.solar,    halo: CHAKRA.solar,    haloOp: glowOpacity * coarseGlowFactor },
-        { core: CHAKRA.heart,    halo: CHAKRA.heart,    haloOp: glowOpacity * coarseGlowFactor },
-        { core: CHAKRA.throat,   halo: CHAKRA.throat,   haloOp: glowOpacity * coarseGlowFactor },
-        { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: glowOpacity * coarseGlowFactor },
+        { core: CHAKRA.crownW },
+        { core: CHAKRA.root     },
+        { core: CHAKRA.sacral   },
+        { core: CHAKRA.solar    },
+        { core: CHAKRA.heart    },
+        { core: CHAKRA.throat   },
+        { core: CHAKRA.thirdEye },
       ];
 
   const sphereCoreMats = useMemo(
@@ -118,13 +128,30 @@ function OrbCross({
     [useOverride ? barColor : JSON.stringify(sphereDefs), coreEmissive]
   );
 
+  // HALO materials (non-clickable)
+  const barHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: barColor, transparent:true, opacity: glow ? haloBase * 0.5 : 0,
+    blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
+  }), [barColor, glow, haloBase]);
+
   const sphereHaloMats = useMemo(
-    () => sphereDefs.map(({ halo, haloOp }) => new THREE.MeshBasicMaterial({
+    () => (useOverride
+      ? new Array(centers.length).fill({ halo: barColor, haloOp: haloBase })
+      : [
+          { halo: CHAKRA.crownV, haloOp: 0.9 * coarseGlowFactor },
+          { halo: CHAKRA.root,     haloOp: glowOpacity * coarseGlowFactor },
+          { halo: CHAKRA.sacral,   haloOp: glowOpacity * coarseGlowFactor },
+          { halo: CHAKRA.solar,    haloOp: glowOpacity * coarseGlowFactor },
+          { halo: CHAKRA.heart,    haloOp: glowOpacity * coarseGlowFactor },
+          { halo: CHAKRA.throat,   haloOp: glowOpacity * coarseGlowFactor },
+          { halo: CHAKRA.thirdEye, haloOp: glowOpacity * coarseGlowFactor },
+        ]
+    ).map(({ halo, haloOp }) => new THREE.MeshBasicMaterial({
       color: halo, transparent:true, opacity: glow ? haloOp : 0,
       blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [useOverride ? barColor : JSON.stringify(sphereDefs), glow]
+    [useOverride ? barColor : glowOpacity, glow, coarseGlowFactor, haloBase]
   );
 
   const halo2Mat = useMemo(() => new THREE.MeshBasicMaterial({
@@ -142,27 +169,94 @@ function OrbCross({
     group.current.userData = { pulse:true, base:haloBase, barHalo:barHaloMat, sphereHalos:sphereHaloMats, halo2:halo2Mat, halo3:halo3Mat };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
-  const handlePointerDown = (e) => { e.stopPropagation(); onActivate && onActivate(); };
-  const handleKeyDown = (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } };
+  // Make core pieces keyboard-accessible without giving a giant group hit area
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onActivate && onActivate();
+    }
+  };
 
   return (
-    <group ref={group} onPointerDown={handlePointerDown} onKeyDown={handleKeyDown} tabIndex={0}>
-      <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
-      <mesh geometry={armGeoY} material={barCoreMat} />
-      <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
+    <group ref={group}>
+      {/* BAR CORES (clickable) */}
+      <mesh
+        geometry={armGeoX}
+        material={barCoreMat}
+        rotation={[0, 0, Math.PI / 2]}
+        onPointerDown={handleActivate}
+        onKeyDown={onKeyDown}
+        tabIndex={0}
+      />
+      <mesh
+        geometry={armGeoY}
+        material={barCoreMat}
+        onPointerDown={handleActivate}
+        onKeyDown={onKeyDown}
+        tabIndex={0}
+      />
+      <mesh
+        geometry={armGeoZ}
+        material={barCoreMat}
+        rotation={[Math.PI / 2, 0, 0]}
+        onPointerDown={handleActivate}
+        onKeyDown={onKeyDown}
+        tabIndex={0}
+      />
 
-      {centers.map((p, i) => <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />)}
+      {/* SPHERE CORES (clickable) */}
+      {centers.map((p, i) => (
+        <mesh
+          key={`core-${i}`}
+          geometry={sphereGeo}
+          material={sphereCoreMats[i]}
+          position={p}
+          onPointerDown={handleActivate}
+          onKeyDown={onKeyDown}
+          tabIndex={0}
+        />
+      ))}
 
+      {/* HALOS (non-clickable; raycast disabled) */}
       {glow && (
         <>
-          <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} />
-          <mesh geometry={armGlowGeoY} material={barHaloMat} />
-          <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />
-          {centers.map((p, i) => <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />)}
+          <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} raycast={NO_RAYCAST} />
+          <mesh geometry={armGlowGeoY} material={barHaloMat} raycast={NO_RAYCAST} />
+          <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} raycast={NO_RAYCAST} />
+
+          {centers.map((p, i) => (
+            <mesh
+              key={`halo-${i}`}
+              geometry={sphereGeo}
+              material={sphereHaloMats[i]}
+              position={p}
+              scale={glowScale}
+              raycast={NO_RAYCAST}
+            />
+          ))}
+
           {overrideAllColor && (
             <>
-              {centers.map((p, i) => <mesh key={`h2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />)}
-              {centers.map((p, i) => <mesh key={`h3-${i}`} geometry={sphereGeo} material={halo3Mat} position={p} scale={glowScale * 1.95} />)}
+              {centers.map((p, i) => (
+                <mesh
+                  key={`h2-${i}`}
+                  geometry={sphereGeo}
+                  material={halo2Mat}
+                  position={p}
+                  scale={glowScale * 1.6}
+                  raycast={NO_RAYCAST}
+                />
+              ))}
+              {centers.map((p, i) => (
+                <mesh
+                  key={`h3-${i}`}
+                  geometry={sphereGeo}
+                  material={halo3Mat}
+                  position={p}
+                  scale={glowScale * 1.95}
+                  raycast={NO_RAYCAST}
+                />
+              ))}
             </>
           )}
         </>
@@ -172,7 +266,7 @@ function OrbCross({
 }
 
 export default function BlueOrbCross3D({
-  height = '10vh',
+  height = '10vh',     // can be px (e.g., "32px") or vh
   rpm = 14.4,
   color = '#32ffc7',
   geomScale = 1,
@@ -201,16 +295,27 @@ export default function BlueOrbCross3D({
     return () => mq?.removeEventListener?.('change', onChange);
   }, []);
 
+  // Tight wrapper: no width:100% so we don’t inherit extra hit area from layout
   return (
-    <div className={className} style={{ height, width:'100%', contain:'layout paint style', isolation:'isolate', ...style }}>
+    <div
+      className={className}
+      style={{
+        height,
+        width: height,           // square and tight
+        lineHeight: 0,
+        display: 'inline-block',
+        contain: 'layout paint style',
+        isolation: 'isolate',
+        ...style,
+      }}
+      // NOTE: pointer events are handled by meshes; the canvas itself can be auto
+    >
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        style={{ pointerEvents: 'auto', background: 'transparent' }}
-        onCreated={({ gl }) => {
-          gl.setClearColor(0x000000, 0); // fully transparent
-        }}
+        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
+        style={{ pointerEvents: 'auto' }}
+        shadows={false}
       >
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />
