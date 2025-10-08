@@ -327,3 +327,36 @@ html:has([data-shop-root]) .product-img{
 }
 .code-link{ cursor: pointer; text-decoration: underline dotted rgba(255,255,255,.45); }
 .code-link:hover{ text-decoration-style: solid; text-decoration-color: rgba(255,255,255,.85); }
+/* Strong white wordmark glow */
+.login-card .lb-white{
+  font-weight:900;
+  text-shadow:
+    0 0 8px rgba(255,255,255,.9),
+    0 0 18px rgba(255,255,255,.6),
+    0 0 36px rgba(255,255,255,.35);
+}
+
+/* Seafoam comment glow (// ...) */
+.glow-seafoam,
+.lb-seafoam.code-comment{
+  text-shadow: 0 0 10px rgba(46,230,184,.50), 0 0 20px rgba(46,230,184,.35);
+}
+
+/* Code token weights so it looks “fat” again */
+.code-keyword,.code-var,.code-string,.code-comment{
+  font-weight:800;
+}
+
+/* Only strike the word “banned” on hover/focus/active */
+.banned-trigger{
+  cursor:pointer;
+  text-decoration:none;
+}
+.banned-trigger:hover,
+.banned-trigger:focus-visible,
+.banned-trigger:active{
+  text-decoration-line: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: rgba(242,14,14,.9);
+  text-shadow: 0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35);
+}

@@ -201,6 +201,10 @@ export default function BannedLogin({ onProceed }) {
     });
   }, []);
 
+  // --- Long-press support for the orb ---
+  const pressTimer = useRef/** @type {ReturnType<typeof setTimeout> | null} */(null);
+  const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+
   return (
     <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:8 }}>
       {flyOnce && (
@@ -220,14 +224,21 @@ export default function BannedLogin({ onProceed }) {
 
       {!hideAll && (
         <div className="login-stack">
-          {/* Orb steps grid density 5↔1 with a simple click (no cascade here) */}
+          {/* Orb: click = step density; long-press or double-click = cascade+hop */}
           <div className="orb-row" style={{ marginBottom:-16, display:'grid', placeItems:'center' }}>
             <button
               type="button"
               aria-label="Grid density +1"
+              onMouseDown={() => { clearPressTimer(); pressTimer.current = setTimeout(() => runCascade(()=>{}, { washAway:true }), 650); }}
+              onMouseUp={clearPressTimer}
+              onMouseLeave={clearPressTimer}
+              onTouchStart={() => { clearPressTimer(); pressTimer.current = setTimeout(() => runCascade(()=>{}, { washAway:true }), 650); }}
+              onTouchEnd={clearPressTimer}
               onClick={() => {
+                // quick tap = step density
                 window.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } }));
               }}
+              onDoubleClick={() => runCascade(()=>{}, { washAway:true })}
               className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
               style={{ lineHeight: 0 }}
             >
@@ -240,7 +251,7 @@ export default function BannedLogin({ onProceed }) {
                 glowOpacity={orbGlow}
                 includeZAxis
                 height="72px"
-                /* ⛔ removed onActivate to avoid accidental cascade on click */
+                /* ⛔ no onActivate; we control it above */
                 overrideAllColor={orbMode==='red' ? RED : null}
                 overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
                 interactive={true}
@@ -265,7 +276,7 @@ export default function BannedLogin({ onProceed }) {
                   <Wordmark onClickWordmark={() => setFlyOnce(true)} lRef={lRef} yRef={yRef} />
                   {'\n'}
                   <span className="lb-seafoam code-comment">//</span>{' '}
-                  {/* split “is ” and “banned” so only the word gets the strike */}
+                  {/* strike only “banned” */}
                   <span className="code-banned">is </span>
                   <span
                     role="button" tabIndex={0}
