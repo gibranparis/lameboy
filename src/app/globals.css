@@ -500,3 +500,54 @@ html:has([data-shop-root]) [data-orb="density"]{ display:block !important; }
 
 /* (Optional) prevent any black full-screen canvas leaking behind the shop */
 html:has([data-shop-root]) .logo-3d{ display:none !important; }
+/* =========================
+   Unified shop theming (day ↔ night)
+   ========================= */
+:root { --shop-offwhite: #F7F7F2; }
+
+/* Wrapper theme tokens */
+[data-mode="shop"][data-theme="day"]{  --bg: var(--shop-offwhite); --panel: var(--shop-offwhite); --text:#111; }
+[data-mode="shop"][data-theme="night"]{ --bg: #000;               --panel: #000;               --text:#fff; }
+
+/* Paint the page with tokens */
+[data-mode="shop"]{
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color .35s ease, color .35s ease;
+}
+
+/* Header stays transparent (so it shows wrapper color) */
+[data-mode="shop"] header[role="banner"]{
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* ===== kill stray white backgrounds ===== */
+
+/* Old rule set a white page; neutralize it on shop */
+[data-mode="shop"] .shop-page{ background: transparent !important; color: inherit !important; }
+
+/* Make interior sections transparent so wrapper shows through */
+[data-mode="shop"] .shop-wrap,
+[data-mode="shop"] .shop-grid,
+[data-mode="shop"] .product-box,
+[data-mode="shop"] .product-hero-overlay,
+[data-mode="shop"] .product-hero { background: transparent !important; }
+
+/* Product images shouldn't bring their own white boxes */
+[data-mode="shop"] .product-img{ background: transparent !important; }
+
+/* If any legacy “page container” uses plain white: force transparent */
+[data-mode="shop"] [class*="page"],
+[data-mode="shop"] [class*="container"]{
+  background-color: transparent !important;
+}
+
+/* Keep the density orb visible on unified page */
+html:has([data-shop-root]) [data-orb="density"]{ display:block !important; }
+
+/* Toggle polish on light bg */
+.lb-switch{
+  box-shadow: 0 4px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.6);
+}

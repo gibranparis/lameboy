@@ -13,7 +13,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-const HEADER_H = 86;        // same visual height you already use
+const HEADER_H = 86;
 
 export default function Page() {
   const [mode, setMode] = useState('gate');   // 'gate' | 'shop'
@@ -21,7 +21,6 @@ export default function Page() {
   const [cols, setCols] = useState(5);
   const [theme, setTheme] = useState('day');  // 'day' | 'night'
 
-  // If we just arrived from the cascade, enter shop and fade veil
   useEffect(() => {
     let from = '0';
     try { from = sessionStorage.getItem('fromCascade') || '0'; } catch {}
@@ -34,8 +33,8 @@ export default function Page() {
     }
   }, []);
 
-  const bumpCols = () => setCols(c => (c <= 1 ? 2 : c >= 5 ? 4 : c + (c < 5 ? 1 : -1)));
   const isShop = mode === 'shop';
+  const bumpCols = () => setCols(c => (c <= 1 ? 2 : c >= 5 ? 4 : c + (c < 5 ? 1 : -1)));
 
   return (
     <div
@@ -43,10 +42,9 @@ export default function Page() {
       data-theme={theme}
       {...(isShop ? { 'data-shop-root': '' } : {})}
       className="min-h-[100dvh] w-full"
-      // These tokens get filled by globals.css (see patch below)
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
-      {/* Fixed LEFT orb – kept OUTSIDE header so it never gets hidden by header rules */}
+      {/* Fixed LEFT orb – outside header so CSS never hides it */}
       {isShop && (
         <div
           data-orb="density"
@@ -61,20 +59,25 @@ export default function Page() {
         </div>
       )}
 
-      {/* Fixed header (transparent so it shows the same off-white/black as the stage) */}
+      {/* Fixed header — centered toggle via 3-col grid */}
       {isShop && (
         <header
           role="banner"
           style={{
             position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
-            display:'flex', alignItems:'center', justifyContent:'flex-end',
-            padding:'0 16px', background:'transparent'
+            display:'grid', gridTemplateColumns:'1fr auto 1fr',
+            alignItems:'center', background:'transparent', padding:'0 16px'
           }}
         >
-          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          {/* left slot kept empty; orb is separate fixed element */}
+          <div />
+          {/* center slot: Day/Night toggle */}
+          <div style={{ justifySelf:'center' }}>
+            <DayNightToggle value={theme} onChange={setTheme} size={112} />
+          </div>
+          {/* right slot: cart */}
+          <div style={{ justifySelf:'end', display:'flex', alignItems:'center', gap:12 }}>
             <CartButton />
-            {/* Toggle is vertically CENTERED via flex, no absolute offsets */}
-            <DayNightToggle value={theme} onChange={setTheme} size={110} />
           </div>
         </header>
       )}
@@ -93,13 +96,14 @@ export default function Page() {
         <>
           {/* spacer for fixed header */}
           <div style={{ height: HEADER_H }} />
+          {/* NOTE: .shop-wrap is transparent in CSS so wrapper drives color */}
           <div className="shop-wrap">
             <ShopGrid columns={cols} />
           </div>
         </>
       )}
 
-      {/* White veil */}
+      {/* Veil */}
       {veil && (
         <div
           aria-hidden="true"
