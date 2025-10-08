@@ -621,3 +621,40 @@ html:has([data-shop-root]) [data-orb="density"]{ display:block !important; }
 [data-mode="shop"] .product-img{
   background: transparent !important;
 }
+/* Header silhouette style for cart (no pill/background) */
+[data-mode="shop"] header[role="banner"] .cart-fab{
+  position: static !important;
+  width: auto; height: 56px;      /* align with orb/toggle row */
+  padding: 6px 8px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: inline-grid; place-items: center;
+  border-radius: 0 !important;
+}
+
+/* Icon sizing inside header */
+[data-mode="shop"] header[role="banner"] .cart-fab svg{
+  width: 28px; height: 28px; display:block;
+}
+
+/* Color by theme: body/wheels follow currentColor; orange handlebars always visible */
+[data-mode="shop"][data-theme="day"] header[role="banner"] .cart-fab{ color:#111; }
+[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
+.cart-fab .cb-handle{ fill:#F7A02D; }  /* orange “handlebars” */
+
+/* Optional hover nudge without adding a background */
+[data-mode="shop"] header[role="banner"] .cart-fab:hover{
+  transform: translateY(-1px);
+}
+
+/* Keep everything else transparent so the wrapper drives the background */
+[data-mode="shop"] .shop-page,
+[data-mode="shop"] .shop-wrap,
+[data-mode="shop"] .shop-grid,
+[data-mode="shop"] .product-box,
+[data-mode="shop"] .product-hero-overlay,
+[data-mode="shop"] .product-hero,
+[data-mode="shop"] .product-img{
+  background: transparent !important;
+}
