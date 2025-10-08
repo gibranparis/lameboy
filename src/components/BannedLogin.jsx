@@ -12,10 +12,11 @@ import { useRouter } from 'next/navigation';
 
 const HOP_PATH = '/shop'; // fallback if parent doesn't provide onProceed
 
-/** Staircase timing (tile-in, one band at a time) */
-const BAND_MS    = 420;  // growth per band (snappy)
-const STAGGER_MS = 160;  // delay between bands
-const CASCADE_MS = BAND_MS + STAGGER_MS * 6 + 300; // total incl. a small pad
+/** Final timing — no overlap: each band completes before the next begins */
+const BAND_MS    = 360;                 // grow time per band (snappy)
+const GAP_MS     = 80;                  // small pause between bands
+const STAGGER_MS = BAND_MS + GAP_MS;    // step size (no overlap)
+const CASCADE_MS = STAGGER_MS * 6 + BAND_MS + 240; // total + pad for safety
 
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
@@ -36,18 +37,24 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Chakra Staircase Cascade (Red → Violet) with per-band pre-flash */
+/** Chakra Staircase (Red → Violet), tight glare, veil pre-fade to avoid flicker */
 function CascadeOverlay() {
-  const [done, setDone] = useState(false);
+  const [veilOp, setVeilOp] = useState(0);
 
   useEffect(() => {
-    const t = setTimeout(() => setDone(true), CASCADE_MS);
-    return () => clearTimeout(t);
+    // Start the white veil just before the last band finishes
+    const lead = setTimeout(
+      () => setVeilOp(1),
+      STAGGER_MS * 6 + Math.max(0, BAND_MS - 120)
+    );
+    // Safety: ensure veil is on by the very end
+    const end = setTimeout(() => setVeilOp(1), CASCADE_MS);
+    return () => { clearTimeout(lead); clearTimeout(end); };
   }, []);
 
   return createPortal(
     <>
-      {/* Fixed grid, no sweep */}
+      {/* Fixed 7-column grid — no sweeping transform */}
       <div
         aria-hidden="true"
         style={{
@@ -65,53 +72,53 @@ function CascadeOverlay() {
         <div className="chakra-band c-violet" style={{ ['--d']: 6 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
       </div>
 
-      {/* Snap white veil at end to avoid any black flash */}
+      {/* White veil (pre-fades before last band completes) */}
       <div
         aria-hidden="true"
         style={{
           position:'fixed', inset:0, zIndex:10000, background:'#fff',
-          opacity: done ? 1 : 0, transition:'opacity .001s linear', pointerEvents:'none'
+          opacity: veilOp, transition:'opacity .001s linear', pointerEvents:'none'
         }}
       />
 
       <style jsx global>{`
-        /* Left-origin growth with punchy neon + per-band white pre-flash */
+        /* Growth from left, zero-overlap, bright and glossy */
         .chakra-band{
           position:relative; height:100%;
           transform-origin:left center;
-          transform: scaleX(0.04); opacity:0;
-          animation: bandGrow var(--band,420ms) cubic-bezier(.22,.61,.21,.99) forwards;
+          transform: scaleX(0.001); opacity:0;
+          animation: bandGrow var(--band,360ms) cubic-bezier(.25,.9,.25,1) forwards;
           animation-delay: var(--d,0ms);
-          filter: saturate(1.24) brightness(1.07) contrast(1.08);
+          filter: saturate(1.22) brightness(1.08) contrast(1.08);
         }
         .chakra-band::before{
           content:""; position:absolute; inset:0;
           box-shadow:
-            inset 0 0 130px rgba(255,255,255,.45),
+            inset 0 0 120px rgba(255,255,255,.46),
             inset 0 0 260px rgba(255,255,255,.30),
-            inset 0 0 420px rgba(255,255,255,.22);
+            inset 0 0 420px rgba(255,255,255,.20);
           pointer-events:none;
         }
-        /* per-band glare sweeping inside the tile */
+        /* Tight, fast internal glare for the glossy pop */
         .chakra-band::after{
-          content:""; position:absolute; top:0; bottom:0; left:0; width:22%;
-          background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.85) 70%, #fff 100%);
-          filter: blur(1.2px);
-          transform: translateX(-24%) scaleX(.6);
+          content:""; position:absolute; top:0; bottom:0; left:0; width:18%;
+          background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.92) 70%, #fff 100%);
+          filter: blur(0.9px);
+          transform: translateX(-24%) scaleX(.58);
           opacity:0;
-          animation: preFlash var(--band,420ms) cubic-bezier(.22,.61,.21,.99) forwards;
-          animation-delay: calc(var(--d,0ms) + 80ms);
+          animation: preFlash var(--band,360ms) cubic-bezier(.25,.9,.25,1) forwards;
+          animation-delay: calc(var(--d,0ms) + 60ms);
         }
 
         @keyframes bandGrow{
-          0%   { transform: scaleX(0.04); opacity: 0; }
-          20%  { opacity: 1; }
-          100% { transform: scaleX(1);   opacity: 1; }
+          0%   { transform: scaleX(0.001); opacity: 0; }
+          18%  { opacity: 1; }
+          100% { transform: scaleX(1);     opacity: 1; }
         }
         @keyframes preFlash{
-          0%   { opacity:0; transform: translateX(-24%) scaleX(.6); }
-          20%  { opacity:.95; }
-          100% { opacity:0; transform: translateX(88%) scaleX(.8); }
+          0%   { opacity:0; transform: translateX(-24%) scaleX(.58); }
+          18%  { opacity:1; }
+          100% { opacity:0; transform: translateX(92%) scaleX(.72); }
         }
 
         /* Chakra colors — left to right */
@@ -186,7 +193,7 @@ export default function BannedLogin({ onProceed }) {
       after && after();
 
       if (typeof onProceed === 'function') {
-        onProceed(); // parent flips to shop inline
+        onProceed(); // parent flips to shop inline (single page)
       } else {
         try { router.push(HOP_PATH); } catch {}
       }
