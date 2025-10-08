@@ -13,30 +13,26 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-/* ========= Visual alignment constants =========
-   - CONTROL_H: square box used by header orb + cart
-   - ORB_GEOM_SCALE: scales inner 3D geometry *without* changing hitbox
-   - TOGGLE_SIZE: toggle height (width ≈ height * 1.62)
-   - HEADER_H: header bar height
-*/
-const CONTROL_H      = 56;
-const ORB_GEOM_SCALE = 1.35;
-const TOGGLE_SIZE    = 30; // height in px (slim)
-const HEADER_H       = 84;
+/** Visual alignment */
+const CONTROL_H       = 56;        // header control square (orb/canvas + cart row height)
+const ORB_GEOM_SCALE  = 1.08;      // inner orb fill inside its square
+const TOGGLE_SIZE     = 34;        // small, matches inner orb feel
+const HEADER_H        = 86;
 
 export default function Page() {
-  const [theme, setTheme] = useState('day');     // 'day' | 'night'
-  const [isShop, setIsShop] = useState(false);   // gate (false) → shop (true)
-  const [veil, setVeil] = useState(false);       // arrival veil after cascade
+  const [theme, setTheme] = useState('day');       // 'day' | 'night'
+  const [isShop, setIsShop] = useState(false);
+  const [veil, setVeil] = useState(false);
+  const [cols, setCols] = useState(3);             // start at 3 cols
 
-  // keep <html> data-theme in sync so CSS tokens apply
+  // keep html/body tokens in sync so the wrapper paints the color
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     return () => root.removeAttribute('data-theme');
   }, [theme]);
 
-  // if we arrived from banned cascade, briefly white-veil the shop
+  // after cascade hop, fade the white veil away smoothly
   useEffect(() => {
     let cameFromCascade = false;
     try {
@@ -50,9 +46,8 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // toggle handler (DayNightToggle wants isNight/onToggle)
-  const flipTheme = () => setTheme((t) => (t === 'day' ? 'night' : 'day'));
-  const isNight = theme === 'night';
+  // header orb action: cycle columns 1→5→1
+  const cycleCols = () => setCols(c => (c % 5) + 1);
 
   return (
     <div
@@ -67,51 +62,46 @@ export default function Page() {
         <header
           role="banner"
           style={{
-            position:'fixed',
-            inset:'0 0 auto 0',
-            height: HEADER_H,
-            zIndex: 140,
-            display:'grid',
-            gridTemplateColumns:'1fr auto 1fr',
-            alignItems:'center',
+            position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
+            display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
             background:'transparent'
           }}
         >
-          {/* LEFT: decorative orb (tight square; no extra hit area) */}
+          {/* LEFT: interactive orb (tight square) */}
           <div style={{ display:'grid', justifyContent:'start' }}>
-            <div
-              data-orb="density"
-              aria-label="density-orb"
+            <button
+              type="button"
+              aria-label="Add a column (loops 1–5)"
               style={{
-                width: CONTROL_H,
-                height: CONTROL_H,
-                display:'grid',
-                placeItems:'center',
-                pointerEvents:'none' // decorative in header
+                width: CONTROL_H, height: CONTROL_H,
+                padding: 0, margin: 0, background:'transparent', border:0,
+                display:'grid', placeItems:'center', cursor:'pointer',
+                lineHeight: 0
               }}
+              onClick={cycleCols}
+              title="Add a column (loops 1–5)"
             >
               <BlueOrbCross3D
                 height={`${CONTROL_H}px`}
                 rpm={44}
                 includeZAxis
                 glow
-                geomScale={ORB_GEOM_SCALE} // bigger inner geometry, same outer box
-                interactive={false}
+                geomScale={ORB_GEOM_SCALE}
+                interactive={false}   // wrapper handles click; canvas hitbox stays tight
               />
-            </div>
+            </button>
           </div>
 
-          {/* CENTER: slimmer toggle sized to match orb geometry */}
+          {/* CENTER: compact toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
-              width={Math.round(TOGGLE_SIZE * 1.62)}
-              height={TOGGLE_SIZE}
-              isNight={isNight}
-              onToggle={flipTheme}
+              size={TOGGLE_SIZE}
+              value={theme}
+              onChange={setTheme}
             />
           </div>
 
-          {/* RIGHT: cart as silhouette, vertically aligned to CONTROL_H */}
+          {/* RIGHT: cart as silhouette (Birkin 25) */}
           <div style={{ display:'grid', justifyContent:'end' }}>
             <div style={{ height: CONTROL_H, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
@@ -128,7 +118,7 @@ export default function Page() {
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
-            <ShopGrid columns={5} />
+            <ShopGrid columns={cols} />
           </div>
         )}
       </main>
@@ -138,13 +128,9 @@ export default function Page() {
         <div
           aria-hidden="true"
           style={{
-            position:'fixed',
-            inset:0,
-            background:'#fff',
-            opacity:1,
-            transition:'opacity .42s ease-out',
-            zIndex:200,
-            pointerEvents:'none'
+            position:'fixed', inset:0, background:'#fff',
+            opacity:1, transition:'opacity .42s ease-out',
+            zIndex:200, pointerEvents:'none'
           }}
           ref={(el)=> el && requestAnimationFrame(() => (el.style.opacity = 0))}
           onTransitionEnd={() => setVeil(false)}

@@ -13,13 +13,9 @@ import { useRouter } from 'next/navigation';
 const CASCADE_MS = 2400;
 const HOP_PATH = '/shop';
 
-// --- Small spacing constants so it’s easy to tweak visually ---
-const ORB_TUCK_OVER_CARD = -14;   // negative pulls orb closer to card (was -28)
-const FLORIDA_GAP_BELOW   = 14;   // space between card and “Florida, USA”
-
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
-    <span className="lb-word" onClick={onClickWordmark} style={{ cursor: 'pointer' }} title="Launch butterfly">
+    <span className="lb-word" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
       <span className="lb-white">
         <span ref={lRef}>L</span>amebo<span ref={yRef}>y</span>
         <span className="lb-seafoam">.com</span>
@@ -40,12 +36,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
   useEffect(() => {
     let start; let id;
-    const step = (t) => {
-      if (start == null) start = t;
-      const k = Math.min(1, (t - start) / durationMs);
-      setP(k);
-      if (k < 1) id = requestAnimationFrame(step);
-    };
+    const step = (t) => { if (start == null) start = t; const k=Math.min(1,(t-start)/durationMs); setP(k); if(k<1) id=requestAnimationFrame(step); };
     id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
   }, [durationMs]);
@@ -125,13 +116,13 @@ export default function BannedLogin({ onProceed }) {
     return () => { document.body.style.overflow = prev; };
   }, [cascade, whiteout]);
 
-  const goLogin = useCallback(() => {
+  const goLogin = () => {
     setHideBubble(false);
     setView('login');
     setTimeout(() => emailRef.current?.focus(), 200);
-  }, []);
+  };
 
-  const runCascade = useCallback((after, { washAway = false } = {}) => {
+  const runCascade = (after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
@@ -150,23 +141,23 @@ export default function BannedLogin({ onProceed }) {
     }, CASCADE_MS);
 
     return () => clearTimeout(t);
-  }, [onProceed, router]);
+  };
 
-  const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
-  const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
-  const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
+  const onLink   = () => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); };
+  const onBypass = () => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); };
+  const onOrbActivate = () => { onBypass(); };
 
-  const toggleOrbColor = useCallback(() => {
+  const toggleOrbColor = () => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
       setOrbGlow(next === 'red' ? 1.0 : 0.9);
       setOrbVersion(v => v + 1);
       return next;
     });
-  }, []);
+  };
 
   return (
-    <div className="page-center" style={{ position:'relative', flexDirection:'column', alignItems:'center', gap:8 }}>
+    <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:8 }}>
       {flyOnce && (
         <ButterflyChakra
           startEl={lRef.current}
@@ -183,18 +174,18 @@ export default function BannedLogin({ onProceed }) {
       )}
 
       {!hideAll && (
-        <div className="login-stack" style={{ alignItems:'center', gap:8 }}>
-          {/* ORB: sits above the bubble, centered, INTERACTIVE */}
-          <div className="orb-row" style={{ marginBottom: ORB_TUCK_OVER_CARD, display:'grid', placeItems:'center' }}>
+        <div className="login-stack">
+          {/* ORB above the bubble, larger, tighter margin */}
+          <div className="orb-row" style={{ marginBottom:-14, display:'grid', placeItems:'center' }}>
             <BlueOrbCross3D
               key={`${orbMode}-${orbGlow}-${orbVersion}`}
               rpm={44}
               color={SEAFOAM}
-              geomScale={1}
+              geomScale={1.08}
               glow
               glowOpacity={orbGlow}
               includeZAxis
-              height="44px"                 // slightly larger like the older repo look
+              height="56px"
               onActivate={onOrbActivate}
               overrideAllColor={orbMode==='red' ? RED : null}
               overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
@@ -239,8 +230,8 @@ export default function BannedLogin({ onProceed }) {
                     <span
                       role="button" tabIndex={0}
                       className="code-string code-link"
-                      onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setView('login'); setTimeout(()=>emailRef.current?.focus(), 200); }}
-                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); setView('login'); setTimeout(()=>emailRef.current?.focus(), 200); }}}
+                      onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
+                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
                     >
                       "hi..."
                     </span>
@@ -305,46 +296,18 @@ export default function BannedLogin({ onProceed }) {
             </div>
           )}
 
-          {/* Florida, USA — centered and a touch closer to the card */}
           <button
             type="button"
             className={['ghost-btn','florida-link','florida-inline', floridaHot?'is-hot':''].join(' ')}
             onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
             onMouseEnter={()=>setFloridaHot(true)}
             onMouseLeave={()=>setFloridaHot(false)}
-            style={{ marginTop: FLORIDA_GAP_BELOW }}
+            style={{ marginTop: 10 }}    {/* tighter spacing to the card */}
           >
             Florida, USA
           </button>
         </div>
       )}
-
-      <style jsx global>{`
-        :root { --lb-seafoam:#32ffc7; }
-        .login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.10ch; white-space:pre; line-height:1.35; }
-        .code-row{ display:flex; align-items:baseline; gap:.35ch; line-height:1.35; }
-        .nogap{ display:inline-flex; gap:0; }
-        .login-card .lb-seafoam, .login-card .code-comment{
-          color:var(--lb-seafoam) !important;
-          text-shadow:0 0 6px var(--lb-seafoam), 0 0 14px var(--lb-seafoam);
-          letter-spacing:0; word-spacing:normal;
-        }
-        .login-card .code-keyword, .login-card .code-var, .login-card .code-op, .login-card .code-string, .login-card .code-punc, .login-card .lb-white {
-          text-shadow:0 0 6px currentColor, 0 0 14px currentColor;
-        }
-        .login-card .commit-btn{ border:none; border-radius:10px; padding:6px 10px; font-weight:700; line-height:1; cursor:pointer; transition:color .15s ease, box-shadow .15s ease, filter .15s ease; }
-        .login-card .btn-yellow{ background:linear-gradient(#ffd84a,#f7b400); color:#2a2000; box-shadow:0 0 14px rgba(255,214,64,.35), 0 0 28px rgba(255,214,64,.18); }
-        .login-card .btn-red{ background:linear-gradient(#ff4b66,#d90f1c); color:#330004; box-shadow:0 0 14px rgba(255,76,97,.40), 0 0 28px rgba(255,76,97,.22); }
-        .login-card .commit-btn.btn-activated,.login-card .commit-btn:active{ color:#fff !important; text-shadow:0 0 6px #fff, 0 0 14px #fff, 0 0 26px #fff; filter:saturate(1.15) brightness(1.15); }
-        .login-card .commit-btn:focus-visible{ outline:2px solid rgba(255,255,255,.65); outline-offset:2px; }
-        .code-input-violet{ color:#a78bfa; -webkit-text-fill-color:#a78bfa !important; caret-color:#a78bfa; background:transparent; border:0; outline:0; font:inherit; padding:0; margin:0; width:auto; text-shadow:0 0 6px #a78bfa, 0 0 14px #a78bfa; filter:saturate(1.15); }
-        .code-input-violet::placeholder{ color:#9a8aec; opacity:.95; text-shadow:0 0 4px #9a8aec, 0 0 10px #9a8aec; }
-        .code-link{ cursor:pointer; text-decoration:none; }
-        .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
-        .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
-        .code-banned.banned-trigger:hover, .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
-        .orb-row{ contain:layout paint style; isolation:isolate; }
-      `}</style>
     </div>
   );
 }
