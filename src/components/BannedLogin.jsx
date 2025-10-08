@@ -10,13 +10,8 @@ import { createPortal } from 'react-dom';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 import { useRouter } from 'next/navigation';
 
-const HOP_PATH = '/shop'; // fallback if parent doesn't provide onProceed
-
-/** FINAL STAIRCASE TIMING — no overlap (each band finishes before the next starts) */
-const BAND_MS    = 360;              // grow time per band (snappy)
-const GAP_MS     = 80;               // tiny pause between bands
-const STAGGER_MS = BAND_MS + GAP_MS; // step between bands (no overlap)
-const CASCADE_MS = STAGGER_MS * 6 + BAND_MS + 240; // total incl. safety pad
+const CASCADE_MS = 2400;
+const HOP_PATH = '/shop';
 
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
@@ -37,116 +32,47 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Chakra Staircase (Red → Violet) — bright, glossy, black underlay + screen bloom */
-function CascadeOverlay() {
-  const [veilOp, setVeilOp] = useState(0);
-
+function CascadeOverlay({ durationMs = CASCADE_MS }) {
+  const [p, setP] = useState(0);
   useEffect(() => {
-    // Start the white veil right before the last band finishes to avoid wash/flicker
-    const lead = setTimeout(
-      () => setVeilOp(1),
-      STAGGER_MS * 6 + Math.max(0, BAND_MS - 120)
-    );
-    const end  = setTimeout(() => setVeilOp(1), CASCADE_MS); // safety
-    return () => { clearTimeout(lead); clearTimeout(end); };
-  }, []);
+    let start; let id;
+    const step = (t) => { if (start == null) start = t; const k=Math.min(1,(t-start)/durationMs); setP(k); if(k<1) id=requestAnimationFrame(step); };
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
+  }, [durationMs]);
+
+  const whiteTx = (1 - p) * 100;
+  const COLOR_VW = 120;
+  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
 
   return createPortal(
     <>
-      {/* BLACK underlay so colors/bloom pop regardless of page theme */}
-      <div
-        aria-hidden="true"
-        style={{
-          position:'fixed', inset:0, background:'#000',
-          zIndex:9998, pointerEvents:'none'
-        }}
-      />
-
-      {/* Fixed 7-col grid (no sweeping transform). Isolated so blending stays inside */}
-      <div
-        aria-hidden="true"
-        style={{
-          position:'fixed', inset:0, zIndex:9999, pointerEvents:'none',
-          display:'grid', gridTemplateColumns:'repeat(7,1fr)', overflow:'hidden',
-          isolation:'isolate', willChange:'transform,opacity'
-        }}
-      >
-        {/* RED → ORANGE → YELLOW → GREEN → BLUE → INDIGO → VIOLET */}
-        <div className="chakra-band c-red"    style={{ ['--d']: 0 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
-        <div className="chakra-band c-orange" style={{ ['--d']: 1 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
-        <div className="chakra-band c-yellow" style={{ ['--d']: 2 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
-        <div className="chakra-band c-green"  style={{ ['--d']: 3 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
-        <div className="chakra-band c-blue"   style={{ ['--d']: 4 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
-        <div className="chakra-band c-indigo" style={{ ['--d']: 5 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
-        <div className="chakra-band c-violet" style={{ ['--d']: 6 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
+      <div aria-hidden="true" style={{
+        position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
+        background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
+      }}/>
+      <div aria-hidden="true" style={{
+        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
+        transform:`translate3d(${bandsTx}vw,0,0)`,
+        zIndex:9999, pointerEvents:'none', willChange:'transform'
+      }}>
+        <div className="lb-cascade">
+          <div className="lb-band lb-b1"/><div className="lb-band lb-b2"/><div className="lb-band lb-b3"/>
+          <div className="lb-band lb-b4"/><div className="lb-band lb-b5"/><div className="lb-band lb-b6"/><div className="lb-band lb-b7"/>
+        </div>
       </div>
-
-      {/* White veil (appears at the very end) */}
-      <div
-        aria-hidden="true"
-        style={{
-          position:'fixed', inset:0, zIndex:10000, background:'#fff',
-          opacity: veilOp, transition:'opacity .001s linear', pointerEvents:'none'
-        }}
-      />
-
+      <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
+        <span className="lb-brand-text">LAMEBOY, USA</span>
+      </div>
       <style jsx global>{`
-        /* Glossy staircase: left-origin growth + neon + screen-bloom */
-        .chakra-band{
-          position:relative; height:100%;
-          transform-origin:left center;
-          transform: scaleX(0.001); opacity:0;
-          animation: bandGrow var(--band,360ms) cubic-bezier(.25,.9,.25,1) forwards;
-          animation-delay: var(--d,0ms);
-          filter: saturate(1.26) brightness(1.08) contrast(1.10);
-        }
-        /* Inner neon (inset) */
-        .chakra-band::before{
-          content:""; position:absolute; inset:0;
-          box-shadow:
-            inset 0 0 140px rgba(255,255,255,.55),
-            inset 0 0 300px rgba(255,255,255,.30),
-            inset 0 0 460px rgba(255,255,255,.20);
-          pointer-events:none;
-        }
-        /* External bloom that adds light — uses screen blend on black underlay */
-        .chakra-band::after{
-          content:""; position:absolute; inset:-8px; border-radius:2px;
-          background: radial-gradient(120% 60% at 5% 50%,
-                      rgba(255,255,255,.90) 0%,
-                      rgba(255,255,255,.45) 28%,
-                      rgba(255,255,255,.08) 62%,
-                      rgba(255,255,255,0) 100%);
-          filter: blur(10px);
-          opacity:.65;
-          mix-blend-mode: screen;
-          animation: bloomIn var(--band,360ms) ease-out forwards;
-          animation-delay: var(--d,0ms);
-        }
-
-        @keyframes bandGrow{
-          0%   { transform: scaleX(0.001); opacity: 0; }
-          18%  { opacity: 1; }
-          100% { transform: scaleX(1);     opacity: 1; }
-        }
-        @keyframes bloomIn{
-          0%   { opacity:0; filter: blur(18px); }
-          40%  { opacity:.75; }
-          100% { opacity:.65; filter: blur(10px); }
-        }
-
-        /* Chakra colors — sRGB fallback + P3 for richer displays */
-        .c-red   { background:#ef4444;    background: color(display-p3 0.94 0.27 0.27); } /* root */
-        .c-orange{ background:#f97316;    background: color(display-p3 0.97 0.48 0.16); } /* sacral */
-        .c-yellow{ background:#facc15;    background: color(display-p3 0.98 0.82 0.19); } /* solar */
-        .c-green { background:#22c55e;    background: color(display-p3 0.35 0.78 0.47); } /* heart */
-        .c-blue  { background:#3b82f6;    background: color(display-p3 0.30 0.58 0.96); } /* throat */
-        .c-indigo{ background:#4f46e5;    background: color(display-p3 0.41 0.39 0.90); } /* third eye */
-        .c-violet{ background:#c084fc;    background: color(display-p3 0.79 0.52 0.98); } /* crown */
-
-        @media (prefers-reduced-motion: reduce){
-          .chakra-band{ animation:none; transform:none; opacity:1; }
-          .chakra-band::after{ animation:none; opacity:.5; }
+        .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); }
+        .lb-band{ width:100%; height:100%; background:var(--c); }
+        .lb-b1{ --c:#ef4444 } .lb-b2{ --c:#f97316 } .lb-b3{ --c:#facc15 }
+        .lb-b4{ --c:#22c55e } .lb-b5{ --c:#3b82f6 } .lb-b6{ --c:#4f46e5 } .lb-b7{ --c:#c084fc }
+        .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
+        .lb-brand-text{
+          color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+          font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25);
         }
       `}</style>
     </>,
@@ -208,7 +134,7 @@ export default function BannedLogin({ onProceed }) {
       after && after();
 
       if (typeof onProceed === 'function') {
-        onProceed(); // parent flips to shop inline (single page)
+        onProceed();
       } else {
         try { router.push(HOP_PATH); } catch {}
       }
@@ -217,7 +143,7 @@ export default function BannedLogin({ onProceed }) {
     return () => clearTimeout(t);
   }, [onProceed, router]);
 
-  const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
+  const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
@@ -241,7 +167,7 @@ export default function BannedLogin({ onProceed }) {
         />
       )}
 
-      {cascade && <CascadeOverlay />}
+      {cascade && <CascadeOverlay durationMs={CASCADE_MS} />}
       {whiteout && !cascade && createPortal(
         <div aria-hidden="true" style={{ position:'fixed', inset:0, background:'#fff', zIndex:10002, pointerEvents:'none' }}/>,
         document.body
@@ -249,7 +175,8 @@ export default function BannedLogin({ onProceed }) {
 
       {!hideAll && (
         <div className="login-stack">
-          <div className="orb-row" style={{ marginBottom:-28 }}>
+          {/* ORB: sits above the bubble, centered, INTERACTIVE */}
+          <div className="orb-row" style={{ marginBottom:-28, display:'grid', placeItems:'center' }}>
             <BlueOrbCross3D
               key={`${orbMode}-${orbGlow}-${orbVersion}`}
               rpm={44}
@@ -258,10 +185,11 @@ export default function BannedLogin({ onProceed }) {
               glow
               glowOpacity={orbGlow}
               includeZAxis
-              height="10vh"
+              height="36px"
               onActivate={onOrbActivate}
               overrideAllColor={orbMode==='red' ? RED : null}
               overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
+              interactive={true}                 // <- interactive on banned page
             />
           </div>
 
@@ -404,9 +332,8 @@ export default function BannedLogin({ onProceed }) {
         .code-link:hover, .code-link:focus-visible{ text-decoration:underline; outline:none; }
         .code-banned.banned-trigger{ cursor:pointer; text-decoration:none; }
         .code-banned.banned-trigger:hover, .code-banned.banned-trigger:focus-visible{ text-decoration:underline; }
+        .orb-row{ contain:layout paint style; isolation:isolate; }
       `}</style>
-
-      <style jsx>{`.orb-row{ width:100%; contain:layout paint style; isolation:isolate; }`}</style>
     </div>
   );
 }

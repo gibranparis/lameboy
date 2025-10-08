@@ -435,3 +435,8 @@ html:has([data-shop-root]) .product-img{
 [data-mode="shop"][data-theme="day"] header[role="banner"] .cart-fab{ color:#111; }
 [data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
 .cart-fab .cb-handle{ fill:#F7A02D; } /* orange “handlebars” always visible */
+
+/* Ensure header/cart/toggle chrome applies ONLY on the unified shop page */
+[data-mode="shop"] header[role="banner"] { background: transparent !important; box-shadow: none !important; border: 0 !important; }
+[data-mode="shop"] header[role="banner"] > * { align-self: center !important; }
+[data-mode="shop"] header[role="banner"] .cart-fab { position: static !important; background: transparent !important; border: none !important; box-shadow:none !important; }

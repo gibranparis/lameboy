@@ -1,13 +1,10 @@
+// src/components/BlueOrbCross3D.jsx
 'use client';
 
 import * as THREE from 'three';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 
-/**
- * Decorative only: pointer-events are disabled on the Canvas so the orb
- * never creates a large clickable area around it.
- */
 function OrbCross({
   rpm = 14.4,
   color = '#32ffc7',
@@ -18,6 +15,7 @@ function OrbCross({
   glowOpacity = 0.7,
   glowScale = 1.35,
   includeZAxis = true,
+  onActivate = null,
   overrideAllColor = null,
   overrideGlowOpacity,
 }) {
@@ -85,8 +83,7 @@ function OrbCross({
   const useOverride = !!overrideAllColor;
   const barColor = useOverride ? overrideAllColor : color;
 
-  const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * (typeof window !== 'undefined' &&
-    window.matchMedia?.('(pointer:coarse)').matches ? 0.55 : 1.0);
+  const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * (coarse ? 0.55 : 1.0);
   const coreEmissive = useOverride ? 2.25 : 1.25;
   const barEmissive  = useOverride ? 1.35 : 0.6;
 
@@ -103,13 +100,13 @@ function OrbCross({
   const sphereDefs = useOverride
     ? new Array(centers.length).fill({ core: barColor, halo: barColor, haloOp: haloBase })
     : [
-        { core: CHAKRA.crownW, halo: CHAKRA.crownV, haloOp: 0.9 },
-        { core: CHAKRA.root,     halo: CHAKRA.root,     haloOp: glowOpacity },
-        { core: CHAKRA.sacral,   halo: CHAKRA.sacral,   haloOp: glowOpacity },
-        { core: CHAKRA.solar,    halo: CHAKRA.solar,    haloOp: glowOpacity },
-        { core: CHAKRA.heart,    halo: CHAKRA.heart,    haloOp: glowOpacity },
-        { core: CHAKRA.throat,   halo: CHAKRA.throat,   haloOp: glowOpacity },
-        { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: glowOpacity },
+        { core: CHAKRA.crownW, halo: CHAKRA.crownV, haloOp: 0.9 * (coarse ? 0.55 : 1.0) },
+        { core: CHAKRA.root,     halo: CHAKRA.root,     haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
+        { core: CHAKRA.sacral,   halo: CHAKRA.sacral,   haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
+        { core: CHAKRA.solar,    halo: CHAKRA.solar,    haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
+        { core: CHAKRA.heart,    halo: CHAKRA.heart,    haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
+        { core: CHAKRA.throat,   halo: CHAKRA.throat,   haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
+        { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
       ];
 
   const sphereCoreMats = useMemo(
@@ -145,8 +142,11 @@ function OrbCross({
     group.current.userData = { pulse:true, base:haloBase, barHalo:barHaloMat, sphereHalos:sphereHaloMats, halo2:halo2Mat, halo3:halo3Mat };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
+  const handlePointerDown = (e) => { e.stopPropagation(); onActivate && onActivate(); };
+  const handleKeyDown = (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } };
+
   return (
-    <group ref={group}>
+    <group ref={group} onPointerDown={handlePointerDown} onKeyDown={handleKeyDown} tabIndex={0}>
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
       <mesh geometry={armGeoY} material={barCoreMat} />
       <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
@@ -172,7 +172,7 @@ function OrbCross({
 }
 
 export default function BlueOrbCross3D({
-  height = '64px',     // small, matches header control scale
+  height = '28px',            // small by default so it fits headers/cards
   rpm = 14.4,
   color = '#32ffc7',
   geomScale = 1,
@@ -182,42 +182,50 @@ export default function BlueOrbCross3D({
   glowOpacity = 0.7,
   glowScale = 1.35,
   includeZAxis = true,
+  onActivate = null,
   overrideAllColor = null,
   overrideGlowOpacity,
   style = {},
   className = '',
+  interactive = true,         // NEW: turn off to remove hit-area and pointer events
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
+  const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
     const pr = Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
     setMaxDpr(Math.max(2, pr));
+    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    setReduced(!!mq?.matches);
+    const onChange = (e) => setReduced(e.matches);
+    mq?.addEventListener?.('change', onChange);
+    return () => mq?.removeEventListener?.('change', onChange);
   }, []);
 
   return (
     <div
       className={className}
       style={{
-        height, width: height,    // square; keeps it visually tight
-        display:'inline-block',
-        contain:'layout paint style',
-        isolation:'isolate',
-        pointerEvents:'none',     // <— disable hits on the container
-        ...style
+        height,
+        width: height,                  // square footprint
+        display: 'inline-block',
+        contain: 'layout paint style',
+        isolation: 'isolate',
+        pointerEvents: interactive ? 'auto' : 'none',  // <- kills hit-area when decorative
+        ...style,
       }}
-      aria-hidden="true"
     >
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        style={{ pointerEvents:'none' }}   // <— disable hits on the canvas
+        style={{ pointerEvents: interactive ? 'auto' : 'none' }}   // <- no events when decorative
       >
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />
         <directionalLight position={[-3, -2, -4]} intensity={0.35} />
         <OrbCross
-          rpm={rpm}
+          rpm={reduced ? 0 : rpm}
           color={color}
           geomScale={geomScale}
           offsetFactor={offsetFactor}
@@ -226,6 +234,7 @@ export default function BlueOrbCross3D({
           glowOpacity={glowOpacity}
           glowScale={glowScale}
           includeZAxis={includeZAxis}
+          onActivate={interactive ? onActivate : null}   // no click handler in decorative mode
           overrideAllColor={overrideAllColor}
           overrideGlowOpacity={overrideGlowOpacity}
         />
