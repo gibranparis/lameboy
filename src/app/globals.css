@@ -457,3 +457,46 @@ html, body { background: var(--bg, #000); }
   background: transparent !important;
   box-shadow: none !important;
 }
+/* =========================
+   Unified shop theming (day ↔ night)
+   ========================= */
+:root { --shop-offwhite: #F7F7F2; }
+
+/* Fill theme tokens on the unified wrapper */
+[data-mode="shop"][data-theme="day"]{  --bg: var(--shop-offwhite); --panel: var(--shop-offwhite); --text:#111; }
+[data-mode="shop"][data-theme="night"]{ --bg: #000;               --panel: #000;               --text:#fff; }
+
+/* Actually paint with the tokens */
+[data-mode="shop"]{
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color .35s ease, color .35s ease;
+}
+
+/* Also set html/body so the whole viewport (including header area) matches */
+html:has([data-shop-root]),
+html:has([data-shop-root]) body{
+  background: var(--shop-offwhite) !important;
+  color:#111 !important;
+}
+
+/* Header should never introduce its own bar */
+[data-mode="shop"] header[role="banner"]{
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Make inner sections transparent so wrapper color shows through */
+.shop-wrap, .shop-grid, .product-box { background: transparent !important; }
+
+/* If an earlier rule hides header canvases/orbs, explicitly ALLOW our density orb */
+html:has([data-shop-root]) [data-orb="density"]{ display:block !important; }
+
+/* Center the Day/Night toggle box-shadow nicely on light BGs */
+.lb-switch{
+  box-shadow: 0 4px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.6);
+}
+
+/* (Optional) prevent any black full-screen canvas leaking behind the shop */
+html:has([data-shop-root]) .logo-3d{ display:none !important; }
