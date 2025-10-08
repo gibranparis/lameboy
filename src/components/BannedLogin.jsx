@@ -13,9 +13,13 @@ import { useRouter } from 'next/navigation';
 const CASCADE_MS = 2400;
 const HOP_PATH = '/shop';
 
+// --- Small spacing constants so it’s easy to tweak visually ---
+const ORB_TUCK_OVER_CARD = -14;   // negative pulls orb closer to card (was -28)
+const FLORIDA_GAP_BELOW   = 14;   // space between card and “Florida, USA”
+
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
-    <span className="lb-word" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
+    <span className="lb-word" onClick={onClickWordmark} style={{ cursor: 'pointer' }} title="Launch butterfly">
       <span className="lb-white">
         <span ref={lRef}>L</span>amebo<span ref={yRef}>y</span>
         <span className="lb-seafoam">.com</span>
@@ -36,7 +40,12 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
   useEffect(() => {
     let start; let id;
-    const step = (t) => { if (start == null) start = t; const k=Math.min(1,(t-start)/durationMs); setP(k); if(k<1) id=requestAnimationFrame(step); };
+    const step = (t) => {
+      if (start == null) start = t;
+      const k = Math.min(1, (t - start) / durationMs);
+      setP(k);
+      if (k < 1) id = requestAnimationFrame(step);
+    };
     id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
   }, [durationMs]);
@@ -100,7 +109,7 @@ export default function BannedLogin({ onProceed }) {
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
   const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
-  const [orbGlow, setOrbGlow] = useState(1.0);      // stronger glow
+  const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
   const lRef = useRef(null);
@@ -150,14 +159,14 @@ export default function BannedLogin({ onProceed }) {
   const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
-      setOrbGlow(next === 'red' ? 1.0 : 1.0);
+      setOrbGlow(next === 'red' ? 1.0 : 0.9);
       setOrbVersion(v => v + 1);
       return next;
     });
   }, []);
 
   return (
-    <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:12 }}>
+    <div className="page-center" style={{ position:'relative', flexDirection:'column', alignItems:'center', gap:8 }}>
       {flyOnce && (
         <ButterflyChakra
           startEl={lRef.current}
@@ -174,18 +183,18 @@ export default function BannedLogin({ onProceed }) {
       )}
 
       {!hideAll && (
-        <div className="login-stack">
-          {/* ORB: above the bubble, centered, NO overlap */}
-          <div className="orb-row" style={{ marginBottom: 8, display:'grid', placeItems:'center' }}>
+        <div className="login-stack" style={{ alignItems:'center', gap:8 }}>
+          {/* ORB: sits above the bubble, centered, INTERACTIVE */}
+          <div className="orb-row" style={{ marginBottom: ORB_TUCK_OVER_CARD, display:'grid', placeItems:'center' }}>
             <BlueOrbCross3D
               key={`${orbMode}-${orbGlow}-${orbVersion}`}
               rpm={44}
               color={SEAFOAM}
-              geomScale={1.35}            // larger visual cross (old feel)
+              geomScale={1}
               glow
               glowOpacity={orbGlow}
               includeZAxis
-              height="56px"               // bigger like before
+              height="44px"                 // slightly larger like the older repo look
               onActivate={onOrbActivate}
               overrideAllColor={orbMode==='red' ? RED : null}
               overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
@@ -230,8 +239,8 @@ export default function BannedLogin({ onProceed }) {
                     <span
                       role="button" tabIndex={0}
                       className="code-string code-link"
-                      onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
-                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
+                      onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setView('login'); setTimeout(()=>emailRef.current?.focus(), 200); }}
+                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); setView('login'); setTimeout(()=>emailRef.current?.focus(), 200); }}}
                     >
                       "hi..."
                     </span>
@@ -296,19 +305,17 @@ export default function BannedLogin({ onProceed }) {
             </div>
           )}
 
-          {/* Florida link centered under the bubble */}
-          <div style={{ display:'grid', placeItems:'center', marginTop: 10 }}>
-            <button
-              type="button"
-              className={['ghost-btn','florida-link','florida-inline', floridaHot?'is-hot':''].join(' ')}
-              onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
-              onMouseEnter={()=>setFloridaHot(true)}
-              onMouseLeave={()=>setFloridaHot(false)}
-              style={{ display:'block' }}
-            >
-              Florida, USA
-            </button>
-          </div>
+          {/* Florida, USA — centered and a touch closer to the card */}
+          <button
+            type="button"
+            className={['ghost-btn','florida-link','florida-inline', floridaHot?'is-hot':''].join(' ')}
+            onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
+            onMouseEnter={()=>setFloridaHot(true)}
+            onMouseLeave={()=>setFloridaHot(false)}
+            style={{ marginTop: FLORIDA_GAP_BELOW }}
+          >
+            Florida, USA
+          </button>
         </div>
       )}
 
