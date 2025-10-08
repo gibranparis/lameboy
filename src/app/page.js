@@ -14,6 +14,7 @@ const CartButton     = nextDynamic(() => import('@/components/CartButton'),     
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
 const HEADER_H = 86;
+const CONTROL_H = 56; // keep all three controls visually matched
 
 export default function Page() {
   const [mode, setMode]   = useState('gate');  // 'gate' | 'shop'
@@ -45,7 +46,6 @@ export default function Page() {
       className="min-h-[100dvh] w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
-      {/* Fixed header (all 3 controls live inside this row) */}
       {isShop && (
         <header
           role="banner"
@@ -55,31 +55,35 @@ export default function Page() {
             alignItems:'center', background:'transparent', padding:'0 16px'
           }}
         >
-          {/* LEFT: orb (click = change grid density) */}
-          <div
-            style={{
-              display:'flex', alignItems:'center', height:'100%', gap:10
-            }}
-          >
+          {/* LEFT: orb (exact 56×56 square) */}
+          <div style={{ display:'flex', alignItems:'center', height:'100%' }}>
             <div
               data-orb="density"
               role="button"
               title="Toggle grid density"
               onClick={bumpCols}
               style={{
-                width:72, height:56, display:'grid', placeItems:'center'
+                width: CONTROL_H, height: CONTROL_H,        // 56 × 56
+                display:'grid', placeItems:'center'
               }}
             >
-              <BlueOrbCross3D height="56px" rpm={44} glow includeZAxis />
+              <BlueOrbCross3D
+                height={`${CONTROL_H}px`}
+                style={{ width: `${CONTROL_H}px` }}         // ensure square wrapper
+                rpm={44}
+                includeZAxis
+                glow
+                geomScale={1.05}                             // fill the square nicely
+              />
             </div>
           </div>
 
-          {/* CENTER: day/night toggle */}
+          {/* CENTER: toggle (same height as orb) */}
           <div style={{ justifySelf:'center', display:'grid', alignItems:'center', height:'100%' }}>
-            <DayNightToggle value={theme} onChange={setTheme} size={112} />
+            <DayNightToggle value={theme} onChange={setTheme} size={CONTROL_H} />
           </div>
 
-          {/* RIGHT: cart */}
+          {/* RIGHT: cart silhouette */}
           <div style={{ justifySelf:'end', display:'grid', alignItems:'center', height:'100%' }}>
             <CartButton />
           </div>
@@ -98,7 +102,6 @@ export default function Page() {
         />
       ) : (
         <>
-          {/* spacer for fixed header */}
           <div style={{ height: HEADER_H }} />
           <div className="shop-wrap">
             <ShopGrid columns={cols} />
@@ -106,7 +109,7 @@ export default function Page() {
         </>
       )}
 
-      {/* Fade veil */}
+      {/* Veil */}
       {veil && (
         <div
           aria-hidden="true"

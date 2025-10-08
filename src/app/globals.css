@@ -4,24 +4,27 @@
 @tailwind utilities;
 
 /* =========================
-   VS Code Dark – Lameboy Theme
+   LAMEBOY base theme
    ========================= */
 :root{
   --mono: Menlo, Monaco, Consolas, "SFMono-Regular", "Liberation Mono", "Courier New", ui-monospace, monospace;
 
-  /* Base */
+  /* global (dark app shell) */
   --bg:#000; --panel:#1e1e1e; --text:#fff; --muted:#b3b3b3;
 
-  /* Accents */
-  --accent:#1991ff; --hover-green:#0bf05f; --seafoam:#2ee6b8; --purple:#a855f7;
+  /* accents */
+  --accent:#1991ff; --focus-orange:#f7a02d;
+  --hover-green:#0bf05f; --seafoam:#2ee6b8; --purple:#a855f7;
 
-  /* Code tokens */
+  /* code tokens */
   --comment:var(--seafoam); --string:#ce9178; --keyword:#9cdcfe;
   --var:#dcdcaa; --punct:#ffffff; --op:#ffffff;
 
-  --focus-orange:#f7a02d;
+  /* radii */
   --radius-xl:14px;
-  --ring:0 0 0 1px rgba(25,145,255,.25);
+
+  /* shop palette */
+  --shop-offwhite:#F7F7F2;
 }
 
 html,body{
@@ -42,7 +45,7 @@ html,body{
   }
 }
 
-/* Layout */
+/* ========== Layout bits ========== */
 .page-center{ min-height:100dvh; display:flex; align-items:center; justify-content:center; gap:18px; padding:2rem; }
 .row-nowrap{ display:flex; align-items:center; gap:14px; flex-wrap:nowrap; }
 
@@ -57,12 +60,11 @@ html,body{
 .card-ultra-tight{ padding:6px 8px; }
 .login-card{ position:relative; display:inline-flex; flex-direction:column; gap:2px; width:fit-content; max-width:92vw; }
 
-/* Location link */
+/* Link-ish button */
 .ghost-btn{ background:transparent; border:0; margin:0; padding:0; color:var(--muted); font:inherit; cursor:pointer; white-space:nowrap; transition: color .15s ease, text-shadow .15s ease; }
-.florida-link{ color:var(--muted); }
 .florida-link:hover,.florida-link.is-hot{ color:#ffeb3b; font-weight:900; text-shadow:0 0 8px rgba(255,235,59,.60), 0 0 18px rgba(255,235,59,.35); }
 
-/* Slide/fade */
+/* Slides */
 .card-slide-left  { animation: slideLeftSmooth  .5s cubic-bezier(.22,.61,.21,.99); }
 .card-slide-right { animation: slideRightSmooth .5s cubic-bezier(.22,.61,.21,.99); }
 .slide-in-left    { animation: slideLeftSmooth  .45s cubic-bezier(.22,.61,.21,.99); }
@@ -70,7 +72,7 @@ html,body{
 @keyframes slideLeftSmooth  { from{ transform:translateX(28px); opacity:.01;} to{ transform:translateX(0); opacity:1;} }
 @keyframes slideRightSmooth { from{ transform:translateX(-28px);opacity:.01;} to{ transform:translateX(0); opacity:1;} }
 
-/* Tokens */
+/* Code tokens */
 .code-comment{ color:var(--comment); } .code-string{ color:var(--string); }
 .code-keyword{ color:var(--keyword); } .code-var{ color:var(--var); }
 .code-op{ color:var(--op); } .code-punc{ color:var(--punct); }
@@ -79,7 +81,7 @@ html,body{
 .code-success{ color:var(--hover-green); font-weight:800; text-shadow:0 0 6px rgba(11,240,95,.55), 0 0 14px rgba(11,240,95,.35); }
 
 /* Inputs + purple caret */
-.code-line{ display:flex; align-items:baseline; gap:4px; row-gap:0; line-height:1.35; font-size:.95rem; flex-wrap:wrap; }
+.code-line{ display:flex; align-items:baseline; gap:4px; line-height:1.35; font-size:.95rem; flex-wrap:wrap; }
 .code-input{ background:transparent; border:none; outline:none; color:var(--purple); caret-color:var(--purple); font:inherit; padding:0; margin:0; }
 .caretwrap{ position:relative; display:inline-flex; align-items:baseline; min-width:8px; }
 .measurer{ position:absolute; visibility:hidden; pointer-events:none; white-space:pre; font:inherit; line-height:1.35; }
@@ -87,8 +89,26 @@ html,body{
 .purple-caret::after{ content:"▮"; color:var(--purple); animation:blink 1.1s steps(2, start) infinite; }
 @keyframes blink{ to{ visibility:hidden; } }
 
+/* Bubble-as-button */
+.bubble-button{ cursor:pointer; }
+.bubble-button:hover{
+  box-shadow: 0 0 0 1px rgba(25,145,255,.25), 0 0 24px rgba(25,145,255,.22), 0 0 50px rgba(25,145,255,.25);
+}
+@keyframes bubblePulseBlue{
+  0%{   box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12); }
+  35%{  box-shadow:0 0 0 1px rgba(25,145,255,.25), 0 0 28px rgba(25,145,255,.28), 0 0 56px rgba(25,145,255,.32); }
+  100%{ box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12); }
+}
+.bubble-glow-blue{ animation: bubblePulseBlue .85s ease-out; }
+.lameboy-glow{ color:var(--seafoam); font-weight:900; text-shadow:0 0 10px rgba(46,230,184,.50), 0 0 20px rgba(46,230,184,.35); }
+
+/* Global 3D logo canvas (hidden on shop via rules below) */
+.logo-3d{ position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+@media (prefers-reduced-motion: reduce){ .logo-3d{ display:none; } }
+.login-card pre.code-tight { letter-spacing: 0; word-spacing: -0.14ch; }
+
 /* =========================
-   Chakra Cascade (for banned)
+   Chakra Cascade helpers (for banned)
    ========================= */
 .chakra-overlay{ position:fixed; inset:0; z-index:60; display:grid; grid-template-columns:repeat(7, 1fr); pointer-events:none; direction: rtl; }
 .chakra-band{ position:relative; opacity:0; transform:translateX(2%); animation:chakraBlink 1.2s ease-out forwards; }
@@ -104,26 +124,8 @@ html,body{
 .chakra-thirdeye{--c:#b300ff;background:#4B0082}
 .chakra-crown{--c:#faf5ff;background:#8B00FF}
 
-/* Bubble-as-button */
-.bubble-button{ cursor:pointer; }
-.bubble-button:hover{
-  box-shadow: 0 0 0 1px rgba(25,145,255,.25), 0 0 24px rgba(25,145,255,.22), 0 0 50px rgba(25,145,255,.25);
-}
-@keyframes bubblePulseBlue{
-  0%{   box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12); }
-  35%{  box-shadow:0 0 0 1px rgba(25,145,255,.25), 0 0 28px rgba(25,145,255,.28), 0 0 56px rgba(25,145,255,.32); }
-  100%{ box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12); }
-}
-.bubble-glow-blue{ animation: bubblePulseBlue .85s ease-out; }
-.bubble-button:focus-visible{ outline:2px solid #4aa5ff; outline-offset:4px; border-radius:var(--radius-xl); }
-
-/* Center stack */
-.login-stack{ display:flex; flex-direction:column; align-items:center; gap:10px; }
-.florida-inline{ display:inline-block; margin-top:2px; }
-.lameboy-glow{ color:var(--seafoam); font-weight:900; text-shadow:0 0 10px rgba(46,230,184,.50), 0 0 20px rgba(46,230,184,.35); }
-
 /* =========================
-   Shop
+   Shop grid & hero
    ========================= */
 .shop-page{ background:#fff; color:#111; min-height:100dvh; }
 .shop-wrap{ padding: 86px 24px 24px; }
@@ -143,7 +145,53 @@ html,body{
 .product-img{ width:88%; height:88%; object-fit:contain; }
 .product-meta{ padding:10px 2px 0 2px; letter-spacing:.02em; font-weight:800; text-align:center; font-size:clamp(12px,1.7vw,18px); line-height:1.05; }
 
-/* Cart FAB */
+/* Product overlay */
+.product-hero-overlay{ position:fixed; inset:0; z-index:90; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; padding:20px; }
+.product-hero{ width:min(92vw,1000px); max-height:86vh; display:flex; flex-direction:column; align-items:center; gap:14px; position:relative; }
+.product-hero-img{ width:100%; max-height:70vh; object-fit:contain; }
+.product-hero-title{ font-weight:800; font-size:clamp(14px,2vw,20px); text-align:center; }
+.product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
+.product-hero-close{
+  position:fixed; left:24px; top:24px; z-index:95; width:42px; height:42px; border-radius:12px;
+  display:grid; place-items:center; cursor:pointer; border:1px solid rgba(0,0,0,.12);
+  background:rgba(0,0,0,.04); color:#111; font-weight:900; font-size:22px;
+  transition: transform .12s ease, background .2s, border-color .2s;
+}
+.product-hero-close:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
+
+/* Options */
+.options-header{ display:flex; align-items:center; justify-content:space-between; gap:14px; width:100%; max-width:520px; margin-top:6px; }
+.icon-chip{
+  width:36px; height:28px; border-radius:999px; display:grid; place-items:center; cursor:pointer;
+  border:1px solid rgba(0,0,0,.14); background:rgba(0,0,0,.04); color:#111; font-weight:900;
+  transition:transform .12s ease, background .2s, border-color .2s;
+}
+.icon-chip:hover{ transform:translateY(-1px); background:rgba(0,0,0,.07); }
+.options-title{ font-weight:900; letter-spacing:.08em; opacity:.9; }
+
+/* Commit buttons */
+.commit-btn{
+  appearance:none; -webkit-appearance:none;
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:6px 12px; border:1px solid var(--accent); border-radius:10px; background:rgba(25,145,255,.12);
+  color:#111; font:inherit; font-weight:700; line-height:1.1; cursor:pointer;
+  transition: background .2s, border-color .2s, box-shadow .2s, transform .05s;
+}
+.commit-btn:hover{ background:rgba(247,160,45,.10); border-color:var(--focus-orange); }
+.commit-btn:focus-visible{ outline:1px dashed var(--focus-orange); outline-offset:3px; }
+.commit-btn:active{ background:rgba(247,160,45,.18); border-color:var(--focus-orange); box-shadow:inset 0 0 0 1px var(--focus-orange); transform: translateY(1px); }
+.commit-btn[disabled]{ opacity:.6; cursor:progress; }
+
+.hero-plus{
+  margin-top:8px; width:38px; height:32px; border-radius:8px; display:grid; place-items:center; cursor:pointer;
+  border:1px solid rgba(0,0,0,.14); background:rgba(0,0,0,.04); color:#111; font-weight:900;
+  transition:transform .12s ease, background .2s, border-color .2s;
+}
+.hero-plus:hover{ transform:translateY(-1px); background:rgba(0,0,0,.07); }
+
+/* =========================
+   Cart FAB (default floating)
+   ========================= */
 .cart-fab{
   position:fixed; right:18px; top:18px; z-index:130;
   width:42px; height:36px; border-radius:10px; padding:0;
@@ -167,113 +215,50 @@ html,body{
 @keyframes badgePulseGreen { 0%{ transform:scale(.9); box-shadow:0 0 0 0 rgba(11,240,95,0);} 50%{transform:scale(1.18); box-shadow:0 0 0 8px rgba(11,240,95,.28);} 100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(11,240,95,0);} }
 .cart-badge.swap-green{ animation: badgePulseGreen .48s ease-out; }
 
-/* Product overlay */
-.product-hero-overlay{ position:fixed; inset:0; z-index:90; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; padding:20px; }
-.product-hero{ width:min(92vw,1000px); max-height:86vh; display:flex; flex-direction:column; align-items:center; gap:14px; position:relative; }
-.product-hero-img{ width:100%; max-height:70vh; object-fit:contain; }
-.product-hero-title{ font-weight:800; font-size:clamp(14px,2vw,20px); text-align:center; }
-.product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
-.product-hero-close{
-  position:fixed; left:24px; top:24px; z-index:95; width:42px; height:42px; border-radius:12px;
-  display:grid; place-items:center; cursor:pointer; border:1px solid rgba(0,0,0,.12);
-  background:rgba(0,0,0,.04); color:#111; font-weight:900; font-size:22px;
-  transition: transform .12s ease, background .2s, border-color .2s;
-}
-.product-hero-close:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
-
-.options-header{ display:flex; align-items:center; justify-content:space-between; gap:14px; width:100%; max-width:520px; margin-top:6px; }
-.icon-chip{
-  width:36px; height:28px; border-radius:999px; display:grid; place-items:center; cursor:pointer;
-  border:1px solid rgba(0,0,0,.14); background:rgba(0,0,0,.04); color:#111; font-weight:900;
-  transition:transform .12s ease, background .2s, border-color .2s;
-}
-.icon-chip:hover{ transform:translateY(-1px); background:rgba(0,0,0,.07); }
-.options-title{ font-weight:900; letter-spacing:.08em; opacity:.9; }
-
-.commit-btn{
-  appearance:none; -webkit-appearance:none;
-  display:inline-flex; align-items:center; justify-content:center;
-  padding:6px 12px; border:1px solid var(--accent); border-radius:10px; background:rgba(25,145,255,.12);
-  color:#111; font:inherit; font-weight:700; line-height:1.1; cursor:pointer;
-  transition: background .2s, border-color .2s, box-shadow .2s, transform .05s;
-}
-.commit-btn:hover{ background:rgba(247,160,45,.10); border-color:var(--focus-orange); }
-.commit-btn:focus-visible{ outline:1px dashed var(--focus-orange); outline-offset:3px; }
-.commit-btn:active{ background:rgba(247,160,45,.18); border-color:var(--focus-orange); box-shadow:inset 0 0 0 1px var(--focus-orange); transform: translateY(1px); }
-.commit-btn[disabled]{ opacity:.6; cursor:progress; }
-
-.hero-plus{
-  margin-top:8px; width:38px; height:32px; border-radius:8px; display:grid; place-items:center; cursor:pointer;
-  border:1px solid rgba(0,0,0,.14); background:rgba(0,0,0,.04); color:#111; font-weight:900;
-  transition:transform .12s ease, background .2s, border-color .2s;
-}
-.hero-plus:hover{ transform:translateY(-1px); background:rgba(0,0,0,.07); }
-
-/* Login buttons */
-.btn-link{
-  border-color:#4b9cd3;
-  background: linear-gradient(180deg, rgba(75,156,211,.22) 0%, rgba(75,156,211,.12) 100%);
-  box-shadow: 0 0 0 1px rgba(75,156,211,.25), 0 0 18px rgba(75,156,211,.28), 0 0 38px rgba(75,156,211,.20);
-  color:#111;
-}
-.btn-link:hover{
-  box-shadow: 0 0 0 1px rgba(75,156,211,.34), 0 0 26px rgba(75,156,211,.35), 0 0 56px rgba(75,156,211,.25);
-}
-.btn-bypass{
-  border-color:#f1b800;
-  background: radial-gradient(circle at 35% 35%, #fff6b2 0%, #ffe34d 40%, #ffd600 72%, #f1b800 100%);
-  box-shadow: 0 0 0 1px rgba(241,184,0,.25), 0 0 18px rgba(241,184,0,.35), 0 0 42px rgba(241,184,0,.25);
-  color:#3a2d00;
-}
-.btn-bypass:hover{
-  filter:saturate(1.06);
-  box-shadow: 0 0 0 1px rgba(241,184,0,.34), 0 0 26px rgba(241,184,0,.45), 0 0 62px rgba(241,184,0,.30);
-}
-@keyframes btnPulseLime{
-  0%{ transform:scale(1); box-shadow:0 0 0 0 rgba(11,240,95,0); }
-  35%{ transform:scale(1.04); box-shadow:0 0 24px 10px rgba(11,240,95,.30); }
-  100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(11,240,95,0); }
-}
-.btn-activated{ animation: btnPulseLime .55s ease-out; background-image:none !important; background:rgba(11,240,95,.18) !important; border-color:#0bf05f !important; color:#0b3a25 !important; }
-
-/* Global 3D logo canvas */
-.logo-3d{ position: fixed; inset: 0; z-index: 8; pointer-events: none; }
-@media (prefers-reduced-motion: reduce){ .logo-3d{ display:none; } }
-.login-card pre.code-tight { letter-spacing: 0; word-spacing: -0.14ch; }
-
 /* =========================
-   Unified /shop overrides via data-shop-root
+   UNIFIED /shop theming (day ↔ night)
    ========================= */
-html:has([data-shop-root]),
-html:has([data-shop-root]) body{
-  background:#F7F7F2 !important;
-  color:#111 !important;
+
+/* Theme tokens on the unified wrapper */
+[data-mode="shop"][data-theme="day"]  { --bg: var(--shop-offwhite); --panel: var(--shop-offwhite); --text:#111; }
+[data-mode="shop"][data-theme="night"]{ --bg: #000;               --panel: #000;               --text:#fff; }
+
+/* Paint the page with tokens */
+[data-mode="shop"]{
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color .35s ease, color .35s ease;
 }
 
-/* Transparent header/topbar when using data-shop-root */
-html:has([data-shop-root]) header,
-html:has([data-shop-root]) [role="banner"],
-html:has([data-shop-root]) .topbar,
-html:has([data-shop-root]) .navbar{
-  background:transparent !important;
-  box-shadow:none !important;
-  border:0 !important;
+/* Header should not introduce a bar; controls stay centered */
+[data-mode="shop"] header[role="banner"]{
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+[data-mode="shop"] header[role="banner"] > *{ align-self: center !important; }
+
+/* Kill stray whites so wrapper color shows through */
+[data-mode="shop"] .shop-page,
+[data-mode="shop"] .shop-wrap,
+[data-mode="shop"] .shop-grid,
+[data-mode="shop"] .product-box,
+[data-mode="shop"] .product-hero-overlay,
+[data-mode="shop"] .product-hero,
+[data-mode="shop"] .product-img,
+[data-mode="shop"] [class*="page"],
+[data-mode="shop"] [class*="container"]{
+  background: transparent !important;
+  color: inherit;
 }
 
-/* Hide global full-screen canvas on /shop (prevents black area bleed) */
-html:has([data-shop-root]) .logo-3d{ display:none !important; }
+/* Product titles obey theme text */
+[data-mode="shop"] .product-meta { color: var(--text); }
 
-/* Safety: hide any spinner/canvas/logo inside header */
-html:has([data-shop-root]) header canvas,
-html:has([data-shop-root]) [role="banner"] canvas,
-html:has([data-shop-root]) header [data-orb],
-html:has([data-shop-root]) header [aria-label*="orb" i],
-html:has([data-shop-root]) header svg[aria-label*="spinner" i],
-html:has([data-shop-root]) header svg[aria-label*="logo" i]{
-  display:none !important;
-}
+/* Hide any global full-screen canvas behind shop */
+html:has([data-shop-root]) .logo-3d{ display: none !important; }
 
-/* Smoother cascade / grid rendering */
+/* Smoother grid rendering */
 html:has([data-shop-root]) .shop-grid,
 html:has([data-shop-root]) .product-box,
 html:has([data-shop-root]) .product-img{
@@ -282,61 +267,44 @@ html:has([data-shop-root]) .product-img{
   backface-visibility: hidden;
 }
 
-/* Cart layer: avoids “double-layered” shadow look */
-html:has([data-shop-root]) .cart-fab,
-html:has([data-shop-root]) [data-cart-root]{
-  isolation:isolate;
-  will-change: transform;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+/* Density orb pin & size in header */
+[data-mode="shop"] header[role="banner"] [data-orb="density"],
+[data-mode="shop"] header[role="banner"] [data-orb="density"] canvas{
+  width:56px !important; height:56px !important;
 }
 
-/* Density orb: pin & keep clickable on unified page */
-html:has([data-shop-root]) [data-orb="density"]{
-  position: fixed !important;
-  left: 18px !important;
-  top: 18px !important;
-  z-index: 120 !important;
-  pointer-events: auto !important;
-}
+/* Day/Night toggle height alignment */
+[data-mode="shop"] header[role="banner"] #lb-daynight{ height:56px !important; }
 
-/* ===== Token-driven shop mode for unified page (data-mode="shop") ===== */
-:root { --shop-offwhite: #F7F7F2; }
-
-[data-mode="shop"] {
-  --bg: var(--shop-offwhite);
-  --panel: var(--shop-offwhite);
-  --text: #111;
-}
-
-/* Ensure the page paints the token background */
-html, body { background: var(--bg, #000); }
-
-/* Any canvas should be transparent in shop */
-[data-mode="shop"] canvas { background: transparent !important; }
-
-/* Header/topbar should match off-white when in shop mode */
-[data-mode="shop"] header,
-[data-mode="shop"] [role="banner"],
-[data-mode="shop"] .topbar,
-[data-mode="shop"] .navbar {
-  background: var(--shop-offwhite) !important;
+/* Cart in header: silhouette only + orange handle bars */
+[data-mode="shop"] header[role="banner"] .cart-fab{
+  position: static !important;
+  right: auto; top: auto;
+  width: auto; height: 56px;
+  padding: 6px 8px;
+  background: transparent !important;
+  border: none !important;
   box-shadow: none !important;
-  border: 0 !important;
+  display: inline-grid; place-items: center;
+  border-radius: 0 !important;
 }
+[data-mode="shop"] header[role="banner"] .cart-fab svg{
+  width:28px; height:28px; display:block;
+}
+[data-mode="shop"][data-theme="day"]   header[role="banner"] .cart-fab{ color:#111; }
+[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
+.cart-fab .cb-handle{ fill:#F7A02D; }
+[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform: translateY(-1px); }
 
-/* Parity helpers */
-[data-mode="shop"] .logo-3d { display: none !important; }
-[data-mode="shop"] [data-orb="density"]{
-  position: fixed !important;
-  left: 18px !important;
-  top: 18px !important;
-  z-index: 120 !important;
-  pointer-events: auto !important;
-}
+/* Cascade tiles pop */
+.lb-tile{ filter: saturate(1.12) brightness(1.02); }
+.lb-tile + .lb-tile{ box-shadow: -1px 0 0 rgba(255,255,255,.06) inset; }
+
 /* =========================
-   Day ↔ Night Toggle + Theme
+   Day ↔ Night toggle skin (decorations)
    ========================= */
+
+/* switch frame */
 .lb-switch{
   position:relative; display:inline-flex; align-items:center;
   padding:0; margin:0; border:1px solid rgba(0,0,0,.14);
@@ -347,18 +315,17 @@ html, body { background: var(--bg, #000); }
 }
 .lb-switch:focus-visible{ outline:2px solid #4aa5ff; outline-offset:3px; }
 
+/* day/night backdrop gradient */
 .lb-switch-bg{
   position:absolute; inset:0; border-radius:999px; overflow:hidden;
   background: linear-gradient(180deg, #bfe7ff 0%, #dff4ff 60%, #ffffff 100%);
   transition: transform .45s ease, opacity .45s ease, filter .45s ease;
 }
-
-/* night gradient lives under a data attribute set by React */
 [data-theme="night"] .lb-switch .lb-switch-bg{
   background: radial-gradient(120% 120% at 30% 30%, #1a1a2b 0%, #0b0b14 55%, #000 100%);
 }
 
-/* cloud / star decoration */
+/* clouds + stars layer (Virgo constellation drawn in component SVG; stars twinkle here) */
 .lb-switch-decor{ position:absolute; inset:0; border-radius:999px; overflow:hidden; pointer-events:none; }
 .lb-switch-decor .cloud{
   position:absolute; background:#fff; filter:drop-shadow(0 3px 6px rgba(0,0,0,.08));
@@ -379,18 +346,14 @@ html, body { background: var(--bg, #000); }
 .lb-switch-decor .c3::before{ left:-28%; top:10%; width:32%; height:44%; }
 .lb-switch-decor .c3::after { right:-20%; top:26%; width:28%; height:38%; }
 
-/* stars */
+/* star specks */
 .lb-switch-decor .stars{ position:absolute; inset:0; opacity:0; transition: opacity .45s ease; }
 .lb-switch-decor .stars .s{
   position:absolute; width:2px; height:2px; background:#fff; border-radius:2px;
   box-shadow: 0 0 8px rgba(255,255,255,.85);
   animation: twinkle 1.8s ease-in-out infinite;
 }
-@keyframes twinkle{
-  0%,100%{ transform:scale(.7); opacity:.7; }
-  50%{ transform:scale(1.15); opacity:1; }
-}
-/* scatter them */
+@keyframes twinkle{ 0%,100%{ transform:scale(.7); opacity:.7; } 50%{ transform:scale(1.15); opacity:1; } }
 .lb-switch-decor .stars .s1{ left:18%; top:22%; animation-delay:.0s }
 .s2{ left:30%; top:64%; animation-delay:.25s } .s3{ left:46%; top:36%; animation-delay:.4s }
 .s4{ left:60%; top:18%; animation-delay:.65s } .s5{ left:72%; top:54%; animation-delay:.9s }
@@ -399,7 +362,7 @@ html, body { background: var(--bg, #000); }
 .s10{ left:66%; top:40%; animation-delay:1.85s } .s11{ left:78%; top:68%; animation-delay:2.0s }
 .s12{ left:24%; top:34%; animation-delay:2.15s }
 
-/* knob */
+/* knob with sun/moon */
 .lb-switch-knob{
   position:absolute; top:50%; left:6%;
   transform: translate(0, -50%); background:#fff;
@@ -411,250 +374,12 @@ html, body { background: var(--bg, #000); }
 .lb-switch-knob .moon{ opacity:0; transition: opacity .25s ease; }
 .lb-switch-knob .sun { filter: drop-shadow(0 0 14px rgba(255,220,80,.65)); transition: opacity .25s ease; }
 
-/* when switched to night: move knob to right, show stars+moon, tuck clouds */
+/* night state */
 [data-theme="night"] .lb-switch .lb-switch-knob{
-  transform: translate(calc(100% - 6% - 100%), -50%); /* slide to right edge */
+  transform: translate(calc(100% - 6% - 100%), -50%);
   background:#0e0e16;
 }
 [data-theme="night"] .lb-switch .lb-switch-knob .moon{ opacity:1; }
 [data-theme="night"] .lb-switch .lb-switch-knob .sun { opacity:0; }
 [data-theme="night"] .lb-switch .cloud{ opacity:0; transform: translateY(-6%); }
 [data-theme="night"] .lb-switch .stars{ opacity:1; }
-
-/* =========================
-   Theme tokens applied to the unified shop stage
-   ========================= */
-:root { --shop-offwhite: #F7F7F2; }
-
-/* DAY: off-white stage */
-[data-mode="shop"][data-theme="day"]{
-  --bg: var(--shop-offwhite);
-  --panel: var(--shop-offwhite);
-  --text: #111;
-}
-
-/* NIGHT: black stage */
-[data-mode="shop"][data-theme="night"]{
-  --bg: #000;
-  --panel: #000;
-  --text: #fff;
-}
-
-/* ensure product area actually paints the token bg and text */
-[data-mode="shop"] { background: var(--bg); color: var(--text); }
-[data-mode="shop"] .product-meta { color: var(--text); }
-
-/* smooth the flip */
-[data-mode="shop"]{
-  transition: background-color .35s ease, color .35s ease;
-}
-/* EXTRA pop for cascade tiles (used by BannedLogin cascade) */
-.lb-tile{ filter: saturate(1.12) brightness(1.02); }
-.lb-tile + .lb-tile{ box-shadow: -1px 0 0 rgba(255,255,255,.06) inset; }
-
-/* Fixed header sits on top of shop background without a bar */
-[data-mode="shop"] header[role="banner"]{
-  background: transparent !important;
-  box-shadow: none !important;
-}
-/* =========================
-   Unified shop theming (day ↔ night)
-   ========================= */
-:root { --shop-offwhite: #F7F7F2; }
-
-/* Fill theme tokens on the unified wrapper */
-[data-mode="shop"][data-theme="day"]{  --bg: var(--shop-offwhite); --panel: var(--shop-offwhite); --text:#111; }
-[data-mode="shop"][data-theme="night"]{ --bg: #000;               --panel: #000;               --text:#fff; }
-
-/* Actually paint with the tokens */
-[data-mode="shop"]{
-  background: var(--bg);
-  color: var(--text);
-  transition: background-color .35s ease, color .35s ease;
-}
-
-/* Also set html/body so the whole viewport (including header area) matches */
-html:has([data-shop-root]),
-html:has([data-shop-root]) body{
-  background: var(--shop-offwhite) !important;
-  color:#111 !important;
-}
-
-/* Header should never introduce its own bar */
-[data-mode="shop"] header[role="banner"]{
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-}
-
-/* Make inner sections transparent so wrapper color shows through */
-.shop-wrap, .shop-grid, .product-box { background: transparent !important; }
-
-/* If an earlier rule hides header canvases/orbs, explicitly ALLOW our density orb */
-html:has([data-shop-root]) [data-orb="density"]{ display:block !important; }
-
-/* Center the Day/Night toggle box-shadow nicely on light BGs */
-.lb-switch{
-  box-shadow: 0 4px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.6);
-}
-
-/* (Optional) prevent any black full-screen canvas leaking behind the shop */
-html:has([data-shop-root]) .logo-3d{ display:none !important; }
-/* =========================
-   Unified shop theming (day ↔ night)
-   ========================= */
-:root { --shop-offwhite: #F7F7F2; }
-
-/* Wrapper theme tokens */
-[data-mode="shop"][data-theme="day"]{  --bg: var(--shop-offwhite); --panel: var(--shop-offwhite); --text:#111; }
-[data-mode="shop"][data-theme="night"]{ --bg: #000;               --panel: #000;               --text:#fff; }
-
-/* Paint the page with tokens */
-[data-mode="shop"]{
-  background: var(--bg);
-  color: var(--text);
-  transition: background-color .35s ease, color .35s ease;
-}
-
-/* Header stays transparent (so it shows wrapper color) */
-[data-mode="shop"] header[role="banner"]{
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-}
-
-/* ===== kill stray white backgrounds ===== */
-
-/* Old rule set a white page; neutralize it on shop */
-[data-mode="shop"] .shop-page{ background: transparent !important; color: inherit !important; }
-
-/* Make interior sections transparent so wrapper shows through */
-[data-mode="shop"] .shop-wrap,
-[data-mode="shop"] .shop-grid,
-[data-mode="shop"] .product-box,
-[data-mode="shop"] .product-hero-overlay,
-[data-mode="shop"] .product-hero { background: transparent !important; }
-
-/* Product images shouldn't bring their own white boxes */
-[data-mode="shop"] .product-img{ background: transparent !important; }
-
-/* If any legacy “page container” uses plain white: force transparent */
-[data-mode="shop"] [class*="page"],
-[data-mode="shop"] [class*="container"]{
-  background-color: transparent !important;
-}
-
-/* Keep the density orb visible on unified page */
-html:has([data-shop-root]) [data-orb="density"]{ display:block !important; }
-
-/* Toggle polish on light bg */
-.lb-switch{
-  box-shadow: 0 4px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.6);
-}
-/* Keep the header transparent and centered layout intact */
-[data-mode="shop"] header[role="banner"]{
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-}
-
-/* Allow orb/canvas inside header (older rules hid canvases in headers) */
-[data-mode="shop"] header[role="banner"] [data-orb="density"],
-[data-mode="shop"] header[role="banner"] canvas{
-  display:block !important;
-}
-
-/* Normalize control vertical alignment */
-[data-mode="shop"] header[role="banner"] > *{
-  align-self:center !important;
-}
-
-/* Kill any stray whites so wrapper color shows everywhere */
-[data-mode="shop"] .shop-page,
-[data-mode="shop"] .shop-wrap,
-[data-mode="shop"] .shop-grid,
-[data-mode="shop"] .product-box,
-[data-mode="shop"] .product-hero-overlay,
-[data-mode="shop"] .product-hero,
-[data-mode="shop"] .product-img{
-  background: transparent !important;
-}
-/* --- Header placement + alignment --- */
-[data-mode="shop"] header[role="banner"] .cart-fab{
-  position: static !important;   /* don't stick to the top-right when in header */
-  right: auto; top: auto;
-  width: 56px; height: 42px;     /* matches orb/toggle row height */
-  display: inline-grid; place-items: center;
-  border-radius: 10px;
-}
-
-/* Day vs Night button chrome */
-[data-mode="shop"][data-theme="day"] .cart-fab{
-  border:1px solid rgba(0,0,0,.12);
-  background:rgba(0,0,0,.04);
-  color:#111; /* cart body + wheels via currentColor */
-}
-[data-mode="shop"][data-theme="night"] .cart-fab{
-  border:1px solid rgba(255,255,255,.22);
-  background:rgba(255,255,255,.06);
-  color:#fff; /* cart body + wheels become white */
-}
-
-/* Orange handlebars (visible in both themes) */
-.cart-fab .cb-handle{
-  fill:#F7A02D;           /* orange “handlebars” */
-}
-
-/* Hover micro-lift */
-[data-mode="shop"] header[role="banner"] .cart-fab:hover{
-  transform: translateY(-1px);
-  background: color-mix(in srgb, currentColor 8%, transparent);
-}
-
-/* Keep inner sections transparent so night/day wrapper shows through */
-[data-mode="shop"] .shop-page,
-[data-mode="shop"] .shop-wrap,
-[data-mode="shop"] .shop-grid,
-[data-mode="shop"] .product-box,
-[data-mode="shop"] .product-hero-overlay,
-[data-mode="shop"] .product-hero,
-[data-mode="shop"] .product-img{
-  background: transparent !important;
-}
-/* Header silhouette style for cart (no pill/background) */
-[data-mode="shop"] header[role="banner"] .cart-fab{
-  position: static !important;
-  width: auto; height: 56px;      /* align with orb/toggle row */
-  padding: 6px 8px;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  display: inline-grid; place-items: center;
-  border-radius: 0 !important;
-}
-
-/* Icon sizing inside header */
-[data-mode="shop"] header[role="banner"] .cart-fab svg{
-  width: 28px; height: 28px; display:block;
-}
-
-/* Color by theme: body/wheels follow currentColor; orange handlebars always visible */
-[data-mode="shop"][data-theme="day"] header[role="banner"] .cart-fab{ color:#111; }
-[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
-.cart-fab .cb-handle{ fill:#F7A02D; }  /* orange “handlebars” */
-
-/* Optional hover nudge without adding a background */
-[data-mode="shop"] header[role="banner"] .cart-fab:hover{
-  transform: translateY(-1px);
-}
-
-/* Keep everything else transparent so the wrapper drives the background */
-[data-mode="shop"] .shop-page,
-[data-mode="shop"] .shop-wrap,
-[data-mode="shop"] .shop-grid,
-[data-mode="shop"] .product-box,
-[data-mode="shop"] .product-hero-overlay,
-[data-mode="shop"] .product-hero,
-[data-mode="shop"] .product-img{
-  background: transparent !important;
-}
