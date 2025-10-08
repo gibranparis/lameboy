@@ -2,7 +2,7 @@
 // src/components/BannedLogin.jsx
 'use client';
 
-import nextDynamic from 'next/dynamic'; // ✅ alias to avoid route `dynamic` name collisions
+import nextDynamic from 'next/dynamic'; // ✅ avoid route `dynamic` name collisions
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 import ButterflyChakra from '@/components/ButterflyChakra';
@@ -13,19 +13,11 @@ import { useRouter } from 'next/navigation';
 
 const CASCADE_MS = 2400;
 const HOP_PATH = '/shop';
-const SWAP_MS = 22000; // 22s swap cadence
 
 /** @typedef {'banned'|'login'} ViewState */
 /** @typedef {'link'|'bypass'|null} Activation */
 
-/**
- * Wordmark
- * @param {{
- *  onClickWordmark: () => void;
- *  lRef: import('react').RefObject<HTMLSpanElement>;
- *  yRef: import('react').RefObject<HTMLSpanElement>;
- * }} props
- */
+/** Wordmark */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
     <span className="lb-word" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
@@ -45,8 +37,7 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Cascade overlay */
-/** @param {{ durationMs?: number }} props */
+/** CascadeOverlay */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -106,7 +97,7 @@ export default function BannedLogin({ onProceed }) {
   const router = useRouter();
 
   /** @type {[ViewState, (v: ViewState) => void]} */
-  // @ts-ignore - React infers, JSDoc narrows
+  // @ts-ignore
   const [view, setView] = useState(/** @type {ViewState} */('banned'));
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
@@ -123,6 +114,15 @@ export default function BannedLogin({ onProceed }) {
   /** @type {import('react').RefObject<HTMLInputElement>} */
   const emailRef = useRef(null);
 
+  // “hi” ↔ “…レ乃モ” every 22s
+  const HI = 'hi...';
+  const JP = '...レ乃モ';
+  const [hiMsg, setHiMsg] = useState(HI);
+  useEffect(() => {
+    const id = setInterval(() => setHiMsg(v => (v === HI ? JP : HI)), 22000);
+    return () => clearInterval(id);
+  }, []);
+
   // orb state
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
@@ -137,15 +137,6 @@ export default function BannedLogin({ onProceed }) {
   /** @type {import('react').RefObject<HTMLSpanElement>} */
   const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
-
-  // === Swap "hi..." <-> "...レ乃モ" every 22s ===
-  const [altText, setAltText] = useState(false);
-  useEffect(() => {
-    const id = setInterval(() => setAltText(v => !v), SWAP_MS);
-    return () => clearInterval(id);
-  }, []);
-  const msgCore = altText ? '...レ乃モ' : 'hi...';
-  const msgAria = altText ? 'Ellipsis Renomo' : 'hi';
 
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
 
@@ -229,15 +220,13 @@ export default function BannedLogin({ onProceed }) {
 
       {!hideAll && (
         <div className="login-stack">
-          {/* ✅ Orb now steps grid density 5↔1 with a simple click (no cascade here) */}
+          {/* Orb steps grid density 5↔1 with a simple click (no cascade here) */}
           <div className="orb-row" style={{ marginBottom:-16, display:'grid', placeItems:'center' }}>
             <button
               type="button"
               aria-label="Grid density +1"
               onClick={() => {
-                /** @type {CustomEventInit<{ step: number }>} */
-                const evt = { detail: { step: 1 } };
-                window.dispatchEvent(new CustomEvent('grid-density', evt));
+                window.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } }));
               }}
               className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
               style={{ lineHeight: 0 }}
@@ -273,11 +262,7 @@ export default function BannedLogin({ onProceed }) {
               {view==='banned' ? (
                 <pre className="code-tight" style={{ margin:0 }}>
                   <span className="lb-seafoam code-comment">//</span>{' '}
-                  <Wordmark
-                    onClickWordmark={() => setFlyOnce(true)}
-                    lRef={lRef}
-                    yRef={yRef}
-                  />
+                  <Wordmark onClickWordmark={() => setFlyOnce(true)} lRef={lRef} yRef={yRef} />
                   {'\n'}
                   <span className="lb-seafoam code-comment">//</span>{' '}
                   <span
@@ -294,15 +279,12 @@ export default function BannedLogin({ onProceed }) {
                   <span className="code-op">=</span>{' '}
                   <span className="nogap">
                     <span
-                      role="button"
-                      tabIndex={0}
-                      aria-label={msgAria}
+                      role="button" tabIndex={0}
                       className="code-string code-link"
-                      onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
-                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
-                      title="Continue"
+                      onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setView('login'); }}
+                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); setView('login'); }}}
                     >
-                      {`"${msgCore}"`}
+                      {JSON.stringify(hiMsg)}
                     </span>
                     <span className="code-punc">;</span>
                   </span>

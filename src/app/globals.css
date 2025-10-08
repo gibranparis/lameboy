@@ -27,7 +27,7 @@
   --shop-offwhite:#F7F7F2;
 }
 
-/* Native UI matches the theme (scrollbars, form controls, etc.) */
+/* Native UI matches the theme */
 :root[data-theme="day"]  { color-scheme: light; }
 :root[data-theme="night"]{ color-scheme: dark;  }
 
@@ -99,6 +99,8 @@ html,body{
 .code-keyword{ color:var(--keyword); } .code-var{ color:var(--var); }
 .code-op{ color:var(--op); } .code-punc{ color:var(--punct); }
 .code-placeholder{ color:#555454; }
+.code-banned,.code-fail{ color:#f20e0e; font-weight:800; text-shadow:0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35); }
+.code-success{ color:var(--hover-green); font-weight:800; text-shadow:0 0 6px rgba(11,240,95,.55), 0 0 14px rgba(11,240,95,.35); }
 
 .code-line{ display:flex; align-items:baseline; gap:4px; line-height:1.35; font-size:.95rem; flex-wrap:wrap; }
 .code-input{ background:transparent; border:none; outline:none; color:var(--purple); caret-color:var(--purple); font:inherit; padding:0; margin:0; }
@@ -108,34 +110,10 @@ html,body{
 .purple-caret::after{ content:"▮"; color:var(--purple); animation:blink 1.1s steps(2,start) infinite; }
 @keyframes blink{ to{ visibility:hidden; } }
 
-/* tighten the little “banned” card */
-.login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.14ch; }
-
-/* --- banned word styling + link affordances --- */
-.banned-trigger{
-  cursor: pointer;
-  text-decoration-line: line-through;
-  text-decoration-thickness: 2px;
-  text-decoration-color: rgba(242,14,14,.85);
-  text-decoration-style: solid;
-}
-.banned-trigger:hover{
-  text-shadow: 0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35);
-}
-
-/* clickable strings inside the code bubble */
-.code-link{
-  cursor: pointer;
-  text-decoration: underline dotted rgba(255,255,255,.45);
-}
-.code-link:hover{
-  text-decoration-style: solid;
-  text-decoration-color: rgba(255,255,255,.85);
-}
-
 /* ========== 3D Logo canvas ============================================== */
 .logo-3d{ position:fixed; inset:0; z-index:8; pointer-events:none; }
 @media (prefers-reduced-motion: reduce){ .logo-3d{ display:none; } }
+.login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.14ch; }
 
 /* ========== Chakra Cascade (banned) ===================================== */
 .chakra-overlay{ position:fixed; inset:0; z-index:60; display:grid; grid-template-columns:repeat(7,1fr); pointer-events:none; direction:rtl; }
@@ -153,9 +131,78 @@ html,body{
 .chakra-crown{--c:#faf5ff;background:#ff00c8}
 
 /* ========== Shop grid & hero ============================================ */
+/* >>> KEY: theme tokens apply when <html> has data-mode="shop" <<< */
+:root[data-mode="shop"][data-theme="day"]  { --bg:var(--shop-offwhite); --panel:var(--shop-offwhite); --text:#111; }
+:root[data-mode="shop"][data-theme="night"]{ --bg:#000;               --panel:#000;               --text:#fff; }
+
+:root[data-mode="shop"]{
+  background:var(--bg);
+  color:var(--text);
+  transition:background-color .35s ease, color .35s ease;
+}
+
+/* Header transparent & centered controls */
+:root[data-mode="shop"] header[role="banner"]{
+  background:transparent !important;
+  box-shadow:none !important;
+  border:0 !important;
+}
+:root[data-mode="shop"] header[role="banner"] > *{ align-self:center !important; }
+
+/* Kill stray whites so wrapper color shows */
+:root[data-mode="shop"] .shop-page,
+:root[data-mode="shop"] .shop-wrap,
+:root[data-mode="shop"] .shop-grid,
+:root[data-mode="shop"] .product-box,
+:root[data-mode="shop"] .product-hero-overlay,
+:root[data-mode="shop"] .product-hero,
+:root[data-mode="shop"] .product-img,
+:root[data-mode="shop"] [class*="page"],
+:root[data-mode="shop"] [class*="container"]{
+  background:transparent !important;
+  color:inherit;
+}
+
+/* Product titles follow theme text */
+:root[data-mode="shop"] .product-meta{ color:var(--text); }
+
+/* Hide global canvas behind shop */
+html:has([data-shop-root]) .logo-3d{ display:none !important; }
+
+/* Smoother grid */
+html:has([data-shop-root]) .shop-grid,
+html:has([data-shop-root]) .product-box,
+html:has([data-shop-root]) .product-img{
+  will-change:transform, opacity;
+  transform:translateZ(0);
+  backface-visibility:hidden;
+}
+
+/* Density orb pin & size in header */
+:root[data-mode="shop"] header[role="banner"] [data-orb="density"],
+:root[data-mode="shop"] header[role="banner"] [data-orb="density"] canvas{
+  width:56px !important; height:56px !important;
+}
+
+/* Day/Night toggle height alignment */
+:root[data-mode="shop"] header[role="banner"] #lb-daynight{ height:56px !important; }
+
+/* Cart in header: silhouette */
+:root[data-mode="shop"] header[role="banner"] .cart-fab{
+  position:static !important; right:auto; top:auto;
+  width:auto; height:56px; padding:6px 8px;
+  background:transparent !important; border:none !important; box-shadow:none !important;
+  display:inline-grid; place-items:center; border-radius:0 !important;
+}
+:root[data-mode="shop"] header[role="banner"] .cart-fab svg{ width:28px; height:28px; display:block; }
+:root[data-mode="shop"][data-theme="day"]   header[role="banner"] .cart-fab{ color:#111; }
+:root[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
+.cart-fab .cb-handle{ fill:#F7A02D; }
+:root[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform:translateY(-1px); }
+
+/* Grid & tiles */
 .shop-page{ background:#fff; color:#111; min-height:100dvh; }
 .shop-wrap{ padding:86px 24px 24px; }
-
 .shop-grid{
   --tile:clamp(140px,17vw,200px);
   --gap:28px;
@@ -185,132 +232,11 @@ html,body{
 }
 .product-hero-close:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
 
-/* Options */
-.options-header{ display:flex; align-items:center; justify-content:space-between; gap:14px; width:100%; max-width:520px; margin-top:6px; }
-.icon-chip{
-  width:36px; height:28px; border-radius:999px; display:grid; place-items:center; cursor:pointer;
-  border:1px solid rgba(0,0,0,.14); background:rgba(0,0,0,.04); color:#111; font-weight:900;
-  transition:transform .12s ease, background .2s, border-color .2s;
-}
-.icon-chip:hover{ transform:translateY(-1px); background:rgba(0,0,0,.07); }
-.options-title{ font-weight:900; letter-spacing:.08em; opacity:.9; }
-
-/* Commit buttons */
-.commit-btn{
-  appearance:none; -webkit-appearance:none;
-  display:inline-flex; align-items:center; justify-content:center;
-  padding:6px 12px; border:1px solid var(--accent); border-radius:10px; background:rgba(25,145,255,.12);
-  color:#111; font:inherit; font-weight:700; line-height:1.1; cursor:pointer;
-  transition:background .2s, border-color .2s, box-shadow .2s, transform .05s;
-}
-.commit-btn:hover{ background:rgba(247,160,45,.10); border-color:var(--focus-orange); }
-.commit-btn:focus-visible{ outline:1px dashed var(--focus-orange); outline-offset:3px; }
-.commit-btn:active{ background:rgba(247,160,45,.18); border-color:var(--focus-orange); box-shadow:inset 0 0 0 1px var(--focus-orange); transform:translateY(1px); }
-.commit-btn[disabled]{ opacity:.6; cursor:progress; }
-
-/* ========== Cart FAB ===================================================== */
-/* Default floating FAB */
-.cart-fab{
-  position:fixed; right:18px; top:18px; z-index:130;
-  width:42px; height:36px; border-radius:10px; padding:0;
-  display:inline-flex; align-items:center; justify-content:center;
-  border:1px solid rgba(0,0,0,.12);
-  background:rgba(0,0,0,.04); color:#111; font-weight:800;
-  cursor:pointer; transition:transform .12s ease, background .2s, border-color .2s;
-}
-.cart-fab:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
-.cart-fab svg{ width:20px; height:20px; }
-.cart-badge{
-  position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px;
-  border-radius:999px; color:#fff; font-size:11px; font-weight:900;
-  display:grid; place-items:center; border:2px solid #fff;
-  box-shadow:0 0 10px rgba(0,0,0,.12);
-  transition:background-color .28s ease, transform .28s ease, box-shadow .28s ease;
-  background:var(--hover-green);
-}
-@keyframes cartBump{ 0%{transform:scale(1);} 15%{transform:scale(1.14);} 100%{transform:scale(1);} }
-.cart-fab.bump{ animation:cartBump .35s ease-out; }
-@keyframes badgePulseGreen{ 0%{ transform:scale(.9); box-shadow:0 0 0 0 rgba(11,240,95,0);} 50%{ transform:scale(1.18); box-shadow:0 0 0 8px rgba(11,240,95,.28);} 100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(11,240,95,0);} }
-.cart-badge.swap-green{ animation:badgePulseGreen .48s ease-out; }
-
-/* In SHOP mode, hide all floating FABs by default… */
-[data-mode="shop"] .cart-fab{ display:none; }
-/* …but show the header cart explicitly with a clean silhouette */
-[data-mode="shop"] header[role="banner"] .cart-fab{
-  display:inline-grid;
-  position:static !important; right:auto; top:auto;
-  width:auto; height:56px; padding:6px 8px;
-  background:transparent !important; border:none !important; box-shadow:none !important;
-  border-radius:0 !important;
-}
-[data-mode="shop"] header[role="banner"] .cart-fab svg{ width:28px; height:28px; display:block; }
-[data-mode="shop"][data-theme="day"]   header[role="banner"] .cart-fab{ color:#111; }
-[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
-.cart-fab .cb-handle{ fill:#F7A02D; }
-[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform:translateY(-1px); }
-
-/* ========== Unified /shop theming (day ↔ night) ========================= */
-[data-mode="shop"][data-theme="day"]  { --bg:var(--shop-offwhite); --panel:var(--shop-offwhite); --text:#111; }
-[data-mode="shop"][data-theme="night"]{ --bg:#000;               --panel:#000;               --text:#fff; }
-
-[data-mode="shop"]{
-  background:var(--bg);
-  color:var(--text);
-  transition:background-color .35s ease, color .35s ease;
-}
-
-/* Header transparent & centered controls */
-[data-mode="shop"] header[role="banner"]{
-  background:transparent !important;
-  box-shadow:none !important;
-  border:0 !important;
-}
-[data-mode="shop"] header[role="banner"] > *{ align-self:center !important; }
-
-/* Kill stray whites so wrapper color shows */
-[data-mode="shop"] .shop-page,
-[data-mode="shop"] .shop-wrap,
-[data-mode="shop"] .shop-grid,
-[data-mode="shop"] .product-box,
-[data-mode="shop"] .product-hero-overlay,
-[data-mode="shop"] .product-hero,
-[data-mode="shop"] .product-img,
-[data-mode="shop"] [class*="page"],
-[data-mode="shop"] [class*="container"]{
-  background:transparent !important;
-  color:inherit;
-}
-
-/* Product titles follow theme text */
-[data-mode="shop"] .product-meta{ color:var(--text); }
-
-/* Hide global canvas behind shop */
-html:has([data-shop-root]) .logo-3d{ display:none !important; }
-
-/* Smoother grid */
-html:has([data-shop-root]) .shop-grid,
-html:has([data-shop-root]) .product-box,
-html:has([data-shop-root]) .product-img{
-  will-change:transform, opacity;
-  transform:translateZ(0);
-  backface-visibility:hidden;
-}
-
-/* Density orb pin & size in header */
-[data-mode="shop"] header[role="banner"] [data-orb="density"],
-[data-mode="shop"] header[role="banner"] [data-orb="density"] canvas{
-  width:56px !important; height:56px !important;
-}
-
-/* Day/Night toggle height alignment (if you style it via id) */
-[data-mode="shop"] header[role="banner"] #lb-daynight{ height:56px !important; }
-
 /* Cascade tiles pop */
 .lb-tile{ filter:saturate(1.12) brightness(1.02); }
 .lb-tile + .lb-tile{ box-shadow:-1px 0 0 rgba(255,255,255,.06) inset; }
 
 /* ========== Day ↔ Night toggle skin (decor) ============================== */
-/* If you ever switch the toggle to a global skin (not CSS-in-JS) */
 .lb-switch{
   position:relative; display:inline-flex; align-items:center;
   padding:0; margin:0; border:1px solid rgba(0,0,0,.14);
@@ -320,6 +246,7 @@ html:has([data-shop-root]) .product-img{
   -webkit-tap-highlight-color:transparent;
 }
 .lb-switch:focus-visible{ outline:2px solid #4aa5ff; outline-offset:3px; }
+
 .lb-switch-bg{
   position:absolute; inset:0; border-radius:999px; overflow:hidden;
   background:linear-gradient(180deg, #bfe7ff 0%, #dff4ff 60%, #ffffff 100%);
@@ -328,7 +255,7 @@ html:has([data-shop-root]) .product-img{
 [data-theme="night"] .lb-switch .lb-switch-bg{
   background:radial-gradient(120% 120% at 30% 30%, #1a1a2b 0%, #0b0b14 55%, #000 100%);
 }
-/* clouds + stars */
+
 .lb-switch-decor{ position:absolute; inset:0; border-radius:999px; overflow:hidden; pointer-events:none; }
 .lb-switch-decor .cloud{
   position:absolute; background:#fff; filter:drop-shadow(0 3px 6px rgba(0,0,0,.08));
@@ -345,7 +272,6 @@ html:has([data-shop-root]) .product-img{
 .lb-switch-decor .c3::before{ left:-28%; top:10%; width:32%; height:44%; }
 .lb-switch-decor .c3::after { right:-20%; top:26%; width:28%; height:38%; }
 
-/* stars */
 .lb-switch-decor .stars{ position:absolute; inset:0; opacity:0; transition:opacity .45s ease; }
 .lb-switch-decor .stars .s{
   position:absolute; width:2px; height:2px; background:#fff; border-radius:2px;
@@ -361,25 +287,6 @@ html:has([data-shop-root]) .product-img{
 .s10{ left:66%; top:40%; animation-delay:1.85s } .s11{ left:78%; top:68%; animation-delay:2.0s }
 .s12{ left:24%; top:34%; animation-delay:2.15s }
 
-/* knob + icons */
-.lb-switch-knob{
-  position:absolute; top:50%; left:6%;
-  transform:translate(0,-50%); background:#fff;
-  box-shadow:0 6px 18px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.08);
-  display:grid; place-items:center;
-  transition:transform .45s cubic-bezier(.22,.61,.21,.99), background .25s;
-}
-.lb-switch-knob .icon{ width:72%; height:72%; }
-.lb-switch-knob .moon{ opacity:0; transition:opacity .25s ease; }
-.lb-switch-knob .sun { filter:drop-shadow(0 0 14px rgba(255,220,80,.65)); transition:opacity .25s ease; }
-
-/* night state switches */
-[data-theme="night"] .lb-switch .lb-switch-knob{ transform:translate(calc(100% - 6% - 100%), -50%); background:#0e0e16; }
-[data-theme="night"] .lb-switch .lb-switch-knob .moon{ opacity:1; }
-[data-theme="night"] .lb-switch .lb-switch-knob .sun { opacity:0; }
-[data-theme="night"] .lb-switch .cloud{ opacity:0; transform:translateY(-6%); }
-[data-theme="night"] .lb-switch .stars{ opacity:1; }
-
 /* ========== Header orb / click-through ================================== */
 [data-orb="density"]{
   padding:0 !important; margin:0 !important; border:0 !important;
@@ -388,54 +295,35 @@ html:has([data-shop-root]) .product-img{
 [data-orb="density"] canvas{ display:block; pointer-events:auto; }
 
 /* --- Banned page layout fixes + button skins --- */
-.login-stack{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:10px;
-}
+.login-stack{ display:flex; flex-direction:column; align-items:center; gap:10px; }
 
 /* keep the orb centered above the blue bubble */
-.orb-row{
-  margin-bottom:-28px;
-  display:grid;
-  place-items:center;
-  contain:layout paint style;
-  isolation:isolate;
-  z-index:10;
-}
+.orb-row{ margin-bottom:-28px; display:grid; place-items:center; contain:layout paint style; isolation:isolate; z-index:10; }
 
 /* inline “code” rows used in the login form */
-.code-row{
-  display:flex;
-  align-items:baseline;
-  gap:6px;
-  line-height:1.35;
-  font-size:.95rem;
-}
+.code-row{ display:flex; align-items:baseline; gap:6px; line-height:1.35; font-size:.95rem; }
 
 /* violet accent for the login inputs */
 .neon-violet{ color:var(--purple); text-shadow:0 0 10px rgba(168,85,247,.35); }
 .code-input-violet{ color:var(--purple); caret-color:var(--purple); }
 
 /* commit buttons used for Link/Bypass */
-.btn-yellow{
-  border-color: var(--focus-orange);
-  background: rgba(247,160,45,.12);
+.btn-yellow{ border-color: var(--focus-orange); background: rgba(247,160,45,.12); }
+.btn-yellow:hover{ background: rgba(247,160,45,.16); border-color: var(--focus-orange); }
+.btn-red{ border-color:#ff4d4f; background: rgba(255,77,79,.12); }
+.btn-red:hover{ background: rgba(255,77,79,.18); border-color:#ff4d4f; }
+.btn-activated{ transform: translateY(1px); box-shadow: inset 0 0 0 1px currentColor; }
+
+/* banned word styling + link affordances */
+.banned-trigger{
+  cursor: pointer;
+  text-decoration-line: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: rgba(242,14,14,.85);
+  text-decoration-style: solid;
 }
-.btn-yellow:hover{
-  background: rgba(247,160,45,.16);
-  border-color: var(--focus-orange);
+.banned-trigger:hover{
+  text-shadow: 0 0 6px rgba(242,14,14,.55), 0 0 14px rgba(242,14,14,.35);
 }
-.btn-red{
-  border-color:#ff4d4f;
-  background: rgba(255,77,79,.12);
-}
-.btn-red:hover{
-  background: rgba(255,77,79,.18);
-  border-color:#ff4d4f;
-}
-.btn-activated{
-  transform: translateY(1px);
-  box-shadow: inset 0 0 0 1px currentColor;
-}
+.code-link{ cursor: pointer; text-decoration: underline dotted rgba(255,255,255,.45); }
+.code-link:hover{ text-decoration-style: solid; text-decoration-color: rgba(255,255,255,.85); }

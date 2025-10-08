@@ -10,30 +10,46 @@ import { useEffect, useState } from 'react';
 const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
 const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
+const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
 /** Visual alignment */
-const CONTROL_H      = 56;   // square for orb
-const ORB_GEOM_SCALE = 1.08; // inner orb fill
-const HEADER_H       = 86;
-
-// Temporary demo products so the grid isn't empty.
-// Remove when your real data is wired.
-const DEMO = [
-  { id: 'p1', name: 'LB Tee — Black',  price: 38, image: '/demo/demo-tee-black.jpg'  },
-  { id: 'p2', name: 'LB Tee — White',  price: 38, image: '/demo/demo-tee-white.jpg'  },
-  { id: 'p3', name: 'Dad Cap — Navy',  price: 32, image: '/demo/demo-cap-navy.jpg'   },
-  { id: 'p4', name: 'Sticker Pack',    price: 12, image: '/demo/demo-stickers.jpg'   },
-];
+const CONTROL_H       = 56;   // header control square (orb/canvas + cart row height)
+const ORB_GEOM_SCALE  = 1.08; // inner orb fill inside its square
+const HEADER_H        = 86;
 
 export default function Page() {
+  const [theme, setTheme]   = useState('day');  // 'day' | 'night'
   const [isShop, setIsShop] = useState(false);
-  const [veil, setVeil] = useState(false);
+  const [veil,  setVeil]    = useState(false);
 
-  // After cascade hop, fade the white veil away smoothly
+  // Sync theme + mode ON <html> so global CSS applies to the whole page
   useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
+    if (isShop) root.setAttribute('data-shop-root', '');
+    else root.removeAttribute('data-shop-root');
+  }, [theme, isShop]);
+
+  // Listen for DayNightToggle's 'theme-change' event (so we don't need to prop-drill)
+  useEffect(() => {
+    /** @param {CustomEvent<{theme:'day'|'night'}>} e */
+    const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
+    // @ts-ignore
+    window.addEventListener('theme-change', onTheme);
+    return () => {
+      // @ts-ignore
+      window.removeEventListener('theme-change', onTheme);
+    };
+  }, []);
+
+  // after cascade hop, fade the white veil away smoothly
+  useEffect(() => {
+    let fromCascade = false;
     try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
+      fromCascade = sessionStorage.getItem('fromCascade') === '1';
+      if (fromCascade) {
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
       }
@@ -42,16 +58,8 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // Header orb → tell the grid to bump density (loops 1→5→1)
-  const bumpDensity = () => {
-    const evt = /** @type {CustomEventInit<{step:number}>} */({ detail: { step: 1 } });
-    window.dispatchEvent(new CustomEvent('grid-density', evt));
-  };
-
   return (
     <div
-      data-mode={isShop ? 'shop' : 'gate'}
-      {...(isShop ? { 'data-shop-root': '' } : {})}
       className="min-h-[100dvh] w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
@@ -70,14 +78,17 @@ export default function Page() {
             <button
               type="button"
               aria-label="Grid density +1"
-              onClick={bumpDensity}
               style={{
                 width: CONTROL_H, height: CONTROL_H,
-                padding:0, margin:0, background:'transparent', border:0,
-                display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0
+                padding: 0, margin: 0, background:'transparent', border:0,
+                display:'grid', placeItems:'center', cursor:'pointer',
+                lineHeight: 0
               }}
-              title="Add a column (loops 1–5)"
-              data-orb="density"
+              onClick={() => {
+                // Talk to ShopGrid via global custom event
+                window.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } }));
+              }}
+              title="Bump product columns"
             >
               <BlueOrbCross3D
                 height={`${CONTROL_H}px`}
@@ -85,20 +96,22 @@ export default function Page() {
                 includeZAxis
                 glow
                 geomScale={ORB_GEOM_SCALE}
-                interactive={false} // wrapper handles click
+                interactive={false}   // wrapper handles click; canvas hitbox stays tight
               />
             </button>
           </div>
 
-          {/* CENTER: day/night toggle (uncontrolled; it manages html[data-theme]) */}
+          {/* CENTER: compact toggle (self-managed; fires 'theme-change') */}
           <div style={{ display:'grid', placeItems:'center' }}>
-            <DayNightToggle />
+            <DayNightToggle id="lb-daynight" />
           </div>
 
-          {/* RIGHT: (intentionally empty)
-              We removed the header CartButton to avoid duplicates.
-              ShopGrid already renders its own cart control. */}
-          <div />
+          {/* RIGHT: cart as silhouette (Birkin 25) */}
+          <div style={{ display:'grid', justifyContent:'end' }}>
+            <div style={{ height: CONTROL_H, display:'grid', placeItems:'center' }}>
+              <CartButton inHeader />
+            </div>
+          </div>
         </header>
       )}
 
@@ -110,7 +123,8 @@ export default function Page() {
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
-            <ShopGrid products={DEMO} />
+            {/* Top-row controls/cart are already in the header */}
+            <ShopGrid hideTopRow />
           </div>
         )}
       </main>
