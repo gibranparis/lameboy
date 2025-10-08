@@ -16,10 +16,10 @@ const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), 
 const HEADER_H = 86;
 
 export default function Page() {
-  const [mode, setMode] = useState('gate');   // 'gate' | 'shop'
-  const [veil, setVeil] = useState(false);
-  const [cols, setCols] = useState(5);
-  const [theme, setTheme] = useState('day');  // 'day' | 'night'
+  const [mode, setMode]   = useState('gate');  // 'gate' | 'shop'
+  const [veil, setVeil]   = useState(false);
+  const [cols, setCols]   = useState(5);
+  const [theme, setTheme] = useState('day');   // 'day' | 'night'
 
   useEffect(() => {
     let from = '0';
@@ -34,7 +34,8 @@ export default function Page() {
   }, []);
 
   const isShop = mode === 'shop';
-  const bumpCols = () => setCols(c => (c <= 1 ? 2 : c >= 5 ? 4 : c + (c < 5 ? 1 : -1)));
+  const bumpCols = () =>
+    setCols(c => (c <= 1 ? 2 : c >= 5 ? 4 : c + (c < 5 ? 1 : -1)));
 
   return (
     <div
@@ -44,39 +45,42 @@ export default function Page() {
       className="min-h-[100dvh] w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
-      {/* Fixed LEFT orb – outside header so CSS never hides it */}
-      {isShop && (
-        <div
-          data-orb="density"
-          style={{
-            position:'fixed', left:18, top:18, zIndex:120,
-            width:88, height:88, pointerEvents:'auto'
-          }}
-          title="Toggle grid density"
-          onClick={bumpCols}
-        >
-          <BlueOrbCross3D rpm={44} glow includeZAxis />
-        </div>
-      )}
-
-      {/* Fixed header — centered toggle via 3-col grid */}
+      {/* Fixed header (all 3 controls live inside this row) */}
       {isShop && (
         <header
           role="banner"
           style={{
             position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
-            display:'grid', gridTemplateColumns:'1fr auto 1fr',
+            display:'grid', gridTemplateColumns:'auto 1fr auto',
             alignItems:'center', background:'transparent', padding:'0 16px'
           }}
         >
-          {/* left slot kept empty; orb is separate fixed element */}
-          <div />
-          {/* center slot: Day/Night toggle */}
-          <div style={{ justifySelf:'center' }}>
+          {/* LEFT: orb (click = change grid density) */}
+          <div
+            style={{
+              display:'flex', alignItems:'center', height:'100%', gap:10
+            }}
+          >
+            <div
+              data-orb="density"
+              role="button"
+              title="Toggle grid density"
+              onClick={bumpCols}
+              style={{
+                width:72, height:56, display:'grid', placeItems:'center'
+              }}
+            >
+              <BlueOrbCross3D height="56px" rpm={44} glow includeZAxis />
+            </div>
+          </div>
+
+          {/* CENTER: day/night toggle */}
+          <div style={{ justifySelf:'center', display:'grid', alignItems:'center', height:'100%' }}>
             <DayNightToggle value={theme} onChange={setTheme} size={112} />
           </div>
-          {/* right slot: cart */}
-          <div style={{ justifySelf:'end', display:'flex', alignItems:'center', gap:12 }}>
+
+          {/* RIGHT: cart */}
+          <div style={{ justifySelf:'end', display:'grid', alignItems:'center', height:'100%' }}>
             <CartButton />
           </div>
         </header>
@@ -96,14 +100,13 @@ export default function Page() {
         <>
           {/* spacer for fixed header */}
           <div style={{ height: HEADER_H }} />
-          {/* NOTE: .shop-wrap is transparent in CSS so wrapper drives color */}
           <div className="shop-wrap">
             <ShopGrid columns={cols} />
           </div>
         </>
       )}
 
-      {/* Veil */}
+      {/* Fade veil */}
       {veil && (
         <div
           aria-hidden="true"

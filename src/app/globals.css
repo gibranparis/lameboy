@@ -551,3 +551,73 @@ html:has([data-shop-root]) [data-orb="density"]{ display:block !important; }
 .lb-switch{
   box-shadow: 0 4px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.6);
 }
+/* Keep the header transparent and centered layout intact */
+[data-mode="shop"] header[role="banner"]{
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Allow orb/canvas inside header (older rules hid canvases in headers) */
+[data-mode="shop"] header[role="banner"] [data-orb="density"],
+[data-mode="shop"] header[role="banner"] canvas{
+  display:block !important;
+}
+
+/* Normalize control vertical alignment */
+[data-mode="shop"] header[role="banner"] > *{
+  align-self:center !important;
+}
+
+/* Kill any stray whites so wrapper color shows everywhere */
+[data-mode="shop"] .shop-page,
+[data-mode="shop"] .shop-wrap,
+[data-mode="shop"] .shop-grid,
+[data-mode="shop"] .product-box,
+[data-mode="shop"] .product-hero-overlay,
+[data-mode="shop"] .product-hero,
+[data-mode="shop"] .product-img{
+  background: transparent !important;
+}
+/* --- Header placement + alignment --- */
+[data-mode="shop"] header[role="banner"] .cart-fab{
+  position: static !important;   /* don't stick to the top-right when in header */
+  right: auto; top: auto;
+  width: 56px; height: 42px;     /* matches orb/toggle row height */
+  display: inline-grid; place-items: center;
+  border-radius: 10px;
+}
+
+/* Day vs Night button chrome */
+[data-mode="shop"][data-theme="day"] .cart-fab{
+  border:1px solid rgba(0,0,0,.12);
+  background:rgba(0,0,0,.04);
+  color:#111; /* cart body + wheels via currentColor */
+}
+[data-mode="shop"][data-theme="night"] .cart-fab{
+  border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.06);
+  color:#fff; /* cart body + wheels become white */
+}
+
+/* Orange handlebars (visible in both themes) */
+.cart-fab .cb-handle{
+  fill:#F7A02D;           /* orange “handlebars” */
+}
+
+/* Hover micro-lift */
+[data-mode="shop"] header[role="banner"] .cart-fab:hover{
+  transform: translateY(-1px);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+/* Keep inner sections transparent so night/day wrapper shows through */
+[data-mode="shop"] .shop-page,
+[data-mode="shop"] .shop-wrap,
+[data-mode="shop"] .shop-grid,
+[data-mode="shop"] .product-box,
+[data-mode="shop"] .product-hero-overlay,
+[data-mode="shop"] .product-hero,
+[data-mode="shop"] .product-img{
+  background: transparent !important;
+}

@@ -1,3 +1,4 @@
+// src/components/CartButton.jsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -18,10 +19,32 @@ export default function CartButton() {
   }, [bumpKey]);
 
   return (
-    <button className={`cart-fab ${bump ? 'bump' : ''}`} type="button" aria-label="Cart" aria-live="polite">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M6 8h12l-1.2 12.4A2 2 0 0 1 14.81 22H9.19a2 2 0 0 1-1.99-1.6L6 8Zm3-1a3 3 0 1 1 6 0h-2a1 1 0 1 0-2 0H9Z" />
+    <button
+      className={`cart-fab ${bump ? 'bump' : ''}`}
+      type="button"
+      aria-label="Cart"
+      aria-live="polite"
+      title="Cart"
+    >
+      {/* Cart icon with separate orange handlebars */}
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="24" height="24">
+        {/* handlebars (filled; color set in CSS) */}
+        <rect className="cb-handle" x="3" y="4" width="5.6" height="2.2" rx="1.1" />
+        {/* cart outline uses currentColor so it’s white in night, dark in day */}
+        <path
+          className="cb-body"
+          d="M7 6h12l-1.4 5.3a2 2 0 0 1-1.9 1.5H9.6L8.3 16H18"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* wheels */}
+        <circle className="cb-wheel" cx="9" cy="18" r="1.6" fill="currentColor" />
+        <circle className="cb-wheel" cx="16" cy="18" r="1.6" fill="currentColor" />
       </svg>
+
       {count > 0 && (
         <span className={`cart-badge ${pulseTag ? 'swap-green' : ''}`}>
           {count}
