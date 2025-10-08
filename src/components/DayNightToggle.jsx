@@ -1,203 +1,140 @@
-// src/components/DayNightToggle.jsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 
+/**
+ * Scalable Day/Night toggle
+ * - Controlled by `height` (default 44). Width auto-scales.
+ * - Flips data-theme="day|night" on [data-shop-root] (or <body>)
+ */
 export default function DayNightToggle({
-  value = 'day',                 // 'day' | 'night'
-  onChange = () => {},
-  size = 56,                     // visual height; width auto (≈ 1.9×)
+  storageKey = 'lb-theme',
+  initial = 'day',
+  height = 44,            // << set size here
   className = '',
-  style = {},
+  id = 'lb-daynight',
 }) {
-  const h = Math.max(44, size);
-  const w = Math.round(h * 1.9);
-  const r = Math.round(h / 2);
-  const isDay = value !== 'night';
+  const [theme, setTheme] = useState(initial); // 'day' | 'night'
+  const isNight = theme === 'night';
 
-  // keyboard toggle accessibility
+  // derived sizes from height (keeps proportions tight)
+  const H = Math.max(36, Math.round(height));
+  const W = Math.round(H * 2.55);     // pill width ratio
+  const KNOB_H = Math.round(H * 0.82);
+  const KNOB_W = Math.round(KNOB_H * 1.25);
+  const KNOB_PAD = Math.round(H * 0.14);
+  const ICON_FRAC = 0.72;
+
   useEffect(() => {
-    const el = document.getElementById('lb-daynight');
-    const handler = (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        onChange(isDay ? 'night' : 'day');
-      }
-    };
-    el?.addEventListener('keydown', handler);
-    return () => el?.removeEventListener('keydown', handler);
-  }, [isDay, onChange]);
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved === 'day' || saved === 'night') setTheme(saved);
+      else setTheme(initial);
+    } catch {}
+  }, [initial, storageKey]);
+
+  useEffect(() => {
+    const root = document.querySelector('[data-shop-root]') || document.body;
+    root.setAttribute('data-theme', theme);
+    try { localStorage.setItem(storageKey, theme); } catch {}
+  }, [theme, storageKey]);
+
+  const toggle = useCallback(() => setTheme(t => (t === 'day' ? 'night' : 'day')), []);
+
+  const virgo = useMemo(() => "M6,16 L10,11 L13,14 L17,9 L20,12", []);
 
   return (
     <button
-      id="lb-daynight"
+      id={id}
       type="button"
-      aria-label="Toggle day/night"
-      onClick={() => onChange(isDay ? 'night' : 'day')}
-      className={`lb-dn ${isDay ? 'is-day' : 'is-night'} ${className}`}
-      style={{ height: h, width: w, borderRadius: r, ...style }}
+      onClick={toggle}
+      aria-pressed={isNight}
+      aria-label={isNight ? 'Switch to Day Mode' : 'Switch to Night Mode'}
+      className={['lb-switch', className].join(' ')}
+      style={{
+        width: W,
+        height: H,
+        borderRadius: 999,
+        position: 'relative',
+        boxShadow: '0 3px 12px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.55)',
+        border: '1px solid rgba(0,0,0,.12)',
+      }}
     >
-      {/* Track */}
-      <div className="track" />
+      <span className="lb-switch-bg" style={{ borderRadius: 999 }} />
 
-      {/* Decorative layer (clouds / stars / Virgo) */}
-      <div className="decor" aria-hidden="true">
-        {/* Clouds (day only) */}
-        <div className="cloud c1" />
-        <div className="cloud c2" />
-        <div className="cloud c3" />
+      <span className="lb-switch-decor" aria-hidden="true">
+        <span className="cloud c1" />
+        <span className="cloud c2" />
+        <span className="cloud c3" />
 
-        {/* Stars field (night only) */}
-        <svg className="stars" viewBox="0 0 190 100" preserveAspectRatio="none">
-          {/* Soft sky glow */}
-          <defs>
-            <radialGradient id="nightGlow" cx="30%" cy="30%" r="75%">
-              <stop offset="0%"  stopColor="#1b1f3a" />
-              <stop offset="60%" stopColor="#0f1226" />
-              <stop offset="100%" stopColor="#090a16" />
-            </radialGradient>
-            <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="0.8" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
+        <span className="stars">
+          <i className="s s1" /><i className="s s2" /><i className="s s3" />
+          <i className="s s4" /><i className="s s5" /><i className="s s6" />
+          <i className="s s7" /><i className="s s8" /><i className="s s9" />
+          <i className="s s10" /><i className="s s11" /><i className="s s12" />
+        </span>
 
-          <rect x="0" y="0" width="190" height="100" fill="url(#nightGlow)" />
-
-          {/* Scattered stars */}
-          {[
-            [18,22],[30,64],[46,36],[60,18],[72,54],[82,30],[12,58],
-            [40,72],[52,12],[66,40],[78,68],[24,34]
-          ].map(([x,y],i)=>(
-            <circle key={i} cx={x} cy={y} r="1.6" fill="#fff" filter="url(#starGlow)" opacity="0.9"/>
-          ))}
-
-          {/* Virgo constellation (approx layout) */}
-          <g className="virgo" stroke="#7aa2ff" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" opacity="0.95">
-            {/* points */}
-            {[
-              [110,20],[125,28],[138,40],[152,52],[146,70],[130,78],[116,64],[100,48]
-            ].map(([x,y],i)=>(
-              <circle key={`vpt-${i}`} cx={x} cy={y} r="1.9" fill="#cfe2ff" />
+        {/* Virgo */}
+        <svg viewBox="0 0 26 26"
+             style={{ position:'absolute', inset:0, opacity: isNight ? .85 : 0, transition:'opacity .35s ease' }}
+             aria-hidden="true">
+          <g transform="translate(6,5)">
+            <path d={virgo} fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="0.5" strokeLinecap="round" />
+            {[ [0,11],[4,6],[7,9],[11,4],[14,7] ].map(([x,y],i)=>(
+              <circle key={i} cx={x} cy={y} r="0.9" fill="#fff" />
             ))}
-            {/* lines */}
-            <polyline fill="none" points="110,20 125,28 138,40 152,52 146,70 130,78 116,64 100,48 110,20" />
           </g>
         </svg>
-      </div>
+      </span>
 
-      {/* Knob with Sun/Moon */}
-      <div className={`knob ${isDay ? 'day' : 'night'}`}>
-        {/* Sun (day) */}
-        <svg viewBox="0 0 48 48" className="sun" aria-hidden="true">
+      <span
+        className="lb-switch-knob"
+        style={{
+          width: KNOB_W,
+          height: KNOB_H,
+          top: '50%',
+          left: KNOB_PAD,
+          transform: 'translate(0,-50%)',
+          borderRadius: 999,
+          boxShadow: '0 5px 14px rgba(0,0,0,.16), inset 0 0 0 1px rgba(0,0,0,.08)',
+          background: '#fff',
+        }}
+      >
+        <svg className="icon sun" viewBox="0 0 24 24" aria-hidden="true"
+             style={{ width: `${ICON_FRAC*100}%`, height: `${ICON_FRAC*100}%` }}>
           <defs>
-            <filter id="sunGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="g"/>
-              <feMerge>
-                <feMergeNode in="g"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
+            <radialGradient id="lbSunGlow" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stopColor="#FFF9C4"/>
+              <stop offset="60%" stopColor="#FFE082"/>
+              <stop offset="100%" stopColor="rgba(255,220,80,.0)"/>
+            </radialGradient>
           </defs>
-          <circle cx="24" cy="24" r="10" fill="#FFE270" stroke="#FFD44D" strokeWidth="2" filter="url(#sunGlow)"/>
-          <g stroke="#FFD44D" strokeWidth="2" strokeLinecap="round" opacity=".9">
-            <line x1="24" y1="3"  x2="24" y2="11" />
-            <line x1="24" y1="37" x2="24" y2="45" />
-            <line x1="3"  y1="24" x2="11" y2="24" />
-            <line x1="37" y1="24" x2="45" y2="24" />
-            <line x1="9"  y1="9"  x2="14" y2="14" />
-            <line x1="34" y1="34" x2="39" y2="39" />
-            <line x1="9"  y1="39" x2="14" y2="34" />
-            <line x1="34" y1="14" x2="39" y2="9"  />
-          </g>
+          <circle cx="12" cy="12" r="7.5" fill="url(#lbSunGlow)"/>
+          <circle cx="12" cy="12" r="5.6" fill="#FFE082"/>
         </svg>
 
-        {/* Moon (night) */}
-        <svg viewBox="0 0 48 48" className="moon" aria-hidden="true">
+        <svg className="icon moon" viewBox="0 0 24 24" aria-hidden="true"
+             style={{ width: `${ICON_FRAC*100}%`, height: `${ICON_FRAC*100}%` }}>
           <defs>
-            <filter id="moonGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="1.4" result="b"/>
-              <feMerge>
-                <feMergeNode in="b"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
+            <radialGradient id="lbMoonTint" cx="45%" cy="40%" r="70%">
+              <stop offset="0%" stopColor="#D7E5FF"/>
+              <stop offset="100%" stopColor="#8FA9FF"/>
+            </radialGradient>
           </defs>
-          <path d="M30 4a18 18 0 1 0 14 28.5A16 16 0 1 1 30 4z" fill="#b7c7ff" filter="url(#moonGlow)"/>
-          <circle cx="22" cy="18" r="2.2" fill="#dfe6ff" />
-          <circle cx="27" cy="26" r="1.6" fill="#dfe6ff" />
-          <circle cx="18" cy="28" r="1.8" fill="#dfe6ff" />
+          <circle cx="12" cy="12" r="6.2" fill="url(#lbMoonTint)"/>
+          <circle cx="9.5" cy="10" r="1.1" fill="#BBD0FF"/>
+          <circle cx="13.5" cy="14.2" r="0.9" fill="#BBD0FF"/>
+          <circle cx="15.6" cy="10.8" r="0.7" fill="#BBD0FF"/>
         </svg>
-      </div>
+      </span>
 
+      {/* knob target position when night; we keep it CSS-driven via globals:
+          [data-theme="night"] .lb-switch .lb-switch-knob { transform: translate(calc(100% - PAD - 100%), -50%) } */}
       <style jsx>{`
-        .lb-dn{
-          position:relative; display:inline-block; padding:0; border:0; background:transparent;
-          cursor:pointer; outline-offset:4px;
+        :global([data-theme="night"]) #${id} .lb-switch-knob{
+          transform: translate(calc(${W - KNOB_PAD - KNOB_W}px - 100%), -50%);
+          background:#0e0e16;
         }
-        .track{
-          position:absolute; inset:0; border-radius:inherit; overflow:hidden;
-          background: linear-gradient(180deg,#cfe6ff 0%,#eaf5ff 55%,#ffffff 100%);
-          box-shadow: 0 6px 16px rgba(0,0,0,.12), inset 0 0 0 1px rgba(255,255,255,.7);
-          transition: background .25s ease, box-shadow .25s ease;
-        }
-        .is-night .track{
-          background: radial-gradient(120% 120% at 30% 30%, #1a1b2e 0%, #0e1024 55%, #070813 100%);
-          box-shadow: 0 8px 18px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.15);
-        }
-
-        .decor{ position:absolute; inset:0; border-radius:inherit; overflow:hidden; pointer-events:none; }
-
-        /* Clouds */
-        .cloud{
-          position:absolute; background:#fff; border-radius:999px; filter: drop-shadow(0 3px 6px rgba(0,0,0,.08));
-          opacity:.96; transition: transform .45s ease, opacity .35s ease;
-        }
-        .cloud::before,.cloud::after{ content:""; position:absolute; background:#fff; border-radius:999px; }
-        .c1{ left:10%; top:22%; width:34%; height:38%; }
-        .c1::before{ left:-22%; top:16%; width:46%; height:58%; }
-        .c1::after { right:-18%; top:30%; width:36%; height:46%; }
-
-        .c2{ left:54%; top:54%; width:26%; height:28%; opacity:.92; }
-        .c2::before{ left:-24%; top:8%; width:40%; height:58%; }
-        .c2::after { right:-18%; top:20%; width:34%; height:44%; }
-
-        .c3{ left:36%; top:10%; width:18%; height:22%; opacity:.94; }
-        .c3::before{ left:-28%; top:10%; width:32%; height:44%; }
-        .c3::after { right:-20%; top:26%; width:28%; height:38%; }
-
-        /* Gentle drift while in day */
-        .is-day .c1{ animation: drift1 8s ease-in-out infinite; }
-        .is-day .c2{ animation: drift2 10s ease-in-out infinite; }
-        .is-day .c3{ animation: drift3 7.5s ease-in-out infinite; }
-        @keyframes drift1 { 0%,100%{ transform: translateX(0) } 50%{ transform: translateX(6%) } }
-        @keyframes drift2 { 0%,100%{ transform: translateX(0) } 50%{ transform: translateX(-5%) } }
-        @keyframes drift3 { 0%,100%{ transform: translateX(0) } 50%{ transform: translateX(4%) } }
-
-        /* Stars + Virgo (only visible at night) */
-        .stars{ position:absolute; inset:0; opacity:0; transition: opacity .35s ease; }
-        .is-night .stars{ opacity:1; }
-
-        /* Knob */
-        .knob{
-          position:absolute; top:50%; left:4px; width:calc(50% - 6px); height:calc(100% - 8px);
-          transform: translate(0,-50%); border-radius:inherit; display:grid; place-items:center;
-          background:#cfe6ff;
-          box-shadow: 0 8px 16px rgba(98,150,255,.30), inset 0 0 0 1px rgba(255,255,255,.8);
-          transition: transform .22s ease, background .22s ease, box-shadow .22s ease;
-        }
-        .knob.night{
-          transform: translate(calc(100% + 4px), -50%);
-          background:#0e1124;
-          box-shadow: 0 10px 18px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.18);
-        }
-        .sun{ width:65%; height:65%; }
-        .moon{ width:65%; height:65%; display:none; }
-        .knob.night .sun{ display:none; }
-        .knob.night .moon{ display:block; }
       `}</style>
     </button>
   );
