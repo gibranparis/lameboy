@@ -398,3 +398,40 @@ html:has([data-shop-root]) .product-img{
   display:block;
   pointer-events:auto;
 }
+/* ---- Unify stage color, kill any stray white backgrounds on the shop ---- */
+[data-mode="shop"] .shop-page,
+[data-mode="shop"] .shop-wrap,
+[data-mode="shop"] .shop-grid,
+[data-mode="shop"] .product-box,
+[data-mode="shop"] .product-hero-overlay,
+[data-mode="shop"] .product-hero,
+[data-mode="shop"] .product-img,
+[data-mode="shop"] [class*="container"],
+[data-mode="shop"] [class*="page"]{
+  background: transparent !important;
+}
+
+/* Header stays transparent and centered */
+[data-mode="shop"] header[role="banner"]{
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Cart in header = silhouette only (no pill) */
+[data-mode="shop"] header[role="banner"] .cart-fab{
+  position: static !important;
+  width: auto; height: 56px;
+  padding: 6px 8px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: inline-grid; place-items: center;
+  border-radius: 0 !important;
+}
+[data-mode="shop"] header[role="banner"] .cart-fab svg{
+  width: 28px; height: 28px; display:block;
+}
+[data-mode="shop"][data-theme="day"] header[role="banner"] .cart-fab{ color:#111; }
+[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
+.cart-fab .cb-handle{ fill:#F7A02D; } /* orange “handlebars” always visible */
