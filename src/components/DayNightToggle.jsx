@@ -2,9 +2,11 @@
 // src/components/DayNightToggle.jsx
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 
-/** @param {{ className?: string }} props */
+/** @typedef {'day'|'night'} Theme */
+
+/** Sun (unique gradient ids per instance) */
 function SunHaloIcon({ className = '' }) {
   const uid = useId();
   const coreId = `sunCore-${uid}`;
@@ -19,13 +21,10 @@ function SunHaloIcon({ className = '' }) {
           <stop offset="55%"  stopColor="#ffd75e" />
           <stop offset="100%" stopColor="#ffb200" />
         </radialGradient>
-
-        {/* ✅ use stopOpacity instead of rgba() */}
         <radialGradient id={glowId} cx="50%" cy="50%" r="50%">
           <stop offset="0%"   stopColor="#ffc850" stopOpacity="0.9" />
           <stop offset="100%" stopColor="#ffc850" stopOpacity="0" />
         </radialGradient>
-
         <linearGradient id={haloId} x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%"   stopColor="#a0d8ff" />
           <stop offset="33%"  stopColor="#a8ffbf" />
@@ -43,11 +42,10 @@ function SunHaloIcon({ className = '' }) {
   );
 }
 
-/** @param {{ className?: string }} props */
+/** Moon (unique gradient ids per instance) */
 function MoonIcon({ className = '' }) {
   const uid = useId();
   const moonId = `moonShade-${uid}`;
-
   return (
     <svg className={className} viewBox="0 0 64 64" aria-hidden="true" role="img">
       <defs>
@@ -64,48 +62,73 @@ function MoonIcon({ className = '' }) {
   );
 }
 
-/** @typedef {'day'|'night'} Theme */
-
-/** LocalStorage key used for theme persistence */
 const THEME_KEY = 'theme';
 
-/** @param {{ className?: string }} props */
-export default function DayNightToggle({ className = '' }) {
-  /** @type {[Theme, (t: Theme) => void]} */
-  // @ts-ignore - React infers the setter; JSDoc narrows the value
-  const [theme, setTheme] = useState(/** @type {Theme} */('day'));
+/**
+ * Controlled + uncontrolled toggle
+ * - Controlled: pass `value` and `onChange`
+ * - Uncontrolled: omit both, it will manage localStorage and <html data-theme>
+ */
+export default function DayNightToggle({
+  className = '',
+  value,                  /** @type {Theme | undefined} */
+  onChange,               /** @type {(t: Theme) => void | undefined} */
+  size = 34,              /** visual height in px; width scales proportionally */
+}) {
+  const isControlled = value !== undefined && typeof onChange === 'function';
 
+  // internal state only used when uncontrolled
+  /** @type {[Theme, (t: Theme)=>void]} */
+  // @ts-ignore
+  const [internal, setInternal] = useState(/** @type {Theme} */('day'));
+
+  // compute the current theme
+  /** @type {Theme} */
+  const theme = (isControlled ? value : internal) ?? 'day';
   const isNight = theme === 'night';
 
+  // boot: read localStorage when uncontrolled
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem(THEME_KEY) : null;
-    /** @type {Theme} */
-    const initial = stored === 'night' || stored === 'day' ? stored : 'day';
-    setTheme(initial);
-    apply(initial);
-  }, []);
+    if (!isControlled) {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem(THEME_KEY) : null;
+      const initial = stored === 'night' || stored === 'day' ? stored : 'day';
+      setInternal(/** @type {Theme} */(initial));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isControlled]);
 
-  /** Apply theme to <html> and notify listeners
-   * @param {Theme} next
-   */
-  function apply(next) {
+  // side-effect: always reflect theme on <html> + localStorage (safe even if parent also does it)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
     const root = document.documentElement;
-    root.classList.toggle('dark', next === 'night'); // Tailwind v4 dark mode = 'class'
-    root.dataset.theme = next;
-    localStorage.setItem(THEME_KEY, next);
+    root.classList.toggle('dark', isNight);
+    root.dataset.theme = theme;
+    try { localStorage.setItem(THEME_KEY, theme); } catch {}
+  }, [theme, isNight]);
 
-    /** @type {CustomEventInit<{ theme: Theme }>} */
-    const evt = { detail: { theme: next } };
-    window.dispatchEvent(new CustomEvent('theme-change', evt));
+  // toggle handler
+  function setTheme(next /** @type {Theme} */) {
+    if (isControlled && onChange) onChange(next);
+    else setInternal(next);
+    // ‘theme-change’ event for any listeners
+    try {
+      window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme: next } }));
+    } catch {}
   }
 
-  /** Toggle between 'day' and 'night' */
   function toggle() {
-    /** @type {Theme} */
-    const next = isNight ? 'day' : 'night';
-    setTheme(next);
-    apply(next);
+    setTheme(isNight ? 'day' : 'night');
   }
+
+  // sizes derived from height
+  const dims = useMemo(() => {
+    const h = Math.max(24, size);
+    const w = Math.round(h * (64 / 36)); // maintain 64×36 ratio
+    const knob = Math.round(h * (28 / 36));
+    const inset = Math.round(h * (4 / 36));
+    const shift = Math.round(w - knob - inset * 2);
+    return { h, w, knob, inset, shift };
+  }, [size]);
 
   return (
     <>
@@ -114,68 +137,76 @@ export default function DayNightToggle({ className = '' }) {
         aria-label="Toggle day / night"
         role="switch"
         aria-checked={isNight}
-        className={`lb-toggle ${className}`}
+        className={className}
+        style={{
+          position: 'relative',
+          display: 'inline-flex',
+          height: dims.h,
+          width: dims.w,
+          borderRadius: 9999,
+          background: isNight ? '#1e1e1e' : '#fff',
+          boxShadow:
+            '0 1px 2px rgba(0,0,0,.06), 0 1px 1px rgba(0,0,0,.03), inset 0 0 0 1px rgba(0,0,0,.06)',
+          cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+        }}
       >
-        <span className="lb-track" />
-        <span className={`lb-knob ${isNight ? 'is-night' : 'is-day'}`}>
-          <span className={`lb-icon ${isNight ? 'hide' : 'show'}`}>
-            <SunHaloIcon className="lb-svg" />
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 9999,
+            background: isNight
+              ? 'linear-gradient(to bottom, rgba(255,255,255,.08), rgba(0,0,0,.4))'
+              : 'linear-gradient(to bottom, rgba(255,255,255,.6), rgba(0,0,0,.05))',
+            pointerEvents: 'none',
+          }}
+        />
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: dims.inset,
+            left: dims.inset,
+            height: dims.knob,
+            width: dims.knob,
+            borderRadius: 9999,
+            background: isNight ? '#0e0f12' : '#f6f7f4',
+            boxShadow: '0 2px 6px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.06)',
+            display: 'grid',
+            placeItems: 'center',
+            transition: 'transform 300ms ease-out, background 200ms ease',
+            transform: `translateX(${isNight ? dims.shift : 0}px)`,
+          }}
+        >
+          {/* crossfade icons */}
+          <span
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'grid',
+              placeItems: 'center',
+              opacity: isNight ? 0 : 1,
+              transition: 'opacity 200ms ease',
+            }}
+          >
+            <SunHaloIcon className="h-5 w-5" />
           </span>
-          <span className={`lb-icon ${isNight ? 'show' : 'hide'}`}>
-            <MoonIcon className="lb-svg" />
+          <span
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'grid',
+              placeItems: 'center',
+              opacity: isNight ? 1 : 0,
+              transition: 'opacity 200ms ease',
+            }}
+          >
+            <MoonIcon className="h-5 w-5" />
           </span>
         </span>
       </button>
-
-      <style jsx>{`
-        .lb-toggle {
-          position: relative;
-          display: inline-flex;
-          height: 36px;
-          width: 64px;
-          border-radius: 9999px;
-          background: ${isNight ? '#1e1e1e' : '#fff'};
-          box-shadow:
-            0 1px 2px rgba(0,0,0,.06),
-            0 1px 1px rgba(0,0,0,.03),
-            inset 0 0 0 1px rgba(0,0,0,.06);
-          cursor: pointer;
-          -webkit-tap-highlight-color: transparent;
-        }
-        .lb-track {
-          position: absolute;
-          inset: 0;
-          border-radius: 9999px;
-          background: linear-gradient(${isNight ? 'to bottom, rgba(255,255,255,.08), rgba(0,0,0,.4)' : 'to bottom, rgba(255,255,255,.6), rgba(0,0,0,.05)'});
-          pointer-events: none;
-        }
-        .lb-knob {
-          position: absolute;
-          top: 4px;
-          left: 4px;
-          height: 28px;
-          width: 28px;
-          border-radius: 9999px;
-          background: ${isNight ? '#0e0f12' : '#f6f7f4'};
-          box-shadow:
-            0 2px 6px rgba(0,0,0,.18),
-            inset 0 0 0 1px rgba(0,0,0,.06);
-          display: grid;
-          place-items: center;
-          transition: transform 300ms ease-out, background 200ms ease;
-          transform: translateX(${isNight ? '32px' : '0px'});
-        }
-        .lb-icon {
-          position: absolute;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          transition: opacity 200ms ease;
-        }
-        .lb-icon.show { opacity: 1; }
-        .lb-icon.hide { opacity: 0; }
-        .lb-svg { height: 20px; width: 20px; }
-      `}</style>
     </>
   );
 }
