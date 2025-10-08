@@ -302,7 +302,7 @@ export default function BannedLogin({ onProceed }) {
             onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
             onMouseEnter={()=>setFloridaHot(true)}
             onMouseLeave={()=>setFloridaHot(false)}
-            style={{ marginTop: 10 }}    {/* tighter spacing to the card */}
+            style={{ marginTop: 10 }}
           >
             Florida, USA
           </button>
