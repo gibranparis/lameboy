@@ -2,7 +2,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import clsx from 'clsx';
+
+// tiny class joiner (no dependency)
+const cx = (...xs) => xs.filter(Boolean).join(' ');
 
 /* ---- Icons (self-contained SVGs; no external colors) ---- */
 function SunHaloIcon({ className = '' }) {
@@ -51,7 +53,6 @@ function MoonIcon({ className = '' }) {
   );
 }
 
-/* ---- Toggle ---- */
 export default function DayNightToggle({ className = '' }) {
   const [theme, setTheme] = useState('day'); // 'day' | 'night'
   const isNight = theme === 'night';
@@ -83,35 +84,38 @@ export default function DayNightToggle({ className = '' }) {
       aria-label="Toggle day / night"
       role="switch"
       aria-checked={isNight}
-      className={clsx(
+      // fallback so it’s visible even if Tailwind fails to load
+      style={{ height: 36, width: 64, borderRadius: 9999, position: 'relative' }}
+      className={cx(
         'relative inline-flex h-9 w-16 items-center rounded-full transition-colors',
         'ring-1 ring-black/5 dark:ring-white/10 shadow-sm',
         isNight ? 'bg-[#1e1e1e]' : 'bg-white',
-        // remove tap highlight without using hyphenated object keys:
-        'select-none [--tap:none] touch-manipulation',
+        'select-none touch-manipulation',
         className
       )}
     >
-      {/* glossy track */}
       <span
-        className={clsx(
+        className={cx(
           'absolute inset-0 rounded-full pointer-events-none',
           'bg-gradient-to-b from-white/60 to-black/5 dark:from-white/10 dark:to-black/40'
         )}
       />
-      {/* knob */}
       <span
-        className={clsx(
-          'relative z-10 inline-flex h-7 w-7 items-center justify-center rounded-full transition-transform duration-300 ease-out',
+        // fallback transform when Tailwind is missing
+        style={{
+          height: 28, width: 28, borderRadius: 9999,
+          transform: `translateX(${isNight ? 32 : 4}px)`, transition: 'transform 300ms ease-out',
+        }}
+        className={cx(
+          'relative z-10 inline-flex h-7 w-7 items-center justify-center rounded-full',
           'shadow-md ring-1 ring-black/5 dark:ring-white/10',
-          isNight ? 'translate-x-8 bg-[#0e0f12]' : 'translate-x-1 bg-[#f6f7f4]'
+          isNight ? 'bg-[#0e0f12]' : 'bg-[#f6f7f4]'
         )}
       >
-        {/* crossfade icons to avoid “white dot” */}
-        <span className={clsx('absolute inset-0 grid place-items-center transition-opacity duration-200', isNight ? 'opacity-0' : 'opacity-100')}>
+        <span className={cx('absolute inset-0 grid place-items-center transition-opacity duration-200', isNight ? 'opacity-0' : 'opacity-100')}>
           <SunHaloIcon className="h-5 w-5" />
         </span>
-        <span className={clsx('absolute inset-0 grid place-items-center transition-opacity duration-200', isNight ? 'opacity-100' : 'opacity-0')}>
+        <span className={cx('absolute inset-0 grid place-items-center transition-opacity duration-200', isNight ? 'opacity-100' : 'opacity-0')}>
           <MoonIcon className="h-5 w-5" />
         </span>
       </span>
