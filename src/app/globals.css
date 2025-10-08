@@ -383,3 +383,18 @@ html:has([data-shop-root]) .product-img{
 [data-theme="night"] .lb-switch .lb-switch-knob .sun { opacity:0; }
 [data-theme="night"] .lb-switch .cloud{ opacity:0; transform: translateY(-6%); }
 [data-theme="night"] .lb-switch .stars{ opacity:1; }
+
+/* Tight, click-true header orb */
+[data-orb="density"]{
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  line-height: 0 !important;
+}
+
+/* The canvas inside may receive events; wrapper shouldn't */
+[data-orb="density"] canvas{
+  display:block;
+  pointer-events:auto;
+}
