@@ -100,7 +100,7 @@ export default function BannedLogin({ onProceed }) {
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
   const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
-  const [orbGlow, setOrbGlow] = useState(0.9);
+  const [orbGlow, setOrbGlow] = useState(1.0);      // stronger glow
   const [orbVersion, setOrbVersion] = useState(0);
 
   const lRef = useRef(null);
@@ -150,14 +150,14 @@ export default function BannedLogin({ onProceed }) {
   const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
-      setOrbGlow(next === 'red' ? 1.0 : 0.9);
+      setOrbGlow(next === 'red' ? 1.0 : 1.0);
       setOrbVersion(v => v + 1);
       return next;
     });
   }, []);
 
   return (
-    <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:10 }}>
+    <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:12 }}>
       {flyOnce && (
         <ButterflyChakra
           startEl={lRef.current}
@@ -175,21 +175,21 @@ export default function BannedLogin({ onProceed }) {
 
       {!hideAll && (
         <div className="login-stack">
-          {/* ORB: sits above the bubble, centered, INTERACTIVE */}
-          <div className="orb-row" style={{ marginBottom:-28, display:'grid', placeItems:'center' }}>
+          {/* ORB: above the bubble, centered, NO overlap */}
+          <div className="orb-row" style={{ marginBottom: 8, display:'grid', placeItems:'center' }}>
             <BlueOrbCross3D
               key={`${orbMode}-${orbGlow}-${orbVersion}`}
               rpm={44}
               color={SEAFOAM}
-              geomScale={1}
+              geomScale={1.35}            // larger visual cross (old feel)
               glow
               glowOpacity={orbGlow}
               includeZAxis
-              height="36px"
+              height="56px"               // bigger like before
               onActivate={onOrbActivate}
               overrideAllColor={orbMode==='red' ? RED : null}
               overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
-              interactive={true}                 // <- interactive on banned page
+              interactive={true}
             />
           </div>
 
@@ -296,15 +296,19 @@ export default function BannedLogin({ onProceed }) {
             </div>
           )}
 
-          <button
-            type="button"
-            className={['ghost-btn','florida-link','florida-inline', floridaHot?'is-hot':''].join(' ')}
-            onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
-            onMouseEnter={()=>setFloridaHot(true)}
-            onMouseLeave={()=>setFloridaHot(false)}
-          >
-            Florida, USA
-          </button>
+          {/* Florida link centered under the bubble */}
+          <div style={{ display:'grid', placeItems:'center', marginTop: 10 }}>
+            <button
+              type="button"
+              className={['ghost-btn','florida-link','florida-inline', floridaHot?'is-hot':''].join(' ')}
+              onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
+              onMouseEnter={()=>setFloridaHot(true)}
+              onMouseLeave={()=>setFloridaHot(false)}
+              style={{ display:'block' }}
+            >
+              Florida, USA
+            </button>
+          </div>
         </div>
       )}
 

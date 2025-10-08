@@ -13,27 +13,30 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-/**
- * Visual alignment constants
- */
-const CONTROL_H       = 64;       // header row height for controls
-const ORB_GEOM_SCALE  = 1.05;     // inner orb fill inside its 64px square
-const TOGGLE_RATIO    = 0.62;     // toggle height ≈ inner orb geometry height
-const TOGGLE_SIZE     = Math.round(CONTROL_H * TOGGLE_RATIO);
-
-const HEADER_H        = 86;
+/* ========= Visual alignment constants =========
+   - CONTROL_H: square box used by header orb + cart
+   - ORB_GEOM_SCALE: scales inner 3D geometry *without* changing hitbox
+   - TOGGLE_SIZE: toggle height (width ≈ height * 1.62)
+   - HEADER_H: header bar height
+*/
+const CONTROL_H      = 56;
+const ORB_GEOM_SCALE = 1.35;
+const TOGGLE_SIZE    = 30; // height in px (slim)
+const HEADER_H       = 84;
 
 export default function Page() {
   const [theme, setTheme] = useState('day');     // 'day' | 'night'
-  const [isShop, setIsShop] = useState(false);
-  const [veil, setVeil] = useState(false);
+  const [isShop, setIsShop] = useState(false);   // gate (false) → shop (true)
+  const [veil, setVeil] = useState(false);       // arrival veil after cascade
 
+  // keep <html> data-theme in sync so CSS tokens apply
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     return () => root.removeAttribute('data-theme');
   }, [theme]);
 
+  // if we arrived from banned cascade, briefly white-veil the shop
   useEffect(() => {
     let cameFromCascade = false;
     try {
@@ -46,6 +49,10 @@ export default function Page() {
   }, [isShop]);
 
   const onProceed = () => setIsShop(true);
+
+  // toggle handler (DayNightToggle wants isNight/onToggle)
+  const flipTheme = () => setTheme((t) => (t === 'day' ? 'night' : 'day'));
+  const isNight = theme === 'night';
 
   return (
     <div
@@ -60,20 +67,27 @@ export default function Page() {
         <header
           role="banner"
           style={{
-            position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
-            display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
+            position:'fixed',
+            inset:'0 0 auto 0',
+            height: HEADER_H,
+            zIndex: 140,
+            display:'grid',
+            gridTemplateColumns:'1fr auto 1fr',
+            alignItems:'center',
             background:'transparent'
           }}
         >
-          {/* LEFT: decorative orb (tight square, no hitbox outside of geometry) */}
+          {/* LEFT: decorative orb (tight square; no extra hit area) */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <div
               data-orb="density"
               aria-label="density-orb"
               style={{
-                width: CONTROL_H, height: CONTROL_H,
-                display:'grid', placeItems:'center',
-                pointerEvents:'none'               // decorative
+                width: CONTROL_H,
+                height: CONTROL_H,
+                display:'grid',
+                placeItems:'center',
+                pointerEvents:'none' // decorative in header
               }}
             >
               <BlueOrbCross3D
@@ -81,23 +95,23 @@ export default function Page() {
                 rpm={44}
                 includeZAxis
                 glow
-                geomScale={ORB_GEOM_SCALE}
-                interactive={false}                // decorative in header
+                geomScale={ORB_GEOM_SCALE} // bigger inner geometry, same outer box
+                interactive={false}
               />
             </div>
           </div>
 
-          {/* CENTER: toggle sized to inner orb geometry */}
+          {/* CENTER: slimmer toggle sized to match orb geometry */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
-              size={TOGGLE_SIZE}
-              value={theme}
-              onChange={setTheme}
-              showVirgo
+              width={Math.round(TOGGLE_SIZE * 1.62)}
+              height={TOGGLE_SIZE}
+              isNight={isNight}
+              onToggle={flipTheme}
             />
           </div>
 
-          {/* RIGHT: cart as silhouette (no pill) */}
+          {/* RIGHT: cart as silhouette, vertically aligned to CONTROL_H */}
           <div style={{ display:'grid', justifyContent:'end' }}>
             <div style={{ height: CONTROL_H, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
@@ -124,9 +138,13 @@ export default function Page() {
         <div
           aria-hidden="true"
           style={{
-            position:'fixed', inset:0, background:'#fff',
-            opacity:1, transition:'opacity .42s ease-out',
-            zIndex:200, pointerEvents:'none'
+            position:'fixed',
+            inset:0,
+            background:'#fff',
+            opacity:1,
+            transition:'opacity .42s ease-out',
+            zIndex:200,
+            pointerEvents:'none'
           }}
           ref={(el)=> el && requestAnimationFrame(() => (el.style.opacity = 0))}
           onTransitionEnd={() => setVeil(false)}
