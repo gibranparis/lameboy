@@ -365,3 +365,58 @@ html:has([data-shop-root]) .product-img{
   background:transparent !important; line-height:0 !important;
 }
 [data-orb="density"] canvas{ display:block; pointer-events:auto; }
+/* --- Banned page layout fixes + button skins --- */
+.login-stack{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
+}
+
+/* keep the orb centered above the blue bubble */
+.orb-row{
+  margin-bottom:-28px;
+  display:grid;
+  place-items:center;
+  contain:layout paint style;
+  isolation:isolate;
+  z-index:10;
+}
+
+/* inline “code” rows used in the login form */
+.code-row{
+  display:flex;
+  align-items:baseline;
+  gap:6px;
+  line-height:1.35;
+  font-size:.95rem;
+}
+
+/* violet accent for the login inputs */
+.neon-violet{ color:var(--purple); text-shadow:0 0 10px rgba(168,85,247,.35); }
+.code-input-violet{ color:var(--purple); caret-color:var(--purple); }
+
+/* commit buttons used for Link/Bypass */
+.btn-yellow{
+  border-color: var(--focus-orange);
+  background: rgba(247,160,45,.12);
+}
+.btn-yellow:hover{
+  background: rgba(247,160,45,.16);
+  border-color: var(--focus-orange);
+}
+.btn-red{
+  border-color:#ff4d4f;
+  background: rgba(255,77,79,.12);
+}
+.btn-red:hover{
+  background: rgba(255,77,79,.18);
+  border-color:#ff4d4f;
+}
+.btn-activated{
+  transform: translateY(1px);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* tighten the little “banned” card */
+.login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.14ch; }
