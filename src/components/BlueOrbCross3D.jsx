@@ -5,11 +5,6 @@ import * as THREE from 'three';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 
-/**
- * IMPORTANT: We purposely disable raycast on any "halo" mesh so only the
- * visible solid geometry (bars + core spheres) are clickable/focusable.
- */
-
 function OrbCross({
   rpm = 14.4,
   color = '#32ffc7',
@@ -26,19 +21,15 @@ function OrbCross({
 }) {
   const group = useRef();
 
-  // Disable raycast helper for halo meshes only
-  const NO_RAYCAST = useCallback(() => null, []);
   const handleActivate = useCallback((e) => {
     e.stopPropagation();
     onActivate && onActivate();
   }, [onActivate]);
 
-  // rotate
   useFrame((state, dt) => {
     if (!group.current) return;
     group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt;
 
-    // soft pulsing when override red is active
     const u = group.current.userData;
     if (overrideAllColor && glow && u?.pulse) {
       const t = state.clock.getElapsedTime();
@@ -73,9 +64,7 @@ function OrbCross({
       [0,  offset, 0],
       [0, -offset, 0],
     ];
-    if (includeZAxis) {
-      centers.push([0, 0,  offset], [0, 0, -offset]);
-    }
+    if (includeZAxis) centers.push([0, 0,  offset], [0, 0, -offset]);
 
     const CHAKRA = {
       root:     '#ef4444', sacral: '#f97316', solar: '#facc15',
@@ -88,20 +77,18 @@ function OrbCross({
 
   const { sphereGeo, armGeoX, armGeoY, armGeoZ, armGlowGeoX, armGlowGeoY, armGlowGeoZ, centers, CHAKRA } = memo;
 
-  const useOverride = !!overrideAllColor;
-  const barColor = useOverride ? overrideAllColor : color;
-
   const coarse =
     typeof window !== 'undefined' &&
-    window.matchMedia &&
-    window.matchMedia('(pointer:coarse)').matches;
+    window.matchMedia?.('(pointer:coarse)').matches;
   const coarseGlowFactor = coarse ? 0.55 : 1.0;
 
+  const useOverride = !!overrideAllColor;
+  const barColor = useOverride ? overrideAllColor : color;
   const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * coarseGlowFactor;
   const coreEmissive = useOverride ? 2.25 : 1.25;
   const barEmissive  = useOverride ? 1.35 : 0.6;
 
-  // SOLID, CLICKABLE materials
+  // CLICKABLE core materials
   const barCoreMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: barColor, roughness:0.32, metalness:0.25,
     emissive:new THREE.Color(barColor), emissiveIntensity:barEmissive, toneMapped:true,
@@ -128,14 +115,16 @@ function OrbCross({
     [useOverride ? barColor : JSON.stringify(sphereDefs), coreEmissive]
   );
 
-  // HALO materials (non-clickable)
-  const barHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: barColor, transparent:true, opacity: glow ? haloBase * 0.5 : 0,
-    blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
-  }), [barColor, glow, haloBase]);
+  // NON-CLICKABLE halos
+  const mkHaloMat = (c, op) => new THREE.MeshBasicMaterial({
+    color: c, transparent:true, opacity: op, blending:THREE.AdditiveBlending,
+    depthWrite:false, toneMapped:false
+  });
 
-  const sphereHaloMats = useMemo(
-    () => (useOverride
+  const barHaloMat = useMemo(() => mkHaloMat(barColor, glow ? haloBase * 0.5 : 0), [barColor, glow, haloBase]);
+
+  const sphereHaloMats = useMemo(() => {
+    const defs = useOverride
       ? new Array(centers.length).fill({ halo: barColor, haloOp: haloBase })
       : [
           { halo: CHAKRA.crownV, haloOp: 0.9 * coarseGlowFactor },
@@ -145,42 +134,30 @@ function OrbCross({
           { halo: CHAKRA.heart,    haloOp: glowOpacity * coarseGlowFactor },
           { halo: CHAKRA.throat,   haloOp: glowOpacity * coarseGlowFactor },
           { halo: CHAKRA.thirdEye, haloOp: glowOpacity * coarseGlowFactor },
-        ]
-    ).map(({ halo, haloOp }) => new THREE.MeshBasicMaterial({
-      color: halo, transparent:true, opacity: glow ? haloOp : 0,
-      blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
-    })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [useOverride ? barColor : glowOpacity, glow, coarseGlowFactor, haloBase]
-  );
+        ];
+    return defs.map(({ halo, haloOp }) => mkHaloMat(halo, glow ? haloOp : 0));
+  }, [useOverride, centers.length, barColor, haloBase, glow, CHAKRA, glowOpacity, coarseGlowFactor]);
 
-  const halo2Mat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: barColor, transparent:true, opacity: haloBase * 0.6,
-    blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
-  }), [barColor, haloBase]);
-
-  const halo3Mat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: barColor, transparent:true, opacity: haloBase * 0.32,
-    blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
-  }), [barColor, haloBase]);
+  const halo2Mat = useMemo(() => mkHaloMat(barColor, haloBase * 0.6), [barColor, haloBase]);
+  const halo3Mat = useMemo(() => mkHaloMat(barColor, haloBase * 0.32), [barColor, haloBase]);
 
   useEffect(() => {
     if (!group.current) return;
     group.current.userData = { pulse:true, base:haloBase, barHalo:barHaloMat, sphereHalos:sphereHaloMats, halo2:halo2Mat, halo3:halo3Mat };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
-  // Make core pieces keyboard-accessible without giving a giant group hit area
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onActivate && onActivate();
-    }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate && onActivate(); }
   };
+
+  // Helper to mark a mesh as clickable (consumed by Canvas.raycaster.filter)
+  const markClickable = (o) => { if (o) o.userData.clickable = true; };
 
   return (
     <group ref={group}>
       {/* BAR CORES (clickable) */}
       <mesh
+        ref={markClickable}
         geometry={armGeoX}
         material={barCoreMat}
         rotation={[0, 0, Math.PI / 2]}
@@ -189,6 +166,7 @@ function OrbCross({
         tabIndex={0}
       />
       <mesh
+        ref={markClickable}
         geometry={armGeoY}
         material={barCoreMat}
         onPointerDown={handleActivate}
@@ -196,6 +174,7 @@ function OrbCross({
         tabIndex={0}
       />
       <mesh
+        ref={markClickable}
         geometry={armGeoZ}
         material={barCoreMat}
         rotation={[Math.PI / 2, 0, 0]}
@@ -208,6 +187,7 @@ function OrbCross({
       {centers.map((p, i) => (
         <mesh
           key={`core-${i}`}
+          ref={markClickable}
           geometry={sphereGeo}
           material={sphereCoreMats[i]}
           position={p}
@@ -217,46 +197,19 @@ function OrbCross({
         />
       ))}
 
-      {/* HALOS (non-clickable; raycast disabled) */}
+      {/* HALOS (non-clickable; they will be filtered out by raycaster) */}
       {glow && (
         <>
-          <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} raycast={NO_RAYCAST} />
-          <mesh geometry={armGlowGeoY} material={barHaloMat} raycast={NO_RAYCAST} />
-          <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} raycast={NO_RAYCAST} />
-
+          <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} />
+          <mesh geometry={armGlowGeoY} material={barHaloMat} />
+          <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />
           {centers.map((p, i) => (
-            <mesh
-              key={`halo-${i}`}
-              geometry={sphereGeo}
-              material={sphereHaloMats[i]}
-              position={p}
-              scale={glowScale}
-              raycast={NO_RAYCAST}
-            />
+            <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />
           ))}
-
           {overrideAllColor && (
             <>
-              {centers.map((p, i) => (
-                <mesh
-                  key={`h2-${i}`}
-                  geometry={sphereGeo}
-                  material={halo2Mat}
-                  position={p}
-                  scale={glowScale * 1.6}
-                  raycast={NO_RAYCAST}
-                />
-              ))}
-              {centers.map((p, i) => (
-                <mesh
-                  key={`h3-${i}`}
-                  geometry={sphereGeo}
-                  material={halo3Mat}
-                  position={p}
-                  scale={glowScale * 1.95}
-                  raycast={NO_RAYCAST}
-                />
-              ))}
+              {centers.map((p, i) => <mesh key={`h2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />)}
+              {centers.map((p, i) => <mesh key={`h3-${i}`} geometry={sphereGeo} material={halo3Mat} position={p} scale={glowScale * 1.95} />)}
             </>
           )}
         </>
@@ -266,10 +219,10 @@ function OrbCross({
 }
 
 export default function BlueOrbCross3D({
-  height = '10vh',     // can be px (e.g., "32px") or vh
+  height = '32px',       // ⟵ make the DOM box tight & small
   rpm = 14.4,
   color = '#32ffc7',
-  geomScale = 1,
+  geomScale = 0.60,      // ⟵ visible diameter inside that box
   offsetFactor = 2.05,
   armRatio = 0.33,
   glow = true,
@@ -295,27 +248,29 @@ export default function BlueOrbCross3D({
     return () => mq?.removeEventListener?.('change', onChange);
   }, []);
 
-  // Tight wrapper: no width:100% so we don’t inherit extra hit area from layout
   return (
     <div
       className={className}
       style={{
         height,
-        width: height,           // square and tight
+        width: height,        // tight square box
         lineHeight: 0,
         display: 'inline-block',
         contain: 'layout paint style',
         isolation: 'isolate',
         ...style,
       }}
-      // NOTE: pointer events are handled by meshes; the canvas itself can be auto
     >
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
-        style={{ pointerEvents: 'auto' }}
-        shadows={false}
+        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+        // HARD FILTER: only objects with userData.clickable === true can receive events
+        raycaster={{
+          filter: (intersections) => intersections.filter(i => i.object?.userData?.clickable === true)
+        }}
+        onPointerMissed={(e) => { /* clicking empty canvas will NOT trigger anything */ }}
+        style={{ display: 'block' }}
       >
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />
