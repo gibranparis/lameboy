@@ -1,8 +1,13 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
-  }
+    "checkJs": true,              // turn on type-checking for .js
+    "allowJs": true,
+    "jsx": "react-jsx",           // Next + React
+    "target": "ES2021",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "strict": true                // stricter checks (good signal/noise)
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", ".next"]
 }
