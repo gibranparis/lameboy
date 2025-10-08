@@ -2,51 +2,63 @@
 // src/components/DayNightToggle.jsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 /** @param {{ className?: string }} props */
 function SunHaloIcon({ className = '' }) {
+  const uid = useId();
+  const coreId = `sunCore-${uid}`;
+  const glowId = `sunGlow-${uid}`;
+  const haloId = `haloStroke-${uid}`;
+
   return (
     <svg className={className} viewBox="0 0 64 64" aria-hidden="true" role="img">
       <defs>
-        <radialGradient id="sunCore" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#fff7cc" />
-          <stop offset="55%" stopColor="#ffd75e" />
+        <radialGradient id={coreId} cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor="#fff7cc" />
+          <stop offset="55%"  stopColor="#ffd75e" />
           <stop offset="100%" stopColor="#ffb200" />
         </radialGradient>
-        <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="rgba(255,200,80,0.9)" />
-          <stop offset="100%" stopColor="rgba(255,200,80,0)" />
+
+        {/* ✅ use stopOpacity instead of rgba() */}
+        <radialGradient id={glowId} cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor="#ffc850" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#ffc850" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id="haloStroke" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#a0d8ff" />
-          <stop offset="33%" stopColor="#a8ffbf" />
-          <stop offset="66%" stopColor="#ffd080" />
+
+        <linearGradient id={haloId} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stopColor="#a0d8ff" />
+          <stop offset="33%"  stopColor="#a8ffbf" />
+          <stop offset="66%"  stopColor="#ffd080" />
           <stop offset="100%" stopColor="#a0d8ff" />
         </linearGradient>
       </defs>
-      <circle cx="32" cy="32" r="20" fill="url(#sunGlow)" />
-      <circle cx="32" cy="32" r="24" fill="none" stroke="url(#haloStroke)" strokeWidth="2.2" opacity="0.9" />
+
+      <circle cx="32" cy="32" r="20" fill={`url(#${glowId})`} />
+      <circle cx="32" cy="32" r="24" fill="none" stroke={`url(#${haloId})`} strokeWidth="2.2" opacity="0.9" />
       <circle cx="12" cy="32" r="3.2" fill="#ffe08a" />
       <circle cx="52" cy="32" r="3.2" fill="#ffe08a" />
-      <circle cx="32" cy="32" r="12" fill="url(#sunCore)" />
+      <circle cx="32" cy="32" r="12" fill={`url(#${coreId})`} />
     </svg>
   );
 }
 
 /** @param {{ className?: string }} props */
 function MoonIcon({ className = '' }) {
+  const uid = useId();
+  const moonId = `moonShade-${uid}`;
+
   return (
     <svg className={className} viewBox="0 0 64 64" aria-hidden="true" role="img">
       <defs>
-        <radialGradient id="moonShade" cx="35%" cy="35%" r="70%">
-          <stop offset="0%" stopColor="#ffffff" />
+        <radialGradient id={moonId} cx="35%" cy="35%" r="70%">
+          <stop offset="0%"   stopColor="#ffffff" />
           <stop offset="100%" stopColor="#cfd6e6" />
         </radialGradient>
       </defs>
       <path
         d="M42 52c-11.046 0-20-8.954-20-20 0-6.87 3.46-12.91 8.72-16.47C28.3 16.16 26 20.86 26 26c0 11.05 8.95 20 20 20 5.14 0 9.85-2.3 10.47-4.72C54.91 48.54 48.87 52 42 52z"
-        fill="url(#moonShade)"
+        fill={`url(#${moonId})`}
       />
     </svg>
   );
@@ -60,10 +72,9 @@ const THEME_KEY = 'theme';
 /** @param {{ className?: string }} props */
 export default function DayNightToggle({ className = '' }) {
   /** @type {[Theme, (t: Theme) => void]} */
-  // @ts-ignore - React infers the setter; the JSDoc above narrows the value
+  // @ts-ignore - React infers the setter; JSDoc narrows the value
   const [theme, setTheme] = useState(/** @type {Theme} */('day'));
 
-  /** Whether we are in night mode */
   const isNight = theme === 'night';
 
   useEffect(() => {
@@ -75,7 +86,7 @@ export default function DayNightToggle({ className = '' }) {
   }, []);
 
   /** Apply theme to <html> and notify listeners
-   *  @param {Theme} next
+   * @param {Theme} next
    */
   function apply(next) {
     const root = document.documentElement;
