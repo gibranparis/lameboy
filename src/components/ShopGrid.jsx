@@ -10,18 +10,41 @@ const MIN_COLS = 1;
 const MAX_COLS = 5;
 
 /** @typedef {{ id?: string; slug?: string; name?: string; title?: string; price?: number; image?: string; thumbnail?: string }} Product */
-/** @typedef {{ products?: Product[], hideTopRow?: boolean }} ShopGridProps */
 
-/** @param {ShopGridProps} props */
-export default function ShopGrid({ products = [], hideTopRow = false }) {
-  /** @type {[Product|null, (p: Product|null) => void]} */
-  // @ts-ignore - React infers setter; JSDoc narrows value
-  const [selected, setSelected] = useState(/** @type {Product|null} */(null));
+/**
+ * @param {{
+ *   products?: Product[];
+ *   hideTopRow?: boolean;
+ *   columns?: number; // optional controlled columns from parent (1..5)
+ * }} props
+ */
+export default function ShopGrid({ products = [], hideTopRow = false, columns }) {
+  // show something even if products aren’t passed
+  const fallbackProductList = [
+    { id: 'tee-black',  name: 'LB Tee — Black',      image: '/shop/tee-black.png',  price: 38 },
+    { id: 'tee-white',  name: 'LB Tee — White',      image: '/shop/tee-white.png',  price: 38 },
+    { id: 'cap-navy',   name: 'Dad Cap — Navy',      image: '/shop/cap-navy.png',   price: 32 },
+    { id: 'stick-pack', name: 'Sticker Pack',        image: '/shop/stickers.png',   price: 10 },
+  ];
+  const items = (products?.length ? products : fallbackProductList);
+
+  /** selection overlay */
+  const [selected, setSelected] = useState/** @type {Product|null} */(null);
+
+  /** grid density */
   const [perRow, setPerRow] = useState(MAX_COLS);
   /** @type {['in'|'out', (d: 'in'|'out') => void]} */
   // @ts-ignore
-  const [zoomDir, setZoomDir] = useState(/** @type {'in'|'out'} */('in')); // 'in' = 5→1, 'out' = 1→5
+  const [zoomDir, setZoomDir] = useState/** @type {'in'|'out'} */('in'); // 'in' = 5→1, 'out' = 1→5
   const [fromCascade, setFromCascade] = useState(false);
+
+  // accept controlled columns from parent (header orb)
+  useEffect(() => {
+    if (typeof columns === 'number') {
+      const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, Math.round(columns)));
+      setPerRow(clamped);
+    }
+  }, [columns]);
 
   // detect cascade handoff (optional styling hook)
   useEffect(() => {
@@ -52,20 +75,21 @@ export default function ShopGrid({ products = [], hideTopRow = false }) {
     [perRow, zoomDir]
   );
 
-  // listen for global orb events
+  // listen for global orb events (from the banned page orb)
   useEffect(() => {
     /** @param {CustomEvent<{ step?: number }>} e */
     const onDensity = (e) => {
       const step = Number(e?.detail?.step ?? 1);
-      stepDensity(step);
+      // ignore if parent is controlling with `columns`
+      if (typeof columns !== 'number') stepDensity(step);
     };
-    // @ts-ignore - addEventListener typing doesn't know CustomEvent payload
+    // @ts-ignore
     window.addEventListener('grid-density', onDensity);
     return () => {
       // @ts-ignore
       window.removeEventListener('grid-density', onDensity);
     };
-  }, [stepDensity]);
+  }, [stepDensity, columns]);
 
   const gridStyle = useMemo(
     () => /** @type {const} */ ({ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }),
@@ -79,7 +103,7 @@ export default function ShopGrid({ products = [], hideTopRow = false }) {
         fromCascade ? 'animate-[fadeIn_.6s_ease-out]' : ''
       ].join(' ')}
     >
-      {/* Top row: optional controls + cart (hidden when header has cart) */}
+      {/* Top row: optional controls + cart (hide when header contains cart) */}
       {!hideTopRow && (
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -112,7 +136,7 @@ export default function ShopGrid({ products = [], hideTopRow = false }) {
 
       {/* Product grid */}
       <div className="grid gap-10" style={gridStyle}>
-        {products.map((p, i) => {
+        {items.map((p, i) => {
           const key = p.id ?? p.slug ?? p.name ?? String(i);
           const title = p.name ?? p.title ?? 'ITEM';
           const src = p.image ?? p.thumbnail ?? '/placeholder.png';

@@ -2,7 +2,7 @@
 // src/components/BannedLogin.jsx
 'use client';
 
-import nextDynamic from 'next/dynamic'; // ✅ avoid route `dynamic` name collisions
+import nextDynamic from 'next/dynamic';
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 import ButterflyChakra from '@/components/ButterflyChakra';
@@ -28,7 +28,7 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
       <style jsx>{`
         .lb-word { display:inline; }
         .lb-white {
-          color:#fff; font-weight:800; letter-spacing:0; word-spacing:0;
+          color:#fff; font-weight:900; letter-spacing:0; word-spacing:0;
           text-shadow:0 0 8px #fff,0 0 18px #fff,0 0 36px #fff,0 0 70px #fff;
         }
         .lb-seafoam { letter-spacing:0; word-spacing:0; }
@@ -98,7 +98,7 @@ export default function BannedLogin({ onProceed }) {
 
   /** @type {[ViewState, (v: ViewState) => void]} */
   // @ts-ignore
-  const [view, setView] = useState(/** @type {ViewState} */('banned'));
+  const [view, setView] = useState/** @type {ViewState} */('banned');
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
   const [whiteout, setWhiteout] = useState(false);
@@ -107,7 +107,7 @@ export default function BannedLogin({ onProceed }) {
   const [floridaHot, setFloridaHot] = useState(false);
   /** @type {[Activation, (a: Activation) => void]} */
   // @ts-ignore
-  const [activated, setActivated] = useState(/** @type {Activation} */(null));
+  const [activated, setActivated] = useState/** @type {Activation} */(null);
 
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -128,7 +128,7 @@ export default function BannedLogin({ onProceed }) {
   const RED = '#ff001a';
   /** @type {['chakra'|'red', (m: 'chakra'|'red') => void]} */
   // @ts-ignore
-  const [orbMode, setOrbMode] = useState(/** @type {'chakra'|'red'} */('chakra'));
+  const [orbMode, setOrbMode] = useState/** @type {'chakra'|'red'} */('chakra');
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
@@ -265,6 +265,8 @@ export default function BannedLogin({ onProceed }) {
                   <Wordmark onClickWordmark={() => setFlyOnce(true)} lRef={lRef} yRef={yRef} />
                   {'\n'}
                   <span className="lb-seafoam code-comment">//</span>{' '}
+                  {/* split “is ” and “banned” so only the word gets the strike */}
+                  <span className="code-banned">is </span>
                   <span
                     role="button" tabIndex={0}
                     className="code-banned banned-trigger"
@@ -272,7 +274,7 @@ export default function BannedLogin({ onProceed }) {
                     onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
                     title="Toggle orb color"
                   >
-                    is banned
+                    banned
                   </span>{'\n'}
                   <span className="code-keyword">const</span>{' '}
                   <span className="code-var">msg</span>{' '}

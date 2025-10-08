@@ -6,43 +6,24 @@ import { useEffect, useId, useMemo, useState } from 'react';
 
 /** @typedef {'day'|'night'} Theme */
 
-/** Sun (unique gradient ids per instance) */
-function SunHaloIcon({ className = '' }) {
+function SunIconFull({ className = '' }) {
   const uid = useId();
-  const coreId = `sunCore-${uid}`;
-  const glowId = `sunGlow-${uid}`;
-  const haloId = `haloStroke-${uid}`;
-
+  const coreId = `sun-core-${uid}`;
   return (
     <svg className={className} viewBox="0 0 64 64" aria-hidden="true" role="img">
       <defs>
         <radialGradient id={coreId} cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stopColor="#fff7cc" />
-          <stop offset="55%"  stopColor="#ffd75e" />
-          <stop offset="100%" stopColor="#ffb200" />
+          <stop offset="0%"   stopColor="#fff6c9"/>
+          <stop offset="55%"  stopColor="#ffd462"/>
+          <stop offset="100%" stopColor="#ffb300"/>
         </radialGradient>
-        <radialGradient id={glowId} cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stopColor="#ffc850" stopOpacity="0.9" />
-          <stop offset="100%" stopColor="#ffc850" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id={haloId} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%"   stopColor="#a0d8ff" />
-          <stop offset="33%"  stopColor="#a8ffbf" />
-          <stop offset="66%"  stopColor="#ffd080" />
-          <stop offset="100%" stopColor="#a0d8ff" />
-        </linearGradient>
       </defs>
-
-      <circle cx="32" cy="32" r="20" fill={`url(#${glowId})`} />
-      <circle cx="32" cy="32" r="24" fill="none" stroke={`url(#${haloId})`} strokeWidth="2.2" opacity="0.9" />
-      <circle cx="12" cy="32" r="3.2" fill="#ffe08a" />
-      <circle cx="52" cy="32" r="3.2" fill="#ffe08a" />
-      <circle cx="32" cy="32" r="12" fill={`url(#${coreId})`} />
+      {/* fill almost the entire knob circle */}
+      <circle cx="32" cy="32" r="28" fill={`url(#${coreId})`} />
     </svg>
   );
 }
 
-/** Moon (unique gradient ids per instance) */
 function MoonIcon({ className = '' }) {
   const uid = useId();
   const moonId = `moonShade-${uid}`;
@@ -64,30 +45,21 @@ function MoonIcon({ className = '' }) {
 
 const THEME_KEY = 'theme';
 
-/**
- * Controlled + uncontrolled toggle
- * - Controlled: pass `value` and `onChange`
- * - Uncontrolled: omit both, it will manage localStorage and <html data-theme>
- */
 export default function DayNightToggle({
   className = '',
   value,                  /** @type {Theme | undefined} */
   onChange,               /** @type {(t: Theme) => void | undefined} */
-  size = 34,              /** visual height in px; width scales proportionally */
+  size = 34,
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
-
-  // internal state only used when uncontrolled
   /** @type {[Theme, (t: Theme)=>void]} */
   // @ts-ignore
-  const [internal, setInternal] = useState(/** @type {Theme} */('day'));
+  const [internal, setInternal] = useState/** @type {Theme} */('day');
 
-  // compute the current theme
   /** @type {Theme} */
   const theme = (isControlled ? value : internal) ?? 'day';
   const isNight = theme === 'night';
 
-  // boot: read localStorage when uncontrolled
   useEffect(() => {
     if (!isControlled) {
       const stored = typeof window !== 'undefined' ? localStorage.getItem(THEME_KEY) : null;
@@ -97,7 +69,6 @@ export default function DayNightToggle({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isControlled]);
 
-  // side-effect: always reflect theme on <html> + localStorage (safe even if parent also does it)
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
@@ -106,24 +77,16 @@ export default function DayNightToggle({
     try { localStorage.setItem(THEME_KEY, theme); } catch {}
   }, [theme, isNight]);
 
-  // toggle handler
   function setTheme(next /** @type {Theme} */) {
     if (isControlled && onChange) onChange(next);
     else setInternal(next);
-    // ‘theme-change’ event for any listeners
-    try {
-      window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme: next } }));
-    } catch {}
+    try { window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme: next } })); } catch {}
   }
+  function toggle() { setTheme(isNight ? 'day' : 'night'); }
 
-  function toggle() {
-    setTheme(isNight ? 'day' : 'night');
-  }
-
-  // sizes derived from height
   const dims = useMemo(() => {
     const h = Math.max(24, size);
-    const w = Math.round(h * (64 / 36)); // maintain 64×36 ratio
+    const w = Math.round(h * (64 / 36));
     const knob = Math.round(h * (28 / 36));
     const inset = Math.round(h * (4 / 36));
     const shift = Math.round(w - knob - inset * 2);
@@ -131,82 +94,77 @@ export default function DayNightToggle({
   }, [size]);
 
   return (
-    <>
-      <button
-        onClick={toggle}
-        aria-label="Toggle day / night"
-        role="switch"
-        aria-checked={isNight}
-        className={className}
+    <button
+      onClick={toggle}
+      aria-label="Toggle day / night"
+      role="switch"
+      aria-checked={isNight}
+      className={className}
+      style={{
+        position: 'relative',
+        display: 'inline-flex',
+        height: dims.h,
+        width: dims.w,
+        borderRadius: 9999,
+        background: isNight ? '#1e1e1e' : '#fff',
+        boxShadow:
+          '0 1px 2px rgba(0,0,0,.06), 0 1px 1px rgba(0,0,0,.03), inset 0 0 0 1px rgba(0,0,0,.06)',
+        cursor: 'pointer',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      <span
+        aria-hidden
         style={{
-          position: 'relative',
-          display: 'inline-flex',
-          height: dims.h,
-          width: dims.w,
+          position: 'absolute',
+          inset: 0,
           borderRadius: 9999,
-          background: isNight ? '#1e1e1e' : '#fff',
-          boxShadow:
-            '0 1px 2px rgba(0,0,0,.06), 0 1px 1px rgba(0,0,0,.03), inset 0 0 0 1px rgba(0,0,0,.06)',
-          cursor: 'pointer',
-          WebkitTapHighlightColor: 'transparent',
+          background: isNight
+            ? 'linear-gradient(to bottom, rgba(255,255,255,.08), rgba(0,0,0,.4))'
+            : 'linear-gradient(to bottom, rgba(255,255,255,.6), rgba(0,0,0,.05))',
+          pointerEvents: 'none',
+        }}
+      />
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: dims.inset,
+          left: dims.inset,
+          height: dims.knob,
+          width: dims.knob,
+          borderRadius: 9999,
+          background: isNight ? '#0e0f12' : '#f6f7f4',
+          boxShadow: '0 2px 6px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.06)',
+          display: 'grid',
+          placeItems: 'center',
+          transition: 'transform 300ms ease-out, background 200ms ease',
+          transform: `translateX(${isNight ? dims.shift : 0}px)`,
+          overflow: 'hidden',
         }}
       >
+        {/* icons sized to FILL the knob */}
         <span
-          aria-hidden
           style={{
             position: 'absolute',
-            inset: 0,
-            borderRadius: 9999,
-            background: isNight
-              ? 'linear-gradient(to bottom, rgba(255,255,255,.08), rgba(0,0,0,.4))'
-              : 'linear-gradient(to bottom, rgba(255,255,255,.6), rgba(0,0,0,.05))',
-            pointerEvents: 'none',
-          }}
-        />
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute',
-            top: dims.inset,
-            left: dims.inset,
-            height: dims.knob,
-            width: dims.knob,
-            borderRadius: 9999,
-            background: isNight ? '#0e0f12' : '#f6f7f4',
-            boxShadow: '0 2px 6px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.06)',
-            display: 'grid',
-            placeItems: 'center',
-            transition: 'transform 300ms ease-out, background 200ms ease',
-            transform: `translateX(${isNight ? dims.shift : 0}px)`,
+            inset: '6%',           // small breathing room
+            opacity: isNight ? 0 : 1,
+            transition: 'opacity 200ms ease',
           }}
         >
-          {/* crossfade icons */}
-          <span
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'grid',
-              placeItems: 'center',
-              opacity: isNight ? 0 : 1,
-              transition: 'opacity 200ms ease',
-            }}
-          >
-            <SunHaloIcon className="h-5 w-5" />
-          </span>
-          <span
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'grid',
-              placeItems: 'center',
-              opacity: isNight ? 1 : 0,
-              transition: 'opacity 200ms ease',
-            }}
-          >
-            <MoonIcon className="h-5 w-5" />
-          </span>
+          <SunIconFull className="w-full h-full" />
         </span>
-      </button>
-    </>
+        <span
+          style={{
+            position: 'absolute',
+            inset: '10%',
+            opacity: isNight ? 1 : 0,
+            transition: 'opacity 200ms ease',
+          }}
+        >
+          <MoonIcon className="w-full h-full" />
+        </span>
+      </span>
+    </button>
   );
 }
