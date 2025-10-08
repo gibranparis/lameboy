@@ -5,7 +5,7 @@ export const dynamic = 'force-static';
 export const runtime = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
 const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
@@ -14,34 +14,26 @@ const CartButton     = nextDynamic(() => import('@/components/CartButton'),     
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
 /**
- * One place to make the three header controls align visually:
- * - CONTROL_H        : row height
- * - ORB_GEOM_SCALE   : passes to BlueOrbCross3D (controls inner visual diameter)
- * - TOGGLE_RATIO     : toggle height = CONTROL_H * TOGGLE_RATIO
- *
- * Empirically, the inner orb geometry (with your current params) fills about ~62% of the canvas box.
- * Adjust TOGGLE_RATIO if you tweak the orb later.
+ * Visual alignment constants
  */
-const CONTROL_H       = 64;
-const ORB_GEOM_SCALE  = 1.05;
-const TOGGLE_RATIO    = 0.62; // <- makes toggle match inner orb, not canvas edge
+const CONTROL_H       = 64;       // header row height for controls
+const ORB_GEOM_SCALE  = 1.05;     // inner orb fill inside its 64px square
+const TOGGLE_RATIO    = 0.62;     // toggle height ≈ inner orb geometry height
 const TOGGLE_SIZE     = Math.round(CONTROL_H * TOGGLE_RATIO);
 
-const HEADER_H        = 86; // you had this; keeps some breathing room around the 64px control row
+const HEADER_H        = 86;
 
 export default function Page() {
-  const [theme, setTheme] = useState('day');   // 'day' | 'night'
-  const [isShop, setIsShop] = useState(false); // false: gate/banned, true: shop
+  const [theme, setTheme] = useState('day');     // 'day' | 'night'
+  const [isShop, setIsShop] = useState(false);
   const [veil, setVeil] = useState(false);
 
-  // keep html/body tokens in sync so the wrapper paints the color
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     return () => root.removeAttribute('data-theme');
   }, [theme]);
 
-  // after cascade hop, fade the white veil away smoothly
   useEffect(() => {
     let cameFromCascade = false;
     try {
@@ -53,7 +45,6 @@ export default function Page() {
     } catch {}
   }, [isShop]);
 
-  // gate → shop (called by BannedLogin when cascade finishes)
   const onProceed = () => setIsShop(true);
 
   return (
@@ -70,12 +61,11 @@ export default function Page() {
           role="banner"
           style={{
             position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
-            display:'grid', gridTemplateColumns:'1fr auto 1fr',
-            alignItems:'center',
+            display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
             background:'transparent'
           }}
         >
-          {/* LEFT: orb (square wrapper = CONTROL_H) */}
+          {/* LEFT: decorative orb (tight square, no hitbox outside of geometry) */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <div
               data-orb="density"
@@ -83,7 +73,7 @@ export default function Page() {
               style={{
                 width: CONTROL_H, height: CONTROL_H,
                 display:'grid', placeItems:'center',
-                pointerEvents:'auto'
+                pointerEvents:'none'               // decorative
               }}
             >
               <BlueOrbCross3D
@@ -91,20 +81,18 @@ export default function Page() {
                 rpm={44}
                 includeZAxis
                 glow
-                // IMPORTANT: inner visual diameter controlled by geomScale
                 geomScale={ORB_GEOM_SCALE}
-                // only meshes receive pointer hits; wrapper empty area is inert
-                onActivate={()=> setTheme(t => t === 'day' ? 'night' : 'day')}
+                interactive={false}                // decorative in header
               />
             </div>
           </div>
 
-          {/* CENTER: toggle sized to match inner orb */}
+          {/* CENTER: toggle sized to inner orb geometry */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
+              size={TOGGLE_SIZE}
               value={theme}
               onChange={setTheme}
-              size={TOGGLE_SIZE}
               showVirgo
             />
           </div>
