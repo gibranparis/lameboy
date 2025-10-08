@@ -1,114 +1,131 @@
+// src/components/ShopGrid.jsx
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import ProductOverlay from './ProductOverlay.jsx';
+import { useEffect, useMemo, useState } from 'react';
+import CartButton from './CartButton';
+import ProductOverlay from './ProductOverlay';
 
-/**
- * ShopGrid
- * - columns: integer 1..5 (how many tiles per row, fixed)
- * - products: optional array [{ id, title, price, image }]
- */
-export default function ShopGrid({
-  columns = 5,
-  products: productsProp,
-}) {
-  // Clamp columns for safety
-  const cols = Math.max(1, Math.min(5, Number(columns) || 5));
+const MIN_COLS = 1;
+const MAX_COLS = 5;
 
-  // Fallback demo products (you can replace with your data source)
-  const products = useMemo(
-    () =>
-      productsProp?.length
-        ? productsProp
-        : [
-            { id: 'tee-01', title: 'TEE 01', price: 40, image: '/preview/tee-01.png' },
-            { id: 'tee-02', title: 'TEE 02', price: 40, image: '/preview/tee-02.png' },
-            { id: 'hood-01', title: 'HOOD 01', price: 85, image: '/preview/hood-01.png' },
-          ],
-    [productsProp]
-  );
+export default function ShopGrid({ products = [] }) {
+  const [selected, setSelected] = useState(null);
+  const [perRow, setPerRow] = useState(MAX_COLS);
+  const [zoomDir, setZoomDir] = useState('in'); // 'in' = 5→1, 'out' = 1→5
+  const [fromCascade, setFromCascade] = useState(false);
 
-  // Smooth entry veil if we arrived via the banned-page cascade
-  const [veil, setVeil] = useState(false);
+  // detect cascade handoff (optional styling hook)
   useEffect(() => {
-    let cameFromCascade = false;
     try {
-      cameFromCascade = sessionStorage.getItem('fromCascade') === '1';
-      if (cameFromCascade) sessionStorage.removeItem('fromCascade');
+      if (sessionStorage.getItem('fromCascade') === '1') {
+        setFromCascade(true);
+        sessionStorage.removeItem('fromCascade');
+      }
     } catch {}
-    if (cameFromCascade) {
-      setVeil(true);
-      const t = setTimeout(() => setVeil(false), 380); // quick fade
-      return () => clearTimeout(t);
-    }
   }, []);
 
-  // Product overlay state
-  const [active, setActive] = useState(null); // product or null
+  // helper: step columns and swap direction at the ends (infinite loop feel)
+  const stepDensity = (delta = 1) => {
+    const isIn = zoomDir === 'in';
+    let next = perRow + (isIn ? -delta : +delta);
+
+    if (next < MIN_COLS) {
+      next = MIN_COLS + 1; // bounce
+      setZoomDir('out');
+    } else if (next > MAX_COLS) {
+      next = MAX_COLS - 1; // bounce
+      setZoomDir('in');
+    }
+    setPerRow(next);
+  };
+
+  // listen for global orb events
+  useEffect(() => {
+    const onDensity = (e) => {
+      const step = Number(e?.detail?.step ?? 1);
+      stepDensity(step);
+    };
+    window.addEventListener('grid-density', onDensity);
+    return () => window.removeEventListener('grid-density', onDensity);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perRow, zoomDir]);
+
+  // (Optional) keyboard shortcut: press "g" to step grid
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key.toLowerCase() === 'g') stepDensity(1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perRow, zoomDir]);
+
+  const gridStyle = useMemo(
+    () => ({ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }),
+    [perRow]
+  );
 
   return (
-    <div data-shop-root className="shop-page">
-      {/* subtle entry veil (keeps the cascade feeling continuous) */}
-      {veil && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: '#fff',
-            zIndex: 80,
-            pointerEvents: 'none',
-            opacity: 1,
-            transition: 'opacity .38s ease-out',
-          }}
-          // trigger next paint so transition runs
-          ref={(el) => el && requestAnimationFrame(() => (el.style.opacity = 0))}
-        />
-      )}
-
-      <div className="shop-wrap">
-        <div
-          className="shop-grid"
-          style={{
-            // force an exact column count; still responsive inside each cell
-            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          }}
-          aria-label="product-grid"
-        >
-          {products.map((p) => (
-            <a
-              key={p.id}
-              href="#"
-              className="product-tile"
-              onClick={(e) => {
-                e.preventDefault();
-                setActive(p);
-              }}
-            >
-              <div className="product-box">
-                <img
-                  className="product-img"
-                  src={p.image}
-                  alt={p.title}
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-              <div className="product-meta">
-                {p.title}
-              </div>
-            </a>
-          ))}
+    <section
+      className={[
+        'px-6 pb-24 pt-10',
+        fromCascade ? 'animate-[fadeIn_.6s_ease-out]' : ''
+      ].join(' ')}
+    >
+      {/* Top row: optional controls + cart */}
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            aria-label="Density −"
+            className="rounded-lg px-3 py-1 ring-1 ring-black/10 dark:ring-white/15"
+            onClick={() => {
+              setZoomDir('in');
+              stepDensity(1);
+            }}
+          >
+            −
+          </button>
+          <div className="text-xs tabular-nums opacity-60">cols: {perRow}</div>
+          <button
+            aria-label="Density +"
+            className="rounded-lg px-3 py-1 ring-1 ring-black/10 dark:ring-white/15"
+            onClick={() => {
+              setZoomDir('out');
+              stepDensity(1);
+            }}
+          >
+            +
+          </button>
         </div>
+
+        <CartButton />
       </div>
 
-      {/* Overlay */}
-      {active && (
-        <ProductOverlay
-          product={active}
-          onClose={() => setActive(null)}
-        />
-      )}
-    </div>
+      {/* Product grid */}
+      <div className="grid gap-10" style={gridStyle}>
+        {products.map((p) => (
+          <button
+            key={p.id ?? p.slug ?? p.name}
+            className="group text-left"
+            onClick={() => setSelected(p)}
+          >
+            <div className="aspect-[4/3] overflow-hidden rounded-2xl ring-1 ring-black/5 dark:ring-white/10">
+              {/* Ensure images never show as blank: use background fallbacks */}
+              <img
+                src={p.image ?? p.thumbnail ?? '/placeholder.png'}
+                alt={p.name ?? 'Product'}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                loading="lazy"
+              />
+            </div>
+            <div className="mt-3 text-center text-sm tracking-wide">
+              <span className="font-semibold">{p.name ?? 'ITEM'}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <ProductOverlay item={selected} onClose={() => setSelected(null)} />
+    </section>
   );
 }

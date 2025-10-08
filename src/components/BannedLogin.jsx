@@ -1,8 +1,8 @@
 // src/components/BannedLogin.jsx
 'use client';
 
-import dynamic from 'next/dynamic';
-const BlueOrbCross3D = dynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
+import nextDynamic from 'next/dynamic'; // ✅ alias to avoid route `dynamic` name collisions
+const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 import ButterflyChakra from '@/components/ButterflyChakra';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -145,7 +145,6 @@ export default function BannedLogin({ onProceed }) {
 
   const onLink   = () => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); };
   const onBypass = () => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); };
-  const onOrbActivate = () => { onBypass(); };
 
   const toggleOrbColor = () => {
     setOrbMode(prev => {
@@ -175,22 +174,32 @@ export default function BannedLogin({ onProceed }) {
 
       {!hideAll && (
         <div className="login-stack">
-          {/* Bigger orb above the bubble */}
+          {/* ✅ Orb now steps grid density 5↔1 with a simple click (no cascade here) */}
           <div className="orb-row" style={{ marginBottom:-16, display:'grid', placeItems:'center' }}>
-            <BlueOrbCross3D
-              key={`${orbMode}-${orbGlow}-${orbVersion}`}
-              rpm={44}
-              color={SEAFOAM}
-              geomScale={1.12}
-              glow
-              glowOpacity={orbGlow}
-              includeZAxis
-              height="72px"
-              onActivate={onOrbActivate}
-              overrideAllColor={orbMode==='red' ? RED : null}
-              overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
-              interactive={true}
-            />
+            <button
+              type="button"
+              aria-label="Grid density +1"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } }));
+              }}
+              className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              style={{ lineHeight: 0 }}
+            >
+              <BlueOrbCross3D
+                key={`${orbMode}-${orbGlow}-${orbVersion}`}
+                rpm={44}
+                color={SEAFOAM}
+                geomScale={1.12}
+                glow
+                glowOpacity={orbGlow}
+                includeZAxis
+                height="72px"
+                /* ⛔ removed onActivate to avoid accidental cascade on click */
+                overrideAllColor={orbMode==='red' ? RED : null}
+                overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
+                interactive={true}
+              />
+            </button>
           </div>
 
           {!hideBubble && (
