@@ -1,3 +1,4 @@
+// @ts-check
 // src/components/BannedLogin.jsx
 'use client';
 
@@ -13,6 +14,17 @@ import { useRouter } from 'next/navigation';
 const CASCADE_MS = 2400;
 const HOP_PATH = '/shop';
 
+/** @typedef {'banned'|'login'} ViewState */
+/** @typedef {'link'|'bypass'|null} Activation */
+
+/** Wordmark props */
+/**
+ * @param {{
+ *  onClickWordmark: () => void;
+ *  lRef: import('react').RefObject<HTMLSpanElement>;
+ *  yRef: import('react').RefObject<HTMLSpanElement>;
+ * }} props
+ */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
     <span className="lb-word" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
@@ -32,13 +44,23 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
+/** CascadeOverlay props */
+/** @param {{ durationMs?: number }} props */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
   useEffect(() => {
-    let start; let id;
-    const step = (t) => { if (start == null) start = t; const k=Math.min(1,(t-start)/durationMs); setP(k); if(k<1) id=requestAnimationFrame(step); };
+    /** @type {number|undefined} */ let start;
+    /** @type {number|undefined} */ let id;
+
+    const step = (t /** @type {number} */) => {
+      if (start == null) start = t;
+      const k = Math.min(1, (t - start) / durationMs);
+      setP(k);
+      if (k < 1) id = requestAnimationFrame(step);
+    };
+
     id = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(id);
+    return () => { if (id) cancelAnimationFrame(id); };
   }, [durationMs]);
 
   const whiteTx = (1 - p) * 100;
@@ -80,35 +102,46 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   );
 }
 
+/** @param {{ onProceed?: () => void }} props */
 export default function BannedLogin({ onProceed }) {
   const router = useRouter();
 
-  const [view, setView] = useState('banned'); // 'banned' | 'login'
+  /** @type {[ViewState, (v: ViewState) => void]} */
+  // @ts-ignore - React infers, JSDoc narrows
+  const [view, setView] = useState(/** @type {ViewState} */('banned'));
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
   const [whiteout, setWhiteout] = useState(false);
 
   const [hideBubble, setHideBubble] = useState(false);
   const [floridaHot, setFloridaHot] = useState(false);
-  const [activated, setActivated] = useState(null); // 'link' | 'bypass' | null
+  /** @type {[Activation, (a: Activation) => void]} */
+  // @ts-ignore
+  const [activated, setActivated] = useState(/** @type {Activation} */(null));
 
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  /** @type {import('react').RefObject<HTMLInputElement>} */
   const emailRef = useRef(null);
 
   // orb state
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
-  const [orbMode, setOrbMode] = useState('chakra'); // 'chakra' | 'red'
+  /** @type {['chakra'|'red', (m: 'chakra'|'red') => void]} */
+  // @ts-ignore
+  const [orbMode, setOrbMode] = useState(/** @type {'chakra'|'red'} */('chakra'));
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
+  /** @type {import('react').RefObject<HTMLSpanElement>} */
   const lRef = useRef(null);
+  /** @type {import('react').RefObject<HTMLSpanElement>} */
   const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
 
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
 
+  // lock scroll during cascade/whiteout
   useEffect(() => {
     const lock = cascade || whiteout;
     const prev = document.body.style.overflow;
@@ -116,13 +149,18 @@ export default function BannedLogin({ onProceed }) {
     return () => { document.body.style.overflow = prev; };
   }, [cascade, whiteout]);
 
-  const goLogin = () => {
+  const goLogin = useCallback(() => {
     setHideBubble(false);
     setView('login');
     setTimeout(() => emailRef.current?.focus(), 200);
-  };
+  }, []);
 
-  const runCascade = (after, { washAway = false } = {}) => {
+  /**
+   * Run the color cascade, optionally washing away bubble, then hop.
+   * @param {() => void} [after]
+   * @param {{ washAway?: boolean }} [opts]
+   */
+  const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
@@ -141,19 +179,28 @@ export default function BannedLogin({ onProceed }) {
     }, CASCADE_MS);
 
     return () => clearTimeout(t);
-  };
+  }, [onProceed, router]);
 
-  const onLink   = () => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); };
-  const onBypass = () => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); };
+  const onLink = useCallback(() => {
+    setActivated('link');
+    setTimeout(()=>setActivated(null),650);
+    runCascade(()=>{}, { washAway:true });
+  }, [runCascade]);
 
-  const toggleOrbColor = () => {
+  const onBypass = useCallback(() => {
+    setActivated('bypass');
+    setTimeout(()=>setActivated(null),650);
+    runCascade(()=>{}, { washAway:true });
+  }, [runCascade]);
+
+  const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
       setOrbGlow(next === 'red' ? 1.0 : 0.9);
       setOrbVersion(v => v + 1);
       return next;
     });
-  };
+  }, []);
 
   return (
     <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:8 }}>
@@ -180,7 +227,9 @@ export default function BannedLogin({ onProceed }) {
               type="button"
               aria-label="Grid density +1"
               onClick={() => {
-                window.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } }));
+                /** @type {CustomEventInit<{ step: number }>} */
+                const evt = { detail: { step: 1 } };
+                window.dispatchEvent(new CustomEvent('grid-density', evt));
               }}
               className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
               style={{ lineHeight: 0 }}

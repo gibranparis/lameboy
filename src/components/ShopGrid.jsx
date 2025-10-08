@@ -1,17 +1,26 @@
+// @ts-check
 // src/components/ShopGrid.jsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import CartButton from './CartButton';
 import ProductOverlay from './ProductOverlay';
 
 const MIN_COLS = 1;
 const MAX_COLS = 5;
 
+/** @typedef {{ id?: string; slug?: string; name?: string; title?: string; price?: number; image?: string; thumbnail?: string }} Product */
+/** @typedef {{ products?: Product[] }} ShopGridProps */
+
+/** @param {ShopGridProps} props */
 export default function ShopGrid({ products = [] }) {
-  const [selected, setSelected] = useState(null);
+  /** @type {[Product|null, (p: Product|null) => void]} */
+  // @ts-ignore - React infers setter; JSDoc narrows value
+  const [selected, setSelected] = useState(/** @type {Product|null} */(null));
   const [perRow, setPerRow] = useState(MAX_COLS);
-  const [zoomDir, setZoomDir] = useState('in'); // 'in' = 5→1, 'out' = 1→5
+  /** @type {['in'|'out', (d: 'in'|'out') => void]} */
+  // @ts-ignore
+  const [zoomDir, setZoomDir] = useState(/** @type {'in'|'out'} */('in')); // 'in' = 5→1, 'out' = 1→5
   const [fromCascade, setFromCascade] = useState(false);
 
   // detect cascade handoff (optional styling hook)
@@ -25,43 +34,51 @@ export default function ShopGrid({ products = [] }) {
   }, []);
 
   // helper: step columns and swap direction at the ends (infinite loop feel)
-  const stepDensity = (delta = 1) => {
-    const isIn = zoomDir === 'in';
-    let next = perRow + (isIn ? -delta : +delta);
+  const stepDensity = useCallback(
+    /** @param {number} [delta=1] */
+    (delta = 1) => {
+      const isIn = zoomDir === 'in';
+      let next = perRow + (isIn ? -delta : +delta);
 
-    if (next < MIN_COLS) {
-      next = MIN_COLS + 1; // bounce
-      setZoomDir('out');
-    } else if (next > MAX_COLS) {
-      next = MAX_COLS - 1; // bounce
-      setZoomDir('in');
-    }
-    setPerRow(next);
-  };
+      if (next < MIN_COLS) {
+        next = MIN_COLS + 1; // bounce
+        setZoomDir('out');
+      } else if (next > MAX_COLS) {
+        next = MAX_COLS - 1; // bounce
+        setZoomDir('in');
+      }
+      setPerRow(next);
+    },
+    [perRow, zoomDir]
+  );
 
   // listen for global orb events
   useEffect(() => {
+    /** @param {CustomEvent<{ step?: number }>} e */
     const onDensity = (e) => {
       const step = Number(e?.detail?.step ?? 1);
       stepDensity(step);
     };
+    // @ts-ignore - addEventListener typing doesn't know CustomEvent payload
     window.addEventListener('grid-density', onDensity);
-    return () => window.removeEventListener('grid-density', onDensity);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perRow, zoomDir]);
+    return () => {
+      // @ts-ignore
+      window.removeEventListener('grid-density', onDensity);
+    };
+  }, [stepDensity]);
 
   // (Optional) keyboard shortcut: press "g" to step grid
   useEffect(() => {
+    /** @param {KeyboardEvent} e */
     const onKey = (e) => {
       if (e.key.toLowerCase() === 'g') stepDensity(1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perRow, zoomDir]);
+  }, [stepDensity]);
 
   const gridStyle = useMemo(
-    () => ({ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }),
+    () => /** @type {const} */ ({ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }),
     [perRow]
   );
 
@@ -103,36 +120,43 @@ export default function ShopGrid({ products = [] }) {
 
       {/* Product grid */}
       <div className="grid gap-10" style={gridStyle}>
-        {products.map((p) => (
-          <button
-            key={p.id ?? p.slug ?? p.name}
-            className="group text-left"
-            onClick={() => setSelected(p)}
-          >
-            <div className="aspect-[4/3] overflow-hidden rounded-2xl ring-1 ring-black/5 dark:ring-white/10">
-              {/* Ensure images never show as blank: use background fallbacks */}
-              <img
-                src={p.image ?? p.thumbnail ?? '/placeholder.png'}
-                alt={p.name ?? 'Product'}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                loading="lazy"
-              />
-            </div>
-            <div className="mt-3 text-center text-sm tracking-wide">
-              <span className="font-semibold">{p.name ?? 'ITEM'}</span>
-            </div>
-          </button>
-        ))}
+        {products.map((p, i) => {
+          const key = p.id ?? p.slug ?? p.name ?? String(i);
+          const title = p.name ?? p.title ?? 'ITEM';
+          const src = p.image ?? p.thumbnail ?? '/placeholder.png';
+          return (
+            <button
+              key={key}
+              className="group text-left"
+              onClick={() => setSelected(p)}
+            >
+              <div className="aspect-[4/3] overflow-hidden rounded-2xl ring-1 ring-black/5 dark:ring-white/10">
+                {/* Ensure images never show as blank: use background fallbacks */}
+                <img
+                  src={src}
+                  alt={title}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                  loading="lazy"
+                />
+              </div>
+              <div className="mt-3 text-center text-sm tracking-wide">
+                <span className="font-semibold">{title}</span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       <ProductOverlay item={selected} onClose={() => setSelected(null)} />
+
+      {/* Dev-only floating controls (moved INSIDE component) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{ position: 'fixed', left: 8, top: 56, zIndex: 50 }}>
+          <button onClick={() => { setZoomDir('in'); stepDensity(1); }}>−</button>
+          <div>cols: {perRow}</div>
+          <button onClick={() => { setZoomDir('out'); stepDensity(1); }}>+</button>
+        </div>
+      )}
     </section>
   );
 }
-{process.env.NODE_ENV === 'development' && (
-  <div style={{ position: 'fixed', left: 8, top: 56, zIndex: 50 }}>
-    <button onClick={() => { setZoomDir('in');  stepDensity(1); }}>−</button>
-    <div>cols: {perRow}</div>
-    <button onClick={() => { setZoomDir('out'); stepDensity(1); }}>+</button>
-  </div>
-)}

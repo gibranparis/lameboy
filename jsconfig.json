@@ -1,12 +1,12 @@
 {
   "compilerOptions": {
-    "checkJs": true,              // turn on type-checking for .js
+    "checkJs": false,          // Gradual: off by default
     "allowJs": true,
-    "jsx": "react-jsx",           // Next + React
+    "jsx": "react-jsx",
     "target": "ES2021",
     "moduleResolution": "Bundler",
     "skipLibCheck": true,
-    "strict": true                // stricter checks (good signal/noise)
+    "strict": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", ".next"]

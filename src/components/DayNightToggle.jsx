@@ -1,8 +1,10 @@
+// @ts-check
 // src/components/DayNightToggle.jsx
 'use client';
 
 import { useEffect, useState } from 'react';
 
+/** @param {{ className?: string }} props */
 function SunHaloIcon({ className = '' }) {
   return (
     <svg className={className} viewBox="0 0 64 64" aria-hidden="true" role="img">
@@ -32,6 +34,7 @@ function SunHaloIcon({ className = '' }) {
   );
 }
 
+/** @param {{ className?: string }} props */
 function MoonIcon({ className = '' }) {
   return (
     <svg className={className} viewBox="0 0 64 64" aria-hidden="true" role="img">
@@ -49,26 +52,45 @@ function MoonIcon({ className = '' }) {
   );
 }
 
+/** @typedef {'day'|'night'} Theme */
+
+/** LocalStorage key used for theme persistence */
+const THEME_KEY = 'theme';
+
+/** @param {{ className?: string }} props */
 export default function DayNightToggle({ className = '' }) {
-  const [theme, setTheme] = useState('day');
+  /** @type {[Theme, (t: Theme) => void]} */
+  // @ts-ignore - React infers the setter; the JSDoc above narrows the value
+  const [theme, setTheme] = useState(/** @type {Theme} */('day'));
+
+  /** Whether we are in night mode */
   const isNight = theme === 'night';
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(THEME_KEY) : null;
+    /** @type {Theme} */
     const initial = stored === 'night' || stored === 'day' ? stored : 'day';
     setTheme(initial);
     apply(initial);
   }, []);
 
+  /** Apply theme to <html> and notify listeners
+   *  @param {Theme} next
+   */
   function apply(next) {
     const root = document.documentElement;
-    root.classList.toggle('dark', next === 'night');
+    root.classList.toggle('dark', next === 'night'); // Tailwind v4 dark mode = 'class'
     root.dataset.theme = next;
-    localStorage.setItem('theme', next);
-    window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme: next } }));
+    localStorage.setItem(THEME_KEY, next);
+
+    /** @type {CustomEventInit<{ theme: Theme }>} */
+    const evt = { detail: { theme: next } };
+    window.dispatchEvent(new CustomEvent('theme-change', evt));
   }
 
+  /** Toggle between 'day' and 'night' */
   function toggle() {
+    /** @type {Theme} */
     const next = isNight ? 'day' : 'night';
     setTheme(next);
     apply(next);
