@@ -10,8 +10,16 @@ import { createPortal } from 'react-dom';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 import { useRouter } from 'next/navigation';
 
-const CASCADE_MS = 2400;
 const HOP_PATH = '/shop'; // fallback if parent doesn't provide onProceed
+
+/** Duration math for the staircase:
+ *  - Each band grows for BAND_MS
+ *  - Each next band waits STAGGER_MS
+ *  - Total ~= BAND_MS + STAGGER_MS*(7-1)
+ */
+const BAND_MS     = 520;   // growth per band
+const STAGGER_MS  = 220;   // delay between bands
+const CASCADE_MS  = BAND_MS + STAGGER_MS * 6 + 280; // pad a touch so veil syncs
 
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
@@ -32,91 +40,80 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Bright “tile-in” cascade (no swing) with leading white glare. */
-function CascadeOverlay({ durationMs = CASCADE_MS }) {
-  const [p, setP] = useState(0);
-
-  // cubic-out for a punchy finish
-  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+/** Chakra Staircase Cascade (tile-in, red → violet). */
+function CascadeOverlay() {
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    let id = 0, t0 = 0;
-    const step = (t) => {
-      if (!t0) t0 = t;
-      const raw = Math.min(1, (t - t0) / durationMs);
-      setP(easeOut(raw));
-      if (raw < 1) id = requestAnimationFrame(step);
-    };
-    id = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(id);
-  }, [durationMs]);
-
-  // Sweep straight L→R, overscan so colors fully cover
-  const sweepTx = `translate3d(${(-140 + p * 140)}vw,0,0)`;
-  const glareTx = `translate3d(${(-142 + p * 142)}vw,0,0)`;
-  const veilOpacity = p >= 0.995 ? 1 : 0;
+    // end veil timing matches the total animation length
+    const t = setTimeout(() => setDone(true), CASCADE_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   return createPortal(
     <>
-      {/* Bands block */}
+      {/* Bands grid — fixed, no horizontal sweep */}
       <div
         aria-hidden="true"
         style={{
-          position:'fixed', inset:0, zIndex:9999, pointerEvents:'none',
-          overflow:'hidden'
+          position:'fixed', inset:0, zIndex:9999, pointerEvents:'none', overflow:'hidden',
+          display:'grid', gridTemplateColumns:'repeat(7,1fr)'
         }}
       >
-        {/* color tiles with inner glow */}
-        <div
-          style={{
-            position:'absolute', top:0, left:0, height:'100vh', width:'120vw',
-            display:'grid', gridTemplateColumns:'repeat(7,1fr)',
-            transform: sweepTx, willChange:'transform'
-          }}
-        >
-          {/* Each band gets a bright core + soft outer glow for the “neon” pop */}
-          <div className="lb-tile t1"/><div className="lb-tile t2"/><div className="lb-tile t3"/>
-          <div className="lb-tile t4"/><div className="lb-tile t5"/><div className="lb-tile t6"/><div className="lb-tile t7"/>
-        </div>
-
-        {/* Leading glare ahead of the tiles */}
-        <div
-          style={{
-            position:'absolute', top:0, left:0, height:'100vh', width:'20vw',
-            transform: glareTx, willChange:'transform',
-            background:'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.9) 60%, #fff 100%)',
-            filter:'blur(1.2px)', opacity:.98
-          }}
-        />
+        {/* RED → ORANGE → YELLOW → GREEN → BLUE → INDIGO → VIOLET */}
+        <div className="chakra-band c-red"    style={{ ['--d']: 0 * STAGGER_MS + 'ms' }} />
+        <div className="chakra-band c-orange" style={{ ['--d']: 1 * STAGGER_MS + 'ms' }} />
+        <div className="chakra-band c-yellow" style={{ ['--d']: 2 * STAGGER_MS + 'ms' }} />
+        <div className="chakra-band c-green"  style={{ ['--d']: 3 * STAGGER_MS + 'ms' }} />
+        <div className="chakra-band c-blue"   style={{ ['--d']: 4 * STAGGER_MS + 'ms' }} />
+        <div className="chakra-band c-indigo" style={{ ['--d']: 5 * STAGGER_MS + 'ms' }} />
+        <div className="chakra-band c-violet" style={{ ['--d']: 6 * STAGGER_MS + 'ms' }} />
       </div>
 
-      {/* Snap white veil at end so parent can fade it off without any black frame */}
+      {/* Final white veil snaps on at end so no black flash before shop renders */}
       <div
         aria-hidden="true"
         style={{
           position:'fixed', inset:0, zIndex:10000, background:'#fff',
-          opacity: veilOpacity, transition:'opacity .001s linear',
+          opacity: done ? 1 : 0, transition:'opacity .001s linear',
           pointerEvents:'none'
         }}
       />
 
       <style jsx global>{`
-        /* Ultra-bright tiles (color + inner glow) */
-        .lb-tile{ position:relative; height:100%; }
-        .lb-tile::before{
-          content:""; position:absolute; inset:0;
-          box-shadow: inset 0 0 120px rgba(255,255,255,.38), inset 0 0 220px rgba(255,255,255,.28);
+        /* Core band styling: grow from LEFT (tile-in), with intense inner glow */
+        .chakra-band{
+          position:relative; height:100%;
+          transform-origin:left center;
+          transform: scaleX(0.04); opacity:0;
+          animation: bandGrow ${BAND_MS}ms cubic-bezier(.22,.61,.21,.99) forwards;
+          animation-delay: var(--d, 0ms);
+          filter: saturate(1.18) brightness(1.06);
         }
-        .t1{ background:#ef4444 }  /* red */
-        .t2{ background:#f97316 }  /* orange */
-        .t3{ background:#facc15 }  /* yellow */
-        .t4{ background:#22c55e }  /* green */
-        .t5{ background:#3b82f6 }  /* blue */
-        .t6{ background:#4f46e5 }  /* indigo */
-        .t7{ background:#c084fc }  /* violet */
+        .chakra-band::before{
+          content:""; position:absolute; inset:0;
+          /* Inner “neon” glow for punch */
+          box-shadow: inset 0 0 120px rgba(255,255,255,.38),
+                      inset 0 0 220px rgba(255,255,255,.28);
+          pointer-events:none;
+        }
+        @keyframes bandGrow{
+          0%   { transform: scaleX(0.04); opacity: 0; }
+          28%  { opacity: 1; }
+          100% { transform: scaleX(1);   opacity: 1; }
+        }
+
+        /* Chakra colors — left to right */
+        .c-red    { background:#ef4444; }  /* root */
+        .c-orange { background:#f97316; }  /* sacral */
+        .c-yellow { background:#facc15; }  /* solar plexus */
+        .c-green  { background:#22c55e; }  /* heart */
+        .c-blue   { background:#3b82f6; }  /* throat */
+        .c-indigo { background:#4f46e5; }  /* third eye */
+        .c-violet { background:#c084fc; }  /* crown */
 
         @media (prefers-reduced-motion: reduce){
-          .lb-tile{ display:none; }
+          .chakra-band{ animation:none; transform:none; opacity:1; }
         }
       `}</style>
     </>,
@@ -211,7 +208,7 @@ export default function BannedLogin({ onProceed }) {
         />
       )}
 
-      {cascade && <CascadeOverlay durationMs={CASCADE_MS} />}
+      {cascade && <CascadeOverlay />}
       {whiteout && !cascade && createPortal(
         <div aria-hidden="true" style={{ position:'fixed', inset:0, background:'#fff', zIndex:10002, pointerEvents:'none' }}/>,
         document.body
