@@ -175,17 +175,17 @@ export default function BannedLogin({ onProceed }) {
 
       {!hideAll && (
         <div className="login-stack">
-          {/* ORB above the bubble, larger, tighter margin */}
-          <div className="orb-row" style={{ marginBottom:-14, display:'grid', placeItems:'center' }}>
+          {/* Bigger orb above the bubble */}
+          <div className="orb-row" style={{ marginBottom:-16, display:'grid', placeItems:'center' }}>
             <BlueOrbCross3D
               key={`${orbMode}-${orbGlow}-${orbVersion}`}
               rpm={44}
               color={SEAFOAM}
-              geomScale={1.08}
+              geomScale={1.12}
               glow
               glowOpacity={orbGlow}
               includeZAxis
-              height="56px"
+              height="72px"
               onActivate={onOrbActivate}
               overrideAllColor={orbMode==='red' ? RED : null}
               overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
@@ -302,7 +302,7 @@ export default function BannedLogin({ onProceed }) {
             onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
             onMouseEnter={()=>setFloridaHot(true)}
             onMouseLeave={()=>setFloridaHot(false)}
-            style={{ marginTop: 10 }}
+            style={{ marginTop: 6 }}
           >
             Florida, USA
           </button>

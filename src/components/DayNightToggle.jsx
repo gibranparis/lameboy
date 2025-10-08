@@ -1,73 +1,109 @@
 // src/components/DayNightToggle.jsx
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 
-export default function DayNightToggle(props) {
-  // Backward/forward compatible prop mapping
-  const size    = props.size ?? props.height ?? 34;   // one number drives both dims
-  const width   = props.width ?? Math.round(size * 2.2);
-  const height  = size;
-  const isNight = ('isNight' in props) ? props.isNight : (props.value === 'night');
-  const onToggle = props.onToggle ?? (props.onChange
-    ? () => props.onChange(isNight ? 'day' : 'night')
-    : undefined);
+export default function DayNightToggle({
+  size = 36,                 // overall HEIGHT of the switch
+  value = 'day',             // 'day' | 'night'
+  onChange = () => {},
+}) {
+  const isNight = value === 'night';
+  const h = Math.max(26, Number(size) || 36);
+  const w = Math.round(h * 1.8);
+  const pad = 4;
+  const knob = h - pad * 2;  // the KNOB is the sun
 
-  const r = height / 2;
+  // move knob left↔right
+  const knobX = isNight ? w - pad - knob : pad;
+
+  const toggle = () => onChange(isNight ? 'day' : 'night');
+
+  const bgStyle = useMemo(
+    () => ({
+      position: 'absolute',
+      inset: 0,
+      borderRadius: 999,
+      overflow: 'hidden',
+      transition: 'opacity .35s ease, filter .35s ease, background .35s ease',
+      background: isNight
+        ? 'radial-gradient(120% 120% at 30% 30%, #1a1a2b 0%, #0b0b14 55%, #000 100%)'
+        : 'linear-gradient(180deg, #bfe7ff 0%, #dff4ff 60%, #ffffff 100%)',
+    }),
+    [isNight]
+  );
 
   return (
     <button
       type="button"
-      onClick={onToggle}
       aria-label="Toggle day and night theme"
-      className="lb-switch"
-      data-theme={isNight ? 'night' : 'day'}
+      onClick={toggle}
       style={{
-        width,
-        height,
+        width: w,
+        height: h,
         borderRadius: 999,
+        position: 'relative',
+        border: '1.5px solid rgba(0,0,0,.14)',
+        background: '#fff',
+        boxShadow: '0 4px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.6)',
+        cursor: 'pointer',
+        -webkitTapHighlightColor: 'transparent',
         padding: 0,
       }}
     >
-      {/* background sky */}
-      <div className="lb-switch-bg" />
+      {/* background sky / night */}
+      <div style={bgStyle} />
 
-      {/* decoration */}
-      <div className="lb-switch-decor">
-        {/* clouds (stay visible in day) */}
-        <div className="cloud c1" /><div className="cloud c2" /><div className="cloud c3" />
-        {/* thin line-stars (kept subtle) */}
-        <svg className="stars" viewBox="0 0 200 100" preserveAspectRatio="none" style={{ width:'100%', height:'100%' }}>
-          <g stroke="#9cc4ff" strokeWidth="1.5" strokeLinecap="round" opacity=".9">
-            <line x1="36" y1="20" x2="58" y2="42"/>
-            <line x1="58" y1="42" x2="84"  y2="30"/>
-            <line x1="84"  y1="30" x2="106" y2="46"/>
-            <line x1="106" y1="46" x2="128" y2="40"/>
-            <line x1="128" y1="40" x2="150" y2="52"/>
-            <line x1="150" y1="52" x2="176" y2="66"/>
-          </g>
-        </svg>
-      </div>
-
-      {/* knob — make the white circle itself the sun */}
+      {/* KNOB = SUN (day) / MOON CRESCENT (night) */}
       <div
-        className="lb-switch-knob"
         style={{
-          width: height - 8,
-          height: height - 8,
-          borderRadius: r,
-          left: 6,
+          position: 'absolute',
+          top: pad,
+          left: knobX,
+          width: knob,
+          height: knob,
+          borderRadius: knob,
+          background: isNight
+            ? '#0e0e16'
+            : 'radial-gradient(60% 60% at 40% 40%, #fff 0%, #fff 60%, #f8f8f8 61%, #f3f3f3 100%)',
+          boxShadow: isNight
+            ? '0 6px 18px rgba(0,0,0,.30), inset 0 0 0 1px rgba(255,255,255,.05)'
+            : '0 6px 18px rgba(0,0,0,.18), inset 0 0 0 1px rgba(255,255,255,.6)',
+          transition:
+            'left .45s cubic-bezier(.22,.61,.21,.99), background .3s ease, box-shadow .3s ease',
         }}
       >
-        {/* WHITE = sun (no small yellow dot anymore) */}
-        <svg className="icon sun" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="8" fill="#ffffff"/>
-        </svg>
-        {/* Moon appears only at night via CSS opacity */}
-        <svg className="icon moon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="7" fill="#a6c8ff"/>
-          <circle cx="14" cy="12" r="7" fill="black"/>
-        </svg>
+        {/* Sun rays (day only) */}
+        {!isNight && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: -2,
+              borderRadius: 999,
+              boxShadow:
+                '0 0 0 4px rgba(255,220,80,.35), 0 0 18px rgba(255,220,80,.45)',
+              filter: 'blur(2px)',
+            }}
+          />
+        )}
+
+        {/* Crescent cutout (night only) */}
+        {isNight && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              right: -knob * 0.28,
+              top: knob * 0.18,
+              width: knob * 0.72,
+              height: knob * 0.72,
+              borderRadius: 999,
+              background: '#000',
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)',
+            }}
+          />
+        )}
       </div>
     </button>
   );
