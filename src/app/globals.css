@@ -440,3 +440,29 @@ html:has([data-shop-root]) .product-img{
 [data-mode="shop"] header[role="banner"] { background: transparent !important; box-shadow: none !important; border: 0 !important; }
 [data-mode="shop"] header[role="banner"] > * { align-self: center !important; }
 [data-mode="shop"] header[role="banner"] .cart-fab { position: static !important; background: transparent !important; border: none !important; box-shadow:none !important; }
+
+/* --- Banned page layout fixes --- */
+.login-stack{
+  display:flex;           /* (was missing) */
+  flex-direction:column;  /* (was missing) */
+  align-items:center;
+  gap:10px;
+}
+
+/* keep the orb centered above the blue bubble */
+.orb-row{
+  margin-bottom:-28px;
+  display:grid;
+  place-items:center;
+  contain:layout paint style;
+  isolation:isolate;
+  z-index:10;             /* ensure above the bubble */
+}
+
+/* Florida link directly under the bubble, with the familiar glow on hover */
+.florida-inline{ display:block; margin-top:8px; }
+.florida-link{ color:var(--muted); }
+.florida-link:hover,.florida-link.is-hot{
+  color:#ffeb3b; font-weight:900;
+  text-shadow:0 0 8px rgba(255,235,59,.60), 0 0 18px rgba(255,235,59,.35);
+}

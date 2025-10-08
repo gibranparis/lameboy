@@ -26,10 +26,16 @@ export default function CartButton({ inHeader = false }) {
       title="Cart"
       style={inHeader ? { background:'transparent', border:'none', boxShadow:'none', width:'auto', height:'auto', padding:0 } : undefined}
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width:24, height:24, display:'block' }}>
-        <path className="cb-handle" d="M5 6 h4 a1 1 0 0 1 0 2 H5 a1 1 0 1 1 0-2z" />
-        <path fill="currentColor" d="M6 7h12a1 1 0 0 1 .98 1.2l-1.3 6.5a2 2 0 0 1-1.97 1.6H9.1a2 2 0 0 1-1.94-1.5L5.2 8.8A1.2 1.2 0 0 1 6.4 7zM8.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7.8 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
-      </svg>
+     <svg viewBox="0 0 24 24" aria-hidden="true">
+  {/* body + wheels follow currentColor */}
+  <path d="M3 5h2l2.2 9.2c.1.4.5.8 1 .8h8.7a1 1 0 0 0 .98-.78l1.1-5A1 1 0 0 0 18 8H7.6"
+        fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  <circle cx="10" cy="19" r="1.6" fill="currentColor"/>
+  <circle cx="17" cy="19" r="1.6" fill="currentColor"/>
+  {/* orange “handlebars” */}
+  <path className="cb-handle" d="M3 5c1.2 0 2.2-.9 2.4-2h1.2" fill="none" stroke="#F7A02D" strokeWidth="1.8" strokeLinecap="round"/>
+</svg>
+
 
       {count > 0 && (
         <span className={`cart-badge ${pulseTag ? 'swap-green' : ''}`}>

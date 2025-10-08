@@ -78,8 +78,8 @@ export default function DayNightToggle(props) {
       <div
         className="lb-switch-knob"
         style={{
-          width: height - 8,
-          height: height - 8,
+          width: height - 10,
+          height: height - 10,
           borderRadius: r,
           left: 6,
         }}
