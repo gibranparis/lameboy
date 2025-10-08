@@ -13,12 +13,13 @@ import { useRouter } from 'next/navigation';
 
 const CASCADE_MS = 2400;
 const HOP_PATH = '/shop';
+const SWAP_MS = 22000; // 22s swap cadence
 
 /** @typedef {'banned'|'login'} ViewState */
 /** @typedef {'link'|'bypass'|null} Activation */
 
-/** Wordmark props */
 /**
+ * Wordmark
  * @param {{
  *  onClickWordmark: () => void;
  *  lRef: import('react').RefObject<HTMLSpanElement>;
@@ -44,21 +45,19 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** CascadeOverlay props */
+/** Cascade overlay */
 /** @param {{ durationMs?: number }} props */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
   useEffect(() => {
     /** @type {number|undefined} */ let start;
     /** @type {number|undefined} */ let id;
-
     const step = (t /** @type {number} */) => {
       if (start == null) start = t;
       const k = Math.min(1, (t - start) / durationMs);
       setP(k);
       if (k < 1) id = requestAnimationFrame(step);
     };
-
     id = requestAnimationFrame(step);
     return () => { if (id) cancelAnimationFrame(id); };
   }, [durationMs]);
@@ -138,6 +137,15 @@ export default function BannedLogin({ onProceed }) {
   /** @type {import('react').RefObject<HTMLSpanElement>} */
   const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
+
+  // === Swap "hi..." <-> "...レ乃モ" every 22s ===
+  const [altText, setAltText] = useState(false);
+  useEffect(() => {
+    const id = setInterval(() => setAltText(v => !v), SWAP_MS);
+    return () => clearInterval(id);
+  }, []);
+  const msgCore = altText ? '...レ乃モ' : 'hi...';
+  const msgAria = altText ? 'Ellipsis Renomo' : 'hi';
 
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
 
@@ -286,12 +294,15 @@ export default function BannedLogin({ onProceed }) {
                   <span className="code-op">=</span>{' '}
                   <span className="nogap">
                     <span
-                      role="button" tabIndex={0}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={msgAria}
                       className="code-string code-link"
                       onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); goLogin(); }}
                       onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); goLogin(); }}}
+                      title="Continue"
                     >
-                      "hi..."
+                      {`"${msgCore}"`}
                     </span>
                     <span className="code-punc">;</span>
                   </span>
