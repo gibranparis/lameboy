@@ -1,134 +1,71 @@
-// src/components/DayNightToggle.jsx
 'use client';
 
-import { memo, useMemo } from 'react';
+import React from 'react';
 
-/**
- * DayNightToggle
- * Props:
- *  - value: 'day' | 'night'
- *  - onChange(next) => void
- *  - size: px height of the control
- *  - showVirgo: boolean to overlay Virgo constellation on night
- */
-function DayNightToggleImpl({ value = 'day', onChange, size = 40, showVirgo = false }) {
-  const w = Math.max(44, size * 2.1);     // width feels nice ~2.1x height
-  const h = Math.max(32, size);           // exact “visual” height
-  const r = Math.round(h / 2);            // full pill radius
-
-  const isNight = value === 'night';
-
-  // Hard-coded Virgo constellation (a simple line drawing of key stars)
-  const virgo = useMemo(() => ({
-    viewBox: '0 0 200 100',
-    // star points (approximate, tuned to fit visually in the switch background)
-    stars: [
-      [20, 60], [38, 46], [58, 58], [76, 44], [94, 34],
-      [118, 46], [140, 36], [160, 50], [180, 40]
-    ],
-    links: [
-      [0,1], [1,2], [2,3], [3,4], [4,5], [5,6], [6,7], [7,8]
-    ]
-  }), []);
+export default function DayNightToggle({
+  width = 96,   // set these to exactly what you want
+  height = 34,
+  isNight = false,
+  onToggle
+}) {
+  const r = height / 2;
 
   return (
     <button
       type="button"
-      aria-label="day-night"
+      onClick={onToggle}
+      aria-label="Toggle day and night theme"
       className="lb-switch"
-      onClick={() => onChange?.(isNight ? 'day' : 'night')}
       data-theme={isNight ? 'night' : 'day'}
       style={{
-        width: w, height: h, borderRadius: r
+        width,
+        height,
+        borderRadius: 999,
+        padding: 0,
       }}
     >
-      {/* background gradients */}
-      <div className="lb-switch-bg" style={{ borderRadius: r }} />
+      {/* background sky */}
+      <div className="lb-switch-bg" />
 
-      {/* deco layer: clouds (day) + stars (night) */}
-      <div className="lb-switch-decor" style={{ borderRadius: r }}>
-        {/* Clouds (day only; they fade out in CSS when night) */}
-        <div className="cloud c1" />
-        <div className="cloud c2" />
-        <div className="cloud c3" />
-
-        {/* Simple stars scatter */}
-        <div className="stars">
-          <span className="s s1" /><span className="s s2" /><span className="s s3" />
-          <span className="s s4" /><span className="s s5" /><span className="s s6" />
-          <span className="s s7" /><span className="s s8" /><span className="s s9" />
-          <span className="s s10" /><span className="s s11" /><span className="s s12" />
-        </div>
-
-        {/* Virgo constellation (night only) */}
-        {showVirgo && (
-          <svg
-            className="constellation"
-            viewBox={virgo.viewBox}
-            aria-hidden="true"
-            style={{
-              position:'absolute', inset:0, opacity:isNight ? 1 : 0,
-              transition:'opacity .45s ease', pointerEvents:'none',
-              mixBlendMode:'screen'
-            }}
-          >
-            {/* links */}
-            <g stroke="#9cc4ff" strokeWidth="1.5" strokeLinecap="round" opacity="0.9">
-              {virgo.links.map(([a,b], i) => {
-                const [x1,y1] = virgo.stars[a];
-                const [x2,y2] = virgo.stars[b];
-                return <line key={`l-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} />;
-              })}
-            </g>
-            {/* star dots */}
-            <g fill="#dff0ff">
-              {virgo.stars.map(([x,y], i) => (
-                <circle key={`s-${i}`} cx={x} cy={y} r="2.4">
-                  <animate attributeName="r" values="2.2;3;2.2" dur="2s" repeatCount="indefinite" begin={`${i*0.12}s`} />
-                </circle>
-              ))}
-            </g>
-          </svg>
-        )}
+      {/* decoration (stars appear in night via CSS; clouds stay in day) */}
+      <div className="lb-switch-decor">
+        <div className="cloud c1" /><div className="cloud c2" /><div className="cloud c3" />
+        <svg className="stars" viewBox="0 0 200 100" preserveAspectRatio="none" style={{ width:'100%', height:'100%' }}>
+          <g fill="#dff0ff">
+            <circle cx="36" cy="20" r="2"/><circle cx="58" cy="42" r="1.6"/>
+            <circle cx="84" cy="30" r="2"/><circle cx="106" cy="46" r="1.8"/>
+            <circle cx="128" cy="40" r="2"/><circle cx="150" cy="52" r="1.6"/>
+            <circle cx="176" cy="66" r="2.2"/>
+          </g>
+          <g stroke="#9cc4ff" strokeWidth="1.5" strokeLinecap="round" opacity=".9">
+            <line x1="36" y1="20" x2="58" y2="42"/>
+            <line x1="58" y1="42" x2="84" y2="30"/>
+            <line x1="84" y1="30" x2="106" y2="46"/>
+            <line x1="106" y1="46" x2="128" y2="40"/>
+            <line x1="128" y1="40" x2="150" y2="52"/>
+            <line x1="150" y1="52" x2="176" y2="66"/>
+          </g>
+        </svg>
       </div>
 
       {/* knob */}
       <div
         className="lb-switch-knob"
         style={{
-          width: h - 6, height: h - 6, borderRadius: r,
-          left: 6
+          width: height - 8,
+          height: height - 8,
+          borderRadius: r,
+          left: 6,
         }}
       >
-        {/* Sun / Moon icon sized to knob */}
         <svg className="icon sun" viewBox="0 0 24 24" aria-hidden="true">
-          <defs>
-            <radialGradient id="sunGlow" cx="50%" cy="50%" r="70%">
-              <stop offset="0%" stopColor="#fff799"/>
-              <stop offset="55%" stopColor="#ffd74d"/>
-              <stop offset="100%" stopColor="#ffb400"/>
-            </radialGradient>
-          </defs>
-          <circle cx="12" cy="12" r="6.5" fill="url(#sunGlow)">
-            <animate attributeName="r" values="6.2;6.8;6.2" dur="2.2s" repeatCount="indefinite"/>
-          </circle>
+          <circle cx="12" cy="12" r="5" fill="#ffdd55"/>
         </svg>
-
         <svg className="icon moon" viewBox="0 0 24 24" aria-hidden="true">
-          <defs>
-            <radialGradient id="moonCore" cx="40%" cy="40%" r="70%">
-              <stop offset="0%" stopColor="#9fc7ff"/>
-              <stop offset="100%" stopColor="#5fa0ff"/>
-            </radialGradient>
-          </defs>
-          <path
-            fill="url(#moonCore)"
-            d="M16.5 12.5a6.5 6.5 0 1 1-9.2-5.9 7.8 7.8 0 1 0 9.2 9.2 6.45 6.45 0 0 1 0-3.3z"
-          />
+          <circle cx="12" cy="12" r="6" fill="#a6c8ff"/>
+          <circle cx="14" cy="12" r="6" fill="black"/>
         </svg>
       </div>
     </button>
   );
 }
-
-export default memo(DayNightToggleImpl);

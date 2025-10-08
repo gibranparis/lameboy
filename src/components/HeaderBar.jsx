@@ -1,58 +1,78 @@
+// src/components/HeaderBar.jsx
 'use client';
 
-import dynamic from 'next/dynamic';
-import DayNightToggle from './DayNightToggle';
-import CartButton from './CartButton';
-
-const BlueOrbCross3D = dynamic(() => import('./BlueOrbCross3D'), { ssr: false });
+import React, { useEffect, useState } from 'react';
+import BlueOrbCross3D from '@/components/BlueOrbCross3D';
+import DayNightToggle from '@/components/DayNightToggle';
+import CartButton from '@/components/CartButton';
 
 /**
- * One place to tune sizes:
- * - CONTROL: the row height and orb canvas box (px)
- * - ORB_GEOM_SCALE: passes straight into BlueOrbCross3D (affects inner visual diameter)
- * - TOGGLE_RATIO: toggle height = CONTROL * TOGGLE_RATIO (aims to match orb's visual diameter)
+ * Header row for the /shop page.
+ * - Left: decorative orb (no pointer events, small square)
+ * - Center: Day/Night Toggle (explicit width/height)
+ * - Right: CartButton (silhouette; styling is in globals.css)
+ *
+ * If you already have a theme store/context, replace the local state with it.
  */
-const CONTROL = 32;          // header control box height in px
-const ORB_GEOM_SCALE = 0.58; // current inner geometry scale you’re using
-const TOGGLE_RATIO = 0.72;   // 0.70–0.76 usually matches orb’s inner visual size
-const TOGGLE = Math.round(CONTROL * TOGGLE_RATIO);
+export default function HeaderBar({
+  rootSelector = '[data-shop-root]',
+  toggleWidth = 88,
+  toggleHeight = 30,
+}) {
+  const [isNight, setIsNight] = useState(false);
 
-export default function HeaderBar() {
+  // Restore theme from localStorage (optional) and honor system preference on first load
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('lb:theme');
+      if (saved === 'night' || saved === 'day') {
+        setIsNight(saved === 'night');
+        return;
+      }
+      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+      setIsNight(!!prefersDark);
+    } catch {}
+  }, []);
+
+  // Apply data attributes to the unified shop root so CSS tokens take effect
+  useEffect(() => {
+    const root = document.querySelector(rootSelector);
+    if (!root) return;
+    root.setAttribute('data-mode', 'shop');
+    root.setAttribute('data-theme', isNight ? 'night' : 'day');
+    try {
+      localStorage.setItem('lb:theme', isNight ? 'night' : 'day');
+    } catch {}
+  }, [isNight, rootSelector]);
+
   return (
     <header
       role="banner"
+      className="w-full px-4 pt-3 pb-1"
       style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 120,
         display: 'grid',
         gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center',
-        gap: 12,
-        padding: '10px 14px',
-        background: 'transparent',
       }}
     >
-      {/* Left: orb (box is CONTROL; inner visual set by geomScale) */}
-      <div style={{ height: CONTROL, display: 'grid', placeItems: 'start' }}>
-        <div data-orb="density" style={{ width: CONTROL, height: CONTROL, lineHeight: 0 }}>
-          <BlueOrbCross3D
-            height={`${CONTROL}px`}
-            geomScale={ORB_GEOM_SCALE}
-            glow
-            glowOpacity={0.95}
-          />
-        </div>
+      {/* LEFT: decorative orb (small, non-interactive) */}
+      <div className="flex items-center gap-2">
+        <BlueOrbCross3D height="28px" />
       </div>
 
-      {/* Center: toggle sized to match orb inner geometry */}
-      <div style={{ height: CONTROL, display: 'grid', placeItems: 'center' }}>
-        <DayNightToggle size={TOGGLE} />
+      {/* CENTER: toggle (explicit size so it never “inherits” the orb’s footprint) */}
+      <div className="flex justify-center">
+        <DayNightToggle
+          width={toggleWidth}
+          height={toggleHeight}
+          isNight={isNight}
+          onToggle={() => setIsNight(v => !v)}
+        />
       </div>
 
-      {/* Right: cart aligned to the same row height */}
-      <div style={{ height: CONTROL, display: 'grid', placeItems: 'end' }}>
-        <CartButton inHeader />
+      {/* RIGHT: cart (silhouette; globals.css handles theme colors) */}
+      <div className="justify-self-end">
+        <CartButton />
       </div>
     </header>
   );
