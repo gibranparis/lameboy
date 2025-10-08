@@ -3,10 +3,6 @@
 
 import { useEffect, useState } from 'react';
 
-// tiny class joiner (no dependency)
-const cx = (...xs) => xs.filter(Boolean).join(' ');
-
-/* ---- Icons (self-contained SVGs; no external colors) ---- */
 function SunHaloIcon({ className = '' }) {
   return (
     <svg className={className} viewBox="0 0 64 64" aria-hidden="true" role="img">
@@ -54,19 +50,19 @@ function MoonIcon({ className = '' }) {
 }
 
 export default function DayNightToggle({ className = '' }) {
-  const [theme, setTheme] = useState('day'); // 'day' | 'night'
+  const [theme, setTheme] = useState('day');
   const isNight = theme === 'night';
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
     const initial = stored === 'night' || stored === 'day' ? stored : 'day';
     setTheme(initial);
-    applyTheme(initial);
+    apply(initial);
   }, []);
 
-  function applyTheme(next) {
+  function apply(next) {
     const root = document.documentElement;
-    root.classList.toggle('dark', next === 'night'); // Tailwind dark mode = 'class'
+    root.classList.toggle('dark', next === 'night');
     root.dataset.theme = next;
     localStorage.setItem('theme', next);
     window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme: next } }));
@@ -75,50 +71,78 @@ export default function DayNightToggle({ className = '' }) {
   function toggle() {
     const next = isNight ? 'day' : 'night';
     setTheme(next);
-    applyTheme(next);
+    apply(next);
   }
 
   return (
-    <button
-      onClick={toggle}
-      aria-label="Toggle day / night"
-      role="switch"
-      aria-checked={isNight}
-      // fallback so it’s visible even if Tailwind fails to load
-      style={{ height: 36, width: 64, borderRadius: 9999, position: 'relative' }}
-      className={cx(
-        'relative inline-flex h-9 w-16 items-center rounded-full transition-colors',
-        'ring-1 ring-black/5 dark:ring-white/10 shadow-sm',
-        isNight ? 'bg-[#1e1e1e]' : 'bg-white',
-        'select-none touch-manipulation',
-        className
-      )}
-    >
-      <span
-        className={cx(
-          'absolute inset-0 rounded-full pointer-events-none',
-          'bg-gradient-to-b from-white/60 to-black/5 dark:from-white/10 dark:to-black/40'
-        )}
-      />
-      <span
-        // fallback transform when Tailwind is missing
-        style={{
-          height: 28, width: 28, borderRadius: 9999,
-          transform: `translateX(${isNight ? 32 : 4}px)`, transition: 'transform 300ms ease-out',
-        }}
-        className={cx(
-          'relative z-10 inline-flex h-7 w-7 items-center justify-center rounded-full',
-          'shadow-md ring-1 ring-black/5 dark:ring-white/10',
-          isNight ? 'bg-[#0e0f12]' : 'bg-[#f6f7f4]'
-        )}
+    <>
+      <button
+        onClick={toggle}
+        aria-label="Toggle day / night"
+        role="switch"
+        aria-checked={isNight}
+        className={`lb-toggle ${className}`}
       >
-        <span className={cx('absolute inset-0 grid place-items-center transition-opacity duration-200', isNight ? 'opacity-0' : 'opacity-100')}>
-          <SunHaloIcon className="h-5 w-5" />
+        <span className="lb-track" />
+        <span className={`lb-knob ${isNight ? 'is-night' : 'is-day'}`}>
+          <span className={`lb-icon ${isNight ? 'hide' : 'show'}`}>
+            <SunHaloIcon className="lb-svg" />
+          </span>
+          <span className={`lb-icon ${isNight ? 'show' : 'hide'}`}>
+            <MoonIcon className="lb-svg" />
+          </span>
         </span>
-        <span className={cx('absolute inset-0 grid place-items-center transition-opacity duration-200', isNight ? 'opacity-100' : 'opacity-0')}>
-          <MoonIcon className="h-5 w-5" />
-        </span>
-      </span>
-    </button>
+      </button>
+
+      <style jsx>{`
+        .lb-toggle {
+          position: relative;
+          display: inline-flex;
+          height: 36px;
+          width: 64px;
+          border-radius: 9999px;
+          background: ${isNight ? '#1e1e1e' : '#fff'};
+          box-shadow:
+            0 1px 2px rgba(0,0,0,.06),
+            0 1px 1px rgba(0,0,0,.03),
+            inset 0 0 0 1px rgba(0,0,0,.06);
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .lb-track {
+          position: absolute;
+          inset: 0;
+          border-radius: 9999px;
+          background: linear-gradient(${isNight ? 'to bottom, rgba(255,255,255,.08), rgba(0,0,0,.4)' : 'to bottom, rgba(255,255,255,.6), rgba(0,0,0,.05)'});
+          pointer-events: none;
+        }
+        .lb-knob {
+          position: absolute;
+          top: 4px;
+          left: 4px;
+          height: 28px;
+          width: 28px;
+          border-radius: 9999px;
+          background: ${isNight ? '#0e0f12' : '#f6f7f4'};
+          box-shadow:
+            0 2px 6px rgba(0,0,0,.18),
+            inset 0 0 0 1px rgba(0,0,0,.06);
+          display: grid;
+          place-items: center;
+          transition: transform 300ms ease-out, background 200ms ease;
+          transform: translateX(${isNight ? '32px' : '0px'});
+        }
+        .lb-icon {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          transition: opacity 200ms ease;
+        }
+        .lb-icon.show { opacity: 1; }
+        .lb-icon.hide { opacity: 0; }
+        .lb-svg { height: 20px; width: 20px; }
+      `}</style>
+    </>
   );
 }

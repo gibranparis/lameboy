@@ -129,3 +129,10 @@ export default function ShopGrid({ products = [] }) {
     </section>
   );
 }
+{process.env.NODE_ENV === 'development' && (
+  <div style={{ position: 'fixed', left: 8, top: 56, zIndex: 50 }}>
+    <button onClick={() => { setZoomDir('in');  stepDensity(1); }}>−</button>
+    <div>cols: {perRow}</div>
+    <button onClick={() => { setZoomDir('out'); stepDensity(1); }}>+</button>
+  </div>
+)}
