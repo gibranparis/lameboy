@@ -12,11 +12,11 @@ import { useRouter } from 'next/navigation';
 
 const HOP_PATH = '/shop'; // fallback if parent doesn't provide onProceed
 
-/** Final timing — no overlap: each band completes before the next begins */
-const BAND_MS    = 360;                 // grow time per band (snappy)
-const GAP_MS     = 80;                  // small pause between bands
-const STAGGER_MS = BAND_MS + GAP_MS;    // step size (no overlap)
-const CASCADE_MS = STAGGER_MS * 6 + BAND_MS + 240; // total + pad for safety
+/** FINAL STAIRCASE TIMING — no overlap (each band finishes before the next starts) */
+const BAND_MS    = 360;              // grow time per band (snappy)
+const GAP_MS     = 80;               // tiny pause between bands
+const STAGGER_MS = BAND_MS + GAP_MS; // step between bands (no overlap)
+const CASCADE_MS = STAGGER_MS * 6 + BAND_MS + 240; // total incl. safety pad
 
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
@@ -37,29 +37,38 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Chakra Staircase (Red → Violet), tight glare, veil pre-fade to avoid flicker */
+/** Chakra Staircase (Red → Violet) — bright, glossy, black underlay + screen bloom */
 function CascadeOverlay() {
   const [veilOp, setVeilOp] = useState(0);
 
   useEffect(() => {
-    // Start the white veil just before the last band finishes
+    // Start the white veil right before the last band finishes to avoid wash/flicker
     const lead = setTimeout(
       () => setVeilOp(1),
       STAGGER_MS * 6 + Math.max(0, BAND_MS - 120)
     );
-    // Safety: ensure veil is on by the very end
-    const end = setTimeout(() => setVeilOp(1), CASCADE_MS);
+    const end  = setTimeout(() => setVeilOp(1), CASCADE_MS); // safety
     return () => { clearTimeout(lead); clearTimeout(end); };
   }, []);
 
   return createPortal(
     <>
-      {/* Fixed 7-column grid — no sweeping transform */}
+      {/* BLACK underlay so colors/bloom pop regardless of page theme */}
+      <div
+        aria-hidden="true"
+        style={{
+          position:'fixed', inset:0, background:'#000',
+          zIndex:9998, pointerEvents:'none'
+        }}
+      />
+
+      {/* Fixed 7-col grid (no sweeping transform). Isolated so blending stays inside */}
       <div
         aria-hidden="true"
         style={{
           position:'fixed', inset:0, zIndex:9999, pointerEvents:'none',
-          display:'grid', gridTemplateColumns:'repeat(7,1fr)', overflow:'hidden'
+          display:'grid', gridTemplateColumns:'repeat(7,1fr)', overflow:'hidden',
+          isolation:'isolate', willChange:'transform,opacity'
         }}
       >
         {/* RED → ORANGE → YELLOW → GREEN → BLUE → INDIGO → VIOLET */}
@@ -72,7 +81,7 @@ function CascadeOverlay() {
         <div className="chakra-band c-violet" style={{ ['--d']: 6 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
       </div>
 
-      {/* White veil (pre-fades before last band completes) */}
+      {/* White veil (appears at the very end) */}
       <div
         aria-hidden="true"
         style={{
@@ -82,32 +91,37 @@ function CascadeOverlay() {
       />
 
       <style jsx global>{`
-        /* Growth from left, zero-overlap, bright and glossy */
+        /* Glossy staircase: left-origin growth + neon + screen-bloom */
         .chakra-band{
           position:relative; height:100%;
           transform-origin:left center;
           transform: scaleX(0.001); opacity:0;
           animation: bandGrow var(--band,360ms) cubic-bezier(.25,.9,.25,1) forwards;
           animation-delay: var(--d,0ms);
-          filter: saturate(1.22) brightness(1.08) contrast(1.08);
+          filter: saturate(1.26) brightness(1.08) contrast(1.10);
         }
+        /* Inner neon (inset) */
         .chakra-band::before{
           content:""; position:absolute; inset:0;
           box-shadow:
-            inset 0 0 120px rgba(255,255,255,.46),
-            inset 0 0 260px rgba(255,255,255,.30),
-            inset 0 0 420px rgba(255,255,255,.20);
+            inset 0 0 140px rgba(255,255,255,.55),
+            inset 0 0 300px rgba(255,255,255,.30),
+            inset 0 0 460px rgba(255,255,255,.20);
           pointer-events:none;
         }
-        /* Tight, fast internal glare for the glossy pop */
+        /* External bloom that adds light — uses screen blend on black underlay */
         .chakra-band::after{
-          content:""; position:absolute; top:0; bottom:0; left:0; width:18%;
-          background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.92) 70%, #fff 100%);
-          filter: blur(0.9px);
-          transform: translateX(-24%) scaleX(.58);
-          opacity:0;
-          animation: preFlash var(--band,360ms) cubic-bezier(.25,.9,.25,1) forwards;
-          animation-delay: calc(var(--d,0ms) + 60ms);
+          content:""; position:absolute; inset:-8px; border-radius:2px;
+          background: radial-gradient(120% 60% at 5% 50%,
+                      rgba(255,255,255,.90) 0%,
+                      rgba(255,255,255,.45) 28%,
+                      rgba(255,255,255,.08) 62%,
+                      rgba(255,255,255,0) 100%);
+          filter: blur(10px);
+          opacity:.65;
+          mix-blend-mode: screen;
+          animation: bloomIn var(--band,360ms) ease-out forwards;
+          animation-delay: var(--d,0ms);
         }
 
         @keyframes bandGrow{
@@ -115,23 +129,24 @@ function CascadeOverlay() {
           18%  { opacity: 1; }
           100% { transform: scaleX(1);     opacity: 1; }
         }
-        @keyframes preFlash{
-          0%   { opacity:0; transform: translateX(-24%) scaleX(.58); }
-          18%  { opacity:1; }
-          100% { opacity:0; transform: translateX(92%) scaleX(.72); }
+        @keyframes bloomIn{
+          0%   { opacity:0; filter: blur(18px); }
+          40%  { opacity:.75; }
+          100% { opacity:.65; filter: blur(10px); }
         }
 
-        /* Chakra colors — left to right */
-        .c-red    { background:#ef4444; }  /* root */
-        .c-orange { background:#f97316; }  /* sacral */
-        .c-yellow { background:#facc15; }  /* solar plexus */
-        .c-green  { background:#22c55e; }  /* heart */
-        .c-blue   { background:#3b82f6; }  /* throat */
-        .c-indigo { background:#4f46e5; }  /* third eye */
-        .c-violet { background:#c084fc; }  /* crown */
+        /* Chakra colors — sRGB fallback + P3 for richer displays */
+        .c-red   { background:#ef4444;    background: color(display-p3 0.94 0.27 0.27); } /* root */
+        .c-orange{ background:#f97316;    background: color(display-p3 0.97 0.48 0.16); } /* sacral */
+        .c-yellow{ background:#facc15;    background: color(display-p3 0.98 0.82 0.19); } /* solar */
+        .c-green { background:#22c55e;    background: color(display-p3 0.35 0.78 0.47); } /* heart */
+        .c-blue  { background:#3b82f6;    background: color(display-p3 0.30 0.58 0.96); } /* throat */
+        .c-indigo{ background:#4f46e5;    background: color(display-p3 0.41 0.39 0.90); } /* third eye */
+        .c-violet{ background:#c084fc;    background: color(display-p3 0.79 0.52 0.98); } /* crown */
 
         @media (prefers-reduced-motion: reduce){
           .chakra-band{ animation:none; transform:none; opacity:1; }
+          .chakra-band::after{ animation:none; opacity:.5; }
         }
       `}</style>
     </>,
@@ -202,7 +217,7 @@ export default function BannedLogin({ onProceed }) {
     return () => clearTimeout(t);
   }, [onProceed, router]);
 
-  const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
+  const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onOrbActivate = useCallback(() => { onBypass(); }, [onBypass]);
 
