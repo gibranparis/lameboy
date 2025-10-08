@@ -12,14 +12,10 @@ import { useRouter } from 'next/navigation';
 
 const HOP_PATH = '/shop'; // fallback if parent doesn't provide onProceed
 
-/** Duration math for the staircase:
- *  - Each band grows for BAND_MS
- *  - Each next band waits STAGGER_MS
- *  - Total ~= BAND_MS + STAGGER_MS*(7-1)
- */
-const BAND_MS     = 520;   // growth per band
-const STAGGER_MS  = 220;   // delay between bands
-const CASCADE_MS  = BAND_MS + STAGGER_MS * 6 + 280; // pad a touch so veil syncs
+/** Staircase timing (tile-in, one band at a time) */
+const BAND_MS    = 420;  // growth per band (snappy)
+const STAGGER_MS = 160;  // delay between bands
+const CASCADE_MS = BAND_MS + STAGGER_MS * 6 + 300; // total incl. a small pad
 
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
@@ -40,67 +36,82 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Chakra Staircase Cascade (tile-in, red → violet). */
+/** Chakra Staircase Cascade (Red → Violet) with per-band pre-flash */
 function CascadeOverlay() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // end veil timing matches the total animation length
     const t = setTimeout(() => setDone(true), CASCADE_MS);
     return () => clearTimeout(t);
   }, []);
 
   return createPortal(
     <>
-      {/* Bands grid — fixed, no horizontal sweep */}
+      {/* Fixed grid, no sweep */}
       <div
         aria-hidden="true"
         style={{
-          position:'fixed', inset:0, zIndex:9999, pointerEvents:'none', overflow:'hidden',
-          display:'grid', gridTemplateColumns:'repeat(7,1fr)'
+          position:'fixed', inset:0, zIndex:9999, pointerEvents:'none',
+          display:'grid', gridTemplateColumns:'repeat(7,1fr)', overflow:'hidden'
         }}
       >
         {/* RED → ORANGE → YELLOW → GREEN → BLUE → INDIGO → VIOLET */}
-        <div className="chakra-band c-red"    style={{ ['--d']: 0 * STAGGER_MS + 'ms' }} />
-        <div className="chakra-band c-orange" style={{ ['--d']: 1 * STAGGER_MS + 'ms' }} />
-        <div className="chakra-band c-yellow" style={{ ['--d']: 2 * STAGGER_MS + 'ms' }} />
-        <div className="chakra-band c-green"  style={{ ['--d']: 3 * STAGGER_MS + 'ms' }} />
-        <div className="chakra-band c-blue"   style={{ ['--d']: 4 * STAGGER_MS + 'ms' }} />
-        <div className="chakra-band c-indigo" style={{ ['--d']: 5 * STAGGER_MS + 'ms' }} />
-        <div className="chakra-band c-violet" style={{ ['--d']: 6 * STAGGER_MS + 'ms' }} />
+        <div className="chakra-band c-red"    style={{ ['--d']: 0 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
+        <div className="chakra-band c-orange" style={{ ['--d']: 1 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
+        <div className="chakra-band c-yellow" style={{ ['--d']: 2 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
+        <div className="chakra-band c-green"  style={{ ['--d']: 3 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
+        <div className="chakra-band c-blue"   style={{ ['--d']: 4 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
+        <div className="chakra-band c-indigo" style={{ ['--d']: 5 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
+        <div className="chakra-band c-violet" style={{ ['--d']: 6 * STAGGER_MS + 'ms', ['--band']: BAND_MS+'ms' }} />
       </div>
 
-      {/* Final white veil snaps on at end so no black flash before shop renders */}
+      {/* Snap white veil at end to avoid any black flash */}
       <div
         aria-hidden="true"
         style={{
           position:'fixed', inset:0, zIndex:10000, background:'#fff',
-          opacity: done ? 1 : 0, transition:'opacity .001s linear',
-          pointerEvents:'none'
+          opacity: done ? 1 : 0, transition:'opacity .001s linear', pointerEvents:'none'
         }}
       />
 
       <style jsx global>{`
-        /* Core band styling: grow from LEFT (tile-in), with intense inner glow */
+        /* Left-origin growth with punchy neon + per-band white pre-flash */
         .chakra-band{
           position:relative; height:100%;
           transform-origin:left center;
           transform: scaleX(0.04); opacity:0;
-          animation: bandGrow ${BAND_MS}ms cubic-bezier(.22,.61,.21,.99) forwards;
-          animation-delay: var(--d, 0ms);
-          filter: saturate(1.18) brightness(1.06);
+          animation: bandGrow var(--band,420ms) cubic-bezier(.22,.61,.21,.99) forwards;
+          animation-delay: var(--d,0ms);
+          filter: saturate(1.24) brightness(1.07) contrast(1.08);
         }
         .chakra-band::before{
           content:""; position:absolute; inset:0;
-          /* Inner “neon” glow for punch */
-          box-shadow: inset 0 0 120px rgba(255,255,255,.38),
-                      inset 0 0 220px rgba(255,255,255,.28);
+          box-shadow:
+            inset 0 0 130px rgba(255,255,255,.45),
+            inset 0 0 260px rgba(255,255,255,.30),
+            inset 0 0 420px rgba(255,255,255,.22);
           pointer-events:none;
         }
+        /* per-band glare sweeping inside the tile */
+        .chakra-band::after{
+          content:""; position:absolute; top:0; bottom:0; left:0; width:22%;
+          background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.85) 70%, #fff 100%);
+          filter: blur(1.2px);
+          transform: translateX(-24%) scaleX(.6);
+          opacity:0;
+          animation: preFlash var(--band,420ms) cubic-bezier(.22,.61,.21,.99) forwards;
+          animation-delay: calc(var(--d,0ms) + 80ms);
+        }
+
         @keyframes bandGrow{
           0%   { transform: scaleX(0.04); opacity: 0; }
-          28%  { opacity: 1; }
+          20%  { opacity: 1; }
           100% { transform: scaleX(1);   opacity: 1; }
+        }
+        @keyframes preFlash{
+          0%   { opacity:0; transform: translateX(-24%) scaleX(.6); }
+          20%  { opacity:.95; }
+          100% { opacity:0; transform: translateX(88%) scaleX(.8); }
         }
 
         /* Chakra colors — left to right */
