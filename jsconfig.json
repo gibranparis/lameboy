@@ -1,12 +1,25 @@
 {
   "compilerOptions": {
-    "checkJs": false,          // Gradual: off by default
+    /* JS + JSDoc type-checking */
     "allowJs": true,
+    "checkJs": true,              // turn on JSDoc type checking
+    "strict": true,
+
+    /* React / DOM */
     "jsx": "react-jsx",
     "target": "ES2021",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+
+    /* Modern bundling */
     "moduleResolution": "Bundler",
     "skipLibCheck": true,
-    "strict": true
+    "noEmit": true,
+
+    /* Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", ".next"]
