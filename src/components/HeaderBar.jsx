@@ -2,31 +2,33 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import ChakraOrbButton from '@/components/ChakraOrbButton';
+import ChakraOrbButton from '@/components/ChakraOrbButton'; // the tight wrapper around the canvas
 import DayNightToggle from '@/components/DayNightToggle';
 import CartButton from '@/components/CartButton';
 
 export default function HeaderBar({
   rootSelector = '[data-shop-root]',
-  controlSize = 48, // one canonical size for orb & toggle
+  ctrlHeight = 36,  // <— one source of truth for control row height
 }) {
   const [isNight, setIsNight] = useState(false);
 
-  // restore theme (or system preference)
+  // restore theme or prefer system
   useEffect(() => {
     try {
       const saved = localStorage.getItem('lb:theme');
       if (saved === 'night' || saved === 'day') {
         setIsNight(saved === 'night');
-      } else {
-        setIsNight(!!window.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
+        return;
       }
+      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+      setIsNight(!!prefersDark);
     } catch {}
   }, []);
 
-  // apply to the shop root + persist
+  // apply data attributes for shop theming
   useEffect(() => {
-    const root = document.querySelector(rootSelector) || document.documentElement;
+    const root = document.querySelector(rootSelector);
+    if (!root) return;
     root.setAttribute('data-mode', 'shop');
     root.setAttribute('data-theme', isNight ? 'night' : 'day');
     try { localStorage.setItem('lb:theme', isNight ? 'night' : 'day'); } catch {}
@@ -35,30 +37,32 @@ export default function HeaderBar({
   return (
     <header
       role="banner"
-      className="w-full px-4 pt-3 pb-1"
+      className="w-full"
       style={{
         display: 'grid',
         gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center',
+        padding: '10px 12px 6px',
+        // no implicit min-height; controls define their own size
       }}
     >
-      {/* LEFT: orb */}
+      {/* LEFT: orb (tight real size; no invisible padding) */}
       <div className="flex items-center gap-2">
-        <ChakraOrbButton size={controlSize} />
+        <ChakraOrbButton size={ctrlHeight} />
       </div>
 
-      {/* CENTER: toggle */}
+      {/* CENTER: toggle – explicit height keeps track/knob exact */}
       <div className="flex justify-center">
         <DayNightToggle
-          size={controlSize}
+          track={ctrlHeight}
           value={isNight ? 'night' : 'day'}
           onChange={(t) => setIsNight(t === 'night')}
-          moonSrcs={['/moon-red.png', '/moon-blue.png']}
+          moonChoices={['/moon-red.png','/moon-blue.png']}
         />
       </div>
 
       {/* RIGHT: cart */}
-      <div className="justify-self-end">
+      <div className="justify-self-end" style={{ height: ctrlHeight, display:'grid', placeItems:'center' }}>
         <CartButton />
       </div>
     </header>
