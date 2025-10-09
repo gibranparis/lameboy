@@ -1,56 +1,87 @@
 // src/components/CartButton.jsx
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import Image from 'next/image';
-import { useCart } from '@/contexts/CartContext';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-export default function CartButton({ inHeader = false, className = '' }) {
-  const { count } = useCart?.() || { count: 0 };
-  const [bump, setBump] = useState(false);
+const BIRKINS = [
+  '/shop/birkin-1.png',
+  '/shop/birkin-2.png',
+  '/shop/birkin-3.png',
+];
 
-  // Choose one Birkin at random on first mount (client-only component)
-  const src = useMemo(() => {
-    const options = [
-      '/cart/birkin-green.png',
-      '/cart/birkin-sky.png',
-      '/cart/birkin-royal.png',
-    ];
-    return options[Math.floor(Math.random() * options.length)];
+export default function CartButton({
+  size = 36,                    // same height as toggle/orb
+  title = 'Open cart',
+  onClick,
+  badge = 0,
+  className = '',
+  style = {},
+}) {
+  // preload & pick one once
+  const [src, setSrc] = useState(BIRKINS[0]);
+  const picked = useRef(false);
+  useEffect(() => {
+    BIRKINS.forEach(s => { const i = new Image(); i.src = s; i.decoding = 'async'; });
+    if (!picked.current) {
+      picked.current = true;
+      const one = BIRKINS[Math.floor(Math.random() * BIRKINS.length)] ?? BIRKINS[0];
+      setSrc(one);
+    }
   }, []);
 
-  const onClick = () => {
-    setBump(true);
-    setTimeout(() => setBump(false), 350);
-  };
+  const box = useMemo(() => Math.max(28, Math.round(size)), [size]);
 
   return (
     <button
-      type="button"
-      aria-label="Open cart"
-      title="Cart"
+      aria-label={title}
+      className={className}
       onClick={onClick}
-      className={[
-        'cart-fab',        // base style (keeps it on same plane as orb/toggle)
-        bump ? 'bump' : '',
-        className,
-      ].join(' ')}
-      style={inHeader ? {} : {}}
+      style={{
+        contain:'layout size paint',
+        position:'relative',
+        display:'inline-grid',
+        placeItems:'center',
+        width: box, height: box,
+        padding: 0, margin: 0, lineHeight: 0,
+        background:'transparent', border:'none', cursor:'pointer',
+        ...style,
+      }}
     >
-      {/* Birkin image (transparent PNG) */}
-      <span className="cart-img-wrap" aria-hidden="true">
-        <Image
+      <span
+        style={{
+          width:'100%', height:'100%', aspectRatio:'1 / 1', lineHeight:0,
+          display:'grid', placeItems:'center',
+        }}
+      >
+        <img
           src={src}
-          alt=""           // decorative (button has label)
-          width={48}
-          height={48}
-          priority={false}
+          alt=""
+          width={box}
+          height={box}
+          decoding="async"
           draggable={false}
+          style={{
+            display:'block',
+            width:'100%', height:'100%',
+            objectFit:'contain',
+            imageRendering:'auto',
+            filter:'saturate(1.0)',
+          }}
         />
       </span>
 
-      {/* badge */}
-      {count > 0 && <span className="cart-badge">{count}</span>}
+      {badge > 0 && (
+        <span
+          style={{
+            position:'absolute', top:-6, right:-6,
+            minWidth:18, height:18, padding:'0 5px',
+            borderRadius:999, fontSize:11, lineHeight:'18px', textAlign:'center',
+            color:'#000', background:'#0bf05f', boxShadow:'0 0 0 1px rgba(0,0,0,.25)',
+          }}
+        >
+          {badge}
+        </span>
+      )}
     </button>
   );
 }
