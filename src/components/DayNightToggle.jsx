@@ -11,16 +11,41 @@ export default function DayNightToggle({
   className = '',
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
-  size = 48,                     // visual height of the switch in px
-  moonSrc = '/moon-night.png',   // <== put your moon in /public as this filename
+  size = 48,                     // visual height (px) for the whole switch
+  // NEW: pool of moon images to choose from at random (like the Birkins)
+  moonSrcs = ['/toggle/moon-red.png', '/toggle/moon-blue.png'],
+  // Back-compat: if you pass moonSrc, it will override randomization
+  moonSrc,                       /** @type {string | undefined} */
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
 
-  /** @type {[Theme, (t: Theme)=>void]} */
+  /** internal theme when uncontrolled */
   // @ts-ignore
-  const [internal, setInternal] = useState(/** @type {Theme} */('day'));
+  const [internal, setInternal] = useState/** @type {Theme} */('day');
   const theme = (isControlled ? value : internal) ?? 'day';
   const isNight = theme === 'night';
+
+  /** pick a moon image once per page load (sticky until full reload) */
+  const [chosenMoon, setChosenMoon] = useState(() => (moonSrc ?? moonSrcs[0]));
+  useEffect(() => {
+    if (moonSrc) { setChosenMoon(moonSrc); return; } // explicit override
+    try {
+      const key = 'lb:moon-src';
+      const cached = sessionStorage.getItem(key);
+      if (cached) setChosenMoon(cached);
+      else {
+        const pool = Array.isArray(moonSrcs) && moonSrcs.length ? moonSrcs : ['/toggle/moon-red.png', '/toggle/moon-blue.png'];
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        setChosenMoon(pick);
+        sessionStorage.setItem(key, pick);
+      }
+    } catch {
+      // storage blocked? still pick something
+      const pool = Array.isArray(moonSrcs) && moonSrcs.length ? moonSrcs : ['/toggle/moon-red.png', '/toggle/moon-blue.png'];
+      setChosenMoon(pool[Math.floor(Math.random() * pool.length)]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moonSrc]);
 
   // boot: read localStorage when uncontrolled
   useEffect(() => {
@@ -29,7 +54,6 @@ export default function DayNightToggle({
       const initial = stored === 'night' || stored === 'day' ? stored : 'day';
       setInternal(/** @type {Theme} */(initial));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isControlled]);
 
   // reflect on <html> + localStorage
@@ -39,7 +63,6 @@ export default function DayNightToggle({
     root.dataset.theme = theme;
     root.classList.toggle('dark', isNight);
     try { localStorage.setItem(THEME_KEY, theme); } catch {}
-    // notify listeners
     try { window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme } })); } catch {}
   }, [theme, isNight]);
 
@@ -49,7 +72,7 @@ export default function DayNightToggle({
   }
   function toggle() { setTheme(isNight ? 'day' : 'night'); }
 
-  // sizes derived from height (keeps nice proportions)
+  // sizes derived from height (keeps nice proportions no matter what)
   const dims = useMemo(() => {
     const h = Math.max(36, size);
     const w = Math.round(h * (64 / 36)); // original 64×36 track ratio
@@ -59,10 +82,9 @@ export default function DayNightToggle({
     return { h, w, knob, inset, shift };
   }, [size]);
 
-  // unique ids for gradients & clipPaths (no collisions)
+  // unique ids for gradients
   const uid = useId();
   const dayBgId = `dayBg-${uid}`;
-  const starId  = `stars-${uid}`;
 
   return (
     <button
@@ -70,6 +92,7 @@ export default function DayNightToggle({
       aria-label="Toggle day / night"
       role="switch"
       aria-checked={isNight}
+      id="lb-daynight"
       className={className}
       style={{
         position: 'relative',
@@ -86,22 +109,14 @@ export default function DayNightToggle({
         isolation: 'isolate',
       }}
     >
-      {/* TRACK DECOR */}
-      {/* Day sky gradient via tiny inline SVG background */}
-      <svg
-        aria-hidden
-        width="0" height="0" style={{ position:'absolute' }}
-      >
+      {/* tiny defs for day gradient */}
+      <svg aria-hidden width="0" height="0" style={{ position:'absolute' }}>
         <defs>
           <linearGradient id={dayBgId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"  stopColor="#bfe7ff"/>
             <stop offset="65%" stopColor="#dff4ff"/>
             <stop offset="100%" stopColor="#ffffff"/>
           </linearGradient>
-          {/* a single star symbol reused for constellations */}
-          <symbol id={starId} viewBox="0 0 10 10">
-            <circle cx="5" cy="5" r="1.2" fill="#fff"/>
-          </symbol>
         </defs>
       </svg>
 
@@ -132,41 +147,32 @@ export default function DayNightToggle({
                 background:'#fff',
                 filter:'drop-shadow(0 4px 8px rgba(0,0,0,.10))',
                 opacity:.96,
-                transform:`translateX(0)`,
                 animation:`cloudMove 14s ${c.d}ms ease-in-out infinite alternate`,
               }}
             >
-              <span style={{ content:'', position:'absolute', left:'-24%', top:'10%', width:'42%', height:'58%', background:'#fff', borderRadius:9999 }} />
-              <span style={{ content:'', position:'absolute', right:'-18%', top:'22%', width:'36%', height:'46%', background:'#fff', borderRadius:9999 }} />
+              <span style={{ position:'absolute', left:'-24%', top:'10%', width:'42%', height:'58%', background:'#fff', borderRadius:9999 }} />
+              <span style={{ position:'absolute', right:'-18%', top:'22%', width:'36%', height:'46%', background:'#fff', borderRadius:9999 }} />
             </span>
           ))}
         </span>
       )}
 
-      {/* Night stars / constellations */}
+      {/* Stars (Night only) */}
       {isNight && (
-        <span aria-hidden style={{ position:'absolute', inset:0, opacity:1, transition:'opacity 400ms ease' }}>
-          {/* sprinkle */}
+        <span aria-hidden style={{ position:'absolute', inset:0 }}>
           {[...Array(14)].map((_, i) => {
             const left = [8,16,28,36,44,58,68,78,22,34,52,62,72,86][i];
             const top  = [24,10,34,18,42,22,30,12,52,64,40,70,28,56][i];
-            const delay = (i % 7) * 0.22;
             return (
               <span key={i} style={{
                 position:'absolute',
                 left:`${left}%`, top:`${top}%`,
                 width:2, height:2, borderRadius:2, background:'#fff',
                 boxShadow:'0 0 8px rgba(255,255,255,.9)',
-                animation:`twinkle ${1.8 + (i%5)*0.2}s ease-in-out ${delay}s infinite`,
+                animation:`twinkle ${1.8 + (i%5)*0.2}s ease-in-out ${(i % 7) * .22}s infinite`,
               }}/>
             );
           })}
-          {/* a tiny "constellation" line */}
-          <span style={{
-            position:'absolute', left:'22%', top:'36%',
-            width:'22%', height:1, background:'linear-gradient(90deg, rgba(255,255,255,.0), rgba(255,255,255,.5), rgba(255,255,255,.0))',
-            filter:'drop-shadow(0 0 4px rgba(255,255,255,.6))',
-          }}/>
         </span>
       )}
 
@@ -189,12 +195,12 @@ export default function DayNightToggle({
           overflow: 'hidden',
         }}
       >
-        {/* Sun (full disk) */}
+        {/* Sun disk */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
             opacity: isNight ? 0 : 1, transition:'opacity 180ms ease',
-            filter:'drop-shadow(0 0 18px rgba(255, 210, 80, .65))',
+            filter:'drop-shadow(0 0 18px rgba(255,210,80,.65))',
           }}
         >
           <span
@@ -202,12 +208,12 @@ export default function DayNightToggle({
               width: Math.round(dims.knob * 0.74),
               height: Math.round(dims.knob * 0.74),
               borderRadius:'50%',
-              background: 'radial-gradient(circle at 45% 45%, #fff6c6 0%, #ffd75e 55%, #ffb200 100%)',
+              background:'radial-gradient(circle at 45% 45%, #fff6c6 0%, #ffd75e 55%, #ffb200 100%)',
             }}
           />
         </span>
 
-        {/* Moon image (uses mix-blend to drop black bg if present) */}
+        {/* Moon (random PNG) */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -215,16 +221,15 @@ export default function DayNightToggle({
           }}
         >
           <img
-            src={moonSrc}
+            src={chosenMoon}
             alt=""
             style={{
               width: Math.round(dims.knob * 0.78),
               height: Math.round(dims.knob * 0.78),
               borderRadius:'50%',
               objectFit:'cover',
-              // If your moon has black background, this makes black disappear on dark knob:
-              mixBlendMode: 'screen',
-              filter: 'saturate(1.15) brightness(1.02)',
+              mixBlendMode:'screen',                 // hides black backgrounds nicely
+              filter:'saturate(1.1) brightness(1.02)',
             }}
             draggable={false}
           />
@@ -233,7 +238,7 @@ export default function DayNightToggle({
 
       {/* Inline keyframes */}
       <style jsx>{`
-        @keyframes twinkle { 0%,100% { transform: scale(.7); opacity:.7; } 50% { transform: scale(1.1); opacity:1; } }
+        @keyframes twinkle { 0%,100% { transform: scale(.7); opacity:.7; } 50% { transform: scale(1.12); opacity:1; } }
         @keyframes cloudMove { from { transform: translateX(-4%); } to { transform: translateX(6%); } }
       `}</style>
     </button>
