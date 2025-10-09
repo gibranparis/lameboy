@@ -11,9 +11,9 @@ export default function DayNightToggle({
   className = '',
   value,                    /** @type {Theme | undefined} */
   onChange,                 /** @type {(t: Theme) => void | undefined} */
-  track = 36,               // total track height in px (36 => knob 28)
-  // Use your exact file names from /public (Vercel is case-sensitive)
-  moonChoices = ['/IMG_6681.PNG', '/IMG_6682.PNG'],
+  track = 36,               // total track height in px (36 => knob ~28)
+  // your files in /public/toggle
+  moonChoices = ['/toggle/moon-blue.png', '/toggle/moon-red.png'],
 }) {
   const controlled = value !== undefined && typeof onChange === 'function';
 
@@ -33,7 +33,7 @@ export default function DayNightToggle({
       const one = moonChoices[Math.floor(Math.random() * moonChoices.length)] ?? moonChoices[0];
       setMoonSrc(one);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // boot default theme
@@ -79,7 +79,7 @@ export default function DayNightToggle({
       aria-checked={isNight}
       className={className}
       style={{
-        contain: 'layout size paint',       // parents can’t stretch this
+        contain: 'layout size paint',
         position: 'relative',
         display: 'inline-flex',
         flex: 'none',

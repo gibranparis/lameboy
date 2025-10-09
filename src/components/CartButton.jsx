@@ -3,10 +3,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+// your cart images in /public/cart
 const BIRKINS = [
-  '/shop/birkin-1.png',
-  '/shop/birkin-2.png',
-  '/shop/birkin-3.png',
+  '/cart/birkin-green.png',
+  '/cart/birkin-royal.png',
+  '/cart/birkin-sky.png',
 ];
 
 export default function CartButton({
@@ -65,7 +66,6 @@ export default function CartButton({
             width:'100%', height:'100%',
             objectFit:'contain',
             imageRendering:'auto',
-            filter:'saturate(1.0)',
           }}
         />
       </span>
