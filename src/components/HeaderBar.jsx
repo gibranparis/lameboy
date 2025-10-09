@@ -6,9 +6,7 @@ import ChakraOrbButton from '@/components/ChakraOrbButton';
 import DayNightToggle from '@/components/DayNightToggle';
 import CartButton from '@/components/CartButton';
 
-export default function HeaderBar({
-  rootSelector = '[data-shop-root]',
-}) {
+export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
   const [isNight, setIsNight] = useState(false);
 
   // initial theme
@@ -60,7 +58,7 @@ export default function HeaderBar({
       <div className="flex justify-center" id="lb-daynight">
         <DayNightToggle
           className="select-none"
-          track={Math.max(28, ctrlPx - 14)}
+          size={Math.max(28, ctrlPx - 14)}   /* visual height of the switch */
           value={isNight ? 'night' : 'day'}
           onChange={(t) => setIsNight(t === 'night')}
         />

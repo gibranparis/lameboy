@@ -27,7 +27,7 @@
   --shop-offwhite:#F7F7F2;
 
   /* header control height used for vertical alignment (does NOT force width) */
-  --header-ctrl:56px;
+  --header-ctrl:44px;
 }
 
 /* Native UI matches the theme */
@@ -180,10 +180,8 @@ html:has([data-shop-root]) .product-img{
   backface-visibility:hidden;
 }
 
-/* ===== NOTE: removed the old header size overrides that stretched controls =====
-   We DO NOT force width/height on the orb or toggle here. Their React props own size.
-   The only place we use --header-ctrl now is to vertically align the cart button.
-*/
+/* ===== NOTE: no global width/height forcing on orb/toggle =====
+   React components own their box. We only align the cart by height. */
 
 /* ========== Cart (Birkin PNG) =========================================== */
 .cart-fab{
@@ -354,8 +352,8 @@ html:has([data-shop-root]) .product-img{
 
 /* Heavier token weights */
 .code-keyword,.code-var,.code-string,.code-comment{ font-weight:800; }
-:root { --header-ctrl: 44px; } /* adjust here to taste */
 
+/* === Header control sizing (opt-in; keeps orb/toggle boxes tight) ======== */
 :root[data-mode="shop"] header[role="banner"] [data-orb="density"],
 :root[data-mode="shop"] header[role="banner"] [data-orb="density"] canvas {
   width: var(--header-ctrl) !important;
