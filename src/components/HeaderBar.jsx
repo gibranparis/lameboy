@@ -1,28 +1,30 @@
 // src/components/HeaderBar.jsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ChakraOrbButton from '@/components/ChakraOrbButton';
 import DayNightToggle from '@/components/DayNightToggle';
 import CartButton from '@/components/CartButton';
 
 export default function HeaderBar({
   rootSelector = '[data-shop-root]',
-  ctrlHeight = 36, // change this once; orb, toggle, cart will match
 }) {
   const [isNight, setIsNight] = useState(false);
 
+  // initial theme
   useEffect(() => {
     try {
       const saved = localStorage.getItem('lb:theme');
       if (saved === 'night' || saved === 'day') {
-        setIsNight(saved === 'night'); return;
+        setIsNight(saved === 'night');
+      } else {
+        const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+        setIsNight(!!prefersDark);
       }
-      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
-      setIsNight(!!prefersDark);
     } catch {}
   }, []);
 
+  // reflect on root for CSS tokens
   useEffect(() => {
     const root = document.querySelector(rootSelector);
     if (!root) return;
@@ -31,33 +33,44 @@ export default function HeaderBar({
     try { localStorage.setItem('lb:theme', isNight ? 'night' : 'day'); } catch {}
   }, [isNight, rootSelector]);
 
+  // read the control size from CSS var
+  const ctrlPx = useMemo(() => {
+    const r = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || '44px';
+    return parseInt(r, 10) || 44;
+  }, []);
+
   return (
     <header
       role="banner"
-      className="w-full"
+      className="w-full px-4 pt-3 pb-1"
       style={{
-        display:'grid',
-        gridTemplateColumns:'1fr auto 1fr',
-        alignItems:'center',
-        padding:'10px 12px 6px',
-        lineHeight:0, // kill stray line-height expansion
+        display: 'grid',
+        gridTemplateColumns: '1fr auto 1fr',
+        alignItems: 'center',
       }}
     >
-      <div className="flex items-center" style={{ lineHeight:0 }}>
-        <ChakraOrbButton size={ctrlHeight} />
+      {/* LEFT: orb — exact square, no extra hit area */}
+      <div className="flex items-center">
+        <div style={{ height: ctrlPx, width: ctrlPx, display: 'grid', placeItems: 'center' }}>
+          <ChakraOrbButton size={ctrlPx} />
+        </div>
       </div>
 
-      <div className="flex justify-center" style={{ lineHeight:0 }}>
+      {/* CENTER: toggle — track height set to (ctrlPx - 14) to match circle */}
+      <div className="flex justify-center" id="lb-daynight">
         <DayNightToggle
-          track={ctrlHeight}
+          className="select-none"
+          track={Math.max(28, ctrlPx - 14)}
           value={isNight ? 'night' : 'day'}
           onChange={(t) => setIsNight(t === 'night')}
-          moonChoices={['/IMG_6681.PNG','/IMG_6682.PNG']}
         />
       </div>
 
-      <div className="justify-self-end" style={{ height: ctrlHeight, display:'grid', placeItems:'center', lineHeight:0 }}>
-        <CartButton size={ctrlHeight} />
+      {/* RIGHT: cart — same box as orb */}
+      <div className="justify-self-end">
+        <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
+          <CartButton size={ctrlPx} />
+        </div>
       </div>
     </header>
   );

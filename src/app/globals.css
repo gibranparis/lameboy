@@ -354,3 +354,18 @@ html:has([data-shop-root]) .product-img{
 
 /* Heavier token weights */
 .code-keyword,.code-var,.code-string,.code-comment{ font-weight:800; }
+:root { --header-ctrl: 44px; } /* adjust here to taste */
+
+:root[data-mode="shop"] header[role="banner"] [data-orb="density"],
+:root[data-mode="shop"] header[role="banner"] [data-orb="density"] canvas {
+  width: var(--header-ctrl) !important;
+  height: var(--header-ctrl) !important;
+  max-width: var(--header-ctrl) !important;
+  max-height: var(--header-ctrl) !important;
+}
+
+:root[data-mode="shop"] header[role="banner"] #lb-daynight {
+  height: var(--header-ctrl) !important;
+  display: grid; place-items: center;
+  padding: 0 !important; margin: 0 !important; line-height: 0 !important;
+}
