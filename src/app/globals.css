@@ -26,7 +26,7 @@
   /* shop palette */
   --shop-offwhite:#F7F7F2;
 
-  /* header control size (orb / toggle / cart stay perfectly even) */
+  /* header control height used for vertical alignment (does NOT force width) */
   --header-ctrl:56px;
 }
 
@@ -180,14 +180,10 @@ html:has([data-shop-root]) .product-img{
   backface-visibility:hidden;
 }
 
-/* === Header control sizing alignment (orb | toggle | cart) =============== */
-:root[data-mode="shop"] header[role="banner"] [data-orb="density"],
-:root[data-mode="shop"] header[role="banner"] [data-orb="density"] canvas{
-  width:var(--header-ctrl) !important; height:var(--header-ctrl) !important;
-}
-:root[data-mode="shop"] header[role="banner"] #lb-daynight{
-  height:var(--header-ctrl) !important;
-}
+/* ===== NOTE: removed the old header size overrides that stretched controls =====
+   We DO NOT force width/height on the orb or toggle here. Their React props own size.
+   The only place we use --header-ctrl now is to vertically align the cart button.
+*/
 
 /* ========== Cart (Birkin PNG) =========================================== */
 .cart-fab{
@@ -215,7 +211,7 @@ html:has([data-shop-root]) .product-img{
   box-shadow:0 0 0 1px rgba(0,0,0,.25);
 }
 
-/* Cart alignment in header */
+/* Cart alignment in header (height only; no width forcing) */
 :root[data-mode="shop"] header[role="banner"] .cart-fab{
   position:static !important; width:auto; height:var(--header-ctrl); padding:6px 8px;
   background:transparent !important; border:none !important; box-shadow:none !important;
