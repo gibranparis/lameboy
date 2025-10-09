@@ -25,6 +25,9 @@
 
   /* shop palette */
   --shop-offwhite:#F7F7F2;
+
+  /* header control size (orb / toggle / cart stay perfectly even) */
+  --header-ctrl:56px;
 }
 
 /* Native UI matches the theme */
@@ -131,7 +134,6 @@ html,body{
 .chakra-crown{--c:#faf5ff;background:#ff00c8}
 
 /* ========== Shop grid & hero ============================================ */
-/* >>> KEY: theme tokens apply when <html> has data-mode="shop" <<< */
 :root[data-mode="shop"][data-theme="day"]  { --bg:var(--shop-offwhite); --panel:var(--shop-offwhite); --text:#111; }
 :root[data-mode="shop"][data-theme="night"]{ --bg:#000;               --panel:#000;               --text:#fff; }
 
@@ -149,7 +151,7 @@ html,body{
 }
 :root[data-mode="shop"] header[role="banner"] > *{ align-self:center !important; }
 
-/* Kill stray whites so wrapper color shows */
+/* Nuke stray whites so wrapper color shows */
 :root[data-mode="shop"] .shop-page,
 :root[data-mode="shop"] .shop-wrap,
 :root[data-mode="shop"] .shop-grid,
@@ -178,30 +180,22 @@ html:has([data-shop-root]) .product-img{
   backface-visibility:hidden;
 }
 
-/* Density orb pin & size in header */
+/* === Header control sizing alignment (orb | toggle | cart) =============== */
 :root[data-mode="shop"] header[role="banner"] [data-orb="density"],
 :root[data-mode="shop"] header[role="banner"] [data-orb="density"] canvas{
-  width:56px !important; height:56px !important;
+  width:var(--header-ctrl) !important; height:var(--header-ctrl) !important;
+}
+:root[data-mode="shop"] header[role="banner"] #lb-daynight{
+  height:var(--header-ctrl) !important;
 }
 
-/* Day/Night toggle height alignment */
-:root[data-mode="shop"] header[role="banner"] #lb-daynight{ height:56px !important; }
-
 /* ========== Cart (Birkin PNG) =========================================== */
-/* Base button (same plane as orb/toggle) */
 .cart-fab{
   position:relative;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:48px;
-  height:48px;
-  padding:0;
-  border:0;
-  background:transparent;
-  cursor:pointer;
-  transform:translateZ(0);
-  z-index:20;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:48px; height:48px;
+  padding:0; border:0; background:transparent; cursor:pointer;
+  transform:translateZ(0); z-index:20;
 }
 .cart-fab.bump{ animation:cart-bump 350ms ease; }
 @keyframes cart-bump{
@@ -209,31 +203,21 @@ html:has([data-shop-root]) .product-img{
   30%{transform:translateZ(0) scale(1.08)}
   100%{transform:translateZ(0) scale(1)}
 }
-
-.cart-img-wrap{
-  display:inline-block;
-  width:100%;
-  height:100%;
-  aspect-ratio:1/1;
-  line-height:0;
-}
+.cart-img-wrap{ display:inline-block; width:100%; height:100%; aspect-ratio:1/1; line-height:0; }
 .cart-img-wrap img{ width:100%; height:100%; object-fit:contain; pointer-events:none; }
 
 /* Badge */
 .cart-badge{
-  position:absolute;
-  top:-6px; right:-6px;
+  position:absolute; top:-6px; right:-6px;
   min-width:18px; height:18px; padding:0 5px;
-  border-radius:999px;
-  font-size:11px; line-height:18px; text-align:center;
+  border-radius:999px; font-size:11px; line-height:18px; text-align:center;
   color:#000; background:var(--hover-green, #0bf05f);
   box-shadow:0 0 0 1px rgba(0,0,0,.25);
 }
 
-/* Header sizing + theme color */
+/* Cart alignment in header */
 :root[data-mode="shop"] header[role="banner"] .cart-fab{
-  position:static !important;
-  width:auto; height:56px; padding:6px 8px;
+  position:static !important; width:auto; height:var(--header-ctrl); padding:6px 8px;
   background:transparent !important; border:none !important; box-shadow:none !important;
   display:inline-grid; place-items:center; border-radius:0 !important;
 }
@@ -241,7 +225,7 @@ html:has([data-shop-root]) .product-img{
 :root[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
 :root[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform:translateY(-1px); }
 
-/* Grid & tiles */
+/* ========== Grid & tiles ================================================= */
 .shop-page{ background:#fff; color:#111; min-height:100dvh; }
 .shop-wrap{ padding:86px 24px 24px; }
 .shop-grid{
@@ -347,10 +331,7 @@ html:has([data-shop-root]) .product-img{
 .btn-red:hover{ background: rgba(255,77,79,.18); border-color:#ff4d4f; }
 .btn-activated{ transform: translateY(1px); box-shadow: inset 0 0 0 1px currentColor; }
 
-.banned-trigger{
-  cursor:pointer;
-  text-decoration:none;
-}
+.banned-trigger{ cursor:pointer; text-decoration:none; }
 .banned-trigger:hover,
 .banned-trigger:focus-visible,
 .banned-trigger:active{
@@ -371,8 +352,7 @@ html:has([data-shop-root]) .product-img{
 }
 
 /* Seafoam comment glow */
-.glow-seafoam,
-.lb-seafoam.code-comment{
+.glow-seafoam, .lb-seafoam.code-comment{
   text-shadow: 0 0 10px rgba(46,230,184,.50), 0 0 20px rgba(46,230,184,.35);
 }
 
