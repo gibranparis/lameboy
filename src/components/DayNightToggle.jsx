@@ -7,45 +7,35 @@ import { useEffect, useId, useMemo, useState } from 'react';
 /** @typedef {'day'|'night'} Theme */
 const THEME_KEY = 'theme';
 
+/**
+ * A self-contained day/night switch.
+ * - Fully sized by the `size` prop (visual height, px).
+ * - No reliance on external CSS to avoid layout drift.
+ * - Randomly chooses a moon image from `moonSrcs` on first render.
+ */
 export default function DayNightToggle({
   className = '',
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
-  size = 48,                     // visual height (px) for the whole switch
-  // NEW: pool of moon images to choose from at random (like the Birkins)
-  moonSrcs = ['/toggle/moon-red.png', '/toggle/moon-blue.png'],
-  // Back-compat: if you pass moonSrc, it will override randomization
-  moonSrc,                       /** @type {string | undefined} */
+  size = 48,                     // visual height in px
+  moonSrcs = ['/moon-red.png', '/moon-blue.png'], // put these in /public
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
 
-  /** internal theme when uncontrolled */
+  /** @type {[Theme, (t: Theme)=>void]} */
   // @ts-ignore
   const [internal, setInternal] = useState/** @type {Theme} */('day');
   const theme = (isControlled ? value : internal) ?? 'day';
   const isNight = theme === 'night';
 
-  /** pick a moon image once per page load (sticky until full reload) */
-  const [chosenMoon, setChosenMoon] = useState(() => (moonSrc ?? moonSrcs[0]));
+  // choose a moon once (stable per page load)
+  const [moonSrc, setMoonSrc] = useState(moonSrcs[0]);
   useEffect(() => {
-    if (moonSrc) { setChosenMoon(moonSrc); return; } // explicit override
-    try {
-      const key = 'lb:moon-src';
-      const cached = sessionStorage.getItem(key);
-      if (cached) setChosenMoon(cached);
-      else {
-        const pool = Array.isArray(moonSrcs) && moonSrcs.length ? moonSrcs : ['/toggle/moon-red.png', '/toggle/moon-blue.png'];
-        const pick = pool[Math.floor(Math.random() * pool.length)];
-        setChosenMoon(pick);
-        sessionStorage.setItem(key, pick);
-      }
-    } catch {
-      // storage blocked? still pick something
-      const pool = Array.isArray(moonSrcs) && moonSrcs.length ? moonSrcs : ['/toggle/moon-red.png', '/toggle/moon-blue.png'];
-      setChosenMoon(pool[Math.floor(Math.random() * pool.length)]);
-    }
+    const list = Array.isArray(moonSrcs) && moonSrcs.length ? moonSrcs : [moonSrcs[0]];
+    const pick = list[Math.floor(Math.random() * list.length)];
+    setMoonSrc(pick);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [moonSrc]);
+  }, []);
 
   // boot: read localStorage when uncontrolled
   useEffect(() => {
@@ -54,6 +44,7 @@ export default function DayNightToggle({
       const initial = stored === 'night' || stored === 'day' ? stored : 'day';
       setInternal(/** @type {Theme} */(initial));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isControlled]);
 
   // reflect on <html> + localStorage
@@ -72,17 +63,17 @@ export default function DayNightToggle({
   }
   function toggle() { setTheme(isNight ? 'day' : 'night'); }
 
-  // sizes derived from height (keeps nice proportions no matter what)
+  // sizes derived from height (keeps nice proportions)
   const dims = useMemo(() => {
     const h = Math.max(36, size);
-    const w = Math.round(h * (64 / 36)); // original 64×36 track ratio
+    const w = Math.round(h * (64 / 36)); // 64×36 track ratio
     const knob = Math.round(h * (28 / 36));
     const inset = Math.round(h * (4 / 36));
     const shift = Math.round(w - knob - inset * 2);
     return { h, w, knob, inset, shift };
   }, [size]);
 
-  // unique ids for gradients
+  // unique ids for gradients (no collisions)
   const uid = useId();
   const dayBgId = `dayBg-${uid}`;
 
@@ -92,7 +83,6 @@ export default function DayNightToggle({
       aria-label="Toggle day / night"
       role="switch"
       aria-checked={isNight}
-      id="lb-daynight"
       className={className}
       style={{
         position: 'relative',
@@ -109,7 +99,7 @@ export default function DayNightToggle({
         isolation: 'isolate',
       }}
     >
-      {/* tiny defs for day gradient */}
+      {/* TRACK DECOR */}
       <svg aria-hidden width="0" height="0" style={{ position:'absolute' }}>
         <defs>
           <linearGradient id={dayBgId} x1="0" y1="0" x2="0" y2="1">
@@ -147,6 +137,7 @@ export default function DayNightToggle({
                 background:'#fff',
                 filter:'drop-shadow(0 4px 8px rgba(0,0,0,.10))',
                 opacity:.96,
+                transform:`translateX(0)`,
                 animation:`cloudMove 14s ${c.d}ms ease-in-out infinite alternate`,
               }}
             >
@@ -157,22 +148,28 @@ export default function DayNightToggle({
         </span>
       )}
 
-      {/* Stars (Night only) */}
+      {/* Night stars */}
       {isNight && (
-        <span aria-hidden style={{ position:'absolute', inset:0 }}>
+        <span aria-hidden style={{ position:'absolute', inset:0, opacity:1, transition:'opacity 400ms ease' }}>
           {[...Array(14)].map((_, i) => {
             const left = [8,16,28,36,44,58,68,78,22,34,52,62,72,86][i];
             const top  = [24,10,34,18,42,22,30,12,52,64,40,70,28,56][i];
+            const delay = (i % 7) * 0.22;
             return (
               <span key={i} style={{
                 position:'absolute',
                 left:`${left}%`, top:`${top}%`,
                 width:2, height:2, borderRadius:2, background:'#fff',
                 boxShadow:'0 0 8px rgba(255,255,255,.9)',
-                animation:`twinkle ${1.8 + (i%5)*0.2}s ease-in-out ${(i % 7) * .22}s infinite`,
+                animation:`twinkle ${1.8 + (i%5)*0.2}s ease-in-out ${delay}s infinite`,
               }}/>
             );
           })}
+          <span style={{
+            position:'absolute', left:'22%', top:'36%',
+            width:'22%', height:1, background:'linear-gradient(90deg, rgba(255,255,255,.0), rgba(255,255,255,.5), rgba(255,255,255,.0))',
+            filter:'drop-shadow(0 0 4px rgba(255,255,255,.6))',
+          }}/>
         </span>
       )}
 
@@ -195,12 +192,12 @@ export default function DayNightToggle({
           overflow: 'hidden',
         }}
       >
-        {/* Sun disk */}
+        {/* Sun */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
             opacity: isNight ? 0 : 1, transition:'opacity 180ms ease',
-            filter:'drop-shadow(0 0 18px rgba(255,210,80,.65))',
+            filter:'drop-shadow(0 0 18px rgba(255, 210, 80, .65))',
           }}
         >
           <span
@@ -208,12 +205,12 @@ export default function DayNightToggle({
               width: Math.round(dims.knob * 0.74),
               height: Math.round(dims.knob * 0.74),
               borderRadius:'50%',
-              background:'radial-gradient(circle at 45% 45%, #fff6c6 0%, #ffd75e 55%, #ffb200 100%)',
+              background: 'radial-gradient(circle at 45% 45%, #fff6c6 0%, #ffd75e 55%, #ffb200 100%)',
             }}
           />
         </span>
 
-        {/* Moon (random PNG) */}
+        {/* Moon (random image) */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -221,15 +218,15 @@ export default function DayNightToggle({
           }}
         >
           <img
-            src={chosenMoon}
+            src={moonSrc}
             alt=""
             style={{
               width: Math.round(dims.knob * 0.78),
               height: Math.round(dims.knob * 0.78),
               borderRadius:'50%',
               objectFit:'cover',
-              mixBlendMode:'screen',                 // hides black backgrounds nicely
-              filter:'saturate(1.1) brightness(1.02)',
+              mixBlendMode: 'screen', // make black disappear nicely
+              filter: 'saturate(1.1) brightness(1.02)',
             }}
             draggable={false}
           />
@@ -238,7 +235,7 @@ export default function DayNightToggle({
 
       {/* Inline keyframes */}
       <style jsx>{`
-        @keyframes twinkle { 0%,100% { transform: scale(.7); opacity:.7; } 50% { transform: scale(1.12); opacity:1; } }
+        @keyframes twinkle { 0%,100% { transform: scale(.7); opacity:.7; } 50% { transform: scale(1.1); opacity:1; } }
         @keyframes cloudMove { from { transform: translateX(-4%); } to { transform: translateX(6%); } }
       `}</style>
     </button>

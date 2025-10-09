@@ -2,47 +2,34 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import BlueOrbCross3D from '@/components/BlueOrbCross3D';
+import ChakraOrbButton from '@/components/ChakraOrbButton';
 import DayNightToggle from '@/components/DayNightToggle';
 import CartButton from '@/components/CartButton';
 
-/**
- * Header row for the /shop page.
- * - Left: decorative orb (no pointer events, small square)
- * - Center: Day/Night Toggle (explicit width/height)
- * - Right: CartButton (silhouette; styling is in globals.css)
- *
- * If you already have a theme store/context, replace the local state with it.
- */
 export default function HeaderBar({
   rootSelector = '[data-shop-root]',
-  toggleWidth = 88,
-  toggleHeight = 30,
+  controlSize = 48, // one canonical size for orb & toggle
 }) {
   const [isNight, setIsNight] = useState(false);
 
-  // Restore theme from localStorage (optional) and honor system preference on first load
+  // restore theme (or system preference)
   useEffect(() => {
     try {
       const saved = localStorage.getItem('lb:theme');
       if (saved === 'night' || saved === 'day') {
         setIsNight(saved === 'night');
-        return;
+      } else {
+        setIsNight(!!window.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
       }
-      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
-      setIsNight(!!prefersDark);
     } catch {}
   }, []);
 
-  // Apply data attributes to the unified shop root so CSS tokens take effect
+  // apply to the shop root + persist
   useEffect(() => {
-    const root = document.querySelector(rootSelector);
-    if (!root) return;
+    const root = document.querySelector(rootSelector) || document.documentElement;
     root.setAttribute('data-mode', 'shop');
     root.setAttribute('data-theme', isNight ? 'night' : 'day');
-    try {
-      localStorage.setItem('lb:theme', isNight ? 'night' : 'day');
-    } catch {}
+    try { localStorage.setItem('lb:theme', isNight ? 'night' : 'day'); } catch {}
   }, [isNight, rootSelector]);
 
   return (
@@ -55,22 +42,22 @@ export default function HeaderBar({
         alignItems: 'center',
       }}
     >
-      {/* LEFT: decorative orb (small, non-interactive) */}
+      {/* LEFT: orb */}
       <div className="flex items-center gap-2">
-        <BlueOrbCross3D height="28px" />
+        <ChakraOrbButton size={controlSize} />
       </div>
 
-      {/* CENTER: toggle (explicit size so it never “inherits” the orb’s footprint) */}
+      {/* CENTER: toggle */}
       <div className="flex justify-center">
         <DayNightToggle
-          width={toggleWidth}
-          height={toggleHeight}
-          isNight={isNight}
-          onToggle={() => setIsNight(v => !v)}
+          size={controlSize}
+          value={isNight ? 'night' : 'day'}
+          onChange={(t) => setIsNight(t === 'night')}
+          moonSrcs={['/moon-red.png', '/moon-blue.png']}
         />
       </div>
 
-      {/* RIGHT: cart (silhouette; globals.css handles theme colors) */}
+      {/* RIGHT: cart */}
       <div className="justify-self-end">
         <CartButton />
       </div>
