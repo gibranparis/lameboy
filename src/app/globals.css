@@ -26,7 +26,7 @@
   /* shop palette */
   --shop-offwhite:#F7F7F2;
 
-  /* header control height used for vertical alignment (does NOT force width) */
+  /* Align header controls vertically; we do NOT force their width. */
   --header-ctrl:44px;
 }
 
@@ -151,7 +151,7 @@ html,body{
 }
 :root[data-mode="shop"] header[role="banner"] > *{ align-self:center !important; }
 
-/* Nuke stray whites so wrapper color shows */
+/* Remove stray whites so wrapper color shows */
 :root[data-mode="shop"] .shop-page,
 :root[data-mode="shop"] .shop-wrap,
 :root[data-mode="shop"] .shop-grid,
@@ -180,9 +180,6 @@ html:has([data-shop-root]) .product-img{
   backface-visibility:hidden;
 }
 
-/* ===== NOTE: no global width/height forcing on orb/toggle =====
-   React components own their box. We only align the cart by height. */
-
 /* ========== Cart (Birkin PNG) =========================================== */
 .cart-fab{
   position:relative;
@@ -209,7 +206,7 @@ html:has([data-shop-root]) .product-img{
   box-shadow:0 0 0 1px rgba(0,0,0,.25);
 }
 
-/* Cart alignment in header (height only; no width forcing) */
+/* Cart alignment in header (height only; does NOT stretch siblings) */
 :root[data-mode="shop"] header[role="banner"] .cart-fab{
   position:static !important; width:auto; height:var(--header-ctrl); padding:6px 8px;
   background:transparent !important; border:none !important; box-shadow:none !important;
@@ -256,6 +253,8 @@ html:has([data-shop-root]) .product-img{
 .lb-tile + .lb-tile{ box-shadow:-1px 0 0 rgba(255,255,255,.06) inset; }
 
 /* ========== Day ↔ Night toggle skin (decor) ============================== */
+/* These styles are only the generic “skin” helpers; the component renders
+   its clouds & stars inline, so we avoid overrides that could hide them. */
 .lb-switch{
   position:relative; display:inline-flex; align-items:center;
   padding:0; margin:0; border:1px solid rgba(0,0,0,.14);
@@ -266,50 +265,15 @@ html:has([data-shop-root]) .product-img{
 }
 .lb-switch:focus-visible{ outline:2px solid #4aa5ff; outline-offset:3px; }
 
-.lb-switch-bg{
-  position:absolute; inset:0; border-radius:999px; overflow:hidden;
-  background:linear-gradient(180deg, #bfe7ff 0%, #dff4ff 60%, #ffffff 100%);
-  transition:transform .45s ease, opacity .45s ease, filter .45s ease;
-}
-[data-theme="night"] .lb-switch .lb-switch-bg{
-  background:radial-gradient(120% 120% at 30% 30%, #1a1a2b 0%, #0b0b14 55%, #000 100%);
-}
-
-.lb-switch-decor{ position:absolute; inset:0; border-radius:999px; overflow:hidden; pointer-events:none; }
-.lb-switch-decor .cloud{
-  position:absolute; background:#fff; filter:drop-shadow(0 3px 6px rgba(0,0,0,.08));
-  border-radius:999px; opacity:.95; transition:transform .45s ease, opacity .45s ease;
-}
-.lb-switch-decor .cloud::before,.lb-switch-decor .cloud::after{ content:""; position:absolute; background:#fff; border-radius:999px; }
-.lb-switch-decor .c1{ left:10%; top:22%; width:32%; height:36%; }
-.lb-switch-decor .c1::before{ left:-20%; top:18%; width:45%; height:55%; }
-.lb-switch-decor .c1::after { right:-18%; top:30%; width:38%; height:48%; }
-.lb-switch-decor .c2{ left:54%; top:52%; width:26%; height:28%; opacity:.9; }
-.lb-switch-decor .c2::before{ left:-24%; top:8%; width:40%; height:58%; }
-.lb-switch-decor .c2::after { right:-18%; top:20%; width:34%; height:44%; }
-.lb-switch-decor .c3{ left:36%; top:12%; width:18%; height:22%; opacity:.92; }
-.lb-switch-decor .c3::before{ left:-28%; top:10%; width:32%; height:44%; }
-.lb-switch-decor .c3::after { right:-20%; top:26%; width:28%; height:38%; }
-
-.lb-switch-decor .stars{ position:absolute; inset:0; opacity:0; transition:opacity .45s ease; }
-.lb-switch-decor .stars .s{
-  position:absolute; width:2px; height:2px; background:#fff; border-radius:2px;
-  box-shadow:0 0 8px rgba(255,255,255,.85);
-  animation:twinkle 1.8s ease-in-out infinite;
-}
-@keyframes twinkle{ 0%,100%{ transform:scale(.7); opacity:.7; } 50%{ transform:scale(1.15); opacity:1; } }
-.lb-switch-decor .stars .s1{ left:18%; top:22%; animation-delay:.0s }
-.s2{ left:30%; top:64%; animation-delay:.25s } .s3{ left:46%; top:36%; animation-delay:.4s }
-.s4{ left:60%; top:18%; animation-delay:.65s } .s5{ left:72%; top:54%; animation-delay:.9s }
-.s6{ left:82%; top:30%; animation-delay:1.1s } .s7{ left:12%; top:58%; animation-delay:1.35s }
-.s8{ left:40%; top:72%; animation-delay:1.5s } .s9{ left:52%; top:12%; animation-delay:1.7s }
-.s10{ left:66%; top:40%; animation-delay:1.85s } .s11{ left:78%; top:68%; animation-delay:2.0s }
-.s12{ left:24%; top:34%; animation-delay:2.15s }
-
 /* ========== Header orb / click-through ================================== */
+/* Make the orb’s DOM hit box exactly match the visible disk. */
 [data-orb="density"]{
   padding:0 !important; margin:0 !important; border:0 !important;
   background:transparent !important; line-height:0 !important;
+  border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
+}
+[data-orb="density"], [data-orb="density"] *{
+  outline:0 !important; box-shadow:none !important;
 }
 [data-orb="density"] canvas{ display:block; pointer-events:auto; }
 
@@ -353,17 +317,9 @@ html:has([data-shop-root]) .product-img{
 /* Heavier token weights */
 .code-keyword,.code-var,.code-string,.code-comment{ font-weight:800; }
 
-/* === Header control sizing (opt-in; keeps orb/toggle boxes tight) ======== */
-:root[data-mode="shop"] header[role="banner"] [data-orb="density"],
-:root[data-mode="shop"] header[role="banner"] [data-orb="density"] canvas {
-  width: var(--header-ctrl) !important;
-  height: var(--header-ctrl) !important;
-  max-width: var(--header-ctrl) !important;
-  max-height: var(--header-ctrl) !important;
-}
-
-:root[data-mode="shop"] header[role="banner"] #lb-daynight {
-  height: var(--header-ctrl) !important;
-  display: grid; place-items: center;
-  padding: 0 !important; margin: 0 !important; line-height: 0 !important;
+/* === Header control helpers (no stretching) ============================== */
+:root[data-mode="shop"] header[role="banner"] #lb-daynight{
+  /* Just center the toggle; don’t pin a height so the component owns its size */
+  display:grid; place-items:center;
+  padding:0 !important; margin:0 !important; line-height:0 !important;
 }
