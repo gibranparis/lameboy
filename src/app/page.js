@@ -13,9 +13,9 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-/** Visual alignment */
-const CONTROL_H       = 44;   // header control square (orb + cart) — also pushed into --header-ctrl
-const ORB_GEOM_SCALE  = 1.08; // inner orb fill inside its square
+/** ===== Visual alignment (single source of truth) ====================== */
+const CONTROL_H       = 44;   // knob/orb/cart square in px — tweak this only
+const ORB_GEOM_SCALE  = 0.60; // visible orb fill inside its square (0.58–0.62)
 const HEADER_H        = 86;
 
 export default function Page() {
@@ -23,18 +23,16 @@ export default function Page() {
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // Sync theme + mode on <html>
+  // Sync theme + mode ON <html> so global CSS applies to the whole page
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
-    if (isShop) {
-      root.setAttribute('data-shop-root', '');
-      // keep header controls perfectly even with orb/toggle/cart
-      root.style.setProperty('--header-ctrl', `${CONTROL_H}px`);
-    } else {
-      root.removeAttribute('data-shop-root');
-    }
+    if (isShop) root.setAttribute('data-shop-root', '');
+    else root.removeAttribute('data-shop-root');
+
+    // Keep globals.css in sync for any CSS that reads --header-ctrl
+    root.style.setProperty('--header-ctrl', `${CONTROL_H}px`);
   }, [theme, isShop]);
 
   // Listen for DayNightToggle's 'theme-change' event
@@ -51,8 +49,10 @@ export default function Page() {
 
   // after cascade hop, fade the white veil away smoothly
   useEffect(() => {
+    let fromCascade = false;
     try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
+      fromCascade = sessionStorage.getItem('fromCascade') === '1';
+      if (fromCascade) {
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
       }
@@ -88,8 +88,8 @@ export default function Page() {
                 lineHeight: 0
               }}
               onClick={() => {
-                // New unified event name (ShopGrid listens to 'lb:zoom' + legacy)
-                window.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step: 1 } }));
+                // Talk to ShopGrid via global custom event
+                window.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } }));
               }}
               title="Bump product columns"
             >
@@ -104,12 +104,18 @@ export default function Page() {
             </button>
           </div>
 
-          {/* CENTER: compact toggle (fires 'theme-change') */}
-          <div id="lb-daynight" style={{ display:'grid', placeItems:'center' }}>
-            <DayNightToggle />
+          {/* CENTER: toggle — knob equals orb size; day clouds / night stars included */}
+          <div style={{ display:'grid', placeItems:'center' }}>
+            <DayNightToggle
+              id="lb-daynight"
+              circlePx={CONTROL_H}   // knob diameter == orb/chakra square
+              trackPad={8}           // reduce to 6 if track reads a hair tall
+              // optionally pass your moon images
+              moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
+            />
           </div>
 
-          {/* RIGHT: cart (Birkin) */}
+          {/* RIGHT: cart — same square box as orb */}
           <div style={{ display:'grid', justifyContent:'end' }}>
             <div style={{ height: CONTROL_H, width: CONTROL_H, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
