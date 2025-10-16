@@ -26,8 +26,8 @@
   /* shop palette */
   --shop-offwhite:#F7F7F2;
 
-  /* Align header controls vertically; we do NOT force their width. */
-  --header-ctrl:44px;
+  /* Header control square. ← tweak this to resize orb / toggle / cart */
+  --header-ctrl:56px;
 }
 
 /* Native UI matches the theme */
@@ -148,10 +148,11 @@ html,body{
   background:transparent !important;
   box-shadow:none !important;
   border:0 !important;
+  padding:0 16px; /* give cart breathing room from right edge */
 }
 :root[data-mode="shop"] header[role="banner"] > *{ align-self:center !important; }
 
-/* Remove stray whites so wrapper color shows */
+/* Nuke stray whites so wrapper color shows */
 :root[data-mode="shop"] .shop-page,
 :root[data-mode="shop"] .shop-wrap,
 :root[data-mode="shop"] .shop-grid,
@@ -252,9 +253,7 @@ html:has([data-shop-root]) .product-img{
 .lb-tile{ filter:saturate(1.12) brightness(1.02); }
 .lb-tile + .lb-tile{ box-shadow:-1px 0 0 rgba(255,255,255,.06) inset; }
 
-/* ========== Day ↔ Night toggle skin (decor) ============================== */
-/* These styles are only the generic “skin” helpers; the component renders
-   its clouds & stars inline, so we avoid overrides that could hide them. */
+/* ========== Day ↔ Night toggle (always-on glow) ========================== */
 .lb-switch{
   position:relative; display:inline-flex; align-items:center;
   padding:0; margin:0; border:1px solid rgba(0,0,0,.14);
@@ -262,11 +261,14 @@ html:has([data-shop-root]) .product-img{
   box-shadow:0 4px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.6);
   transition:border-color .25s ease, background .25s ease, box-shadow .25s ease;
   -webkit-tap-highlight-color:transparent;
+
+  /* 👇 Default “screenshot glow” ring */
+  outline:2px solid rgba(74,165,255,.9);
+  outline-offset:3px;
 }
-.lb-switch:focus-visible{ outline:2px solid #4aa5ff; outline-offset:3px; }
+.lb-switch:focus-visible{ outline-color:rgba(74,165,255,1); }
 
 /* ========== Header orb / click-through ================================== */
-/* Make the orb’s DOM hit box exactly match the visible disk. */
 [data-orb="density"]{
   padding:0 !important; margin:0 !important; border:0 !important;
   background:transparent !important; line-height:0 !important;
@@ -319,7 +321,6 @@ html:has([data-shop-root]) .product-img{
 
 /* === Header control helpers (no stretching) ============================== */
 :root[data-mode="shop"] header[role="banner"] #lb-daynight{
-  /* Just center the toggle; don’t pin a height so the component owns its size */
   display:grid; place-items:center;
   padding:0 !important; margin:0 !important; line-height:0 !important;
 }

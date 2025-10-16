@@ -60,21 +60,35 @@ export default function DayNightToggle({
 
   // ----- Sizing (keep proportions tight to the knob) ----------------------
   const dims = useMemo(() => {
-    // track height: knob minus a small cushion so pill never looks taller
     const h = Math.max(28, circlePx - trackPad);
     const w = Math.round(h * (64 / 36)); // original 64×36 track ratio
-    const knob = Math.min(h - 8, circlePx); // keep a small inset; never exceed circlePx
-    const inset = Math.round((h - knob) / 2); // centers knob vertically
+    const knob = Math.min(h - 8, circlePx);
+    const inset = Math.round((h - knob) / 2);
     const shift = Math.round(w - knob - inset * 2);
     return { h, w, knob, inset, shift };
   }, [circlePx, trackPad]);
 
-  // unique ids for gradients & clipPaths (no collisions)
-  const uid = useId();
-  const starId  = `stars-${uid}`;
-
   // pick the first existing moon image
   const moonSrc = moonImages?.[0] ?? '/moon-night.png';
+
+  // Star coordinates (percentage) roughly forming "LAMEBOY" across the pill
+  // small canvas = suggestive layout, not literal text; spaced for readability
+  const STARS = [
+    // L
+    {l:10,t:22},{l:10,t:34},{l:10,t:46},{l:14,t:46},
+    // A
+    {l:22,t:46},{l:24,t:36},{l:26,t:46},{l:23,t:41},
+    // M
+    {l:32,t:46},{l:34,t:34},{l:36,t:46},{l:38,t:34},{l:40,t:46},
+    // E
+    {l:46,t:22},{l:46,t:34},{l:46,t:46},{l:50,t:22},{l:50,t:34},{l:50,t:46},
+    // B
+    {l:58,t:22},{l:58,t:34},{l:58,t:46},{l:62,t:28},{l:62,t:40},
+    // O
+    {l:70,t:28},{l:74,t:34},{l:70,t:40},{l:66,t:34},
+    // Y
+    {l:80,t:28},{l:82,t:32},{l:84,t:28},{l:82,t:40}
+  ];
 
   return (
     <button
@@ -83,7 +97,7 @@ export default function DayNightToggle({
       aria-label="Toggle day / night"
       role="switch"
       aria-checked={isNight}
-      className={className}
+      className={`lb-switch ${className}`}  // <- applies the always-on blue/white outline from globals.css
       style={{
         position: 'relative',
         display: 'inline-flex',
@@ -130,36 +144,43 @@ export default function DayNightToggle({
                 animation:`cloudMove 14s ${c.d}ms ease-in-out infinite alternate`,
               }}
             >
-              <span style={{ content:'', position:'absolute', left:'-24%', top:'10%', width:'42%', height:'58%', background:'#fff', borderRadius:9999 }} />
-              <span style={{ content:'', position:'absolute', right:'-18%', top:'22%', width:'36%', height:'46%', background:'#fff', borderRadius:9999 }} />
+              <span style={{ position:'absolute', left:'-24%', top:'10%', width:'42%', height:'58%', background:'#fff', borderRadius:9999 }} />
+              <span style={{ position:'absolute', right:'-18%', top:'22%', width:'36%', height:'46%', background:'#fff', borderRadius:9999 }} />
             </span>
           ))}
         </span>
       )}
 
-      {/* NIGHT STARS */}
+      {/* NIGHT STARS + shooting star */}
       {isNight && (
         <span aria-hidden style={{ position:'absolute', inset:0, opacity:1, transition:'opacity 400ms ease' }}>
-          {[...Array(12)].map((_, i) => {
-            const left = [18,30,46,60,72,82,12,40,52,66,78,24][i];
-            const top  = [22,64,36,18,54,30,58,72,12,40,68,34][i];
-            const delay = (i % 7) * 0.22;
-            return (
-              <span key={i} style={{
+          {STARS.map((s, i) => (
+            <span
+              key={i}
+              style={{
                 position:'absolute',
-                left:`${left}%`, top:`${top}%`,
+                left:`${s.l}%`,
+                top:`${s.t}%`,
                 width:2, height:2, borderRadius:2, background:'#fff',
                 boxShadow:'0 0 8px rgba(255,255,255,.9)',
-                animation:`twinkle ${1.8 + (i%5)*0.2}s ease-in-out ${delay}s infinite`,
-              }}/>
-            );
-          })}
-          {/* tiny constellation line */}
-          <span style={{
-            position:'absolute', left:'22%', top:'36%',
-            width:'22%', height:1, background:'linear-gradient(90deg, rgba(255,255,255,.0), rgba(255,255,255,.5), rgba(255,255,255,.0))',
-            filter:'drop-shadow(0 0 4px rgba(255,255,255,.6))',
-          }}/>
+                animation:`twinkle ${1.6 + (i%5)*0.25}s ease-in-out ${(i%7)*0.18}s infinite`,
+              }}
+            />
+          ))}
+          {/* shooting star */}
+          <span
+            style={{
+              position:'absolute',
+              left:'-10%', top:'35%',
+              width:'26%', height:2,
+              background:'linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.9), rgba(255,255,255,0))',
+              boxShadow:'0 0 6px rgba(255,255,255,.75)',
+              borderRadius:2,
+              transform:'translateX(-40%)',
+              animation:'shootAcross 7s ease-in-out 1s infinite',
+              opacity:.0
+            }}
+          />
         </span>
       )}
 
@@ -227,6 +248,13 @@ export default function DayNightToggle({
       <style jsx>{`
         @keyframes twinkle { 0%,100% { transform: scale(.7); opacity:.7; } 50% { transform: scale(1.1); opacity:1; } }
         @keyframes cloudMove { from { transform: translateX(-4%); } to { transform: translateX(6%); } }
+        @keyframes shootAcross {
+          0%   { transform: translateX(-40%); opacity: 0; }
+          10%  { opacity: .95; }
+          45%  { transform: translateX(160%); opacity: .85; }
+          70%  { opacity: 0; }
+          100% { transform: translateX(200%); opacity: 0; }
+        }
       `}</style>
     </button>
   );

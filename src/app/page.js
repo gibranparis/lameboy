@@ -14,16 +14,17 @@ const CartButton     = nextDynamic(() => import('@/components/CartButton'),     
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
 /** ===== Visual alignment (single source of truth) ====================== */
-const CONTROL_H       = 44;   // knob/orb/cart square in px — tweak this only
-const ORB_GEOM_SCALE  = 0.60; // visible orb fill inside its square (0.58–0.62)
-const HEADER_H        = 86;
+/** Change this one number to scale orb/toggle/cart together. */
+const CONTROL_H      = 56;   // knob/orb/cart square in px (try 48–64)
+const ORB_GEOM_SCALE = 0.80; // visible orb fill inside its square (0.70–0.86)
+const HEADER_H       = 86;   // header bar height
 
 export default function Page() {
   const [theme, setTheme]   = useState('day');  // 'day' | 'night'
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // Sync theme + mode ON <html> so global CSS applies to the whole page
+  // Sync theme + mode on <html> so globals.css tokens apply
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -31,7 +32,7 @@ export default function Page() {
     if (isShop) root.setAttribute('data-shop-root', '');
     else root.removeAttribute('data-shop-root');
 
-    // Keep globals.css in sync for any CSS that reads --header-ctrl
+    // keep globals.css in sync for any CSS that reads --header-ctrl
     root.style.setProperty('--header-ctrl', `${CONTROL_H}px`);
   }, [theme, isShop]);
 
@@ -71,9 +72,15 @@ export default function Page() {
         <header
           role="banner"
           style={{
-            position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
-            display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
-            background:'transparent'
+            position:'fixed',
+            inset:'0 0 auto 0',
+            height:HEADER_H,
+            zIndex:140,
+            display:'grid',
+            gridTemplateColumns:'1fr auto 1fr',
+            alignItems:'center',
+            background:'transparent',
+            padding:'0 18px',              // ← side gutters so cart isn’t kissing the edge
           }}
         >
           {/* LEFT: interactive orb (tight square) */}
@@ -94,12 +101,14 @@ export default function Page() {
               title="Bump product columns"
             >
               <BlueOrbCross3D
+                /** ensure the canvas itself is a perfect square at CONTROL_H */
+                style={{ width: CONTROL_H, height: CONTROL_H, display:'block' }}
                 height={`${CONTROL_H}px`}
                 rpm={44}
                 includeZAxis
                 glow
-                geomScale={ORB_GEOM_SCALE}
-                interactive={false}   // wrapper handles click; canvas hitbox stays tight
+                geomScale={ORB_GEOM_SCALE} // ← larger visible disk inside the square
+                interactive={false}        // wrapper handles click; canvas hitbox stays tight
               />
             </button>
           </div>
@@ -108,9 +117,8 @@ export default function Page() {
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
-              circlePx={CONTROL_H}   // knob diameter == orb/chakra square
-              trackPad={8}           // reduce to 6 if track reads a hair tall
-              // optionally pass your moon images
+              circlePx={CONTROL_H}   // knob diameter == orb/chakra/cart square
+              trackPad={8}           // reduce to 6 if the pill reads a hair tall
               moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
             />
           </div>
