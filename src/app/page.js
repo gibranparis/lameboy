@@ -14,7 +14,7 @@ const CartButton     = nextDynamic(() => import('@/components/CartButton'),     
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
 /** Visual alignment */
-const CONTROL_H       = 56;   // header control square (orb/canvas + cart row height)
+const CONTROL_H       = 44;   // header control square (orb + cart) — also pushed into --header-ctrl
 const ORB_GEOM_SCALE  = 1.08; // inner orb fill inside its square
 const HEADER_H        = 86;
 
@@ -23,16 +23,21 @@ export default function Page() {
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // Sync theme + mode ON <html> so global CSS applies to the whole page
+  // Sync theme + mode on <html>
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
-    if (isShop) root.setAttribute('data-shop-root', '');
-    else root.removeAttribute('data-shop-root');
+    if (isShop) {
+      root.setAttribute('data-shop-root', '');
+      // keep header controls perfectly even with orb/toggle/cart
+      root.style.setProperty('--header-ctrl', `${CONTROL_H}px`);
+    } else {
+      root.removeAttribute('data-shop-root');
+    }
   }, [theme, isShop]);
 
-  // Listen for DayNightToggle's 'theme-change' event (so we don't need to prop-drill)
+  // Listen for DayNightToggle's 'theme-change' event
   useEffect(() => {
     /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
@@ -46,10 +51,8 @@ export default function Page() {
 
   // after cascade hop, fade the white veil away smoothly
   useEffect(() => {
-    let fromCascade = false;
     try {
-      fromCascade = sessionStorage.getItem('fromCascade') === '1';
-      if (fromCascade) {
+      if (sessionStorage.getItem('fromCascade') === '1') {
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
       }
@@ -85,8 +88,8 @@ export default function Page() {
                 lineHeight: 0
               }}
               onClick={() => {
-                // Talk to ShopGrid via global custom event
-                window.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } }));
+                // New unified event name (ShopGrid listens to 'lb:zoom' + legacy)
+                window.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step: 1 } }));
               }}
               title="Bump product columns"
             >
@@ -101,14 +104,14 @@ export default function Page() {
             </button>
           </div>
 
-          {/* CENTER: compact toggle (self-managed; fires 'theme-change') */}
-          <div style={{ display:'grid', placeItems:'center' }}>
-            <DayNightToggle id="lb-daynight" />
+          {/* CENTER: compact toggle (fires 'theme-change') */}
+          <div id="lb-daynight" style={{ display:'grid', placeItems:'center' }}>
+            <DayNightToggle />
           </div>
 
-          {/* RIGHT: cart as silhouette (Birkin 25) */}
+          {/* RIGHT: cart (Birkin) */}
           <div style={{ display:'grid', justifyContent:'end' }}>
-            <div style={{ height: CONTROL_H, display:'grid', placeItems:'center' }}>
+            <div style={{ height: CONTROL_H, width: CONTROL_H, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
             </div>
           </div>

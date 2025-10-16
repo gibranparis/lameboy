@@ -19,26 +19,26 @@ const MAX_COLS = 5;
  * }} props
  */
 export default function ShopGrid({ products = [], hideTopRow = false, columns }) {
-  // show something even if products aren’t passed
+  // fallback items
   const fallbackProductList = [
-    { id: 'tee-black',  name: 'LB Tee — Black',      image: '/shop/tee-black.png',  price: 38 },
-    { id: 'tee-white',  name: 'LB Tee — White',      image: '/shop/tee-white.png',  price: 38 },
-    { id: 'cap-navy',   name: 'Dad Cap — Navy',      image: '/shop/cap-navy.png',   price: 32 },
-    { id: 'stick-pack', name: 'Sticker Pack',        image: '/shop/stickers.png',   price: 10 },
+    { id: 'tee-black',  name: 'LB Tee — Black',  image: '/shop/tee-black.png',  price: 38 },
+    { id: 'tee-white',  name: 'LB Tee — White',  image: '/shop/tee-white.png',  price: 38 },
+    { id: 'cap-navy',   name: 'Dad Cap — Navy',  image: '/shop/cap-navy.png',   price: 32 },
+    { id: 'stick-pack', name: 'Sticker Pack',    image: '/shop/stickers.png',   price: 10 },
   ];
   const items = (products?.length ? products : fallbackProductList);
 
-  /** selection overlay */
+  /** overlay state */
   const [selected, setSelected] = useState/** @type {Product|null} */(null);
 
   /** grid density */
   const [perRow, setPerRow] = useState(MAX_COLS);
-  /** @type {['in'|'out', (d: 'in'|'out') => void]} */
+  /** 'in' = 5→1, 'out' = 1→5 */
   // @ts-ignore
-  const [zoomDir, setZoomDir] = useState/** @type {'in'|'out'} */('in'); // 'in' = 5→1, 'out' = 1→5
+  const [zoomDir, setZoomDir] = useState/** @type {'in'|'out'} */('in');
   const [fromCascade, setFromCascade] = useState(false);
 
-  // accept controlled columns from parent (header orb)
+  // accept controlled columns from parent
   useEffect(() => {
     if (typeof columns === 'number') {
       const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, Math.round(columns)));
@@ -56,7 +56,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     } catch {}
   }, []);
 
-  // helper: step columns and swap direction at the ends (infinite loop feel)
+  // helper: step, bounce at ends, flip direction
   const stepDensity = useCallback(
     /** @param {number} [delta=1] */
     (delta = 1) => {
@@ -64,10 +64,10 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
       let next = perRow + (isIn ? -delta : +delta);
 
       if (next < MIN_COLS) {
-        next = MIN_COLS + 1; // bounce
+        next = MIN_COLS + 1; // bounce off 1
         setZoomDir('out');
       } else if (next > MAX_COLS) {
-        next = MAX_COLS - 1; // bounce
+        next = MAX_COLS - 1; // bounce off 5
         setZoomDir('in');
       }
       setPerRow(next);
@@ -75,19 +75,31 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     [perRow, zoomDir]
   );
 
-  // listen for global orb events (from the banned page orb)
+  // Listen for the orb (new) and legacy events
   useEffect(() => {
-    /** @param {CustomEvent<{ step?: number }>} e */
-    const onDensity = (e) => {
+    /** @param {CustomEvent<{ step?: number, dir?: 'in'|'out' }>} e */
+    const onZoom = (e) => {
       const step = Number(e?.detail?.step ?? 1);
-      // ignore if parent is controlling with `columns`
+      const dir  = e?.detail?.dir;
+      if (dir === 'in' || dir === 'out') setZoomDir(dir);
       if (typeof columns !== 'number') stepDensity(step);
     };
+
+    /** @param {CustomEvent<{ step?: number }>} e */
+    const onLegacy = (e) => {
+      const step = Number(e?.detail?.step ?? 1);
+      if (typeof columns !== 'number') stepDensity(step);
+    };
+
+    window.addEventListener('lb:zoom', onZoom);
+    // keep backward compatibility with older emitter
     // @ts-ignore
-    window.addEventListener('grid-density', onDensity);
+    window.addEventListener('grid-density', onLegacy);
+
     return () => {
+      window.removeEventListener('lb:zoom', onZoom);
       // @ts-ignore
-      window.removeEventListener('grid-density', onDensity);
+      window.removeEventListener('grid-density', onLegacy);
     };
   }, [stepDensity, columns]);
 
@@ -100,20 +112,17 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     <section
       className={[
         'px-6 pb-24 pt-10',
-        fromCascade ? 'animate-[fadeIn_.6s_ease-out]' : ''
+        fromCascade ? 'animate-[fadeIn_.6s_ease-out]' : '',
       ].join(' ')}
     >
-      {/* Top row: optional controls + cart (hide when header contains cart) */}
+      {/* Top row controls (hidden when header already hosts the cart) */}
       {!hideTopRow && (
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               aria-label="Density −"
               className="rounded-lg px-3 py-1 ring-1 ring-black/10 dark:ring-white/15"
-              onClick={() => {
-                setZoomDir('in');
-                stepDensity(1);
-              }}
+              onClick={() => { setZoomDir('in');  stepDensity(1); }}
             >
               −
             </button>
@@ -121,15 +130,11 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
             <button
               aria-label="Density +"
               className="rounded-lg px-3 py-1 ring-1 ring-black/10 dark:ring-white/15"
-              onClick={() => {
-                setZoomDir('out');
-                stepDensity(1);
-              }}
+              onClick={() => { setZoomDir('out'); stepDensity(1); }}
             >
               +
             </button>
           </div>
-
           <CartButton />
         </div>
       )}
