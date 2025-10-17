@@ -13,12 +13,13 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-/** Read --header-ctrl from CSS so everything matches globals.css exactly */
+/** Read --header-ctrl from CSS so header controls stay in sync with globals.css */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
     const read = () => {
-      const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
+      const v = getComputedStyle(document.documentElement)
+        .getPropertyValue('--header-ctrl') || `${defaultPx}px`;
       setPx(parseInt(v, 10) || defaultPx);
     };
     read();
@@ -28,15 +29,31 @@ function useHeaderCtrlPx(defaultPx = 56) {
   return px;
 }
 
-const HEADER_H = 86; // visual header height
+const HEADER_H  = 86;
+const MIN_COLS  = 1;
+const MAX_COLS  = 5;
 
 export default function Page() {
-  const ctrlPx = useHeaderCtrlPx(); // ← pulls 56px from globals.css
+  const ctrlPx = useHeaderCtrlPx();
   const [theme, setTheme]   = useState('day');  // 'day' | 'night'
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // Sync <html> data-attributes + keep --header-ctrl in sync
+  /** 🔢 Grid is now controlled here */
+  const [columns, setColumns] = useState(MAX_COLS);
+  const [zoomDir, setZoomDir] = useState/** @type {'in'|'out'} */('in'); // 'in' = 5→1
+
+  const stepDensity = useCallback((delta = 1) => {
+    setColumns((prev) => {
+      const isIn = zoomDir === 'in';
+      let next = prev + (isIn ? -delta : +delta);
+      if (next < MIN_COLS) { next = MIN_COLS + 1; setZoomDir('out'); }
+      else if (next > MAX_COLS) { next = MAX_COLS - 1; setZoomDir('in'); }
+      return next;
+    });
+  }, [zoomDir]);
+
+  // Keep <html> in sync for global CSS tokens
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -46,7 +63,7 @@ export default function Page() {
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // Listen for DayNightToggle broadcast
+  // Listen for DayNightToggle's 'theme-change' event
   useEffect(() => {
     /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
@@ -60,10 +77,8 @@ export default function Page() {
 
   // arrival veil after cascade
   useEffect(() => {
-    let fromCascade = false;
     try {
-      fromCascade = sessionStorage.getItem('fromCascade') === '1';
-      if (fromCascade) {
+      if (sessionStorage.getItem('fromCascade') === '1') {
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
       }
@@ -72,17 +87,10 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // Emit BOTH events that ShopGrid listens for
-  const emitZoomStep = useCallback((step = 1) => {
-    try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step } })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('grid-density', { detail: { step } })); } catch {}
-  }, []);
-
   const headerStyle = useMemo(() => ({
     position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
     display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
-    padding:'0 16px',            // breathing room (cart won’t hug the edge)
-    background:'transparent'
+    padding:'0 16px', background:'transparent'
   }), []);
 
   return (
@@ -90,42 +98,37 @@ export default function Page() {
       {/* SHOP HEADER */}
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: ORB BUTTON — perfect circular hitbox, both click + keyboard */}
+          {/* LEFT: orb button — click or keyboard to step density */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
-              aria-label="Zoom grid"
+              aria-label="Zoom products"
               data-orb="density"
               style={{
                 width: ctrlPx, height: ctrlPx,
                 padding:0, margin:0, background:'transparent', border:0,
-                display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
-                borderRadius:'9999px', overflow:'hidden'
+                display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0
               }}
-              onClick={() => emitZoomStep(1)}
+              onClick={() => stepDensity(1)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  emitZoomStep(1);
-                }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stepDensity(1); }
               }}
-              title="Zoom products"
+              title="Bump product columns"
             >
-              {/* Canvas fills the square exactly; geometry fills the canvas */}
               <BlueOrbCross3D
-                height={`${ctrlPx}px`}   // square footprint internally
+                width={`${ctrlPx}px`}
+                height={`${ctrlPx}px`}
+                geomScale={0.98}
                 rpm={44}
-                includeZAxis
                 glow
-                // ⬇ Make the cross BIG. 1.65–1.9 fills most squares depending on taste.
-                geomScale={1.78}
+                includeZAxis
                 interactive={true}
-                onActivate={() => emitZoomStep(1)}  // meshes fire this too
+                onActivate={() => stepDensity(1)} // canvas-level activation too
               />
             </button>
           </div>
 
-          {/* CENTER: Toggle (knob == ctrlPx) */}
+          {/* CENTER: toggle (knob == ctrlPx) */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
@@ -135,7 +138,7 @@ export default function Page() {
             />
           </div>
 
-          {/* RIGHT: Cart — same square for rhythm */}
+          {/* RIGHT: cart — same square for rhythm */}
           <div style={{ display:'grid', justifyContent:'end' }}>
             <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
@@ -152,7 +155,8 @@ export default function Page() {
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
-            <ShopGrid hideTopRow />
+            {/* 🔗 Pass controlled columns so the grid reacts instantly */}
+            <ShopGrid hideTopRow columns={columns} />
           </div>
         )}
       </main>
