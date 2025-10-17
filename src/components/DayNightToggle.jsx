@@ -13,7 +13,7 @@ export default function DayNightToggle({
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
   circlePx = 44,                 // knob diameter (match orb/cart square)
-  trackPad = 8,                  // trims track height
+  trackPad = 8,                  // trims track height / “glove” tightness
   moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
@@ -49,13 +49,15 @@ export default function DayNightToggle({
   }
   function toggle() { setTheme(isNight ? 'day' : 'night'); }
 
-  // Tight sizing relative to knob
+  // ----- Sizing (keep proportions tight to the knob) ----------------------
+  // Moon/sun stays exactly circlePx. Track hugs the knob based on trackPad.
   const dims = useMemo(() => {
-    const h = Math.max(28, circlePx - trackPad);
-    const w = Math.round(h * (64 / 36)); // original 64×36 ratio
-    const knob = Math.min(h - 8, circlePx);
-    const inset = Math.round((h - knob) / 2);
-    const shift = Math.round(w - knob - inset * 2);
+    const knob = Math.max(20, Math.round(circlePx));    // fixed moon size
+    const gapPx = Math.max(2, Math.min(6, trackPad));   // 2..6px feels best
+    const h = Math.max(28, knob + gapPx * 2);           // pill hugs knob
+    const w = Math.round(h * (64 / 36));                // classic 64:36 pill
+    const inset = Math.round((h - knob) / 2);           // centers knob
+    const shift = Math.round(w - knob - inset * 2);     // knob travel
     return { h, w, knob, inset, shift };
   }, [circlePx, trackPad]);
 
@@ -84,41 +86,30 @@ export default function DayNightToggle({
     };
     resizeCanvas();
 
-    // Observe element size (more reliable than window resize in a button)
     const ro = new ResizeObserver(() => resizeCanvas());
     ro.observe(canvas);
 
-    // Random stars
     const STAR_COUNT = 28;
     /** @type {{x:number,y:number,a:number,as:number,r:number}[]} */
     const stars = Array.from({ length: STAR_COUNT }, () => ({
       x: Math.random() * W,
       y: Math.random() * H,
       a: 0.5 + Math.random() * 0.5,
-      as: (0.5 + Math.random()) * 0.006, // twinkle speed
+      as: (0.5 + Math.random()) * 0.006,
       r: 0.8 * DPR
     }));
 
-    // “LAMEBOY” constellation (normalized 0..1)
     /** @type {[number,number][]} */
     const C = [
-      // L
       [0.10,0.25],[0.10,0.70],[0.18,0.70],
-      // A
       [0.27,0.72],[0.30,0.25],[0.33,0.72],[0.29,0.52],[0.31,0.52],
-      // M
       [0.40,0.72],[0.40,0.28],[0.44,0.55],[0.48,0.28],[0.48,0.72],
-      // E
       [0.56,0.25],[0.56,0.70],[0.62,0.70],[0.56,0.48],[0.60,0.48],[0.62,0.25],
-      // B
       [0.70,0.25],[0.70,0.70],[0.76,0.62],[0.70,0.52],[0.76,0.42],[0.70,0.35],
-      // O
       [0.84,0.48],[0.86,0.42],[0.90,0.42],[0.92,0.48],[0.90,0.56],[0.86,0.56],
-      // Y
       [0.96,0.25],[0.94,0.40],[0.98,0.40],[0.96,0.70],
     ];
 
-    // Shooting star
     let meteor = { t: -1, x0:0, y0:0, x1:0, y1:0, dur: 1200, born: 0 };
     const spawnMeteor = () => {
       const now = performance.now();
@@ -135,7 +126,6 @@ export default function DayNightToggle({
     const LOOP = () => {
       ctx.clearRect(0,0,W,H);
 
-      // stars
       for (const s of stars) {
         s.a += s.as;
         const tw = 0.5 + 0.5*Math.sin(s.a);
@@ -147,7 +137,6 @@ export default function DayNightToggle({
       }
       ctx.globalAlpha = 1;
 
-      // constellation
       ctx.lineWidth = 1 * DPR;
       ctx.strokeStyle = 'rgba(255,255,255,.55)';
       ctx.fillStyle = 'rgba(255,255,255,.95)';
@@ -166,7 +155,6 @@ export default function DayNightToggle({
         ctx.fill();
       }
 
-      // meteor cadence 2.4s–5.0s with randomness
       const now = performance.now();
       if (meteor.t < 0 && now - lastSpawn > 2400 + Math.random()*2600) {
         lastSpawn = now;
@@ -219,7 +207,6 @@ export default function DayNightToggle({
         width:dims.w,
         borderRadius:9999,
         overflow:'hidden',
-        // single halo look
         border: isNight ? '1px solid rgba(90,170,255,.45)' : '1px solid rgba(0,0,0,.10)',
         boxShadow: isNight
           ? '0 0 0 2px rgba(90,170,255,.55), 0 0 16px rgba(90,170,255,.45), inset 0 0 0 1px rgba(255,255,255,.5)'

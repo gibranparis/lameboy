@@ -280,6 +280,13 @@ html:has([data-shop-root]) .product-img{
 /* CRUCIAL: let the BUTTON receive the click, not the canvas. */
 [data-orb="density"] canvas{ display:block; pointer-events:none; }
 
+/* Orb ring so it reads the same size as the toggle */
+.orb-ring{
+  outline:2px solid rgba(74,165,255,.9);
+  outline-offset:3px;
+  border-radius:9999px;
+}
+
 /* --- Banned page layout fixes + button skins --- */
 .login-stack{ display:flex; flex-direction:column; align-items:center; gap:10px; }
 .orb-row{ margin-bottom:-28px; display:grid; place-items:center; contain:layout paint style; isolation:isolate; z-index:10; }
