@@ -19,7 +19,6 @@ const MAX_COLS = 5;
  * }} props
  */
 export default function ShopGrid({ products = [], hideTopRow = false, columns }) {
-  // fallback items
   const fallbackProductList = [
     { id: 'tee-black',  name: 'LB Tee — Black',  image: '/shop/tee-black.png',  price: 38 },
     { id: 'tee-white',  name: 'LB Tee — White',  image: '/shop/tee-white.png',  price: 38 },
@@ -28,12 +27,10 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
   ];
   const items = (products?.length ? products : fallbackProductList);
 
-  /** overlay state */
   const [selected, setSelected] = useState/** @type {Product|null} */(null);
 
-  /** grid density */
   const [perRow, setPerRow] = useState(MAX_COLS);
-  /** 'in' = 5→1, 'out' = 1→5 */
+  // 'in' = 5→1, 'out' = 1→5
   // @ts-ignore
   const [zoomDir, setZoomDir] = useState/** @type {'in'|'out'} */('in');
   const [fromCascade, setFromCascade] = useState(false);
@@ -46,7 +43,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     }
   }, [columns]);
 
-  // detect cascade handoff (optional styling hook)
+  // detect cascade hop
   useEffect(() => {
     try {
       if (sessionStorage.getItem('fromCascade') === '1') {
@@ -92,7 +89,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     };
 
     window.addEventListener('lb:zoom', onZoom);
-    // keep backward compatibility with older emitter
+    // back-compat
     // @ts-ignore
     window.addEventListener('grid-density', onLegacy);
 
