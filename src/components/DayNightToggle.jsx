@@ -12,8 +12,8 @@ export default function DayNightToggle({
   className = '',
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
-  circlePx = 56,                 // knob diameter (we match --header-ctrl by default)
-  trackPad = 1,                  // smaller = tighter “glove” around the moon
+  circlePx = 56,                 // knob diameter (matches --header-ctrl by default)
+  trackPad = 1,                  // smaller = tighter “glove” around the knob
   moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
@@ -49,7 +49,7 @@ export default function DayNightToggle({
   }
   function toggle() { setTheme(isNight ? 'day' : 'night'); }
 
-  // Sizing: moon stays exactly circlePx; pill hugs using trackPad
+  // Sizing (knob is exactly circlePx; pill hugs via trackPad)
   const dims = useMemo(() => {
     const knob  = Math.max(20, Math.round(circlePx));
     const padPx = Math.max(1, Math.min(6, Math.round(trackPad)));
@@ -62,7 +62,7 @@ export default function DayNightToggle({
 
   const moonSrc = moonImages?.[0] ?? '/toggle/moon-red.png';
 
-  // Night sky sparkles + LAMEBOY constellation + meteor
+  // ===== Night sky canvas (stars + “LAMEBOY” constellation + meteor) ======
   const skyRef = useRef/** @type {React.RefObject<HTMLCanvasElement>} */(null);
   useEffect(() => {
     if (!isNight) return;
@@ -120,35 +120,34 @@ export default function DayNightToggle({
     let lastSpawn = performance.now();
 
     const LOOP = () => {
-      ctx.clearRect(0,0,W,H);
+      const ctx2 = canvas.getContext('2d');
+      if (!ctx2) return;
+      ctx2.clearRect(0,0,W,H);
 
-      // stars
       for (const s of stars) {
         s.a += s.as;
         const tw = 0.5 + 0.5*Math.sin(s.a);
-        ctx.globalAlpha = 0.7*tw;
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+        ctx2.globalAlpha = 0.7*tw;
+        ctx2.fillStyle = '#fff';
+        ctx2.beginPath(); ctx2.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx2.fill();
       }
-      ctx.globalAlpha = 1;
+      ctx2.globalAlpha = 1;
 
-      // constellation
-      ctx.lineWidth = 1 * DPR;
-      ctx.strokeStyle = 'rgba(255,255,255,.55)';
-      ctx.fillStyle = 'rgba(255,255,255,.95)';
-      ctx.beginPath();
+      ctx2.lineWidth = 1 * DPR;
+      ctx2.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx2.fillStyle = 'rgba(255,255,255,.95)';
+      ctx2.beginPath();
       for (let i=0;i<C.length;i++){
         const [nx,ny]=C[i];
         const x=nx*W, y=ny*H;
-        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        if(i===0) ctx2.moveTo(x,y); else ctx2.lineTo(x,y);
       }
-      ctx.stroke();
+      ctx2.stroke();
       for (const [nx,ny] of C) {
         const x=nx*W, y=ny*H;
-        ctx.beginPath(); ctx.arc(x,y,1.2*DPR,0,Math.PI*2); ctx.fill();
+        ctx2.beginPath(); ctx2.arc(x,y,1.2*DPR,0,Math.PI*2); ctx2.fill();
       }
 
-      // meteor cadence
       const now = performance.now();
       if (meteor.t < 0 && now - lastSpawn > 2400 + Math.random()*2600) {
         lastSpawn = now; spawnMeteor();
@@ -162,16 +161,15 @@ export default function DayNightToggle({
         const tx = x - Math.cos(ang)*trail;
         const ty = y - Math.sin(ang)*trail;
 
-        const grad = ctx.createLinearGradient(tx,ty,x,y);
+        const grad = ctx2.createLinearGradient(tx,ty,x,y);
         grad.addColorStop(0,'rgba(255,255,255,0)');
         grad.addColorStop(1,'rgba(255,255,255,.9)');
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 1.2*DPR;
-        ctx.beginPath();
-        ctx.moveTo(tx,ty); ctx.lineTo(x,y); ctx.stroke();
+        ctx2.strokeStyle = grad;
+        ctx2.lineWidth = 1.2*DPR;
+        ctx2.beginPath(); ctx2.moveTo(tx,ty); ctx2.lineTo(x,y); ctx2.stroke();
 
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(x,y,1.4*DPR,0,Math.PI*2); ctx.fill();
+        ctx2.fillStyle = '#fff';
+        ctx2.beginPath(); ctx2.arc(x,y,1.4*DPR,0,Math.PI*2); ctx2.fill();
 
         if (p >= 1) meteor.t = -1;
       }
@@ -200,7 +198,7 @@ export default function DayNightToggle({
         overflow:'hidden',
         border: isNight ? '1px solid rgba(90,170,255,.45)' : '1px solid rgba(0,0,0,.10)',
         boxShadow: isNight
-          ? '0 0 0 2px rgba(90,170,255,.55), 0 0 16px rgba(90,170,255,.45), inset 0 0 0 1px rgba(255,255,255,.5)'
+          ? '0 0 0 2px rgba(90,170,255,.55), 0 0 16px rgba(90,170,255,.45)'
           : '0 6px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.55)',
         background: isNight ? '#0a0a12' : '#ffffff',
         cursor:'pointer',
@@ -255,7 +253,7 @@ export default function DayNightToggle({
         />
       )}
 
-      {/* KNOB (sun/moon) */}
+      {/* KNOB (sun/moon) — transparent base, art fills the circle (no rim) */}
       <span
         aria-hidden
         style={{
@@ -264,17 +262,17 @@ export default function DayNightToggle({
           left:dims.inset,
           height:dims.knob,
           width:dims.knob,
-          borderRadius:9999,
-          background: isNight ? '#0e0f16' : '#fff7cc',
-          boxShadow:'0 6px 16px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.08)',
+          borderRadius:'50%',
+          background:'transparent',                          // ← no base color to show as a ring
+          boxShadow:'0 6px 16px rgba(0,0,0,.18)',            // ← no inset, just outer drop shadow
           display:'grid',
           placeItems:'center',
           transform:`translateX(${isNight ? dims.shift : 0}px)`,
-          transition:'transform 320ms cubic-bezier(.22,.61,.21,.99), background 220ms ease',
+          transition:'transform 320ms cubic-bezier(.22,.61,.21,.99)',
           overflow:'hidden',
         }}
       >
-        {/* Sun */}
+        {/* Sun fills the knob */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -284,15 +282,16 @@ export default function DayNightToggle({
         >
           <span
             style={{
-              width: Math.round(dims.knob * 0.74),
-              height: Math.round(dims.knob * 0.74),
+              width: dims.knob,                 // ← fill 100%
+              height: dims.knob,
               borderRadius:'50%',
               background:'radial-gradient(circle at 45% 45%, #fff6c6 0%, #ffd75e 55%, #ffb200 100%)',
+              display:'block',
             }}
           />
         </span>
 
-        {/* Moon */}
+        {/* Moon fills the knob */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -303,9 +302,10 @@ export default function DayNightToggle({
             src={moonSrc}
             alt=""
             style={{
-              width: Math.round(dims.knob * 0.78),
-              height: Math.round(dims.knob * 0.78),
+              width: dims.knob,                 // ← fill 100%
+              height: dims.knob,
               borderRadius:'50%',
+              display:'block',
               objectFit:'cover',
               mixBlendMode:'screen',
               filter:'saturate(1.15) brightness(1.02)',
