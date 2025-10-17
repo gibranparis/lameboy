@@ -13,7 +13,6 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-/** Read --header-ctrl from CSS so everything matches globals.css exactly */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
@@ -28,15 +27,15 @@ function useHeaderCtrlPx(defaultPx = 56) {
   return px;
 }
 
-const HEADER_H = 86; // visual header height (keeps page content pushed down)
+const HEADER_H = 86;
 
 export default function Page() {
-  const ctrlPx = useHeaderCtrlPx(); // ← pulls from globals.css
-  const [theme, setTheme]   = useState('day');  // 'day' | 'night'
-  const [isShop, setIsShop] = useState(true);   // show shop immediately for debugging
+  const ctrlPx = useHeaderCtrlPx();
+  const [theme, setTheme]   = useState('day');
+  const [isShop, setIsShop] = useState(false);   // ⬅️ back to gate by default
   const [veil,  setVeil]    = useState(false);
 
-  // Keep <html> in sync for global CSS tokens
+  // keep <html> in sync
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -46,24 +45,16 @@ export default function Page() {
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // Listen for DayNightToggle's 'theme-change' event
   useEffect(() => {
     /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
-    // @ts-ignore
     window.addEventListener('theme-change', onTheme);
-    return () => {
-      // @ts-ignore
-      window.removeEventListener('theme-change', onTheme);
-    };
+    return () => window.removeEventListener('theme-change', onTheme);
   }, []);
 
-  // after cascade hop, fade the white veil away smoothly
   useEffect(() => {
-    let fromCascade = false;
     try {
-      fromCascade = sessionStorage.getItem('fromCascade') === '1';
-      if (fromCascade) {
+      if (sessionStorage.getItem('fromCascade') === '1') {
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
       }
@@ -72,10 +63,14 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // Emit BOTH events so any listener (new/old) reacts
+  // Emit BOTH events; add a tiny log so you can see it in DevTools
   const emitZoomStep = useCallback((step = 1) => {
-    try { window.dispatchEvent(new CustomEvent('lb:zoom',       { detail: { step } })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('grid-density',  { detail: { step } })); } catch {}
+    const detail = { step };
+    console.log('[orb] emit', detail);
+    try { window.dispatchEvent(new CustomEvent('lb:zoom',      { detail })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('grid-density', { detail })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom',      { detail })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('grid-density', { detail })); } catch {}
   }, []);
 
   const headerStyle = useMemo(() => ({
@@ -87,10 +82,9 @@ export default function Page() {
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
-      {/* SHOP HEADER */}
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb button — click & keyboard activate */}
+          {/* LEFT: orb */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
@@ -103,10 +97,7 @@ export default function Page() {
               }}
               onClick={() => emitZoomStep(1)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  emitZoomStep(1);
-                }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoomStep(1); }
               }}
               title="Zoom products"
             >
@@ -117,21 +108,21 @@ export default function Page() {
                 glow
                 includeZAxis
                 interactive={true}
-                onActivate={() => emitZoomStep(1)} // mesh-level safety
+                onActivate={() => emitZoomStep(1)} // canvas safety
                 background="transparent"
                 rpm={44}
               />
             </button>
           </div>
 
-          {/* CENTER: toggle (knob == ctrlPx) */}
+          {/* CENTER: toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle id="lb-daynight" circlePx={ctrlPx} trackPad={8}
               moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
             />
           </div>
 
-          {/* RIGHT: cart — same square for rhythm */}
+          {/* RIGHT: cart */}
           <div style={{ display:'grid', justifyContent:'end' }}>
             <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
@@ -140,7 +131,6 @@ export default function Page() {
         </header>
       )}
 
-      {/* PAGES */}
       <main style={{ minHeight:'100dvh' }}>
         {!isShop ? (
           <div className="page-center">
@@ -153,7 +143,6 @@ export default function Page() {
         )}
       </main>
 
-      {/* arrival veil after cascade */}
       {veil && (
         <div
           aria-hidden="true"
