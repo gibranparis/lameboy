@@ -5,7 +5,7 @@ export const dynamic = 'force-static';
 export const runtime = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
 const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
@@ -13,39 +13,57 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-/** ===== Visual alignment (single source of truth) ====================== */
-// Change this one number to scale orb, toggle knob, and cart uniformly.
-const CONTROL_H       = 44;    // header control square (px)
-const ORB_GEOM_SCALE  = 0.98;  // how much the orb fills its square (0.96–0.99)
-const HEADER_H        = 86;    // pinned header height (px)
+/** Read --header-ctrl from CSS so everything matches globals.css exactly */
+function useHeaderCtrlPx(defaultPx = 56) {
+  const [px, setPx] = useState(defaultPx);
+  useEffect(() => {
+    const read = () => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
+      setPx(parseInt(v, 10) || defaultPx);
+    };
+    read();
+    window.addEventListener('resize', read);
+    return () => window.removeEventListener('resize', read);
+  }, [defaultPx]);
+  return px;
+}
+
+const HEADER_H = 86; // visual header height
 
 export default function Page() {
-  const [theme, setTheme]   = useState('day');
+  const ctrlPx = useHeaderCtrlPx(); // ← pulls 56px from globals.css
+  const [theme, setTheme]   = useState('day');  // 'day' | 'night'
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // Sync theme + mode on <html>; expose --header-ctrl for CSS consumers
+  // Sync <html> data-attributes + keep --header-ctrl in sync
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
     if (isShop) root.setAttribute('data-shop-root', '');
     else root.removeAttribute('data-shop-root');
-    root.style.setProperty('--header-ctrl', `${CONTROL_H}px`);
-  }, [theme, isShop]);
+    root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
+  }, [theme, isShop, ctrlPx]);
 
-  // Day/Night events from the toggle
+  // Listen for DayNightToggle broadcast
   useEffect(() => {
     /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
+    // @ts-ignore
     window.addEventListener('theme-change', onTheme);
-    return () => window.removeEventListener('theme-change', onTheme);
+    return () => {
+      // @ts-ignore
+      window.removeEventListener('theme-change', onTheme);
+    };
   }, []);
 
-  // Veil fade after cascade
+  // arrival veil after cascade
   useEffect(() => {
+    let fromCascade = false;
     try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
+      fromCascade = sessionStorage.getItem('fromCascade') === '1';
+      if (fromCascade) {
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
       }
@@ -54,65 +72,72 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // Emit BOTH events so new/legacy listeners respond
-  const emitZoomStep = (step = 1) => {
-    window.dispatchEvent(new CustomEvent('lb:zoom',      { detail: { step } })); // new
-    window.dispatchEvent(new CustomEvent('grid-density', { detail: { step } })); // legacy
-  };
+  // Emit BOTH events that ShopGrid listens for
+  const emitZoomStep = useCallback((step = 1) => {
+    try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step } })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('grid-density', { detail: { step } })); } catch {}
+  }, []);
+
+  const headerStyle = useMemo(() => ({
+    position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
+    display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
+    padding:'0 16px',            // breathing room (cart won’t hug the edge)
+    background:'transparent'
+  }), []);
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {/* SHOP HEADER */}
       {isShop && (
-        <header
-          role="banner"
-          style={{
-            position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
-            display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
-            padding:'12px 18px', background:'transparent'
-          }}
-        >
-          {/* LEFT: orb (fills the square; wrapper click + mesh click both zoom) */}
+        <header role="banner" style={headerStyle}>
+          {/* LEFT: ORB BUTTON — perfect circular hitbox, both click + keyboard */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
-              aria-label="Grid density +1"
+              aria-label="Zoom grid"
+              data-orb="density"
               style={{
-                width: CONTROL_H, height: CONTROL_H,
+                width: ctrlPx, height: ctrlPx,
                 padding:0, margin:0, background:'transparent', border:0,
-                display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0
+                display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
+                borderRadius:'9999px', overflow:'hidden'
               }}
               onClick={() => emitZoomStep(1)}
-              title="Bump product columns"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  emitZoomStep(1);
+                }
+              }}
+              title="Zoom products"
             >
-              <div style={{ width: CONTROL_H, height: CONTROL_H }}>
-                <BlueOrbCross3D
-                  width={`${CONTROL_H}px`}
-                  height={`${CONTROL_H}px`}
-                  rpm={44}
-                  includeZAxis
-                  glow
-                  geomScale={ORB_GEOM_SCALE}
-                  interactive
-                  onActivate={() => emitZoomStep(1)}
-                />
-              </div>
+              {/* Canvas fills the square exactly; geometry fills the canvas */}
+              <BlueOrbCross3D
+                height={`${ctrlPx}px`}   // square footprint internally
+                rpm={44}
+                includeZAxis
+                glow
+                // ⬇ Make the cross BIG. 1.65–1.9 fills most squares depending on taste.
+                geomScale={1.78}
+                interactive={true}
+                onActivate={() => emitZoomStep(1)}  // meshes fire this too
+              />
             </button>
           </div>
 
-          {/* CENTER: toggle — knob equals orb size; clouds/stars handled inside */}
+          {/* CENTER: Toggle (knob == ctrlPx) */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
-              circlePx={CONTROL_H}
+              circlePx={ctrlPx}
               trackPad={8}
               moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
             />
           </div>
 
-          {/* RIGHT: cart — same square as orb */}
+          {/* RIGHT: Cart — same square for rhythm */}
           <div style={{ display:'grid', justifyContent:'end' }}>
-            <div style={{ height: CONTROL_H, width: CONTROL_H, display:'grid', placeItems:'center' }}>
+            <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
             </div>
           </div>
@@ -136,7 +161,11 @@ export default function Page() {
       {veil && (
         <div
           aria-hidden="true"
-          style={{ position:'fixed', inset:0, background:'#fff', opacity:1, transition:'opacity .42s ease-out', zIndex:200, pointerEvents:'none' }}
+          style={{
+            position:'fixed', inset:0, background:'#fff',
+            opacity:1, transition:'opacity .42s ease-out',
+            zIndex:200, pointerEvents:'none'
+          }}
           ref={(el)=> el && requestAnimationFrame(() => (el.style.opacity = 0))}
           onTransitionEnd={() => setVeil(false)}
         />

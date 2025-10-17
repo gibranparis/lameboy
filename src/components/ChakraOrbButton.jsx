@@ -1,65 +1,78 @@
 // src/components/ChakraOrbButton.jsx
 'use client';
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
-  size = 44,            // visual & DOM diameter in px (true circle)
+  size = 56,             // DOM & visual diameter in px
   rpm = 44,
   color = '#32ffc7',
-  geomScale = 0.60,
+  geomScale = 1.25,      // bolder fill
+  offsetFactor = 2.25,   // push arms outward a touch
+  armRatio = 0.35,       // slightly thicker arms
   glow = true,
   glowOpacity = 0.9,
   includeZAxis = true,
   overrideAllColor = null,
-  onActivate,           // fired by meshes inside the canvas
   className = '',
   style = {},
 }) {
+  const fireZoom = useCallback((step = 1) => {
+    try { window.dispatchEvent(new CustomEvent('lb:zoom',      { detail: { step } })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('grid-density', { detail: { step } })); } catch {}
+  }, []);
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fireZoom(1);
+    }
+  };
+
   return (
-    <div
+    <button
+      type="button"
+      aria-label="Zoom products"
+      title="Zoom products"
       data-orb="density"
-      aria-hidden="true"
+      onClick={() => fireZoom(1)}
+      onKeyDown={handleKey}
       className={className}
       style={{
-        // Tight, circular, clipped box — DOM = what you see
         width: size,
         height: size,
-        lineHeight: 0,
         display: 'inline-grid',
         placeItems: 'center',
+        lineHeight: 0,
         borderRadius: '9999px',
         overflow: 'hidden',
-        // Also clip pointer hit-testing to a circle
         clipPath: 'circle(50% at 50% 50%)',
-        // No layout inflation
         padding: 0,
         margin: 0,
         background: 'transparent',
         border: '0 none',
-        // Wrapper ignores events; only the canvas handles them
-        pointerEvents: 'none',
-        // Avoid accidental effects
+        cursor: 'pointer',
         contain: 'layout paint style',
         ...style,
       }}
     >
-      {/* Only the canvas is interactive (meshes call onActivate) */}
       <BlueOrbCross3D
-        // ensure CSS/DOM sizing is exact and matches device pixels
-        style={{ pointerEvents: 'auto', display: 'block', width: '100%', height: '100%', border: 0, outline: 0 }}
-        // keep your existing props
-        height={`${size}px`}          // if BlueOrbCross3D reads this
+        style={{ display:'block', width:'100%', height:'100%', border:0, outline:0, background:'transparent', pointerEvents:'auto' }}
+        width={`${size}px`}
+        height={`${size}px`}
         rpm={rpm}
         color={color}
         geomScale={geomScale}
+        offsetFactor={offsetFactor}
+        armRatio={armRatio}
         glow={glow}
         glowOpacity={glowOpacity}
         includeZAxis={includeZAxis}
         overrideAllColor={overrideAllColor}
-        onActivate={onActivate}
+        interactive={true}
+        onActivate={() => fireZoom(1)}
       />
-    </div>
+    </button>
   );
 }

@@ -25,7 +25,6 @@ function OrbCross({
     typeof window !== 'undefined' &&
     window.matchMedia &&
     window.matchMedia('(pointer:coarse)').matches;
-  const coarseGlowFactor = coarse ? 0.55 : 1.0;
 
   useFrame((state, dt) => {
     if (!group.current) return;
@@ -65,14 +64,12 @@ function OrbCross({
       [0,  offset, 0],
       [0, -offset, 0],
     ];
-    if (includeZAxis) {
-      centers.push([0, 0,  offset], [0, 0, -offset]);
-    }
+    if (includeZAxis) centers.push([0,0, offset],[0,0,-offset]);
 
     const CHAKRA = {
-      root:     '#ef4444', sacral: '#f97316', solar: '#facc15',
-      heart:    '#22c55e', throat:'#3b82f6', thirdEye:'#4f46e5',
-      crownV:   '#c084fc', crownW: '#f6f3ff',
+      root:'#ef4444', sacral:'#f97316', solar:'#facc15',
+      heart:'#22c55e', throat:'#3b82f6', thirdEye:'#4f46e5',
+      crownV:'#c084fc', crownW:'#f6f3ff',
     };
 
     return { sphereGeo, armGeoX, armGeoY, armGeoZ, armGlowGeoX, armGlowGeoY, armGlowGeoZ, centers, CHAKRA };
@@ -172,7 +169,7 @@ function OrbCross({
 }
 
 export default function BlueOrbCross3D({
-  height = '28px',            // small by default so it fits headers/cards
+  height = '56px',
   rpm = 14.4,
   color = '#32ffc7',
   geomScale = 1,
@@ -187,7 +184,8 @@ export default function BlueOrbCross3D({
   overrideGlowOpacity,
   style = {},
   className = '',
-  interactive = true,         // NEW: turn off to remove hit-area and pointer events
+  interactive = true,
+  width, // ignored—square footprint derived from height
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
@@ -207,11 +205,11 @@ export default function BlueOrbCross3D({
       className={className}
       style={{
         height,
-        width: height,                  // square footprint
+        width: height, // square
         display: 'inline-block',
         contain: 'layout paint style',
         isolation: 'isolate',
-        pointerEvents: interactive ? 'auto' : 'none',  // <- kills hit-area when decorative
+        pointerEvents: interactive ? 'auto' : 'none',
         ...style,
       }}
     >
@@ -219,7 +217,7 @@ export default function BlueOrbCross3D({
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        style={{ pointerEvents: interactive ? 'auto' : 'none' }}   // <- no events when decorative
+        style={{ pointerEvents: interactive ? 'auto' : 'none' }}
       >
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />
@@ -234,7 +232,7 @@ export default function BlueOrbCross3D({
           glowOpacity={glowOpacity}
           glowScale={glowScale}
           includeZAxis={includeZAxis}
-          onActivate={interactive ? onActivate : null}   // no click handler in decorative mode
+          onActivate={interactive ? onActivate : null}
           overrideAllColor={overrideAllColor}
           overrideGlowOpacity={overrideGlowOpacity}
         />
