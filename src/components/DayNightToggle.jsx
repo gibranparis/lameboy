@@ -12,7 +12,7 @@ export default function DayNightToggle({
   className = '',
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
-  circlePx = 56,                 // knob diameter
+  circlePx = 36,                 // knob diameter
   trackPad = 1,                  // very slim “glove”
   moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
 }) {
