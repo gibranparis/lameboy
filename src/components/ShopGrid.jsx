@@ -9,7 +9,7 @@ import ProductOverlay from './ProductOverlay';
 const MIN_COLS = 1;
 const MAX_COLS = 5;
 
-/** @typedef {{ id?: string; slug?: string; name?: string; title?: string; price?: number; image?: string; thumbnail?: string, images?: any }} Product */
+/** @typedef {{ id?: string; slug?: string; name?: string; title?: string; price?: number; image?: string; thumbnail?: string; images?: any }} Product */
 
 /**
  * @param {{
@@ -19,26 +19,26 @@ const MAX_COLS = 5;
  * }} props
  */
 export default function ShopGrid({ products = [], hideTopRow = false, columns }) {
-  // fallback items
+  // Fallback demo items (replaced by real inventory when provided)
   const fallbackProductList = [
     { id: 'tee-black',  name: 'LB Tee — Black',  image: '/shop/tee-black.png',  price: 38 },
     { id: 'tee-white',  name: 'LB Tee — White',  image: '/shop/tee-white.png',  price: 38 },
     { id: 'cap-navy',   name: 'Dad Cap — Navy',  image: '/shop/cap-navy.png',   price: 32 },
     { id: 'stick-pack', name: 'Sticker Pack',    image: '/shop/stickers.png',   price: 10 },
   ];
-  const items = (products?.length ? products : fallbackProductList);
+  const items = products?.length ? products : fallbackProductList;
 
-  /** overlay state */
+  /** Overlay/product selection */
   const [selected, setSelected] = useState/** @type {Product|null} */(null);
 
-  /** grid density */
+  /** Grid density (columns) */
   const [perRow, setPerRow] = useState(MAX_COLS);
   /** 'in' = 5→1, 'out' = 1→5 */
   // @ts-ignore
   const [zoomDir, setZoomDir] = useState/** @type {'in'|'out'} */('in');
   const [fromCascade, setFromCascade] = useState(false);
 
-  // accept controlled columns from parent
+  // Accept controlled columns from parent
   useEffect(() => {
     if (typeof columns === 'number') {
       const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, Math.round(columns)));
@@ -46,7 +46,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     }
   }, [columns]);
 
-  // detect cascade handoff (optional styling hook)
+  // Detect cascade hop (style hook)
   useEffect(() => {
     try {
       if (sessionStorage.getItem('fromCascade') === '1') {
@@ -56,7 +56,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     } catch {}
   }, []);
 
-  // helper: step, bounce at ends, flip direction
+  // Step density with bounce at ends and direction flip
   const stepDensity = useCallback(
     /** @param {number} [delta=1] */
     (delta = 1) => {
@@ -75,23 +75,24 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     [perRow, zoomDir]
   );
 
-  // unified handler used by both events
+  // Unified handler for both event names
   /** @param {CustomEvent<{ step?: number, dir?: 'in'|'out' }>} e */
-  const handleZoomEvent = useCallback((e) => {
-    const step = Number(e?.detail?.step ?? 1);
-    const dir  = e?.detail?.dir;
-    if (dir === 'in' || dir === 'out') setZoomDir(dir);
-    if (typeof columns !== 'number') stepDensity(step);
-  }, [columns, stepDensity]);
+  const handleZoomEvent = useCallback(
+    (e) => {
+      const step = Number(e?.detail?.step ?? 1);
+      const dir  = e?.detail?.dir;
+      if (dir === 'in' || dir === 'out') setZoomDir(dir);
+      if (typeof columns !== 'number') stepDensity(step);
+    },
+    [columns, stepDensity]
+  );
 
   // Listen for the orb (new) and legacy events
   useEffect(() => {
-    // new event
     // @ts-ignore
-    const onZoom = (e) => handleZoomEvent(e);
-    // legacy event
+    const onZoom = (e) => handleZoomEvent(e);     // 'lb:zoom'
     // @ts-ignore
-    const onLegacy = (e) => handleZoomEvent(e);
+    const onLegacy = (e) => handleZoomEvent(e);   // 'grid-density'
 
     window.addEventListener('lb:zoom', onZoom);
     window.addEventListener('grid-density', onLegacy);
@@ -121,7 +122,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
             <button
               aria-label="Density −"
               className="rounded-lg px-3 py-1 ring-1 ring-black/10 dark:ring-white/15"
-              onClick={() => { setZoomDir('in');  stepDensity(1); }}
+              onClick={() => { setZoomDir('in'); stepDensity(1); }}
             >
               −
             </button>
@@ -166,7 +167,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
         })}
       </div>
 
-      {/* ✅ prop name fixed */}
+      {/* Overlay (correct prop) */}
       <ProductOverlay product={selected} onClose={() => setSelected(null)} />
     </section>
   );
