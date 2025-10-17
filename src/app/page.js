@@ -35,11 +35,11 @@ export default function Page() {
   const [isShop, setIsShop] = useState(true);
   const [veil,  setVeil]    = useState(false);
 
-  // === Sizing you can tweak =================================================
-  // Make the orb (chakra) bigger than the toggle knob.
-  const TOGGLE_KNOB_PX   = 36;                // << your requested knob size
-  const TOGGLE_TRACK_PAD = 1;                 // tighter “glove” fit
-  const ORB_PX           = 64;                // << bigger orb/chakra
+  // === Sizing ==============================================================
+  // Make the toggle 8px smaller than before, and make the orb clearly bigger.
+  const TOGGLE_KNOB_PX   = 28;  // was 36 → minus 8px
+  const TOGGLE_TRACK_PAD = 1;   // tight “glove”
+  const ORB_PX           = 80;  // bigger orb/chakra
 
   // keep <html> in sync
   useEffect(() => {
@@ -92,7 +92,7 @@ export default function Page() {
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb (chakra) — bigger */}
+          {/* LEFT: orb (chakra) — larger */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
@@ -114,22 +114,22 @@ export default function Page() {
               <BlueOrbCross3D
                 height={`${ORB_PX}px`}
                 rpm={44}
-                geomScale={1.02}
+                geomScale={1.18}   // scale up internal geometry so it “fills” the ring
                 glow
-                glowScale={1.5}
+                glowScale={1.85}
                 includeZAxis
                 interactive
                 onActivate={() => emitZoomStep(1)}
-                overrideGlowOpacity={0.9}
+                overrideGlowOpacity={0.95}
               />
             </button>
           </div>
 
-          {/* CENTER: slim toggle — knob uses your 36px */}
+          {/* CENTER: slimmer toggle (knob 28px) */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
-              circlePx={TOGGLE_KNOB_PX}   // << THIS overrides the child default
+              circlePx={TOGGLE_KNOB_PX}
               trackPad={TOGGLE_TRACK_PAD}
               moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
             />
