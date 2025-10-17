@@ -13,7 +13,6 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-/** Read --header-ctrl from CSS so everything matches globals.css exactly */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
@@ -28,31 +27,30 @@ function useHeaderCtrlPx(defaultPx = 56) {
   return px;
 }
 
-const HEADER_H = 86; // visual header height (keeps page content pushed down)
+const HEADER_H = 86;
 
 export default function Page() {
-  const ctrlPx = useHeaderCtrlPx(); // ← pulls 56px from your globals.css
-  const [theme, setTheme]   = useState('day');  // 'day' | 'night'
-  const [isShop, setIsShop] = useState(true);   // show shop immediately
+  const ctrlPx = useHeaderCtrlPx();
+  const [theme, setTheme]   = useState('day');
+  const [isShop, setIsShop] = useState(true);
   const [veil,  setVeil]    = useState(false);
 
-  // ✅ Size choices: bigger orb, slimmer toggle (but same visual rhythm)
-  const ORB_PX        = Math.round(ctrlPx * 1.18);  // make chakra ~18% larger
-  const TOGGLE_KNOB_PX= Math.round(ctrlPx * 0.86);  // knob smaller than orb
-  const TOGGLE_TRACK_PAD = 2;                       // tight “glove” around moon/sun
+  // === Sizing you can tweak =================================================
+  // Make the orb (chakra) bigger than the toggle knob.
+  const TOGGLE_KNOB_PX   = 36;                // << your requested knob size
+  const TOGGLE_TRACK_PAD = 1;                 // tighter “glove” fit
+  const ORB_PX           = 64;                // << bigger orb/chakra
 
-  // Keep <html> in sync for global CSS tokens
+  // keep <html> in sync
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
     if (isShop) root.setAttribute('data-shop-root', '');
     else root.removeAttribute('data-shop-root');
-    // also keep the var updated in case you tweak ctrl size in code later
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // Listen for DayNightToggle's 'theme-change' event
   useEffect(() => {
     /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
@@ -64,12 +62,9 @@ export default function Page() {
     };
   }, []);
 
-  // after cascade hop, fade the white veil away smoothly
   useEffect(() => {
-    let fromCascade = false;
     try {
-      fromCascade = sessionStorage.getItem('fromCascade') === '1';
-      if (fromCascade) {
+      if (sessionStorage.getItem('fromCascade') === '1') {
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
       }
@@ -78,7 +73,7 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // Emit both the new and legacy events so ShopGrid reacts
+  // Emit both events so ShopGrid listens (new + legacy)
   const emitZoomStep = useCallback((step = 1) => {
     const detail = { step };
     console.log('[orb] emit', detail);
@@ -89,16 +84,15 @@ export default function Page() {
   const headerStyle = useMemo(() => ({
     position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
     display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
-    padding:'0 16px', // breathing room so cart doesn’t hug the edge
+    padding:'0 16px',
     background:'transparent'
   }), []);
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
-      {/* SHOP HEADER */}
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb button — click & keyboard activate */}
+          {/* LEFT: orb (chakra) — bigger */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
@@ -113,38 +107,35 @@ export default function Page() {
               }}
               onClick={() => emitZoomStep(1)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  emitZoomStep(1);
-                }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoomStep(1); }
               }}
               title="Zoom products"
             >
               <BlueOrbCross3D
-                height={`${ORB_PX}px`}      // ← bigger canvas
+                height={`${ORB_PX}px`}
                 rpm={44}
-                geomScale={1.02}            // fill the circle more
+                geomScale={1.02}
                 glow
                 glowScale={1.5}
                 includeZAxis
-                interactive={true}
+                interactive
                 onActivate={() => emitZoomStep(1)}
                 overrideGlowOpacity={0.9}
               />
             </button>
           </div>
 
-          {/* CENTER: toggle (slimmer track, smaller than orb, knob == TOGGLE_KNOB_PX) */}
+          {/* CENTER: slim toggle — knob uses your 36px */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
-              circlePx={TOGGLE_KNOB_PX}
+              circlePx={TOGGLE_KNOB_PX}   // << THIS overrides the child default
               trackPad={TOGGLE_TRACK_PAD}
               moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
             />
           </div>
 
-          {/* RIGHT: cart — keep original square for rhythm */}
+          {/* RIGHT: cart */}
           <div style={{ display:'grid', justifyContent:'end' }}>
             <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
@@ -153,7 +144,6 @@ export default function Page() {
         </header>
       )}
 
-      {/* PAGES */}
       <main style={{ minHeight:'100dvh' }}>
         {!isShop ? (
           <div className="page-center">
@@ -166,7 +156,6 @@ export default function Page() {
         )}
       </main>
 
-      {/* arrival veil after cascade */}
       {veil && (
         <div
           aria-hidden="true"
