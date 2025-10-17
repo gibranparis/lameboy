@@ -1,4 +1,3 @@
-// src/components/BlueOrbCross3D.jsx
 'use client';
 
 import * as THREE from 'three';
@@ -97,13 +96,13 @@ function OrbCross({
   const sphereDefs = useOverride
     ? new Array(centers.length).fill({ core: barColor, halo: barColor, haloOp: haloBase })
     : [
-        { core: CHAKRA.crownW, halo: CHAKRA.crownV, haloOp: 0.9 * (coarse ? 0.55 : 1.0) },
-        { core: CHAKRA.root,     halo: CHAKRA.root,     haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
-        { core: CHAKRA.sacral,   halo: CHAKRA.sacral,   haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
-        { core: CHAKRA.solar,    halo: CHAKRA.solar,    haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
-        { core: CHAKRA.heart,    halo: CHAKRA.heart,    haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
-        { core: CHAKRA.throat,   halo: CHAKRA.throat,   haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
-        { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: glowOpacity * (coarse ? 0.55 : 1.0) },
+        { core: CHAKRA.crownW,  halo: CHAKRA.crownV, haloOp: 0.9 * (coarse ? 0.55 : 1.0) },
+        { core: CHAKRA.root,    halo: CHAKRA.root,   haloOp: haloBase },
+        { core: CHAKRA.sacral,  halo: CHAKRA.sacral, haloOp: haloBase },
+        { core: CHAKRA.solar,   halo: CHAKRA.solar,  haloOp: haloBase },
+        { core: CHAKRA.heart,   halo: CHAKRA.heart,  haloOp: haloBase },
+        { core: CHAKRA.throat,  halo: CHAKRA.throat, haloOp: haloBase },
+        { core: CHAKRA.thirdEye,halo: CHAKRA.thirdEye, haloOp: haloBase },
       ];
 
   const sphereCoreMats = useMemo(
@@ -139,6 +138,7 @@ function OrbCross({
     group.current.userData = { pulse:true, base:haloBase, barHalo:barHaloMat, sphereHalos:sphereHaloMats, halo2:halo2Mat, halo3:halo3Mat };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
+  // Mesh-level handlers are kept, but the canvas will also fire onActivate.
   const handlePointerDown = (e) => { e.stopPropagation(); onActivate && onActivate(); };
   const handleKeyDown = (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } };
 
@@ -169,7 +169,7 @@ function OrbCross({
 }
 
 export default function BlueOrbCross3D({
-  height = '56px',
+  height = '28px',
   rpm = 14.4,
   color = '#32ffc7',
   geomScale = 1,
@@ -185,7 +185,6 @@ export default function BlueOrbCross3D({
   style = {},
   className = '',
   interactive = true,
-  width, // ignored—square footprint derived from height
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
@@ -200,12 +199,25 @@ export default function BlueOrbCross3D({
     return () => mq?.removeEventListener?.('change', onChange);
   }, []);
 
+  // Fire onActivate for ANY pointer down inside the canvas, not just mesh hits
+  const handleCanvasPointerDown = () => {
+    if (!interactive) return;
+    onActivate && onActivate();
+  };
+  const handleCanvasKeyDown = (e) => {
+    if (!interactive) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onActivate && onActivate();
+    }
+  };
+
   return (
     <div
       className={className}
       style={{
         height,
-        width: height, // square
+        width: height,
         display: 'inline-block',
         contain: 'layout paint style',
         isolation: 'isolate',
@@ -217,7 +229,10 @@ export default function BlueOrbCross3D({
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        style={{ pointerEvents: interactive ? 'auto' : 'none' }}
+        style={{ pointerEvents: interactive ? 'auto' : 'none', outline: 'none' }}
+        onPointerDown={handleCanvasPointerDown}
+        tabIndex={interactive ? 0 : -1}
+        onKeyDown={handleCanvasKeyDown}
       >
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />
