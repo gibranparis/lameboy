@@ -138,8 +138,7 @@ function OrbCross({
     group.current.userData = { pulse:true, base:haloBase, barHalo:barHaloMat, sphereHalos:sphereHaloMats, halo2:halo2Mat, halo3:halo3Mat };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
-  // mesh handlers (no stopPropagation; let everything bubble)
-  const handlePointerDown = () => { onActivate && onActivate(); };
+  const handlePointerDown = (e) => { e.stopPropagation(); onActivate && onActivate(); };
   const handleKeyDown = (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } };
 
   return (
@@ -199,17 +198,17 @@ export default function BlueOrbCross3D({
     return () => mq?.removeEventListener?.('change', onChange);
   }, []);
 
-  // fallback: if no onActivate provided, dispatch zoom events here
-  const fire = () => {
-    if (onActivate) { onActivate(); return; }
-    try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step: 1 } })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } })); } catch {}
+  // Fire onActivate for ANY pointer down inside the canvas
+  const handleCanvasPointerDown = () => {
+    if (!interactive) return;
+    onActivate && onActivate();
   };
-
-  const handleCanvasPointerDown = () => { if (interactive) fire(); };
   const handleCanvasKeyDown = (e) => {
     if (!interactive) return;
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onActivate && onActivate();
+    }
   };
 
   return (
@@ -247,7 +246,7 @@ export default function BlueOrbCross3D({
           glowOpacity={glowOpacity}
           glowScale={glowScale}
           includeZAxis={includeZAxis}
-          onActivate={interactive ? fire : null}
+          onActivate={interactive ? onActivate : null}
           overrideAllColor={overrideAllColor}
           overrideGlowOpacity={overrideGlowOpacity}
         />

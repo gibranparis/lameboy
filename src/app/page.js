@@ -13,7 +13,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-/** Read --header-ctrl from CSS so everything matches globals.css */
+/** Read --header-ctrl from CSS so everything matches globals.css exactly */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
@@ -28,21 +28,15 @@ function useHeaderCtrlPx(defaultPx = 56) {
   return px;
 }
 
-const HEADER_H = 86;
-
-/** New + legacy zoom event emitter */
-function emitZoom(step = 1, dir = 'in') {
-  try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step, dir } })); } catch {}
-  try { window.dispatchEvent(new CustomEvent('grid-density', { detail: { step } })); } catch {}
-}
+const HEADER_H = 86; // visual header height (keeps page content pushed down)
 
 export default function Page() {
-  const ctrlPx = useHeaderCtrlPx();
+  const ctrlPx = useHeaderCtrlPx(); // ← pulls from globals.css
   const [theme, setTheme]   = useState('day');  // 'day' | 'night'
-  const [isShop, setIsShop] = useState(false);
+  const [isShop, setIsShop] = useState(true);   // show shop immediately for debugging
   const [veil,  setVeil]    = useState(false);
 
-  // Sync <html> tokens
+  // Keep <html> in sync for global CSS tokens
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -52,7 +46,7 @@ export default function Page() {
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // Listen for DayNightToggle
+  // Listen for DayNightToggle's 'theme-change' event
   useEffect(() => {
     /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
@@ -64,10 +58,11 @@ export default function Page() {
     };
   }, []);
 
-  // cascade veil
+  // after cascade hop, fade the white veil away smoothly
   useEffect(() => {
+    let fromCascade = false;
     try {
-      const fromCascade = sessionStorage.getItem('fromCascade') === '1';
+      fromCascade = sessionStorage.getItem('fromCascade') === '1';
       if (fromCascade) {
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
@@ -76,6 +71,12 @@ export default function Page() {
   }, [isShop]);
 
   const onProceed = () => setIsShop(true);
+
+  // Emit BOTH events so any listener (new/old) reacts
+  const emitZoomStep = useCallback((step = 1) => {
+    try { window.dispatchEvent(new CustomEvent('lb:zoom',       { detail: { step } })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('grid-density',  { detail: { step } })); } catch {}
+  }, []);
 
   const headerStyle = useMemo(() => ({
     position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
@@ -89,7 +90,7 @@ export default function Page() {
       {/* SHOP HEADER */}
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb button */}
+          {/* LEFT: orb button — click & keyboard activate */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
@@ -100,12 +101,12 @@ export default function Page() {
                 padding:0, margin:0, background:'transparent', border:0,
                 display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0
               }}
-              onClick={() => emitZoom(1, 'in')}            // click = zoom in (5→1 wrap)
-              onContextMenu={(e) => { e.preventDefault(); emitZoom(1, 'out'); }} // right-click = zoom out
+              onClick={() => emitZoomStep(1)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoom(1, 'in'); }
-                if (e.key === 'ArrowLeft') emitZoom(1, 'in');
-                if (e.key === 'ArrowRight') emitZoom(1, 'out');
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  emitZoomStep(1);
+                }
               }}
               title="Zoom products"
             >
@@ -116,23 +117,21 @@ export default function Page() {
                 glow
                 includeZAxis
                 interactive={true}
-                onActivate={() => emitZoom(1, 'in')}       // canvas click also zooms in
+                onActivate={() => emitZoomStep(1)} // mesh-level safety
+                background="transparent"
                 rpm={44}
               />
             </button>
           </div>
 
-          {/* CENTER: toggle */}
+          {/* CENTER: toggle (knob == ctrlPx) */}
           <div style={{ display:'grid', placeItems:'center' }}>
-            <DayNightToggle
-              id="lb-daynight"
-              circlePx={ctrlPx}
-              trackPad={8}
+            <DayNightToggle id="lb-daynight" circlePx={ctrlPx} trackPad={8}
               moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
             />
           </div>
 
-          {/* RIGHT: cart */}
+          {/* RIGHT: cart — same square for rhythm */}
           <div style={{ display:'grid', justifyContent:'end' }}>
             <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
@@ -154,7 +153,7 @@ export default function Page() {
         )}
       </main>
 
-      {/* arrival veil */}
+      {/* arrival veil after cascade */}
       {veil && (
         <div
           aria-hidden="true"
