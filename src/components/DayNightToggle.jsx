@@ -12,8 +12,8 @@ export default function DayNightToggle({
   className = '',
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
-  circlePx = 56,                 // knob diameter (matches --header-ctrl by default)
-  trackPad = 1,                  // smaller = tighter “glove” around the knob
+  circlePx = 56,                 // knob diameter
+  trackPad = 1,                  // very slim “glove”
   moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
@@ -174,11 +174,11 @@ export default function DayNightToggle({
         if (p >= 1) meteor.t = -1;
       }
 
-      raf = requestAnimationFrame(LOOP);
+      requestAnimationFrame(LOOP);
     };
 
-    raf = requestAnimationFrame(LOOP);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+    requestAnimationFrame(LOOP);
+    return () => { ro.disconnect(); };
   }, [isNight]);
 
   return (
@@ -263,8 +263,8 @@ export default function DayNightToggle({
           height:dims.knob,
           width:dims.knob,
           borderRadius:'50%',
-          background:'transparent',                          // ← no base color to show as a ring
-          boxShadow:'0 6px 16px rgba(0,0,0,.18)',            // ← no inset, just outer drop shadow
+          background:'transparent',
+          boxShadow:'0 6px 16px rgba(0,0,0,.18)',
           display:'grid',
           placeItems:'center',
           transform:`translateX(${isNight ? dims.shift : 0}px)`,
@@ -282,7 +282,7 @@ export default function DayNightToggle({
         >
           <span
             style={{
-              width: dims.knob,                 // ← fill 100%
+              width: dims.knob,
               height: dims.knob,
               borderRadius:'50%',
               background:'radial-gradient(circle at 45% 45%, #fff6c6 0%, #ffd75e 55%, #ffb200 100%)',
@@ -302,7 +302,7 @@ export default function DayNightToggle({
             src={moonSrc}
             alt=""
             style={{
-              width: dims.knob,                 // ← fill 100%
+              width: dims.knob,
               height: dims.knob,
               borderRadius:'50%',
               display:'block',
