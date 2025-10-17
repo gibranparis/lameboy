@@ -12,8 +12,8 @@ export default function DayNightToggle({
   className = '',
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
-  circlePx = 44,                 // knob diameter (match orb/cart square)
-  trackPad = 8,                  // trims track height / “glove” tightness
+  circlePx = 56,                 // knob diameter (we match --header-ctrl by default)
+  trackPad = 1,                  // smaller = tighter “glove” around the moon
   moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
@@ -49,25 +49,23 @@ export default function DayNightToggle({
   }
   function toggle() { setTheme(isNight ? 'day' : 'night'); }
 
-  // ----- Sizing (keep proportions tight to the knob) ----------------------
-  // Moon/sun stays exactly circlePx. Track hugs the knob based on trackPad.
+  // Sizing: moon stays exactly circlePx; pill hugs using trackPad
   const dims = useMemo(() => {
-    const knob = Math.max(20, Math.round(circlePx));    // fixed moon size
-    const gapPx = Math.max(2, Math.min(6, trackPad));   // 2..6px feels best
-    const h = Math.max(28, knob + gapPx * 2);           // pill hugs knob
-    const w = Math.round(h * (64 / 36));                // classic 64:36 pill
-    const inset = Math.round((h - knob) / 2);           // centers knob
-    const shift = Math.round(w - knob - inset * 2);     // knob travel
+    const knob  = Math.max(20, Math.round(circlePx));
+    const padPx = Math.max(1, Math.min(6, Math.round(trackPad)));
+    const h     = Math.max(knob + padPx * 2, 28);
+    const w     = Math.round(h * (64 / 36));
+    const inset = padPx;
+    const shift = Math.round(w - knob - inset * 2);
     return { h, w, knob, inset, shift };
   }, [circlePx, trackPad]);
 
-  const moonSrc = moonImages?.[0] ?? '/toggle/moon-night.png';
+  const moonSrc = moonImages?.[0] ?? '/toggle/moon-red.png';
 
-  // ===== Night sky canvas (stars, LAMEBOY constellation, shooting star) ===
+  // Night sky sparkles + LAMEBOY constellation + meteor
   const skyRef = useRef/** @type {React.RefObject<HTMLCanvasElement>} */(null);
-
   useEffect(() => {
-    if (!isNight) return; // only animate at night
+    if (!isNight) return;
     const canvas = skyRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d', { alpha: true });
@@ -86,17 +84,15 @@ export default function DayNightToggle({
     };
     resizeCanvas();
 
-    const ro = new ResizeObserver(() => resizeCanvas());
+    const ro = new ResizeObserver(resizeCanvas);
     ro.observe(canvas);
 
-    const STAR_COUNT = 28;
-    /** @type {{x:number,y:number,a:number,as:number,r:number}[]} */
-    const stars = Array.from({ length: STAR_COUNT }, () => ({
+    const stars = Array.from({ length: 28 }, () => ({
       x: Math.random() * W,
       y: Math.random() * H,
-      a: 0.5 + Math.random() * 0.5,
-      as: (0.5 + Math.random()) * 0.006,
-      r: 0.8 * DPR
+      a: Math.random() * Math.PI * 2,
+      as: 0.004 + Math.random() * 0.006,
+      r: 0.8 * DPR,
     }));
 
     /** @type {[number,number][]} */
@@ -126,17 +122,17 @@ export default function DayNightToggle({
     const LOOP = () => {
       ctx.clearRect(0,0,W,H);
 
+      // stars
       for (const s of stars) {
         s.a += s.as;
         const tw = 0.5 + 0.5*Math.sin(s.a);
         ctx.globalAlpha = 0.7*tw;
         ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
       }
       ctx.globalAlpha = 1;
 
+      // constellation
       ctx.lineWidth = 1 * DPR;
       ctx.strokeStyle = 'rgba(255,255,255,.55)';
       ctx.fillStyle = 'rgba(255,255,255,.95)';
@@ -144,21 +140,18 @@ export default function DayNightToggle({
       for (let i=0;i<C.length;i++){
         const [nx,ny]=C[i];
         const x=nx*W, y=ny*H;
-        if(i===0) ctx.moveTo(x,y);
-        else ctx.lineTo(x,y);
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
       }
       ctx.stroke();
       for (const [nx,ny] of C) {
         const x=nx*W, y=ny*H;
-        ctx.beginPath();
-        ctx.arc(x,y,1.2*DPR,0,Math.PI*2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(x,y,1.2*DPR,0,Math.PI*2); ctx.fill();
       }
 
+      // meteor cadence
       const now = performance.now();
       if (meteor.t < 0 && now - lastSpawn > 2400 + Math.random()*2600) {
-        lastSpawn = now;
-        spawnMeteor();
+        lastSpawn = now; spawnMeteor();
       }
       if (meteor.t >= 0) {
         const p = Math.min(1, (now - meteor.born)/meteor.dur);
@@ -174,7 +167,8 @@ export default function DayNightToggle({
         grad.addColorStop(1,'rgba(255,255,255,.9)');
         ctx.strokeStyle = grad;
         ctx.lineWidth = 1.2*DPR;
-        ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(x,y); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(tx,ty); ctx.lineTo(x,y); ctx.stroke();
 
         ctx.fillStyle = '#fff';
         ctx.beginPath(); ctx.arc(x,y,1.4*DPR,0,Math.PI*2); ctx.fill();
@@ -186,10 +180,7 @@ export default function DayNightToggle({
     };
 
     raf = requestAnimationFrame(LOOP);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, [isNight]);
 
   return (
