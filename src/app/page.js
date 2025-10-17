@@ -35,13 +35,11 @@ export default function Page() {
   const [isShop, setIsShop] = useState(true);
   const [veil,  setVeil]    = useState(false);
 
-  // === Sizing ==============================================================
-  // Make the toggle 8px smaller than before, and make the orb clearly bigger.
-  const TOGGLE_KNOB_PX   = 28;  // was 36 → minus 8px
-  const TOGGLE_TRACK_PAD = 1;   // tight “glove”
-  const ORB_PX           = 80;  // bigger orb/chakra
+  // ——— UI sizing ———
+  const TOGGLE_KNOB_PX   = 28;   // slim toggle
+  const TOGGLE_TRACK_PAD = 1;    // tight glove
+  const ORB_PX           = 64;   // slightly larger than toggle but not huge
 
-  // keep <html> in sync
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -54,12 +52,8 @@ export default function Page() {
   useEffect(() => {
     /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
-    // @ts-ignore
     window.addEventListener('theme-change', onTheme);
-    return () => {
-      // @ts-ignore
-      window.removeEventListener('theme-change', onTheme);
-    };
+    return () => window.removeEventListener('theme-change', onTheme);
   }, []);
 
   useEffect(() => {
@@ -73,26 +67,24 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // Emit both events so ShopGrid listens (new + legacy)
   const emitZoomStep = useCallback((step = 1) => {
     const detail = { step };
     console.log('[orb] emit', detail);
-    try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('lb:zoom',      { detail })); } catch {}
     try { window.dispatchEvent(new CustomEvent('grid-density', { detail })); } catch {}
   }, []);
 
   const headerStyle = useMemo(() => ({
     position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
     display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
-    padding:'0 16px',
-    background:'transparent'
+    padding:'0 16px', background:'transparent'
   }), []);
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb (chakra) — larger */}
+          {/* LEFT: Orb (less glow, tighter geometry → no puffiness) */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
@@ -113,19 +105,20 @@ export default function Page() {
             >
               <BlueOrbCross3D
                 height={`${ORB_PX}px`}
-                rpm={44}
-                geomScale={1.18}   // scale up internal geometry so it “fills” the ring
+                // ↓ Key changes to remove the “puffy” feel
+                geomScale={1.08}          // was 1.22
                 glow
-                glowScale={1.85}
-                includeZAxis
+                glowScale={1.25}          // was 1.9
+                overrideGlowOpacity={0.38} // was 0.95
+                rpm={36}                   // calmer spin reads sharper
+                includeZAxis               // keep chakra axis set
                 interactive
                 onActivate={() => emitZoomStep(1)}
-                overrideGlowOpacity={0.95}
               />
             </button>
           </div>
 
-          {/* CENTER: slimmer toggle (knob 28px) */}
+          {/* CENTER: Slim toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
@@ -135,7 +128,7 @@ export default function Page() {
             />
           </div>
 
-          {/* RIGHT: cart */}
+          {/* RIGHT: Cart */}
           <div style={{ display:'grid', justifyContent:'end' }}>
             <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />

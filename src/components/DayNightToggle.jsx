@@ -1,5 +1,5 @@
-// @ts-check
 // src/components/DayNightToggle.jsx
+// @ts-check
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -12,8 +12,8 @@ export default function DayNightToggle({
   className = '',
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
-  circlePx = 36,                 // knob diameter
-  trackPad = 1,                  // very slim “glove”
+  circlePx = 28,                 // 👈 slimmer knob (was 36). Change here to resize.
+  trackPad = 1,                  // tight “glove” track
   moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
@@ -253,7 +253,7 @@ export default function DayNightToggle({
         />
       )}
 
-      {/* KNOB (sun/moon) — transparent base, art fills the circle (no rim) */}
+      {/* KNOB (sun/moon) — borderless art fills the circle */}
       <span
         aria-hidden
         style={{
