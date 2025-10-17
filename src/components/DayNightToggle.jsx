@@ -2,7 +2,7 @@
 // src/components/DayNightToggle.jsx
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 /** @typedef {'day'|'night'} Theme */
 const THEME_KEY = 'lb:theme';
@@ -21,7 +21,7 @@ export default function DayNightToggle({
   trackPad = 8,
 
   /** Optional moon images (first will be used if available) */
-  moonImages = ['/moon-night.png'],
+  moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
 
@@ -41,14 +41,13 @@ export default function DayNightToggle({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isControlled]);
 
-  // reflect on <html> + localStorage
+  // reflect on <html> + localStorage + broadcast event
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
     root.dataset.theme = theme;
     root.classList.toggle('dark', isNight);
     try { localStorage.setItem(THEME_KEY, theme); } catch {}
-    // notify listeners
     try { window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme } })); } catch {}
   }, [theme, isNight]);
 
@@ -68,27 +67,164 @@ export default function DayNightToggle({
     return { h, w, knob, inset, shift };
   }, [circlePx, trackPad]);
 
-  // pick the first existing moon image
-  const moonSrc = moonImages?.[0] ?? '/moon-night.png';
+  // unique id (not strictly needed now, but handy)
+  useId();
 
-  // Star coordinates (percentage) roughly forming "LAMEBOY" across the pill
-  // small canvas = suggestive layout, not literal text; spaced for readability
-  const STARS = [
-    // L
-    {l:10,t:22},{l:10,t:34},{l:10,t:46},{l:14,t:46},
-    // A
-    {l:22,t:46},{l:24,t:36},{l:26,t:46},{l:23,t:41},
-    // M
-    {l:32,t:46},{l:34,t:34},{l:36,t:46},{l:38,t:34},{l:40,t:46},
-    // E
-    {l:46,t:22},{l:46,t:34},{l:46,t:46},{l:50,t:22},{l:50,t:34},{l:50,t:46},
-    // B
-    {l:58,t:22},{l:58,t:34},{l:58,t:46},{l:62,t:28},{l:62,t:40},
-    // O
-    {l:70,t:28},{l:74,t:34},{l:70,t:40},{l:66,t:34},
-    // Y
-    {l:80,t:28},{l:82,t:32},{l:84,t:28},{l:82,t:40}
-  ];
+  // pick the first existing moon image
+  const moonSrc = moonImages?.[0] ?? '/toggle/moon-night.png';
+
+  // ===== Night sky canvas (stars, LAMEBOY constellation, shooting star) ===
+  const skyRef = useRef/** @type {React.RefObject<HTMLCanvasElement>} */(null);
+
+  useEffect(() => {
+    if (!isNight) return; // only animate in night mode
+    const canvas = skyRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return;
+
+    let raf = 0;
+    const DPR = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+    let W = 0, H = 0;
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      W = Math.max(1, Math.floor(rect.width * DPR));
+      H = Math.max(1, Math.floor(rect.height * DPR));
+      canvas.width = W;
+      canvas.height = H;
+    };
+    resize();
+
+    // Random stars
+    const STAR_COUNT = 28;
+    /** @type {{x:number,y:number,a:number,as:number,r:number}[]} */
+    const stars = Array.from({ length: STAR_COUNT }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      a: 0.5 + Math.random() * 0.5,
+      as: (0.5 + Math.random()) * 0.006, // twinkle speed
+      r: 0.8 * DPR
+    }));
+
+    // Constellation points that vaguely “write” LAMEBOY across the track
+    // (normalized 0..1; we’ll scale to canvas)
+    /** @type {[number,number][]} */
+    const C = [
+      // L
+      [0.10,0.25],[0.10,0.70],[0.18,0.70],
+      // A
+      [0.27,0.72],[0.30,0.25],[0.33,0.72],[0.29,0.52],[0.31,0.52],
+      // M
+      [0.40,0.72],[0.40,0.28],[0.44,0.55],[0.48,0.28],[0.48,0.72],
+      // E
+      [0.56,0.25],[0.56,0.70],[0.62,0.70],[0.56,0.48],[0.60,0.48],[0.56,0.25],[0.62,0.25],
+      // B
+      [0.70,0.25],[0.70,0.70],[0.76,0.62],[0.70,0.52],[0.76,0.42],[0.70,0.35],
+      // O
+      [0.84,0.48],[0.86,0.42],[0.90,0.42],[0.92,0.48],[0.90,0.56],[0.86,0.56],[0.84,0.48],
+      // Y (just two strokes near edge)
+      [0.96,0.25],[0.94,0.40],[0.98,0.40],[0.96,0.70],
+    ];
+
+    // Shooting star
+    let meteor = {
+      t: -1, // progress 0..1, -1 when idle
+      x0: 0, y0: 0, x1: 0, y1: 0, dur: 1200, born: 0
+    };
+    const spawnMeteor = () => {
+      const now = performance.now();
+      meteor.born = now;
+      meteor.dur = 900 + Math.random()*700;
+      meteor.x0 = Math.random() < 0.5 ? -0.1 * W : 1.1 * W;
+      meteor.y0 = Math.random() * (0.25 * H) + 0.15 * H;
+      meteor.x1 = meteor.x0 < 0 ? 1.2 * W : -0.2 * W;
+      meteor.y1 = meteor.y0 + (Math.random()*0.2 - 0.1) * H;
+      meteor.t = 0;
+    };
+
+    let lastSpawn = performance.now();
+    const LOOP = (ts) => {
+      ctx.clearRect(0,0,W,H);
+
+      // stars
+      for (const s of stars) {
+        s.a += s.as;
+        const tw = 0.5 + 0.5*Math.sin(s.a);
+        ctx.globalAlpha = 0.7*tw;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // constellation
+      ctx.lineWidth = 1 * DPR;
+      ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.fillStyle = 'rgba(255,255,255,.95)';
+      ctx.beginPath();
+      for (let i=0;i<C.length;i++){
+        const [nx,ny]=C[i];
+        const x=nx*W, y=ny*H;
+        if(i===0) ctx.moveTo(x,y);
+        else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+
+      for (const [nx,ny] of C) {
+        const x=nx*W, y=ny*H;
+        ctx.beginPath();
+        ctx.arc(x,y,1.2*DPR,0,Math.PI*2);
+        ctx.fill();
+      }
+
+      // meteor (shooting star)
+      const now = performance.now();
+      if (meteor.t < 0 && now - lastSpawn > 2400 + Math.random()*2600) {
+        lastSpawn = now;
+        spawnMeteor();
+      }
+      if (meteor.t >= 0) {
+        const p = Math.min(1, (now - meteor.born)/meteor.dur);
+        const x = meteor.x0 + (meteor.x1 - meteor.x0)*p;
+        const y = meteor.y0 + (meteor.y1 - meteor.y0)*p;
+        const trail = 80 * DPR;
+        const ang = Math.atan2(meteor.y1-meteor.y0, meteor.x1-meteor.x0);
+
+        const tx = x - Math.cos(ang)*trail;
+        const ty = y - Math.sin(ang)*trail;
+
+        const grad = ctx.createLinearGradient(tx,ty,x,y);
+        grad.addColorStop(0,'rgba(255,255,255,0)');
+        grad.addColorStop(1,'rgba(255,255,255,.9)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1.2*DPR;
+        ctx.beginPath();
+        ctx.moveTo(tx,ty);
+        ctx.lineTo(x,y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x,y,1.4*DPR,0,Math.PI*2);
+        ctx.fill();
+
+        if (p >= 1) meteor.t = -1;
+      }
+
+      raf = requestAnimationFrame(LOOP);
+    };
+
+    raf = requestAnimationFrame(LOOP);
+    const onResize = () => { resize(); };
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [isNight]);
 
   return (
     <button
@@ -97,7 +233,7 @@ export default function DayNightToggle({
       aria-label="Toggle day / night"
       role="switch"
       aria-checked={isNight}
-      className={`lb-switch ${className}`}  // <- applies the always-on blue/white outline from globals.css
+      className={className}
       style={{
         position: 'relative',
         display: 'inline-flex',
@@ -105,20 +241,24 @@ export default function DayNightToggle({
         width: dims.w,
         borderRadius: 9999,
         overflow: 'hidden',
-        border: '1px solid rgba(0,0,0,.12)',
+        // single “halo” look (no double border)
+        border: isNight ? '1px solid rgba(90,170,255,.45)' : '1px solid rgba(0,0,0,.10)',
+        boxShadow: isNight
+          ? '0 0 0 2px rgba(90,170,255,.55), 0 0 16px rgba(90,170,255,.45), inset 0 0 0 1px rgba(255,255,255,.5)'
+          : '0 6px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.55)',
         background: isNight ? '#0a0a12' : '#ffffff',
-        boxShadow: '0 6px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.5)',
         cursor: 'pointer',
         WebkitTapHighlightColor: 'transparent',
         isolation: 'isolate',
+        outline: 'none',
       }}
     >
-      {/* DAY BACKDROP (soft gradient) */}
+      {/* DAY BACKDROP */}
       <span
         aria-hidden
         style={{
           position:'absolute', inset:0, borderRadius:9999,
-          background: isNight ? 'transparent' : `linear-gradient(180deg,#bfe7ff 0%, #dff4ff 60%, #ffffff 100%)`,
+          background: `linear-gradient(180deg,#bfe7ff 0%, #dff4ff 60%, #ffffff 100%)`,
           opacity: isNight ? 0 : 1,
           transition:'opacity 400ms ease',
         }}
@@ -151,37 +291,13 @@ export default function DayNightToggle({
         </span>
       )}
 
-      {/* NIGHT STARS + shooting star */}
+      {/* NIGHT SKY (canvas) */}
       {isNight && (
-        <span aria-hidden style={{ position:'absolute', inset:0, opacity:1, transition:'opacity 400ms ease' }}>
-          {STARS.map((s, i) => (
-            <span
-              key={i}
-              style={{
-                position:'absolute',
-                left:`${s.l}%`,
-                top:`${s.t}%`,
-                width:2, height:2, borderRadius:2, background:'#fff',
-                boxShadow:'0 0 8px rgba(255,255,255,.9)',
-                animation:`twinkle ${1.6 + (i%5)*0.25}s ease-in-out ${(i%7)*0.18}s infinite`,
-              }}
-            />
-          ))}
-          {/* shooting star */}
-          <span
-            style={{
-              position:'absolute',
-              left:'-10%', top:'35%',
-              width:'26%', height:2,
-              background:'linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.9), rgba(255,255,255,0))',
-              boxShadow:'0 0 6px rgba(255,255,255,.75)',
-              borderRadius:2,
-              transform:'translateX(-40%)',
-              animation:'shootAcross 7s ease-in-out 1s infinite',
-              opacity:.0
-            }}
-          />
-        </span>
+        <canvas
+          ref={skyRef}
+          aria-hidden
+          style={{ position:'absolute', inset:0, borderRadius:9999 }}
+        />
       )}
 
       {/* KNOB (sun/moon) */}
@@ -248,13 +364,6 @@ export default function DayNightToggle({
       <style jsx>{`
         @keyframes twinkle { 0%,100% { transform: scale(.7); opacity:.7; } 50% { transform: scale(1.1); opacity:1; } }
         @keyframes cloudMove { from { transform: translateX(-4%); } to { transform: translateX(6%); } }
-        @keyframes shootAcross {
-          0%   { transform: translateX(-40%); opacity: 0; }
-          10%  { opacity: .95; }
-          45%  { transform: translateX(160%); opacity: .85; }
-          70%  { opacity: 0; }
-          100% { transform: translateX(200%); opacity: 0; }
-        }
       `}</style>
     </button>
   );
