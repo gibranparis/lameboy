@@ -15,11 +15,11 @@ const MAX_COLS = 5;
  * @param {{
  *   products?: Product[];
  *   hideTopRow?: boolean;
- *   columns?: number; // optional controlled columns from parent (1..5)
+ *   columns?: number; // optional controlled columns (1..5)
  * }} props
  */
 export default function ShopGrid({ products = [], hideTopRow = false, columns }) {
-  // fallback items
+  // Fallbacks
   const fallbackProductList = [
     { id: 'tee-black',  name: 'LB Tee — Black',  image: '/shop/tee-black.png',  price: 38 },
     { id: 'tee-white',  name: 'LB Tee — White',  image: '/shop/tee-white.png',  price: 38 },
@@ -28,17 +28,17 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
   ];
   const items = (products?.length ? products : fallbackProductList);
 
-  /** overlay state */
+  // Overlay
   const [selected, setSelected] = useState/** @type {Product|null} */(null);
 
-  /** grid density */
-  const [perRow, setPerRow] = useState(MAX_COLS);
-  /** 'in' = 5→1, 'out' = 1→5 */
+  // Density state
+  const [perRow, setPerRow] = useState(MAX_COLS); // start at 5
+  // 'in' = fewer columns (bigger tiles), 'out' = more columns
   // @ts-ignore
   const [zoomDir, setZoomDir] = useState/** @type {'in'|'out'} */('in');
   const [fromCascade, setFromCascade] = useState(false);
 
-  // accept controlled columns from parent
+  // If parent controls columns, respect it.
   useEffect(() => {
     if (typeof columns === 'number') {
       const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, Math.round(columns)));
@@ -46,7 +46,6 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     }
   }, [columns]);
 
-  // detect cascade handoff (optional styling hook)
   useEffect(() => {
     try {
       if (sessionStorage.getItem('fromCascade') === '1') {
@@ -56,7 +55,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     } catch {}
   }, []);
 
-  // helper: step, bounce at ends, flip direction
+  // Step helper (bounce at the ends)
   const stepDensity = useCallback(
     /** @param {number} [delta=1] */
     (delta = 1) => {
@@ -75,7 +74,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     [perRow, zoomDir]
   );
 
-  // unified handler
+  // Unified handler for lb:zoom
   /** @param {CustomEvent<{ step?: number, dir?: 'in'|'out' }>} e */
   const handleZoomEvent = useCallback((e) => {
     const step = Number(e?.detail?.step ?? 1);
@@ -84,18 +83,21 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
     if (typeof columns !== 'number') stepDensity(step);
   }, [columns, stepDensity]);
 
-  // ✅ Listen ONLY to the modern event. (Legacy removed to avoid double steps.)
+  // ✅ Listen on BOTH window & document for robustness (single event name)
   useEffect(() => {
     // @ts-ignore
     const onZoom = (e) => handleZoomEvent(e);
     window.addEventListener('lb:zoom', onZoom);
+    document.addEventListener('lb:zoom', onZoom);
     return () => {
       window.removeEventListener('lb:zoom', onZoom);
+      document.removeEventListener('lb:zoom', onZoom);
     };
   }, [handleZoomEvent]);
 
+  // Grid columns from state
   const gridStyle = useMemo(
-    () => /** @type {const} */ ({ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }),
+    () => /** @type {const} */ ({ display:'grid', gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))`, gap: '2.5rem' }),
     [perRow]
   );
 
@@ -106,7 +108,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
         fromCascade ? 'animate-[fadeIn_.6s_ease-out]' : '',
       ].join(' ')}
     >
-      {/* Top row controls (hidden when header already hosts the cart) */}
+      {/* Optional controls row (hidden when header hosts the cart) */}
       {!hideTopRow && (
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -131,7 +133,7 @@ export default function ShopGrid({ products = [], hideTopRow = false, columns })
       )}
 
       {/* Product grid */}
-      <div className="grid gap-10" style={gridStyle}>
+      <div className="shop-grid" style={gridStyle}>
         {items.map((p, i) => {
           const key = p.id ?? p.slug ?? p.name ?? String(i);
           const title = p.name ?? p.title ?? 'ITEM';

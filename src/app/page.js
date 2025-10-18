@@ -35,11 +35,12 @@ export default function Page() {
   const [isShop, setIsShop] = useState(true);
   const [veil,  setVeil]    = useState(false);
 
-  // UI sizing
+  // Sizes
   const TOGGLE_KNOB_PX   = 28;
   const TOGGLE_TRACK_PAD = 1;
-  const ORB_PX           = 64;
+  const ORB_PX           = 64; // make bigger/smaller here
 
+  // keep <html> in sync
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -49,10 +50,16 @@ export default function Page() {
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
+  // pick up theme-change from toggle
   useEffect(() => {
+    /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
-    return () => window.removeEventListener('theme-change', onTheme);
+    document.addEventListener('theme-change', onTheme);
+    return () => {
+      window.removeEventListener('theme-change', onTheme);
+      document.removeEventListener('theme-change', onTheme);
+    };
   }, []);
 
   useEffect(() => {
@@ -66,11 +73,13 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // ✅ Emit ONLY ONE event so the grid steps once per click.
+  // ====== ZOOM EMIT (single event type; fire on both window & document) ======
   const emitZoomStep = useCallback((step = 1) => {
     const detail = { step };
-    console.log('[orb] emit', detail);
-    try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
+    // console.log('[orb] emit lb:zoom', detail);
+    const evt = new CustomEvent('lb:zoom', { detail });
+    try { window.dispatchEvent(evt); } catch {}
+    try { document.dispatchEvent(evt); } catch {}
   }, []);
 
   const headerStyle = useMemo(() => ({
@@ -83,7 +92,7 @@ export default function Page() {
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: Orb */}
+          {/* LEFT: orb */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
@@ -116,7 +125,7 @@ export default function Page() {
             </button>
           </div>
 
-          {/* CENTER: Toggle */}
+          {/* CENTER: toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
@@ -126,7 +135,7 @@ export default function Page() {
             />
           </div>
 
-          {/* RIGHT: Cart */}
+          {/* RIGHT: cart */}
           <div style={{ display:'grid', justifyContent:'end' }}>
             <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
@@ -142,6 +151,7 @@ export default function Page() {
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
+            {/* No controlled columns; grid listens for lb:zoom */}
             <ShopGrid hideTopRow />
           </div>
         )}
