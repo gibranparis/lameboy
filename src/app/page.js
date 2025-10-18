@@ -35,10 +35,10 @@ export default function Page() {
   const [isShop, setIsShop] = useState(true);
   const [veil,  setVeil]    = useState(false);
 
-  // ——— UI sizing ———
-  const TOGGLE_KNOB_PX   = 28;   // slim toggle
-  const TOGGLE_TRACK_PAD = 1;    // tight glove
-  const ORB_PX           = 64;   // slightly larger than toggle but not huge
+  // UI sizing
+  const TOGGLE_KNOB_PX   = 28;
+  const TOGGLE_TRACK_PAD = 1;
+  const ORB_PX           = 64;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -50,7 +50,6 @@ export default function Page() {
   }, [theme, isShop, ctrlPx]);
 
   useEffect(() => {
-    /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
     return () => window.removeEventListener('theme-change', onTheme);
@@ -67,11 +66,11 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
+  // ✅ Emit ONLY ONE event so the grid steps once per click.
   const emitZoomStep = useCallback((step = 1) => {
     const detail = { step };
     console.log('[orb] emit', detail);
-    try { window.dispatchEvent(new CustomEvent('lb:zoom',      { detail })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('grid-density', { detail })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
   }, []);
 
   const headerStyle = useMemo(() => ({
@@ -84,7 +83,7 @@ export default function Page() {
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: Orb (less glow, tighter geometry → no puffiness) */}
+          {/* LEFT: Orb */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
@@ -105,20 +104,19 @@ export default function Page() {
             >
               <BlueOrbCross3D
                 height={`${ORB_PX}px`}
-                // ↓ Key changes to remove the “puffy” feel
-                geomScale={1.08}          // was 1.22
+                geomScale={1.08}
                 glow
-                glowScale={1.25}          // was 1.9
-                overrideGlowOpacity={0.38} // was 0.95
-                rpm={36}                   // calmer spin reads sharper
-                includeZAxis               // keep chakra axis set
+                glowScale={1.25}
+                overrideGlowOpacity={0.38}
+                rpm={36}
+                includeZAxis
                 interactive
                 onActivate={() => emitZoomStep(1)}
               />
             </button>
           </div>
 
-          {/* CENTER: Slim toggle */}
+          {/* CENTER: Toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
