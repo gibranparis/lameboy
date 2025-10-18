@@ -32,13 +32,13 @@ const HEADER_H = 86;
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx();
   const [theme, setTheme]   = useState('day');
-  const [isShop, setIsShop] = useState(true);
+  const [isShop, setIsShop] = useState(false); // ⬅️ start at the banned login gate
   const [veil,  setVeil]    = useState(false);
 
   // Sizes
-  const TOGGLE_KNOB_PX   = 28;
-  const TOGGLE_TRACK_PAD = 1;
-  const ORB_PX           = 64; // make bigger/smaller here
+  const TOGGLE_KNOB_PX   = 28; // change to taste
+  const TOGGLE_TRACK_PAD = 1;  // slimmer pill around the knob
+  const ORB_PX           = 64; // chakra orb size in header
 
   // keep <html> in sync
   useEffect(() => {
@@ -76,7 +76,6 @@ export default function Page() {
   // ====== ZOOM EMIT (single event type; fire on both window & document) ======
   const emitZoomStep = useCallback((step = 1) => {
     const detail = { step };
-    // console.log('[orb] emit lb:zoom', detail);
     const evt = new CustomEvent('lb:zoom', { detail });
     try { window.dispatchEvent(evt); } catch {}
     try { document.dispatchEvent(evt); } catch {}
@@ -151,7 +150,6 @@ export default function Page() {
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
-            {/* No controlled columns; grid listens for lb:zoom */}
             <ShopGrid hideTopRow />
           </div>
         )}
