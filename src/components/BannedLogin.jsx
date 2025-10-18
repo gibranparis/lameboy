@@ -37,7 +37,7 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** CascadeOverlay */
+/** Neon cascade overlay (with glow) */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -59,10 +59,13 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
 
   return createPortal(
     <>
+      {/* white panel sweep */}
       <div aria-hidden="true" style={{
         position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
         background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
       }}/>
+
+      {/* color bands with neon glow */}
       <div aria-hidden="true" style={{
         position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
         transform:`translate3d(${bandsTx}vw,0,0)`,
@@ -73,18 +76,41 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
           <div className="lb-band lb-b4"/><div className="lb-band lb-b5"/><div className="lb-band lb-b6"/><div className="lb-band lb-b7"/>
         </div>
       </div>
+
+      {/* center brand */}
       <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
+
       <style jsx global>{`
         .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); }
-        .lb-band{ width:100%; height:100%; background:var(--c); }
-        .lb-b1{ --c:#ef4444 } .lb-b2{ --c:#f97316 } .lb-b3{ --c:#facc15 }
-        .lb-b4{ --c:#22c55e } .lb-b5{ --c:#3b82f6 } .lb-b6{ --c:#4f46e5 } .lb-b7{ --c:#c084fc }
+        .lb-band{
+          position:relative;
+          width:100%; height:100%; background:var(--c);
+        }
+        /* Neon aura: blurred pseudo-element radiates color like your neon text */
+        .lb-band::after{
+          content:"";
+          position:absolute; inset:-14px;
+          background:var(--c);
+          filter:blur(22px);
+          opacity:.95;
+          pointer-events:none;
+        }
+        /* Chakra colors (same hues as before) */
+        .lb-b1{ --c:#ef4444 } /* red (banned vibe) */
+        .lb-b2{ --c:#f97316 }
+        .lb-b3{ --c:#facc15 } /* yellow (Florida vibe) */
+        .lb-b4{ --c:#22c55e }
+        .lb-b5{ --c:#3b82f6 }
+        .lb-b6{ --c:#4f46e5 }
+        .lb-b7{ --c:#c084fc }
+
         .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
         .lb-brand-text{
           color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
-          font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25);
+          font-size:clamp(11px,1.3vw,14px);
+          text-shadow:0 0 8px rgba(0,0,0,.25);
         }
       `}</style>
     </>,
@@ -206,7 +232,17 @@ export default function BannedLogin({ onProceed }) {
   const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
   return (
-    <div className="page-center" style={{ position:'relative', flexDirection:'column', gap:8 }}>
+    <div
+      className="page-center"
+      style={{
+        minHeight:'100dvh',
+        display:'grid',
+        placeItems:'center',
+        padding:'2rem',
+        position:'relative',
+        gridAutoRows:'min-content',
+      }}
+    >
       {flyOnce && (
         <ButterflyChakra
           startEl={lRef.current}
@@ -223,8 +259,15 @@ export default function BannedLogin({ onProceed }) {
       )}
 
       {!hideAll && (
-        <div className="login-stack">
-          {/* Orb: click = step density; long-press or double-click = cascade+hop */}
+        <div
+          className="login-stack"
+          style={{
+            display:'grid',
+            justifyItems:'center',
+            gap:10,
+          }}
+        >
+          {/* Orb: click = step density; long-press/double-click = cascade+hop */}
           <div className="orb-row" style={{ marginBottom:-16, display:'grid', placeItems:'center' }}>
             <button
               type="button"
@@ -235,12 +278,13 @@ export default function BannedLogin({ onProceed }) {
               onTouchStart={() => { clearPressTimer(); pressTimer.current = setTimeout(() => runCascade(()=>{}, { washAway:true }), 650); }}
               onTouchEnd={clearPressTimer}
               onClick={() => {
-                // quick tap = step density
-                window.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } }));
+                const detail = { step: 1 };
+                try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
+                try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
               }}
               onDoubleClick={() => runCascade(()=>{}, { washAway:true })}
               className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-              style={{ lineHeight: 0 }}
+              style={{ lineHeight: 0, background:'transparent', border:0, padding:0 }}
             >
               <BlueOrbCross3D
                 key={`${orbMode}-${orbGlow}-${orbVersion}`}
@@ -266,7 +310,13 @@ export default function BannedLogin({ onProceed }) {
                 view==='banned' ? 'slide-in-left' : 'slide-in-right',
                 'bubble-button'
               ].join(' ')}
-              style={{ minWidth:260 }}
+              style={{
+                minWidth:260,
+                background:'rgba(20,20,26,.9)',
+                border:'2px solid rgba(255,255,255,.10)',
+                borderRadius:16,
+                boxShadow:'0 6px 18px rgba(0,0,0,.28)',
+              }}
               role={view==='login' ? 'form' : undefined}
               tabIndex={view==='login' ? 0 : -1}
             >
@@ -276,7 +326,6 @@ export default function BannedLogin({ onProceed }) {
                   <Wordmark onClickWordmark={() => setFlyOnce(true)} lRef={lRef} yRef={yRef} />
                   {'\n'}
                   <span className="lb-seafoam code-comment">//</span>{' '}
-                  {/* strike only “banned” */}
                   <span className="code-banned">is </span>
                   <span
                     role="button" tabIndex={0}
@@ -351,7 +400,7 @@ export default function BannedLogin({ onProceed }) {
                     </span>
                   </div>
 
-                  <div className="row-nowrap" style={{ marginTop:6, gap:8 }}>
+                  <div className="row-nowrap" style={{ marginTop:6, gap:8, justifyContent:'center' }}>
                     <button type="button" className={`commit-btn btn-yellow ${activated==='link'?'btn-activated':''}`} onClick={onLink}>Link</button>
                     <button type="button" className={`commit-btn btn-red ${activated==='bypass'?'btn-activated':''}`} onClick={onBypass}>Bypass</button>
                   </div>
@@ -360,13 +409,14 @@ export default function BannedLogin({ onProceed }) {
             </div>
           )}
 
+          {/* Florida line — centered */}
           <button
             type="button"
-            className={['ghost-btn','florida-link','florida-inline', floridaHot?'is-hot':''].join(' ')}
+            className={['ghost-btn','florida-link', floridaHot?'is-hot':''].join(' ')}
             onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
             onMouseEnter={()=>setFloridaHot(true)}
             onMouseLeave={()=>setFloridaHot(false)}
-            style={{ marginTop: 6 }}
+            style={{ marginTop: 8, display:'block', textAlign:'center' }}
           >
             Florida, USA
           </button>
