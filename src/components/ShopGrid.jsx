@@ -14,47 +14,62 @@ const PRODUCTS = [
 const SIZES = ['XS','S','M','L','XL'];
 const money = (c) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);
 
+const clampCols = (n) => Math.max(1, Math.min(5, n));
+
 /** @param {{ hideTopRow?: boolean }} props */
 export default function ShopGrid({ hideTopRow = false }) {
-  // Columns via CSS var (kept here for consistency, but not required for the back behavior)
+  // Columns driven by CSS var + localStorage
   const [cols, setCols] = useState(() => {
-    const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-cols') || '4', 10);
-    return Number.isFinite(v) ? v : 4;
+    try {
+      const saved = parseInt(localStorage.getItem('lb:grid-cols') || '', 10);
+      if (Number.isFinite(saved)) return clampCols(saved);
+    } catch {}
+    const css = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-cols') || '4', 10);
+    return clampCols(Number.isFinite(css) ? css : 4);
   });
+
+  // Apply to :root + persist
   useEffect(() => {
-    document.documentElement.style.setProperty('--grid-cols', String(Math.max(1, Math.min(5, cols))));
+    document.documentElement.style.setProperty('--grid-cols', String(cols));
+    try { localStorage.setItem('lb:grid-cols', String(cols)); } catch {}
   }, [cols]);
 
   const [sel, setSel]   = useState/** @type {null | (typeof PRODUCTS)[number]} */(null);
   const [size, setSize] = useState/** @type {null | string} */(null);
 
-  // Root attribute so other components know overlay state (optional but nice)
+  // Mark overlay state for page.js to detect
   useEffect(() => {
     const root = document.documentElement;
     if (sel) root.setAttribute('data-overlay', 'product');
     else root.removeAttribute('data-overlay');
   }, [sel]);
 
-  // Close handler (exported globally + listens to orb event)
+  // Listen for orb events (window only!)
   useEffect(() => {
-    const close = () => {
+    const onZoom = /** @param {CustomEvent<{step?:number}>} e */ (e) => {
+      const step = Number(e?.detail?.step ?? 1) || 1;
+      setCols((c) => {
+        const next = c + step;
+        // wrap 1..5
+        return next > 5 ? 1 : (next < 1 ? 5 : next);
+      });
+    };
+    const onClose = () => {
       setSel(null);
       setSize(null);
       document.body.style.overflow = '';
     };
 
-    // event listeners from the orb
-    const onClose = () => close();
+    window.addEventListener('lb:zoom', onZoom);
     window.addEventListener('lb:close-overlay', onClose);
-    document.addEventListener('lb:close-overlay', onClose);
 
-    // global fallback for older callers
+    // global fallback for legacy callers
     // @ts-ignore
-    window.lbCloseOverlay = close;
+    window.lbCloseOverlay = onClose;
 
     return () => {
+      window.removeEventListener('lb:zoom', onZoom);
       window.removeEventListener('lb:close-overlay', onClose);
-      document.removeEventListener('lb:close-overlay', onClose);
       try { delete window.lbCloseOverlay; } catch {}
     };
   }, []);

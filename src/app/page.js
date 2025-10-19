@@ -55,12 +55,9 @@ export default function Page() {
   useEffect(() => {
     /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
+    // IMPORTANT: only listen on window (avoid double-handling).
     window.addEventListener('theme-change', onTheme);
-    document.addEventListener('theme-change', onTheme);
-    return () => {
-      window.removeEventListener('theme-change', onTheme);
-      document.removeEventListener('theme-change', onTheme);
-    };
+    return () => window.removeEventListener('theme-change', onTheme);
   }, []);
 
   // Entry veil after cascade
@@ -75,13 +72,19 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // === ORB BEHAVIOR ========================================================
-  // Single “back/close” signal. Overlay components just need to listen to it.
-  const fireCloseOverlay = useCallback(() => {
-    try { window.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
-    try { document.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
-    // Fallback hook in case an older component exposed a global closer:
-    try { window.lbCloseOverlay?.(); } catch {}
+  // ========= ORB CLICK: close overlay OR zoom grid by +1 ==================
+  const onOrbClick = useCallback(() => {
+    const root = document.documentElement;
+    const overlay = root.getAttribute('data-overlay');
+    if (overlay) {
+      // Close any open overlay
+      try { window.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
+      // Fallback if some legacy code is around:
+      try { window.lbCloseOverlay?.(); } catch {}
+    } else {
+      // Increment grid density by exactly 1 (ShopGrid listens for this)
+      try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step: 1 } })); } catch {}
+    }
   }, []);
 
   const headerStyle = useMemo(() => ({
@@ -94,11 +97,11 @@ export default function Page() {
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb (Back when overlay is open; safe to click anytime) */}
+          {/* LEFT: orb (Back on overlay, Zoom+1 on grid) */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
-              aria-label="Back / Close overlay"
+              aria-label="Back / Zoom"
               data-orb="density"
               className="orb-ring"
               style={{
@@ -107,9 +110,9 @@ export default function Page() {
                 display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
                 borderRadius:'9999px',
               }}
-              onClick={fireCloseOverlay}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fireCloseOverlay(); } }}
-              title="Back"
+              onClick={onOrbClick}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOrbClick(); } }}
+              title="Back / Zoom"
             >
               <BlueOrbCross3D
                 height={`${ORB_PX}px`}
@@ -120,7 +123,7 @@ export default function Page() {
                 rpm={36}
                 includeZAxis
                 interactive
-                onActivate={fireCloseOverlay}
+                onActivate={onOrbClick}
               />
             </button>
           </div>
