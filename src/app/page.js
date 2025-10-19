@@ -49,15 +49,16 @@ export default function Page(){
     return ()=>{ window.removeEventListener('theme-change', onTheme); document.removeEventListener('theme-change', onTheme); };
   },[]);
 
-  const emitZoom = useCallback(()=>{
+  // one button to rule them all:
+  // - if overlay open: dispatch “close overlay”
+  // - else: step grid density (ping-pong 1..5..1)
+  const onOrb = useCallback(()=>{
     const overlayOpen = document.body.dataset.overlay === '1';
     if (overlayOpen){
-      // act as BACK while overlay is open
       try { window.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
       try { document.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
       return;
     }
-    // otherwise: grid zoom ping-pong step
     try { window.dispatchEvent(new CustomEvent('lb:zoom',{ detail:{ step:1 }})); } catch {}
     try { document.dispatchEvent(new CustomEvent('lb:zoom',{ detail:{ step:1 }})); } catch {}
   },[]);
@@ -80,8 +81,8 @@ export default function Page(){
               data-orb="density"
               className="orb-ring"
               style={{ width:ctrlPx, height:ctrlPx, display:'grid', placeItems:'center', borderRadius:'9999px', background:'transparent', border:0, padding:0, cursor:'pointer', lineHeight:0 }}
-              onClick={emitZoom}
-              onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); emitZoom(); }}}
+              onClick={onOrb}
+              onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onOrb(); }}}
               title="Zoom / Back"
             >
               <BlueOrbCross3D
@@ -93,7 +94,7 @@ export default function Page(){
                 rpm={36}
                 includeZAxis
                 interactive
-                onActivate={emitZoom}
+                onActivate={onOrb}
               />
             </button>
           </div>

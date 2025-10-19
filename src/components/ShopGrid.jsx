@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-// Dummy products. Replace with your data source.
+// Replace with your real products
 const PRODUCTS = [
   { id:'tee-black',  title:'LB Tee — Black',  price:3800, img:'/products/lb-tee-black.png'  },
   { id:'tee-white',  title:'LB Tee — White',  price:3800, img:'/products/lb-tee-white.png'  },
@@ -31,26 +31,22 @@ function Pill({ children, onClick, active=false, disabled=false, ariaLabel, titl
   );
 }
 
-export default function ShopGrid({ hideTopRow=false }){
+export default function ShopGrid(){
   const [cols, setCols] = useState(4);
-  const [dir,  setDir]  = useState(1); // ping-pong
-  const [overlay, setOverlay] = useState/** @type {null|{id:string}} */(null);
+  const [dir,  setDir]  = useState(1); // ping-pong 1..5..1
+  const [overlay, setOverlay] = useState(null);
 
-  // keep CSS var in sync
+  // CSS var drives layout
   useEffect(()=>{ document.documentElement.style.setProperty('--grid-cols', String(cols)); },[cols]);
 
-  // expose overlay state for header orb
-  useEffect(()=>{
-    document.body.dataset.overlay = overlay ? '1' : '0';
-  },[overlay]);
+  // advertise overlay state for header orb
+  useEffect(()=>{ document.body.dataset.overlay = overlay ? '1' : '0'; },[overlay]);
 
-  // zoom handler: cycle 1..5 ping-pong
+  // Zoom handler
   useEffect(()=>{
     const onZoom = (e)=>{
       const step = Number(e?.detail?.step ?? 1);
-      if (overlay){ // while overlay is open, ignore zoom steps
-        return;
-      }
+      if (overlay) return; // ignore while open
       setCols(c=>{
         let d = dir;
         let next = c + d*step;
@@ -61,7 +57,6 @@ export default function ShopGrid({ hideTopRow=false }){
       });
     };
     const onCloseOverlay = ()=> setOverlay(null);
-
     window.addEventListener('lb:zoom', onZoom);
     document.addEventListener('lb:zoom', onZoom);
     window.addEventListener('lb:close-overlay', onCloseOverlay);
@@ -79,7 +74,7 @@ export default function ShopGrid({ hideTopRow=false }){
 
   return (
     <div className="shop-wrap">
-      {/* GRID (hidden when overlay) */}
+      {/* grid (hidden when overlay) */}
       {!overlay && (
         <div className="shop-grid">
           {PRODUCTS.map(p=>(
@@ -93,24 +88,21 @@ export default function ShopGrid({ hideTopRow=false }){
         </div>
       )}
 
-      {/* OVERLAY */}
-      {overlay && <ProductOverlay product={PRODUCTS.find(x=>x.id===overlay.id)!} onClose={close} />}
+      {overlay && <ProductOverlay product={PRODUCTS.find(x=>x.id===overlay.id)} onClose={close} />}
     </div>
   );
 }
 
 function ProductOverlay({ product, onClose }){
-  const [mode, setMode] = useState<'plus'|'sizes'>('plus'); // plus pill first
+  const [mode, setMode] = useState('plus'); // 'plus' | 'sizes'
   const [adding, setAdding] = useState(false);
-
   const sizes = ['XS','S','M','L','XL'];
 
-  // Header orb -> back
   useEffect(()=>{
-    const onClose = ()=> onClose();
-    window.addEventListener('lb:close-overlay', onClose);
-    document.addEventListener('lb:close-overlay', onClose);
-    return ()=>{ window.removeEventListener('lb:close-overlay', onClose); document.removeEventListener('lb:close-overlay', onClose); };
+    const onCloseEv = ()=> onClose();
+    window.addEventListener('lb:close-overlay', onCloseEv);
+    document.addEventListener('lb:close-overlay', onCloseEv);
+    return ()=>{ window.removeEventListener('lb:close-overlay', onCloseEv); document.removeEventListener('lb:close-overlay', onCloseEv); };
   },[onClose]);
 
   return (
@@ -120,7 +112,6 @@ function ProductOverlay({ product, onClose }){
         <div className="product-hero-title">{product.title}</div>
         <div className="product-hero-price">{money(product.price)}</div>
 
-        {/* Interaction area */}
         <div style={{ display:'grid', placeItems:'center', gap:10 }}>
           {mode==='plus' ? (
             <Pill ariaLabel="Choose size" title="Choose size" onClick={()=>setMode('sizes')}>
@@ -132,23 +123,18 @@ function ProductOverlay({ product, onClose }){
           ) : (
             <div style={{ display:'flex', gap:8 }}>
               {sizes.map(sz=>(
-                <Pill
-                  key={sz}
-                  onClick={async ()=>{
-                    // flash green on the size, add to cart, then return to plus mode
-                    setAdding(true);
-                    try{
-                      // send add-to-cart
-                      const detail = { sku:product.id, size:sz };
-                      try { window.dispatchEvent(new CustomEvent('lb:add-to-cart',{ detail })); } catch {}
-                      try { document.dispatchEvent(new CustomEvent('lb:add-to-cart',{ detail })); } catch {}
-                      await new Promise(r=>setTimeout(r,240));
-                    } finally {
-                      setAdding(false);
-                      setMode('plus');
-                    }
-                  }}
-                >
+                <Pill key={sz} onClick={async ()=>{
+                  setAdding(true);
+                  try{
+                    const detail = { sku:product.id, size:sz };
+                    try { window.dispatchEvent(new CustomEvent('lb:add-to-cart',{ detail })); } catch {}
+                    try { document.dispatchEvent(new CustomEvent('lb:add-to-cart',{ detail })); } catch {}
+                    await new Promise(r=>setTimeout(r,240));
+                  } finally {
+                    setAdding(false);
+                    setMode('plus');
+                  }
+                }}>
                   <span style={{
                     padding:'0 2px',
                     borderRadius:6,
@@ -161,7 +147,6 @@ function ProductOverlay({ product, onClose }){
           )}
         </div>
 
-        {/* Close with ESC */}
         <button className="product-hero-close" aria-label="Close" onClick={onClose}>×</button>
       </div>
     </div>

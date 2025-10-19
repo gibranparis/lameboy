@@ -59,7 +59,7 @@ export default function DayNightToggle({
 
   const moonSrc = moonImages?.[0] ?? '/toggle/moon-red.png';
 
-  // NIGHT SKY — twinkle + LAMEBOY constellation + occasional meteor
+  // NIGHT SKY — twinkle + “LAMEBOY” path + meteor
   const skyRef = useRef/** @type {React.RefObject<HTMLCanvasElement>} */(null);
   useEffect(()=>{
     if (!isNight) return;
@@ -77,21 +77,18 @@ export default function DayNightToggle({
     resize();
     const ro = new ResizeObserver(resize); ro.observe(canvas);
 
-    const STARS = 32;
-    /** @type {{x:number,y:number,a:number,as:number,r:number}[]} */
-    const stars = Array.from({length:STARS},()=>({
+    const stars = Array.from({length:32},()=>({
       x:Math.random()*W, y:Math.random()*H, a:Math.random()*6.28, as:(0.5+Math.random())*0.006, r:0.8*DPR
     }));
 
-    // “LAMEBOY” path (normalized 0..1)
     /** @type {[number,number][]} */
     const C = [
-      [0.08,0.35],[0.08,0.70],[0.18,0.70], // L
-      [0.25,0.35],[0.25,0.70],[0.36,0.70], // A
-      [0.43,0.35],[0.43,0.70],[0.52,0.60],[0.43,0.50], // M-ish
-      [0.57,0.35],[0.57,0.70],[0.66,0.35],[0.66,0.70], // E
-      [0.72,0.35],[0.72,0.70],[0.82,0.70], // B
-      [0.86,0.35],[0.86,0.70],[0.94,0.52], // O→Y hint
+      [0.08,0.35],[0.08,0.70],[0.18,0.70],
+      [0.25,0.35],[0.25,0.70],[0.36,0.70],
+      [0.43,0.35],[0.43,0.70],[0.52,0.60],[0.43,0.50],
+      [0.57,0.35],[0.57,0.70],[0.66,0.35],[0.66,0.70],
+      [0.72,0.35],[0.72,0.70],[0.82,0.70],
+      [0.86,0.35],[0.86,0.70],[0.94,0.52],
     ];
 
     let meteor = { t:-1, x0:0,y0:0, x1:0,y1:0, dur:1100, born:0 };
@@ -109,7 +106,6 @@ export default function DayNightToggle({
     const LOOP = ()=>{
       ctx.clearRect(0,0,W,H);
 
-      // twinkle
       for(const s of stars){
         s.a += s.as;
         const tw = 0.5+0.5*Math.sin(s.a);
@@ -119,7 +115,6 @@ export default function DayNightToggle({
       }
       ctx.globalAlpha = 1;
 
-      // constellation
       ctx.lineWidth = 1*DPR;
       ctx.strokeStyle = 'rgba(255,255,255,.55)';
       ctx.fillStyle   = 'rgba(255,255,255,.95)';
@@ -133,7 +128,6 @@ export default function DayNightToggle({
         const x=nx*W,y=ny*H; ctx.beginPath(); ctx.arc(x,y,1.2*DPR,0,Math.PI*2); ctx.fill();
       }
 
-      // meteor
       const now = performance.now();
       if (meteor.t<0 && now - lastSpawn > 2400 + Math.random()*2600){ lastSpawn=now; spawn(); }
       if (meteor.t>=0){
@@ -154,10 +148,10 @@ export default function DayNightToggle({
         if (p>=1) meteor.t=-1;
       }
 
-      raf = requestAnimationFrame(LOOP);
+      requestAnimationFrame(LOOP);
     };
-    raf = requestAnimationFrame(LOOP);
-    return ()=>{ cancelAnimationFrame(raf); ro.disconnect(); };
+    requestAnimationFrame(LOOP);
+    return ()=>{ ro.disconnect(); };
   },[isNight]);
 
   return (
