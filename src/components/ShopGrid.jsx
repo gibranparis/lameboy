@@ -2,196 +2,217 @@
 // src/components/ShopGrid.jsx
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-/** Demo catalog */
-const PRODUCTS = [
-  { id: 'tee-black',  title: 'LB Tee — Black',  price: 38, image: '/shop/lb-tee-black.png'  },
-  { id: 'tee-white',  title: 'LB Tee — White',  price: 38, image: '/shop/lb-tee-white.png'  },
-  { id: 'cap-navy',   title: 'Dad Cap — Navy',  price: 32, image: '/shop/dad-cap-navy.png'  },
-  { id: 'stick-pack', title: 'Sticker Pack',    price: 12, image: '/shop/stickers.png'      },
+/**
+ * Basic product sample fallback. If you already inject products from elsewhere,
+ * you can pass `products` prop and ignore this.
+ */
+const FALLBACK = [
+  { id: 'tee-black',  title: 'LB Tee — Black',  price: 38, img:'/shop/tee-black.png',  sizes:['XS','S','M','L','XL'] },
+  { id: 'tee-white',  title: 'LB Tee — White',  price: 38, img:'/shop/tee-white.png',  sizes:['XS','S','M','L','XL'] },
+  { id: 'dad-navy',   title: 'Dad Cap — Navy',  price: 32, img:'/shop/dadcap-navy.png', sizes:['OS'] },
+  { id: 'sticker',    title: 'Sticker Pack',    price: 8,  img:'/shop/stickers.png',    sizes:[] },
 ];
 
-const SIZES = ['XS','S','M','L','XL'];
+/** @typedef {{id:string,title:string,price:number,img:string,sizes:string[]}} Product */
 
-export default function ShopGrid({ hideTopRow = false }) {
-  const [activeId, setActiveId] = useState/** @type {string|null} */(null);
-  const active = useMemo(() => PRODUCTS.find(p => p.id === activeId) ?? null, [activeId]);
+function cls(...xs){ return xs.filter(Boolean).join(' '); }
 
-  const [size, setSize] = useState/** @type {string|null} */(null);
-  useEffect(() => { setSize(null); }, [activeId]);
+/** Tiny pill button (used for sizes and the + button) */
+function Pill({ children, onClick, active, disabled, title, ariaLabel }){
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={ariaLabel || title}
+      className={cls(
+        'inline-flex items-center justify-center rounded-full border text-[12px] font-[800]',
+        'transition-colors',
+        'h-[28px] min-w-[28px] px-[10px]',
+        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+        active
+          ? 'bg-[#0bf05f] border-transparent text-black shadow-[0_0_0_1px_rgba(0,0,0,.15)]'
+          : 'bg-white border-black/12 text-black/80 hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-black/30'
+      )}
+      style={{ lineHeight: '1' }}
+    >
+      {children}
+    </button>
+  );
+}
 
-  // === Grid density controlled by CSS var --grid-cols =====================
-  // Start from whatever CSS has, default 4.
-  const readCols = () => {
-    const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-cols') || '4', 10);
-    return Number.isFinite(v) ? v : 4;
+/** Product overlay / hero */
+function ProductOverlay({
+  product, onClose
+}){
+  const [showSizes, setShowSizes] = useState(false);     // "+ only" vs "sizes"
+  const [flashPlus, setFlashPlus] = useState(false);     // green flash on +
+  const [selected, setSelected] = useState/** @type {string|null} */(null);
+
+  // Reset UI when product changes
+  useEffect(() => {
+    setShowSizes(false);
+    setFlashPlus(false);
+    setSelected(null);
+  }, [product?.id]);
+
+  const hasSizes = (product?.sizes || []).length > 0;
+
+  const handlePlus = () => {
+    // Tap + → reveal sizes
+    setShowSizes(true);
+    setSelected(null);
   };
-  const [cols, setCols] = useState(readCols);
-  useEffect(() => {
-    document.documentElement.style.setProperty('--grid-cols', String(cols));
-  }, [cols]);
 
-  // Oscillation direction: +1 (up toward 5) or -1 (down toward 1)
-  const dirRef = useRef(1);
-  // Ensure overlay state reflected on <html> (handy for other components)
-  useEffect(() => {
+  const addToCart = useCallback((qty=1) => {
+    try {
+      window.dispatchEvent(new CustomEvent('cart:add', {
+        detail: { qty, productId: product?.id, size: selected }
+      }));
+    } catch {}
+  }, [product?.id, selected]);
+
+  const handleChooseSize = (s /** @type {string} */) => {
+    setSelected(s);
+    // Perform add-to-cart immediately
+    addToCart(1);
+    // Hide sizes and show + with green flash briefly
+    setShowSizes(false);
+    setFlashPlus(true);
+    const id = setTimeout(() => setFlashPlus(false), 550);
+    return () => clearTimeout(id);
+  };
+
+  return (
+    <div
+      className="product-hero-overlay"
+      aria-modal="true"
+      role="dialog"
+      onClick={(e)=>{ if (e.target === e.currentTarget) onClose(); }}
+      style={{ background:'var(--panel, #fff)', color:'var(--text, #111)' }}
+    >
+      <div className="product-hero">
+        <img className="product-hero-img" src={product.img} alt="" />
+        <div className="product-hero-title">{product.title}</div>
+        <div className="product-hero-price">${product.price.toFixed(2)}</div>
+
+        {/* Controls area */}
+        <div style={{ display:'grid', placeItems:'center', gap:12, marginTop:10 }}>
+          {/* Either the + pill OR the sizes */}
+          {!showSizes ? (
+            <Pill
+              onClick={hasSizes ? handlePlus : () => { /* no sizes → add directly */ addToCart(1); setFlashPlus(true); setTimeout(()=>setFlashPlus(false), 550); }}
+              active={flashPlus}
+              title={hasSizes ? 'Choose size' : 'Add to cart'}
+              ariaLabel="+"
+            >
+              +
+            </Pill>
+          ) : (
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'center' }}>
+              {product.sizes.map((s) => (
+                <Pill
+                  key={s}
+                  onClick={() => handleChooseSize(s)}
+                  active={selected === s}
+                  title={`Size ${s}`}
+                >
+                  {s}
+                </Pill>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button
+          className="product-hero-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ⌫
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Main grid */
+export default function ShopGrid({ products }) {
+  /** @type {Product[]} */
+  const items = useMemo(() => Array.isArray(products) && products.length ? products : FALLBACK, [products]);
+
+  // ===== Grid density ping-pong 1..5 ======================================
+  const [cols, setCols] = useState(() => {
     const root = document.documentElement;
-    if (active) root.setAttribute('data-overlay-open', '');
-    else root.removeAttribute('data-overlay-open');
-  }, [active]);
+    const v = parseInt(getComputedStyle(root).getPropertyValue('--grid-cols'),10);
+    return Number.isFinite(v) && v>0 ? v : 4;
+  });
+  const [dir, setDir] = useState(1); // 1 increasing, -1 decreasing
 
-  // Single orb event:
-  // - if overlay open: close overlay
-  // - else: step grid columns by 1, oscillating between 1..5 forever
+  const applyCols = useCallback((n) => {
+    const m = Math.max(1, Math.min(5, n|0));
+    setCols(m);
+    try {
+      document.documentElement.style.setProperty('--grid-cols', String(m));
+    } catch {}
+  }, []);
+
   useEffect(() => {
-    const onOrb = () => {
-      if (active) {
-        setActiveId(null);
-        return;
-      }
-      setCols(prev => {
-        let next = prev + dirRef.current;
-        if (next >= 5) { next = 5; dirRef.current = -1; }
-        else if (next <= 1) { next = 1; dirRef.current = 1; }
-        return next;
+    const onZoom = (/** @type {CustomEvent<{step?:number}>} */ e) => {
+      // Ignore provided step. We ping-pong 1↔5:
+      setCols((prev) => {
+        let next = prev + dir;
+        let nd = dir;
+        if (next > 5) { next = 4; nd = -1; }
+        if (next < 1) { next = 2; nd = 1; }
+        setDir(nd);
+        const clamped = Math.max(1, Math.min(5, next));
+        try { document.documentElement.style.setProperty('--grid-cols', String(clamped)); } catch {}
+        return clamped;
       });
     };
-    window.addEventListener('lb:orb-tap', onOrb);
-    document.addEventListener('lb:orb-tap', onOrb);
+    window.addEventListener('lb:zoom', onZoom);
+    document.addEventListener('lb:zoom', onZoom);
     return () => {
-      window.removeEventListener('lb:orb-tap', onOrb);
-      document.removeEventListener('lb:orb-tap', onOrb);
+      window.removeEventListener('lb:zoom', onZoom);
+      document.removeEventListener('lb:zoom', onZoom);
     };
-  }, [active]);
+  }, [dir]);
 
-  // Add-to-cart flash + badge bump
-  const [adding, setAdding] = useState(false);
-  const addToCart = () => {
-    if (!size || !active) return;
-    setAdding(true);
-    // Fire a few widely compatible events so your CartButton can listen to any:
-    const payload = { id: active.id, qty: 1, size };
-    try { window.dispatchEvent(new CustomEvent('lb:cart:add', { detail: payload })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('cart:add',     { detail: payload })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('add-to-cart',  { detail: payload })); } catch {}
-    // brief green flash during press
-    setTimeout(() => setAdding(false), 240);
-  };
+  // ===== Overlay state =====================================================
+  const [open, setOpen] = useState/** @type {Product|null} */(null);
 
-  const showGrid = !active;
+  const onTile = (p /** @type {Product} */) => setOpen(p);
+  const onClose = () => setOpen(null);
 
   return (
     <div className="shop-wrap">
-      {showGrid && (
-        <section className="shop-grid" aria-label="Products">
-          {PRODUCTS.map((p) => (
+      {/* When overlay is open, hide the grid (but keep header) */}
+      {!open && (
+        <div className="shop-grid">
+          {items.map((p) => (
             <a
               key={p.id}
-              className="product-tile lb-tile"
+              className="product-tile"
               role="button"
-              onClick={(e) => { e.preventDefault(); setActiveId(p.id); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveId(p.id); } }}
               tabIndex={0}
+              onClick={(e)=>{ e.preventDefault(); onTile(p); }}
+              onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onTile(p); }}}
             >
-              <div className="product-box">
-                <img className="product-img" alt={p.title} src={p.image} draggable={false} />
+              <div className="product-box lb-tile">
+                <img className="product-img" src={p.img} alt="" />
               </div>
               <div className="product-meta">{p.title}</div>
             </a>
           ))}
-        </section>
+        </div>
       )}
 
-      {/* Overlay */}
-      {active && (
-        <div className="product-hero-overlay" role="dialog" aria-modal="true" aria-label={active.title}>
-          <div className="product-hero">
-            {/* IMAGE (centered) */}
-            <img
-              className="product-hero-img"
-              src={active.image}
-              alt={active.title}
-              draggable={false}
-              style={{ display:'block', margin:'0 auto' }}
-            />
-
-            {/* TITLE + PRICE */}
-            <div style={{ textAlign:'center' }}>
-              <div className="product-hero-title" style={{ marginTop:10 }}>{active.title}</div>
-              <div className="product-hero-price" style={{ marginTop:6 }}>${active.price.toFixed(2)}</div>
-            </div>
-
-            {/* SIZE CHIPS (centered) */}
-            <div
-              aria-label="Choose size"
-              style={{
-                display:'flex', justifyContent:'center', gap:10, marginTop:18, flexWrap:'wrap'
-              }}
-            >
-              {SIZES.map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setSize(s)}
-                  aria-pressed={size === s}
-                  className="product-size-pill"
-                  style={{
-                    border:'1px solid rgba(0,0,0,.15)',
-                    background: size === s ? 'rgba(0,0,0,.08)' : '#fff',
-                    color:'#111',
-                    borderRadius:10,
-                    padding:'8px 12px',
-                    fontFamily:'var(--mono)',
-                    fontSize:'14px',
-                    fontWeight:700,
-                    lineHeight:1,
-                    cursor:'pointer',
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            {/* “+” BUTTON — only appears AFTER a size is chosen.
-                White by default; flashes green ONLY while clicking. */}
-            {size && (
-              <div style={{ display:'grid', placeItems:'center', marginTop:18 }}>
-                <button
-                  type="button"
-                  onClick={addToCart}
-                  style={{
-                    border:'1px solid rgba(0,0,0,.15)',
-                    borderRadius:10,
-                    padding:'8px 14px',
-                    fontFamily:'var(--mono)',
-                    fontSize:'14px',
-                    fontWeight:800,
-                    lineHeight:1,
-                    letterSpacing:'.02em',
-                    cursor:'pointer',
-                    background: adding ? 'var(--hover-green, #0bf05f)' : '#fff',
-                    color: adding ? '#000' : '#111',
-                    transition:'background .12s ease, transform .12s ease',
-                  }}
-                  onMouseDown={(e)=> e.currentTarget.style.transform = 'translateY(1px)'}
-                  onMouseUp={(e)=> e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  +
-                </button>
-              </div>
-            )}
-
-            {/* Hidden close (orb in header acts as back) */}
-            <button
-              aria-label="Close"
-              onClick={() => setActiveId(null)}
-              style={{ position:'fixed', inset:'24px auto auto 24px', width:1, height:1, opacity:0, pointerEvents:'none' }}
-              tabIndex={-1}
-            />
-          </div>
-        </div>
+      {open && (
+        <ProductOverlay product={open} onClose={onClose} />
       )}
     </div>
   );
