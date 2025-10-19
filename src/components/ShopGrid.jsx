@@ -4,79 +4,67 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-/**
- * Replace this with your real product data if you have it elsewhere.
- * The overlay UI will render title, price and simple size choices for "tee" type.
- */
 const PRODUCTS = [
-  { id:'tee-black',  title:'LB Tee – Black',  price:3800, type:'tee',   img:'/shop/tee-black.png'  },
-  { id:'tee-white',  title:'LB Tee – White',  price:3800, type:'tee',   img:'/shop/tee-white.png'  },
-  { id:'cap-navy',   title:'Dad Cap – Navy',  price:3800, type:'cap',   img:'/shop/cap-navy.png'   },
+  { id:'tee-black',  title:'LB Tee — Black',  price:3800, type:'tee',   img:'/shop/tee-black.png'  },
+  { id:'tee-white',  title:'LB Tee — White',  price:3800, type:'tee',   img:'/shop/tee-white.png'  },
+  { id:'cap-navy',   title:'Dad Cap — Navy',  price:3800, type:'cap',   img:'/shop/cap-navy.png'   },
   { id:'stickers',   title:'Sticker Pack',    price:1800, type:'other', img:'/shop/stickers.png'   },
 ];
 
 const SIZES = ['XS','S','M','L','XL'];
-
-function formatUSD(cents){ return new Intl.NumberFormat('en-US', { style:'currency', currency:'USD' }).format(cents/100); }
+const money = (c) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);
 
 /** @param {{ hideTopRow?: boolean }} props */
 export default function ShopGrid({ hideTopRow = false }) {
+  // Columns via CSS var (kept here for consistency, but not required for the back behavior)
   const [cols, setCols] = useState(() => {
     const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-cols') || '4', 10);
     return Number.isFinite(v) ? v : 4;
   });
-
-  // Selected product => overlay
-  const [sel, setSel] = useState/** @type {null | (typeof PRODUCTS)[number]} */(null);
-  const [size, setSize] = useState/** @type {null | string} */(null);
-
-  // Apply columns to CSS variable
   useEffect(() => {
     document.documentElement.style.setProperty('--grid-cols', String(Math.max(1, Math.min(5, cols))));
   }, [cols]);
 
-  // Listen for zoom step (+/- 1) and for overlay close
-  useEffect(() => {
-    /** @param {CustomEvent<{step:number}>} e */
-    const onZoom = (e) => {
-      const step = Number(e?.detail?.step ?? 0);
-      if (!Number.isFinite(step) || step === 0) return;
-      setCols((c) => Math.max(1, Math.min(5, c + step)));
-    };
-    const onClose = () => closeOverlay();
+  const [sel, setSel]   = useState/** @type {null | (typeof PRODUCTS)[number]} */(null);
+  const [size, setSize] = useState/** @type {null | string} */(null);
 
-    window.addEventListener('lb:zoom', onZoom);
-    document.addEventListener('lb:zoom', onZoom);
-    window.addEventListener('lb:close-overlay', onClose);
-    document.addEventListener('lb:close-overlay', onClose);
-
-    return () => {
-      window.removeEventListener('lb:zoom', onZoom);
-      document.removeEventListener('lb:zoom', onZoom);
-      window.removeEventListener('lb:close-overlay', onClose);
-      document.removeEventListener('lb:close-overlay', onClose);
-    };
-  }, []);
-
-  // Root flag so the orb knows whether to act as "Back"
+  // Root attribute so other components know overlay state (optional but nice)
   useEffect(() => {
     const root = document.documentElement;
     if (sel) root.setAttribute('data-overlay', 'product');
     else root.removeAttribute('data-overlay');
   }, [sel]);
 
+  // Close handler (exported globally + listens to orb event)
+  useEffect(() => {
+    const close = () => {
+      setSel(null);
+      setSize(null);
+      document.body.style.overflow = '';
+    };
+
+    // event listeners from the orb
+    const onClose = () => close();
+    window.addEventListener('lb:close-overlay', onClose);
+    document.addEventListener('lb:close-overlay', onClose);
+
+    // global fallback for older callers
+    // @ts-ignore
+    window.lbCloseOverlay = close;
+
+    return () => {
+      window.removeEventListener('lb:close-overlay', onClose);
+      document.removeEventListener('lb:close-overlay', onClose);
+      try { delete window.lbCloseOverlay; } catch {}
+    };
+  }, []);
+
   const items = useMemo(() => PRODUCTS, []);
 
   function openOverlay(p){
     setSel(p);
     setSize(null);
-    // optional: scroll lock
-    document.body.style.overflow = 'hidden';
-  }
-  function closeOverlay(){
-    setSel(null);
-    setSize(null);
-    document.body.style.overflow = '';
+    document.body.style.overflow = 'hidden'; // lock scroll under overlay
   }
 
   return (
@@ -86,12 +74,11 @@ export default function ShopGrid({ hideTopRow = false }) {
           <a
             key={p.id}
             className="product-tile lb-tile"
-            onClick={(e)=>{ e.preventDefault(); openOverlay(p); }}
             href={`#${p.id}`}
+            onClick={(e)=>{ e.preventDefault(); openOverlay(p); }}
             title={p.title}
           >
             <button className="product-box">
-              {/* You can swap to next/image if you prefer */}
               <img className="product-img" alt={p.title} src={p.img} />
             </button>
             <div className="product-meta">{p.title}</div>
@@ -99,15 +86,14 @@ export default function ShopGrid({ hideTopRow = false }) {
         ))}
       </div>
 
-      {/* ===== Overlay ===== */}
+      {/* Overlay */}
       {sel && (
         <>
           <div className="product-hero-overlay" role="dialog" aria-modal="true">
             <div className="product-hero">
-              {/* Keep header visible; overlay sits beneath it due to z-indexes */}
               <img className="product-hero-img" alt={sel.title} src={sel.img} />
               <div className="product-hero-title">{sel.title}</div>
-              <div className="product-hero-price">{formatUSD(sel.price)}</div>
+              <div className="product-hero-price">{money(sel.price)}</div>
 
               {sel.type === 'tee' && (
                 <div style={{ width:'100%', maxWidth:680 }}>
@@ -144,7 +130,7 @@ export default function ShopGrid({ hideTopRow = false }) {
                     color:'#fff', fontWeight:800, opacity: (sel.type === 'tee' && !size) ? .65 : 1,
                     cursor: (sel.type === 'tee' && !size) ? 'not-allowed' : 'pointer'
                   }}
-                  onClick={()=>{/* hook up to cart here */}}
+                  onClick={()=>{/* hook to cart */}}
                 >
                   Add to cart
                 </button>
@@ -152,12 +138,11 @@ export default function ShopGrid({ hideTopRow = false }) {
             </div>
           </div>
 
-          {/* Close (back) button lives under the header; orb also closes it */}
           <button
             type="button"
             className="product-hero-close"
             aria-label="Close"
-            onClick={closeOverlay}
+            onClick={()=>window.dispatchEvent(new CustomEvent('lb:close-overlay'))}
           >
             ✕
           </button>
