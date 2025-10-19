@@ -4,9 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-/**
- * Demo catalog. Keep or replace with your source.
- */
+/** Demo catalog */
 const PRODUCTS = [
   { id: 'tee-black',  title: 'LB Tee — Black',  price: 38, image: '/shop/lb-tee-black.png'  },
   { id: 'tee-white',  title: 'LB Tee — White',  price: 38, image: '/shop/lb-tee-white.png'  },
@@ -22,6 +20,39 @@ export default function ShopGrid({ hideTopRow = false }) {
 
   const [size, setSize] = useState/** @type {string|null} */(null);
   useEffect(() => { setSize(null); }, [activeId]);
+
+  // === Grid zoom (2..5 wrap) controlled by CSS var --grid-cols ============
+  const [cols, setCols] = useState(() => {
+    const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-cols') || '4', 10);
+    return isNaN(v) ? 4 : v;
+  });
+  useEffect(() => {
+    document.documentElement.style.setProperty('--grid-cols', String(cols));
+  }, [cols]);
+
+  // Mark overlay state on <html> so other code can read if needed
+  useEffect(() => {
+    const root = document.documentElement;
+    if (active) root.setAttribute('data-overlay-open', '');
+    else root.removeAttribute('data-overlay-open');
+  }, [active]);
+
+  // Single orb event: close overlay if open; otherwise zoom grid +1
+  useEffect(() => {
+    const onOrb = () => {
+      if (active) {
+        setActiveId(null);
+      } else {
+        setCols(c => (c >= 5 ? 2 : c + 1));
+      }
+    };
+    window.addEventListener('lb:orb-tap', onOrb);
+    document.addEventListener('lb:orb-tap', onOrb);
+    return () => {
+      window.removeEventListener('lb:orb-tap', onOrb);
+      document.removeEventListener('lb:orb-tap', onOrb);
+    };
+  }, [active]);
 
   const showGrid = !active;
 
@@ -66,7 +97,7 @@ export default function ShopGrid({ hideTopRow = false }) {
               <div className="product-hero-price" style={{ marginTop:6 }}>${active.price.toFixed(2)}</div>
             </div>
 
-            {/* SIZE CHIPS (no “Size” label) */}
+            {/* SIZE CHIPS */}
             <div
               aria-label="Choose size"
               style={{
@@ -99,7 +130,7 @@ export default function ShopGrid({ hideTopRow = false }) {
             </div>
 
             {/* “+” BUTTON — pill like the size chips.
-                Grey by default, turns GREEN when a size is selected. */}
+                WHITE by default, turns GREEN when a size is selected. */}
             <div style={{ display:'grid', placeItems:'center', marginTop:18 }}>
               <button
                 type="button"
@@ -118,8 +149,7 @@ export default function ShopGrid({ hideTopRow = false }) {
                   lineHeight:1,
                   letterSpacing:'.02em',
                   cursor: size ? 'pointer' : 'default',
-                  // colors
-                  background: size ? 'var(--hover-green, #0bf05f)' : '#e5e7eb', // grey → green
+                  background: size ? 'var(--hover-green, #0bf05f)' : '#fff', // white → green
                   color: size ? '#000' : '#111',
                   transition:'background .15s ease, transform .12s ease',
                 }}
@@ -130,7 +160,7 @@ export default function ShopGrid({ hideTopRow = false }) {
               </button>
             </div>
 
-            {/* Invisible close for a11y (orb is your back button) */}
+            {/* Hidden close (orb acts as back) */}
             <button
               aria-label="Close"
               onClick={() => setActiveId(null)}

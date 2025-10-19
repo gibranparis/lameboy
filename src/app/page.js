@@ -6,7 +6,7 @@ export const dynamic = 'force-static';
 export const runtime = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
 const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
@@ -33,15 +33,15 @@ const HEADER_H = 86;
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx();
   const [theme, setTheme]   = useState('day');
-  const [isShop, setIsShop] = useState(false);
+  const [isShop, setIsShop] = useState(true); // start on shop for now
   const [veil,  setVeil]    = useState(false);
 
-  // Sizes (tune freely)
+  // Sizes
   const TOGGLE_KNOB_PX   = 28;
   const TOGGLE_TRACK_PAD = 1;
   const ORB_PX           = 64;
 
-  // Keep <html> in sync
+  // keep <html> in sync
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -51,40 +51,16 @@ export default function Page() {
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // Reflect theme-change from toggle
+  // pick up theme-change from toggle
   useEffect(() => {
     /** @param {CustomEvent<{theme:'day'|'night'}>} e */
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
-    // IMPORTANT: only listen on window (avoid double-handling).
     window.addEventListener('theme-change', onTheme);
-    return () => window.removeEventListener('theme-change', onTheme);
-  }, []);
-
-  // Entry veil after cascade
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
-        setVeil(true);
-        sessionStorage.removeItem('fromCascade');
-      }
-    } catch {}
-  }, [isShop]);
-
-  const onProceed = () => setIsShop(true);
-
-  // ========= ORB CLICK: close overlay OR zoom grid by +1 ==================
-  const onOrbClick = useCallback(() => {
-    const root = document.documentElement;
-    const overlay = root.getAttribute('data-overlay');
-    if (overlay) {
-      // Close any open overlay
-      try { window.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
-      // Fallback if some legacy code is around:
-      try { window.lbCloseOverlay?.(); } catch {}
-    } else {
-      // Increment grid density by exactly 1 (ShopGrid listens for this)
-      try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step: 1 } })); } catch {}
-    }
+    document.addEventListener('theme-change', onTheme);
+    return () => {
+      window.removeEventListener('theme-change', onTheme);
+      document.removeEventListener('theme-change', onTheme);
+    };
   }, []);
 
   const headerStyle = useMemo(() => ({
@@ -93,15 +69,22 @@ export default function Page() {
     padding:'0 16px', background:'transparent'
   }), []);
 
+  // Single orb tap event all pages use
+  const fireOrbTap = () => {
+    const evt = new CustomEvent('lb:orb-tap');
+    try { window.dispatchEvent(evt); } catch {}
+    try { document.dispatchEvent(evt); } catch {}
+  };
+
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb (Back on overlay, Zoom+1 on grid) */}
+          {/* LEFT: orb */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
-              aria-label="Back / Zoom"
+              aria-label="Orb"
               data-orb="density"
               className="orb-ring"
               style={{
@@ -110,9 +93,9 @@ export default function Page() {
                 display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
                 borderRadius:'9999px',
               }}
-              onClick={onOrbClick}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOrbClick(); } }}
-              title="Back / Zoom"
+              onClick={fireOrbTap}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fireOrbTap(); } }}
+              title="Orb"
             >
               <BlueOrbCross3D
                 height={`${ORB_PX}px`}
@@ -123,7 +106,7 @@ export default function Page() {
                 rpm={36}
                 includeZAxis
                 interactive
-                onActivate={onOrbClick}
+                onActivate={fireOrbTap}
               />
             </button>
           </div>
@@ -150,7 +133,7 @@ export default function Page() {
       <main style={{ minHeight:'100dvh' }}>
         {!isShop ? (
           <div className="page-center">
-            <BannedLogin onProceed={onProceed} />
+            <BannedLogin onProceed={() => setIsShop(true)} />
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
