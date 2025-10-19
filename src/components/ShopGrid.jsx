@@ -3,94 +3,166 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import CartButton from './CartButton';
-import ProductOverlay from './ProductOverlay';
-
-/** @typedef {{ id?: string; slug?: string; name?: string; title?: string; price?: number; image?: string; thumbnail?: string, images?: any }} Product */
 
 /**
- * @param {{
- *   products?: Product[];
- *   hideTopRow?: boolean;
- * }} props
+ * Replace this with your real product data if you have it elsewhere.
+ * The overlay UI will render title, price and simple size choices for "tee" type.
  */
-export default function ShopGrid({ products = [], hideTopRow = false }) {
-  // fallback items
-  const fallbackProductList = [
-    { id: 'tee-black',  name: 'LB Tee — Black',  image: '/shop/tee-black.png',  price: 38 },
-    { id: 'tee-white',  name: 'LB Tee — White',  image: '/shop/tee-white.png',  price: 38 },
-    { id: 'cap-navy',   name: 'Dad Cap — Navy',  image: '/shop/cap-navy.png',   price: 32 },
-    { id: 'stick-pack', name: 'Sticker Pack',    image: '/shop/stickers.png',   price: 10 },
-  ];
-  const items = (products?.length ? products : fallbackProductList);
+const PRODUCTS = [
+  { id:'tee-black',  title:'LB Tee – Black',  price:3800, type:'tee',   img:'/shop/tee-black.png'  },
+  { id:'tee-white',  title:'LB Tee – White',  price:3800, type:'tee',   img:'/shop/tee-white.png'  },
+  { id:'cap-navy',   title:'Dad Cap – Navy',  price:3800, type:'cap',   img:'/shop/cap-navy.png'   },
+  { id:'stickers',   title:'Sticker Pack',    price:1800, type:'other', img:'/shop/stickers.png'   },
+];
 
-  /** overlay state */
-  const [selected, setSelected] = useState/** @type {Product|null} */(null);
-  const [fromCascade, setFromCascade] = useState(false);
+const SIZES = ['XS','S','M','L','XL'];
 
-  // detect cascade handoff (optional styling hook)
+function formatUSD(cents){ return new Intl.NumberFormat('en-US', { style:'currency', currency:'USD' }).format(cents/100); }
+
+/** @param {{ hideTopRow?: boolean }} props */
+export default function ShopGrid({ hideTopRow = false }) {
+  const [cols, setCols] = useState(() => {
+    const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-cols') || '4', 10);
+    return Number.isFinite(v) ? v : 4;
+  });
+
+  // Selected product => overlay
+  const [sel, setSel] = useState/** @type {null | (typeof PRODUCTS)[number]} */(null);
+  const [size, setSize] = useState/** @type {null | string} */(null);
+
+  // Apply columns to CSS variable
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
-        setFromCascade(true);
-        sessionStorage.removeItem('fromCascade');
-      }
-    } catch {}
+    document.documentElement.style.setProperty('--grid-cols', String(Math.max(1, Math.min(5, cols))));
+  }, [cols]);
+
+  // Listen for zoom step (+/- 1) and for overlay close
+  useEffect(() => {
+    /** @param {CustomEvent<{step:number}>} e */
+    const onZoom = (e) => {
+      const step = Number(e?.detail?.step ?? 0);
+      if (!Number.isFinite(step) || step === 0) return;
+      setCols((c) => Math.max(1, Math.min(5, c + step)));
+    };
+    const onClose = () => closeOverlay();
+
+    window.addEventListener('lb:zoom', onZoom);
+    document.addEventListener('lb:zoom', onZoom);
+    window.addEventListener('lb:close-overlay', onClose);
+    document.addEventListener('lb:close-overlay', onClose);
+
+    return () => {
+      window.removeEventListener('lb:zoom', onZoom);
+      document.removeEventListener('lb:zoom', onZoom);
+      window.removeEventListener('lb:close-overlay', onClose);
+      document.removeEventListener('lb:close-overlay', onClose);
+    };
   }, []);
 
-  // Read current columns (optional display in the header row)
-  const cols = useMemo(() => {
-    if (typeof window === 'undefined') return 4;
-    const v = getComputedStyle(document.documentElement).getPropertyValue('--grid-cols').trim();
-    const n = parseInt(v || '4', 10);
-    return Number.isFinite(n) ? n : 4;
-  }, [items.length]); // re-read rarely; purely cosmetic
+  // Root flag so the orb knows whether to act as "Back"
+  useEffect(() => {
+    const root = document.documentElement;
+    if (sel) root.setAttribute('data-overlay', 'product');
+    else root.removeAttribute('data-overlay');
+  }, [sel]);
+
+  const items = useMemo(() => PRODUCTS, []);
+
+  function openOverlay(p){
+    setSel(p);
+    setSize(null);
+    // optional: scroll lock
+    document.body.style.overflow = 'hidden';
+  }
+  function closeOverlay(){
+    setSel(null);
+    setSize(null);
+    document.body.style.overflow = '';
+  }
 
   return (
-    <section
-      className={[
-        'px-6 pb-24 pt-10',
-        fromCascade ? 'animate-[fadeIn_.6s_ease-out]' : '',
-      ].join(' ')}
-    >
-      {/* Top row controls (hidden when header already hosts the cart) */}
-      {!hideTopRow && (
-        <div className="mb-6 flex items-center justify-between">
-          <div className="text-xs tabular-nums opacity-60">cols: {cols}</div>
-          <CartButton />
-        </div>
-      )}
-
-      {/* Product grid — layout entirely via CSS: .shop-grid uses --grid-cols */}
+    <div className="shop-wrap">
       <div className="shop-grid">
-        {items.map((p, i) => {
-          const key = p.id ?? p.slug ?? p.name ?? String(i);
-          const title = p.name ?? p.title ?? 'ITEM';
-          const src = p.image ?? p.thumbnail ?? '/placeholder.png';
-          return (
-            <button
-              key={key}
-              className="group text-left product-tile"
-              onClick={() => setSelected(p)}
-            >
-              <div className="product-box ring-1 ring-black/5 dark:ring-white/10 rounded-2xl">
-                <img
-                  src={src}
-                  alt={title}
-                  className="product-img transition-transform duration-300 group-hover:scale-[1.02]"
-                  loading="lazy"
-                />
-              </div>
-              <div className="product-meta">
-                <span>{title}</span>
-              </div>
+        {items.map((p) => (
+          <a
+            key={p.id}
+            className="product-tile lb-tile"
+            onClick={(e)=>{ e.preventDefault(); openOverlay(p); }}
+            href={`#${p.id}`}
+            title={p.title}
+          >
+            <button className="product-box">
+              {/* You can swap to next/image if you prefer */}
+              <img className="product-img" alt={p.title} src={p.img} />
             </button>
-          );
-        })}
+            <div className="product-meta">{p.title}</div>
+          </a>
+        ))}
       </div>
 
-      {/* Overlay uses the correct prop name */}
-      <ProductOverlay product={selected} onClose={() => setSelected(null)} />
-    </section>
+      {/* ===== Overlay ===== */}
+      {sel && (
+        <>
+          <div className="product-hero-overlay" role="dialog" aria-modal="true">
+            <div className="product-hero">
+              {/* Keep header visible; overlay sits beneath it due to z-indexes */}
+              <img className="product-hero-img" alt={sel.title} src={sel.img} />
+              <div className="product-hero-title">{sel.title}</div>
+              <div className="product-hero-price">{formatUSD(sel.price)}</div>
+
+              {sel.type === 'tee' && (
+                <div style={{ width:'100%', maxWidth:680 }}>
+                  <div style={{ fontWeight:700, opacity:.9, margin:'16px 0 8px' }}>Size</div>
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                    {SIZES.map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={()=>setSize(s)}
+                        style={{
+                          padding:'8px 12px',
+                          borderRadius:12,
+                          border:'1px solid rgba(0,0,0,.18)',
+                          background:size===s ? 'rgba(0,0,0,.08)' : 'rgba(0,0,0,.04)',
+                          fontWeight:700,
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ width:'100%', maxWidth:680, marginTop:18 }}>
+                <button
+                  type="button"
+                  disabled={sel.type === 'tee' && !size}
+                  style={{
+                    width:'100%', padding:'12px 16px', borderRadius:12,
+                    border:'1px solid rgba(0,0,0,.18)',
+                    background: (sel.type === 'tee' && !size) ? '#666' : '#111',
+                    color:'#fff', fontWeight:800, opacity: (sel.type === 'tee' && !size) ? .65 : 1,
+                    cursor: (sel.type === 'tee' && !size) ? 'not-allowed' : 'pointer'
+                  }}
+                  onClick={()=>{/* hook up to cart here */}}
+                >
+                  Add to cart
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Close (back) button lives under the header; orb also closes it */}
+          <button
+            type="button"
+            className="product-hero-close"
+            aria-label="Close"
+            onClick={closeOverlay}
+          >
+            ✕
+          </button>
+        </>
+      )}
+    </div>
   );
 }

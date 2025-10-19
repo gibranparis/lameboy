@@ -1,9 +1,8 @@
 // @ts-check
-// src/app/page.js  (v3)
+// src/app/page.js
 'use client';
 
-// ⛔ Force dynamic so you don’t see a cached static page
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 export const runtime = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
@@ -34,7 +33,7 @@ const HEADER_H = 86;
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx();
   const [theme, setTheme]   = useState('day');
-  const [isShop, setIsShop] = useState(false); // ⬅️ start at the banned/login gate
+  const [isShop, setIsShop] = useState(false); // start at the banned login gate
   const [veil,  setVeil]    = useState(false);
 
   // Sizes
@@ -75,12 +74,33 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // Emit zoom step (single event name)
+  // ====== ZOOM / BACK EMITTERS ============================================
   const emitZoomStep = useCallback((step = 1) => {
     const detail = { step };
     try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
     try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
   }, []);
+
+  const emitCloseOverlay = useCallback(() => {
+    try { window.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
+  }, []);
+
+  const isOverlayOpen = useCallback(() => {
+    // ShopGrid will toggle this attribute when product overlay is shown/hidden
+    return document.documentElement.getAttribute('data-overlay') === 'product';
+  }, []);
+
+  const handleOrbPress = useCallback(() => {
+    if (isOverlayOpen()) {
+      // Act as BACK: close overlay (and optionally nudge zoom outward by -1)
+      emitCloseOverlay();
+      emitZoomStep(-1);
+    } else {
+      // Normal behavior: zoom grid in by +1 column step
+      emitZoomStep(1);
+    }
+  }, [emitCloseOverlay, emitZoomStep, isOverlayOpen]);
 
   const headerStyle = useMemo(() => ({
     position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
@@ -91,24 +111,25 @@ export default function Page() {
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
-        <header role="banner" style={headerStyle} data-test="hdr-v3">
-          {/* LEFT: orb */}
+        <header role="banner" style={headerStyle}>
+          {/* LEFT: orb (acts like BACK if overlay open) */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
-              aria-label="Zoom grid"
+              aria-label="Zoom grid / Back"
               data-orb="density"
+              className="orb-ring"
               style={{
                 width: ORB_PX, height: ORB_PX,
                 padding:0, margin:0, background:'transparent', border:0,
                 display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
                 borderRadius:'9999px',
               }}
-              onClick={() => emitZoomStep(1)}
+              onClick={handleOrbPress}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoomStep(1); }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOrbPress(); }
               }}
-              title="Zoom products"
+              title="Zoom products (Back when a product is open)"
             >
               <BlueOrbCross3D
                 height={`${ORB_PX}px`}
@@ -119,7 +140,7 @@ export default function Page() {
                 rpm={36}
                 includeZAxis
                 interactive
-                onActivate={() => emitZoomStep(1)}
+                onActivate={handleOrbPress}
               />
             </button>
           </div>
@@ -146,8 +167,7 @@ export default function Page() {
       <main style={{ minHeight:'100dvh' }}>
         {!isShop ? (
           <div className="page-center">
-            {/* key busts any lingering caches for the gate component */}
-            <BannedLogin key="gate-v3" onProceed={onProceed} />
+            <BannedLogin onProceed={onProceed} />
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
