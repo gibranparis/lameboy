@@ -1,5 +1,5 @@
-// src/components/DayNightToggle.jsx
 // @ts-check
+// src/components/DayNightToggle.jsx
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -12,8 +12,8 @@ export default function DayNightToggle({
   className = '',
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
-  circlePx = 28,                 // 👈 slimmer knob (was 36). Change here to resize.
-  trackPad = 1,                  // tight “glove” track
+  circlePx = 28,                 // knob diameter
+  trackPad = 1,                  // distance from knob to track edge (tight “glove”)
   moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
@@ -21,7 +21,7 @@ export default function DayNightToggle({
   /** @type {[Theme, (t: Theme)=>void]} */
   // @ts-ignore
   const [internal, setInternal] = useState/** @type {Theme} */('day');
-  const theme = (isControlled ? value : internal) ?? 'day';
+  const theme   = (isControlled ? value : internal) ?? 'day';
   const isNight = theme === 'night';
 
   // uncontrolled boot from localStorage
@@ -49,12 +49,12 @@ export default function DayNightToggle({
   }
   function toggle() { setTheme(isNight ? 'day' : 'night'); }
 
-  // Sizing (knob is exactly circlePx; pill hugs via trackPad)
+  // ----- Sizing (track fit) ------------------------------------------------
   const dims = useMemo(() => {
     const knob  = Math.max(20, Math.round(circlePx));
     const padPx = Math.max(1, Math.min(6, Math.round(trackPad)));
     const h     = Math.max(knob + padPx * 2, 28);
-    const w     = Math.round(h * (64 / 36));
+    const w     = Math.round(h * (64 / 36));   // classic pill ratio
     const inset = padPx;
     const shift = Math.round(w - knob - inset * 2);
     return { h, w, knob, inset, shift };
@@ -62,8 +62,9 @@ export default function DayNightToggle({
 
   const moonSrc = moonImages?.[0] ?? '/toggle/moon-red.png';
 
-  // ===== Night sky canvas (stars + “LAMEBOY” constellation + meteor) ======
+  // ===== Night sky canvas (twinkle + “LAMEBOY” constellation) ==============
   const skyRef = useRef/** @type {React.RefObject<HTMLCanvasElement>} */(null);
+
   useEffect(() => {
     if (!isNight) return;
     const canvas = skyRef.current;
@@ -87,26 +88,38 @@ export default function DayNightToggle({
     const ro = new ResizeObserver(resizeCanvas);
     ro.observe(canvas);
 
-    const stars = Array.from({ length: 28 }, () => ({
+    // twinkling field
+    const STAR_COUNT = 28;
+    /** @type {{x:number,y:number,a:number,as:number,r:number}[]} */
+    const stars = Array.from({ length: STAR_COUNT }, () => ({
       x: Math.random() * W,
       y: Math.random() * H,
       a: Math.random() * Math.PI * 2,
       as: 0.004 + Math.random() * 0.006,
-      r: 0.8 * DPR,
+      r: Math.max(0.8, 1.0 * DPR),
     }));
 
+    // “LAMEBOY” constellation — normalized coords (0..1) within the pill
     /** @type {[number,number][]} */
     const C = [
-      [0.10,0.25],[0.10,0.70],[0.18,0.70],
-      [0.27,0.72],[0.30,0.25],[0.33,0.72],[0.29,0.52],[0.31,0.52],
-      [0.40,0.72],[0.40,0.28],[0.44,0.55],[0.48,0.28],[0.48,0.72],
-      [0.56,0.25],[0.56,0.70],[0.62,0.70],[0.56,0.48],[0.60,0.48],[0.62,0.25],
-      [0.70,0.25],[0.70,0.70],[0.76,0.62],[0.70,0.52],[0.76,0.42],[0.70,0.35],
-      [0.84,0.48],[0.86,0.42],[0.90,0.42],[0.92,0.48],[0.90,0.56],[0.86,0.56],
-      [0.96,0.25],[0.94,0.40],[0.98,0.40],[0.96,0.70],
+      // L
+      [0.08,0.30],[0.08,0.72],[0.16,0.72],
+      // A
+      [0.24,0.72],[0.28,0.30],[0.32,0.72],[0.26,0.52],[0.30,0.52],
+      // M
+      [0.38,0.72],[0.38,0.30],[0.42,0.52],[0.46,0.30],[0.46,0.72],
+      // E
+      [0.54,0.30],[0.54,0.72],[0.60,0.72],[0.54,0.52],[0.58,0.52],[0.60,0.30],
+      // B
+      [0.68,0.30],[0.68,0.72],[0.74,0.64],[0.68,0.54],[0.74,0.44],[0.68,0.36],
+      // O
+      [0.82,0.51],[0.84,0.44],[0.88,0.44],[0.90,0.51],[0.88,0.58],[0.84,0.58],
+      // Y (two strokes)
+      [0.96,0.30],[0.94,0.42],[0.98,0.42],[0.96,0.72],
     ];
 
-    let meteor = { t: -1, x0:0, y0:0, x1:0, y1:0, dur: 1200, born: 0 };
+    // small “meteor” now and then
+    let meteor = { t: -1, x0:0, y0:0, x1:0, y1:0, dur: 1100, born: 0 };
     const spawnMeteor = () => {
       const now = performance.now();
       meteor.born = now;
@@ -120,36 +133,42 @@ export default function DayNightToggle({
     let lastSpawn = performance.now();
 
     const LOOP = () => {
-      const ctx2 = canvas.getContext('2d');
-      if (!ctx2) return;
-      ctx2.clearRect(0,0,W,H);
+      ctx.clearRect(0,0,W,H);
 
+      // stars
       for (const s of stars) {
         s.a += s.as;
         const tw = 0.5 + 0.5*Math.sin(s.a);
-        ctx2.globalAlpha = 0.7*tw;
-        ctx2.fillStyle = '#fff';
-        ctx2.beginPath(); ctx2.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx2.fill();
+        ctx.globalAlpha = 0.65*tw;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+        ctx.fill();
       }
-      ctx2.globalAlpha = 1;
+      ctx.globalAlpha = 1;
 
-      ctx2.lineWidth = 1 * DPR;
-      ctx2.strokeStyle = 'rgba(255,255,255,.55)';
-      ctx2.fillStyle = 'rgba(255,255,255,.95)';
-      ctx2.beginPath();
+      // “LAMEBOY” outline + nodes
+      ctx.lineWidth = 1 * DPR;
+      ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.fillStyle = 'rgba(255,255,255,.95)';
+      ctx.beginPath();
       for (let i=0;i<C.length;i++){
         const [nx,ny]=C[i];
         const x=nx*W, y=ny*H;
-        if(i===0) ctx2.moveTo(x,y); else ctx2.lineTo(x,y);
+        if(i===0) ctx.moveTo(x,y);
+        else ctx.lineTo(x,y);
       }
-      ctx2.stroke();
+      ctx.stroke();
       for (const [nx,ny] of C) {
         const x=nx*W, y=ny*H;
-        ctx2.beginPath(); ctx2.arc(x,y,1.2*DPR,0,Math.PI*2); ctx2.fill();
+        ctx.beginPath();
+        ctx.arc(x,y,1.15*DPR,0,Math.PI*2);
+        ctx.fill();
       }
 
+      // occasional meteor
       const now = performance.now();
-      if (meteor.t < 0 && now - lastSpawn > 2400 + Math.random()*2600) {
+      if (meteor.t < 0 && now - lastSpawn > 2600 + Math.random()*2400) {
         lastSpawn = now; spawnMeteor();
       }
       if (meteor.t >= 0) {
@@ -161,24 +180,27 @@ export default function DayNightToggle({
         const tx = x - Math.cos(ang)*trail;
         const ty = y - Math.sin(ang)*trail;
 
-        const grad = ctx2.createLinearGradient(tx,ty,x,y);
+        const grad = ctx.createLinearGradient(tx,ty,x,y);
         grad.addColorStop(0,'rgba(255,255,255,0)');
         grad.addColorStop(1,'rgba(255,255,255,.9)');
-        ctx2.strokeStyle = grad;
-        ctx2.lineWidth = 1.2*DPR;
-        ctx2.beginPath(); ctx2.moveTo(tx,ty); ctx2.lineTo(x,y); ctx2.stroke();
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1.2*DPR;
+        ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(x,y); ctx.stroke();
 
-        ctx2.fillStyle = '#fff';
-        ctx2.beginPath(); ctx2.arc(x,y,1.4*DPR,0,Math.PI*2); ctx2.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(x,y,1.4*DPR,0,Math.PI*2); ctx.fill();
 
         if (p >= 1) meteor.t = -1;
       }
 
-      requestAnimationFrame(LOOP);
+      raf = requestAnimationFrame(LOOP);
     };
 
-    requestAnimationFrame(LOOP);
-    return () => { ro.disconnect(); };
+    raf = requestAnimationFrame(LOOP);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, [isNight]);
 
   return (
@@ -197,8 +219,9 @@ export default function DayNightToggle({
         borderRadius:9999,
         overflow:'hidden',
         border: isNight ? '1px solid rgba(90,170,255,.45)' : '1px solid rgba(0,0,0,.10)',
+        // ✅ BLUE HALO returns at night:
         boxShadow: isNight
-          ? '0 0 0 2px rgba(90,170,255,.55), 0 0 16px rgba(90,170,255,.45)'
+          ? '0 0 0 2px rgba(90,170,255,.55), 0 0 16px rgba(90,170,255,.45), inset 0 0 0 1px rgba(255,255,255,.5)'
           : '0 6px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.55)',
         background: isNight ? '#0a0a12' : '#ffffff',
         cursor:'pointer',
@@ -244,7 +267,7 @@ export default function DayNightToggle({
         </span>
       )}
 
-      {/* NIGHT SKY (canvas) */}
+      {/* NIGHT SKY (twinkle + constellation) */}
       {isNight && (
         <canvas
           ref={skyRef}
@@ -253,7 +276,7 @@ export default function DayNightToggle({
         />
       )}
 
-      {/* KNOB (sun/moon) — borderless art fills the circle */}
+      {/* KNOB (sun/moon) */}
       <span
         aria-hidden
         style={{
@@ -263,16 +286,16 @@ export default function DayNightToggle({
           height:dims.knob,
           width:dims.knob,
           borderRadius:'50%',
-          background:'transparent',
-          boxShadow:'0 6px 16px rgba(0,0,0,.18)',
+          background: isNight ? '#0e0f16' : '#fff7cc',
+          boxShadow:'0 6px 16px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.08)',
           display:'grid',
           placeItems:'center',
           transform:`translateX(${isNight ? dims.shift : 0}px)`,
-          transition:'transform 320ms cubic-bezier(.22,.61,.21,.99)',
+          transition:'transform 320ms cubic-bezier(.22,.61,.21,.99), background 220ms ease',
           overflow:'hidden',
         }}
       >
-        {/* Sun fills the knob */}
+        {/* Sun */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -282,16 +305,15 @@ export default function DayNightToggle({
         >
           <span
             style={{
-              width: dims.knob,
-              height: dims.knob,
+              width: Math.round(dims.knob * 0.74),
+              height: Math.round(dims.knob * 0.74),
               borderRadius:'50%',
               background:'radial-gradient(circle at 45% 45%, #fff6c6 0%, #ffd75e 55%, #ffb200 100%)',
-              display:'block',
             }}
           />
         </span>
 
-        {/* Moon fills the knob */}
+        {/* Moon (image) */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -302,10 +324,9 @@ export default function DayNightToggle({
             src={moonSrc}
             alt=""
             style={{
-              width: dims.knob,
-              height: dims.knob,
+              width: Math.round(dims.knob * 0.78),
+              height: Math.round(dims.knob * 0.78),
               borderRadius:'50%',
-              display:'block',
               objectFit:'cover',
               mixBlendMode:'screen',
               filter:'saturate(1.15) brightness(1.02)',

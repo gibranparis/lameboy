@@ -4,10 +4,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-/**
- * Basic product sample fallback. If you already inject products from elsewhere,
- * you can pass `products` prop and ignore this.
- */
+/** @typedef {{id:string,title:string,price:number,img:string,sizes:string[]}} Product */
+
 const FALLBACK = [
   { id: 'tee-black',  title: 'LB Tee — Black',  price: 38, img:'/shop/tee-black.png',  sizes:['XS','S','M','L','XL'] },
   { id: 'tee-white',  title: 'LB Tee — White',  price: 38, img:'/shop/tee-white.png',  sizes:['XS','S','M','L','XL'] },
@@ -15,12 +13,23 @@ const FALLBACK = [
   { id: 'sticker',    title: 'Sticker Pack',    price: 8,  img:'/shop/stickers.png',    sizes:[] },
 ];
 
-/** @typedef {{id:string,title:string,price:number,img:string,sizes:string[]}} Product */
+function pillStyle({ active=false, disabled=false } = {}){
+  return {
+    display:'inline-flex', alignItems:'center', justifyContent:'center',
+    height:28, minWidth:28, padding:'0 10px',
+    borderRadius:9999,
+    fontSize:12, fontWeight:800, lineHeight:'1',
+    border: active ? '1px solid rgba(0,0,0,0.12)' : '1px solid rgba(0,0,0,0.12)',
+    color: active ? '#000' : 'rgba(0,0,0,.80)',
+    background: active ? '#0bf05f' : '#fff',
+    boxShadow: active ? '0 0 0 1px rgba(0,0,0,.15) inset' : 'none',
+    opacity: disabled ? .5 : 1,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    transition:'background .18s ease, color .18s ease, box-shadow .18s ease',
+  } as React.CSSProperties;
+}
 
-function cls(...xs){ return xs.filter(Boolean).join(' '); }
-
-/** Tiny pill button (used for sizes and the + button) */
-function Pill({ children, onClick, active, disabled, title, ariaLabel }){
+function Pill({ children, onClick, active=false, disabled=false, title, ariaLabel }){
   return (
     <button
       type="button"
@@ -28,31 +37,20 @@ function Pill({ children, onClick, active, disabled, title, ariaLabel }){
       disabled={disabled}
       title={title}
       aria-label={ariaLabel || title}
-      className={cls(
-        'inline-flex items-center justify-center rounded-full border text-[12px] font-[800]',
-        'transition-colors',
-        'h-[28px] min-w-[28px] px-[10px]',
-        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-        active
-          ? 'bg-[#0bf05f] border-transparent text-black shadow-[0_0_0_1px_rgba(0,0,0,.15)]'
-          : 'bg-white border-black/12 text-black/80 hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-black/30'
-      )}
-      style={{ lineHeight: '1' }}
+      style={pillStyle({ active, disabled })}
     >
       {children}
     </button>
   );
 }
 
-/** Product overlay / hero */
-function ProductOverlay({
-  product, onClose
+function ProductOverlay({ product, onClose }:{
+  product: Product, onClose:()=>void
 }){
-  const [showSizes, setShowSizes] = useState(false);     // "+ only" vs "sizes"
-  const [flashPlus, setFlashPlus] = useState(false);     // green flash on +
+  const [showSizes, setShowSizes] = useState(false);
+  const [flashPlus, setFlashPlus] = useState(false);
   const [selected, setSelected] = useState/** @type {string|null} */(null);
 
-  // Reset UI when product changes
   useEffect(() => {
     setShowSizes(false);
     setFlashPlus(false);
@@ -60,12 +58,6 @@ function ProductOverlay({
   }, [product?.id]);
 
   const hasSizes = (product?.sizes || []).length > 0;
-
-  const handlePlus = () => {
-    // Tap + → reveal sizes
-    setShowSizes(true);
-    setSelected(null);
-  };
 
   const addToCart = useCallback((qty=1) => {
     try {
@@ -75,15 +67,24 @@ function ProductOverlay({
     } catch {}
   }, [product?.id, selected]);
 
-  const handleChooseSize = (s /** @type {string} */) => {
+  const handlePlus = () => {
+    if (!hasSizes) {
+      addToCart(1);
+      setFlashPlus(true);
+      setTimeout(() => setFlashPlus(false), 550);
+      return;
+    }
+    setShowSizes(true);
+    setSelected(null);
+  };
+
+  const handleChooseSize = (s:string) => {
     setSelected(s);
-    // Perform add-to-cart immediately
     addToCart(1);
-    // Hide sizes and show + with green flash briefly
     setShowSizes(false);
     setFlashPlus(true);
-    const id = setTimeout(() => setFlashPlus(false), 550);
-    return () => clearTimeout(id);
+    const t = setTimeout(() => setFlashPlus(false), 550);
+    return () => clearTimeout(t);
   };
 
   return (
@@ -94,103 +95,55 @@ function ProductOverlay({
       onClick={(e)=>{ if (e.target === e.currentTarget) onClose(); }}
       style={{ background:'var(--panel, #fff)', color:'var(--text, #111)' }}
     >
-      <div className="product-hero">
+      <div className="product-hero" style={{ alignItems:'center' }}>
         <img className="product-hero-img" src={product.img} alt="" />
         <div className="product-hero-title">{product.title}</div>
         <div className="product-hero-price">${product.price.toFixed(2)}</div>
 
-        {/* Controls area */}
         <div style={{ display:'grid', placeItems:'center', gap:12, marginTop:10 }}>
-          {/* Either the + pill OR the sizes */}
           {!showSizes ? (
-            <Pill
-              onClick={hasSizes ? handlePlus : () => { /* no sizes → add directly */ addToCart(1); setFlashPlus(true); setTimeout(()=>setFlashPlus(false), 550); }}
-              active={flashPlus}
-              title={hasSizes ? 'Choose size' : 'Add to cart'}
-              ariaLabel="+"
-            >
-              +
-            </Pill>
+            <Pill onClick={handlePlus} active={flashPlus} title={hasSizes ? 'Choose size' : 'Add to cart'} ariaLabel="+">+</Pill>
           ) : (
             <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'center' }}>
               {product.sizes.map((s) => (
-                <Pill
-                  key={s}
-                  onClick={() => handleChooseSize(s)}
-                  active={selected === s}
-                  title={`Size ${s}`}
-                >
-                  {s}
-                </Pill>
+                <Pill key={s} onClick={() => handleChooseSize(s)} active={selected === s} title={`Size ${s}`}>{s}</Pill>
               ))}
             </div>
           )}
         </div>
 
-        <button
-          className="product-hero-close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ⌫
-        </button>
+        {/* ⛔ Removed the explicit close/back button to avoid clutter near the orb */}
       </div>
     </div>
   );
 }
 
-/** Main grid */
-export default function ShopGrid({ products }) {
-  /** @type {Product[]} */
+export default function ShopGrid({ products }:{products?: Product[]}) {
   const items = useMemo(() => Array.isArray(products) && products.length ? products : FALLBACK, [products]);
 
-  // ===== Grid density ping-pong 1..5 ======================================
-  const [cols, setCols] = useState(() => {
-    const root = document.documentElement;
-    const v = parseInt(getComputedStyle(root).getPropertyValue('--grid-cols'),10);
-    return Number.isFinite(v) && v>0 ? v : 4;
-  });
-  const [dir, setDir] = useState(1); // 1 increasing, -1 decreasing
-
-  const applyCols = useCallback((n) => {
-    const m = Math.max(1, Math.min(5, n|0));
-    setCols(m);
-    try {
-      document.documentElement.style.setProperty('--grid-cols', String(m));
-    } catch {}
-  }, []);
-
+  // ===== Grid density ping-pong 1..5 (one step per click) ==================
+  const [dir, setDir] = useState(1);
   useEffect(() => {
-    const onZoom = (/** @type {CustomEvent<{step?:number}>} */ e) => {
-      // Ignore provided step. We ping-pong 1↔5:
-      setCols((prev) => {
-        let next = prev + dir;
-        let nd = dir;
-        if (next > 5) { next = 4; nd = -1; }
-        if (next < 1) { next = 2; nd = 1; }
-        setDir(nd);
-        const clamped = Math.max(1, Math.min(5, next));
-        try { document.documentElement.style.setProperty('--grid-cols', String(clamped)); } catch {}
-        return clamped;
-      });
+    const onZoom = () => {
+      const root = document.documentElement;
+      const cur = parseInt(getComputedStyle(root).getPropertyValue('--grid-cols'),10) || 4;
+      let next = cur + dir;
+      let nd = dir;
+      if (next > 5) { next = 4; nd = -1; }
+      if (next < 1) { next = 2; nd = 1; }
+      root.style.setProperty('--grid-cols', String(next));
+      setDir(nd);
     };
     window.addEventListener('lb:zoom', onZoom);
     document.addEventListener('lb:zoom', onZoom);
-    return () => {
-      window.removeEventListener('lb:zoom', onZoom);
-      document.removeEventListener('lb:zoom', onZoom);
-    };
+    return () => { window.removeEventListener('lb:zoom', onZoom); document.removeEventListener('lb:zoom', onZoom); };
   }, [dir]);
 
   // ===== Overlay state =====================================================
   const [open, setOpen] = useState/** @type {Product|null} */(null);
 
-  const onTile = (p /** @type {Product} */) => setOpen(p);
-  const onClose = () => setOpen(null);
-
   return (
     <div className="shop-wrap">
-      {/* When overlay is open, hide the grid (but keep header) */}
       {!open && (
         <div className="shop-grid">
           {items.map((p) => (
@@ -199,8 +152,8 @@ export default function ShopGrid({ products }) {
               className="product-tile"
               role="button"
               tabIndex={0}
-              onClick={(e)=>{ e.preventDefault(); onTile(p); }}
-              onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onTile(p); }}}
+              onClick={(e)=>{ e.preventDefault(); setOpen(p); }}
+              onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); setOpen(p); }}}
             >
               <div className="product-box lb-tile">
                 <img className="product-img" src={p.img} alt="" />
@@ -211,9 +164,7 @@ export default function ShopGrid({ products }) {
         </div>
       )}
 
-      {open && (
-        <ProductOverlay product={open} onClose={onClose} />
-      )}
+      {open && <ProductOverlay product={open} onClose={()=>setOpen(null)} />}
     </div>
   );
 }

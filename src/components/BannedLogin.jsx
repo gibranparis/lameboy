@@ -1,23 +1,35 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v3)
+// src/components/BannedLogin.jsx  (v3.1 – cleaned, same behavior)
 'use client';
 
 import nextDynamic from 'next/dynamic';
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 import ButterflyChakra from '@/components/ButterflyChakra';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 import { useRouter } from 'next/navigation';
 
+/* ============================== Consts ================================== */
 const CASCADE_MS = 2400;
-const HOP_PATH = '/shop';
+const HOP_PATH   = '/shop';
 
-/** Wordmark */
+const SEAFOAM = '#32ffc7';
+const RED     = '#ff001a';
+
+const HI = 'hi...';
+const JP = '...レ乃モ';
+
+/* ============================== Sub-components ========================== */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
-    <span className="lb-word" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
+    <span
+      className="lb-word"
+      onClick={onClickWordmark}
+      style={{ cursor:'pointer' }}
+      title="Launch butterfly"
+    >
       <span className="lb-white">
         <span ref={lRef}>L</span>amebo<span ref={yRef}>y</span>
         <span className="lb-seafoam">.com</span>
@@ -26,7 +38,7 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
         .lb-word { display:inline; }
         .lb-white {
           color:#fff; font-weight:900; letter-spacing:0; word-spacing:0;
-          text-shadow:0 0 8px #fff,0 0 18px #fff,0 0 36px #fff,0 0 70px #fff;
+          text-shadow:0 0 8px #fff, 0 0 18px #fff, 0 0 36px #fff, 0 0 70px #fff;
         }
         .lb-seafoam { letter-spacing:0; word-spacing:0; }
       `}</style>
@@ -34,9 +46,10 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Neon cascade overlay */
+/** Neon cascade (white sweep + RGB bands + centered brand) */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
+
   useEffect(() => {
     let start; let id;
     const step = (t) => {
@@ -49,33 +62,39 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
     return () => { if (id) cancelAnimationFrame(id); };
   }, [durationMs]);
 
-  const whiteTx = (1 - p) * 100;
   const COLOR_VW = 120;
-  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
+  const whiteTx  = (1 - p) * 100;                          // % of viewport
+  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW;  // vw
 
   return createPortal(
     <>
-      <div aria-hidden="true" style={{
-        position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
-        background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
-      }}/>
-      <div aria-hidden="true" style={{
-        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
-        transform:`translate3d(${bandsTx}vw,0,0)`,
-        zIndex:9999, pointerEvents:'none', willChange:'transform'
-      }}>
+      <div
+        aria-hidden
+        style={{
+          position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
+          background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
+          transform:`translate3d(${bandsTx}vw,0,0)`,
+          zIndex:9999, pointerEvents:'none', willChange:'transform'
+        }}
+      >
         <div className="lb-cascade">
           <div className="lb-band lb-b1"/><div className="lb-band lb-b2"/><div className="lb-band lb-b3"/>
           <div className="lb-band lb-b4"/><div className="lb-band lb-b5"/><div className="lb-band lb-b6"/><div className="lb-band lb-b7"/>
         </div>
       </div>
-      <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
+      <div className="lb-brand" aria-hidden style={{ zIndex:10001 }}>
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
+
       <style jsx global>{`
         .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); }
         .lb-band{ position:relative; width:100%; height:100%; background:var(--c); }
-        /* neon glow around each band */
         .lb-band::after{
           content:""; position:absolute; inset:-14px; background:var(--c);
           filter:blur(22px); opacity:.95; pointer-events:none;
@@ -93,42 +112,43 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   );
 }
 
+/* ============================== Main ==================================== */
+/** @param {{ onProceed?: () => void }} props */
 export default function BannedLogin({ onProceed }) {
   const router = useRouter();
 
-  const [view, setView] = useState/** @type {'banned'|'login'} */('banned');
-  const [cascade, setCascade] = useState(false);
-  const [hideAll, setHideAll] = useState(false);
+  /** @type {[('banned'|'login'), (v:'banned'|'login')=>void]} */
+  // @ts-ignore
+  const [view, setView] = useState('banned');
+
+  const [cascade,  setCascade]  = useState(false);
+  const [hideAll,  setHideAll]  = useState(false);
   const [whiteout, setWhiteout] = useState(false);
 
-  const [hideBubble, setHideBubble] = useState(false);
-  const [floridaHot, setFloridaHot] = useState(false);
-  const [activated, setActivated] = useState/** @type {'link'|'bypass'|null} */(null);
+  const [hideBubble,  setHideBubble]  = useState(false);
+  const [floridaHot,  setFloridaHot]  = useState(false);
+  const [activated,   setActivated]   = useState/** @type {'link'|'bypass'|null} */(null);
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('');  const emailRef = useRef(null);
   const [phone, setPhone] = useState('');
-  const emailRef = useRef/** @type {import('react').RefObject<HTMLInputElement>} */(null);
 
-  // “hi” ↔ “…レ乃モ”
-  const HI = 'hi...';
-  const JP = '...レ乃モ';
+  // msg flip “hi” ↔ “…レ乃モ”
   const [hiMsg, setHiMsg] = useState(HI);
   useEffect(() => {
     const id = setInterval(() => setHiMsg(v => (v === HI ? JP : HI)), 22000);
     return () => clearInterval(id);
   }, []);
 
-  // orb
-  const SEAFOAM = '#32ffc7';
-  const RED = '#ff001a';
-  const [orbMode, setOrbMode] = useState/** @type {'chakra'|'red'} */('chakra');
-  const [orbGlow, setOrbGlow] = useState(0.9);
+  // orb state (chakra / red)
+  const [orbMode, setOrbMode]       = useState/** @type {'chakra'|'red'} */('chakra');
+  const [orbGlow, setOrbGlow]       = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
-  const lRef = useRef/** @type {import('react').RefObject<HTMLSpanElement>} */(null);
-  const yRef = useRef/** @type {import('react').RefObject<HTMLSpanElement>} */(null);
+  const lRef = useRef(null);
+  const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
 
+  // prefetch hop target
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
 
   // lock scroll during cascade/whiteout
@@ -139,8 +159,8 @@ export default function BannedLogin({ onProceed }) {
     return () => { document.body.style.overflow = prev; };
   }, [cascade, whiteout]);
 
-  /** Run neon cascade and hop */
-  const runCascade = useCallback((after, { washAway = false } = {}) => {
+  // Run neon cascade and hop to /shop (or parent onProceed)
+  const runCascade = useCallback((after?: () => void, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
@@ -158,18 +178,11 @@ export default function BannedLogin({ onProceed }) {
     return () => clearTimeout(t);
   }, [onProceed, router]);
 
-  const onLink = useCallback(() => {
-    setActivated('link');
-    setTimeout(()=>setActivated(null),650);
-    runCascade(()=>{}, { washAway:true });
-  }, [runCascade]);
+  // “Link” & “Bypass”
+  const onLink   = useCallback(() => { setActivated('link');   setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
+  const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650);   runCascade(()=>{}, { washAway:true }); }, [runCascade]);
 
-  const onBypass = useCallback(() => {
-    setActivated('bypass');
-    setTimeout(()=>setActivated(null),650);
-    runCascade(()=>{}, { washAway:true });
-  }, [runCascade]);
-
+  // Toggle orb color (clicking “banned”)
   const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
@@ -179,10 +192,19 @@ export default function BannedLogin({ onProceed }) {
     });
   }, []);
 
-  // Long-press
+  // Zoom event helper (single event name; fire to window + document)
+  const fireZoom = useCallback((step = 1) => {
+    const detail = { step };
+    const evt = new CustomEvent('lb:zoom', { detail });
+    try { window.dispatchEvent(evt); } catch {}
+    try { document.dispatchEvent(evt); } catch {}
+  }, []);
+
+  // Long-press → cascade; click → zoom step
   const pressTimer = useRef/** @type {ReturnType<typeof setTimeout> | null} */(null);
   const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
+  /* ============================== Render ================================= */
   return (
     <div
       className="page-center"
@@ -207,16 +229,13 @@ export default function BannedLogin({ onProceed }) {
 
       {cascade && <CascadeOverlay durationMs={CASCADE_MS} />}
       {whiteout && !cascade && createPortal(
-        <div aria-hidden="true" style={{ position:'fixed', inset:0, background:'#fff', zIndex:10002, pointerEvents:'none' }}/>,
+        <div aria-hidden style={{ position:'fixed', inset:0, background:'#fff', zIndex:10002, pointerEvents:'none' }}/>,
         document.body
       )}
 
       {!hideAll && (
-        <div
-          className="login-stack"
-          style={{ display:'grid', justifyItems:'center', gap:10 }}
-        >
-          {/* Orb */}
+        <div className="login-stack" style={{ display:'grid', justifyItems:'center', gap:10 }}>
+          {/* Orb (tap = zoom+1, long-press/double-click = cascade+hop) */}
           <div className="orb-row" style={{ marginBottom:-16, display:'grid', placeItems:'center' }}>
             <button
               type="button"
@@ -226,12 +245,9 @@ export default function BannedLogin({ onProceed }) {
               onMouseLeave={clearPressTimer}
               onTouchStart={() => { clearPressTimer(); pressTimer.current = setTimeout(() => runCascade(()=>{}, { washAway:true }), 650); }}
               onTouchEnd={clearPressTimer}
-              onClick={() => {
-                const detail = { step: 1 };
-                try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
-                try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
-              }}
+              onClick={() => fireZoom(1)}
               onDoubleClick={() => runCascade(()=>{}, { washAway:true })}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fireZoom(1); } }}
               className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
               style={{ lineHeight: 0, background:'transparent', border:0, padding:0 }}
             >
@@ -251,7 +267,7 @@ export default function BannedLogin({ onProceed }) {
             </button>
           </div>
 
-          {/* Bubble — NO animated blue glow classes here */}
+          {/* Bubble (no animated blue glow classes) */}
           {!hideBubble && (
             <div
               style={{
@@ -358,7 +374,14 @@ export default function BannedLogin({ onProceed }) {
           <button
             type="button"
             className={['ghost-btn','florida-link', floridaHot?'is-hot':''].join(' ')}
-            onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
+            onClick={()=>{
+              if(!hideAll){
+                setFloridaHot(true);
+                setTimeout(()=>setFloridaHot(false),700);
+                setHideBubble(false);
+                setView(v=>v==='banned'?'login':'banned');
+              }
+            }}
             onMouseEnter={()=>setFloridaHot(true)}
             onMouseLeave={()=>setFloridaHot(false)}
             style={{ marginTop: 8, display:'block', textAlign:'center' }}
