@@ -13,7 +13,6 @@ const PRODUCTS = [
 
 const SIZES = ['XS','S','M','L','XL'];
 const money = (c) => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);
-
 const clampCols = (n) => Math.max(1, Math.min(5, n));
 
 /** @param {{ hideTopRow?: boolean }} props */
@@ -50,8 +49,7 @@ export default function ShopGrid({ hideTopRow = false }) {
       const step = Number(e?.detail?.step ?? 1) || 1;
       setCols((c) => {
         const next = c + step;
-        // wrap 1..5
-        return next > 5 ? 1 : (next < 1 ? 5 : next);
+        return next > 5 ? 1 : (next < 1 ? 5 : next); // wrap 1..5
       });
     };
     const onClose = () => {
@@ -62,8 +60,7 @@ export default function ShopGrid({ hideTopRow = false }) {
 
     window.addEventListener('lb:zoom', onZoom);
     window.addEventListener('lb:close-overlay', onClose);
-
-    // global fallback for legacy callers
+    // legacy fallback
     // @ts-ignore
     window.lbCloseOverlay = onClose;
 
@@ -84,85 +81,79 @@ export default function ShopGrid({ hideTopRow = false }) {
 
   return (
     <div className="shop-wrap">
-      <div className="shop-grid">
-        {items.map((p) => (
-          <a
-            key={p.id}
-            className="product-tile lb-tile"
-            href={`#${p.id}`}
-            onClick={(e)=>{ e.preventDefault(); openOverlay(p); }}
-            title={p.title}
-          >
-            <button className="product-box">
-              <img className="product-img" alt={p.title} src={p.img} />
-            </button>
-            <div className="product-meta">{p.title}</div>
-          </a>
-        ))}
-      </div>
+      {/* GRID — hidden entirely when an overlay is open */}
+      {!sel && (
+        <div className="shop-grid">
+          {items.map((p) => (
+            <a
+              key={p.id}
+              className="product-tile lb-tile"
+              href={`#${p.id}`}
+              onClick={(e)=>{ e.preventDefault(); openOverlay(p); }}
+              title={p.title}
+            >
+              <button className="product-box">
+                <img className="product-img" alt={p.title} src={p.img} />
+              </button>
+              <div className="product-meta">{p.title}</div>
+            </a>
+          ))}
+        </div>
+      )}
 
-      {/* Overlay */}
+      {/* OVERLAY */}
       {sel && (
-        <>
-          <div className="product-hero-overlay" role="dialog" aria-modal="true">
-            <div className="product-hero">
-              <img className="product-hero-img" alt={sel.title} src={sel.img} />
-              <div className="product-hero-title">{sel.title}</div>
-              <div className="product-hero-price">{money(sel.price)}</div>
+        <div className="product-hero-overlay" role="dialog" aria-modal="true">
+          <div className="product-hero">
+            <img className="product-hero-img" alt={sel.title} src={sel.img} />
+            <div className="product-hero-title">{sel.title}</div>
+            <div className="product-hero-price">{money(sel.price)}</div>
 
-              {sel.type === 'tee' && (
-                <div style={{ width:'100%', maxWidth:680 }}>
-                  <div style={{ fontWeight:700, opacity:.9, margin:'16px 0 8px' }}>Size</div>
-                  <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                    {SIZES.map(s => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={()=>setSize(s)}
-                        style={{
-                          padding:'8px 12px',
-                          borderRadius:12,
-                          border:'1px solid rgba(0,0,0,.18)',
-                          background:size===s ? 'rgba(0,0,0,.08)' : 'rgba(0,0,0,.04)',
-                          fontWeight:700,
-                        }}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
+            {sel.type === 'tee' && (
+              <div style={{ width:'100%', maxWidth:680 }}>
+                <div style={{ fontWeight:700, opacity:.9, margin:'16px 0 8px' }}>Size</div>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  {SIZES.map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={()=>setSize(s)}
+                      style={{
+                        padding:'8px 12px',
+                        borderRadius:12,
+                        border:'1px solid rgba(0,0,0,.18)',
+                        background:size===s ? 'rgba(0,0,0,.08)' : 'rgba(0,0,0,.04)',
+                        fontWeight:700,
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
                 </div>
-              )}
-
-              <div style={{ width:'100%', maxWidth:680, marginTop:18 }}>
-                <button
-                  type="button"
-                  disabled={sel.type === 'tee' && !size}
-                  style={{
-                    width:'100%', padding:'12px 16px', borderRadius:12,
-                    border:'1px solid rgba(0,0,0,.18)',
-                    background: (sel.type === 'tee' && !size) ? '#666' : '#111',
-                    color:'#fff', fontWeight:800, opacity: (sel.type === 'tee' && !size) ? .65 : 1,
-                    cursor: (sel.type === 'tee' && !size) ? 'not-allowed' : 'pointer'
-                  }}
-                  onClick={()=>{/* hook to cart */}}
-                >
-                  Add to cart
-                </button>
               </div>
+            )}
+
+            <div style={{ width:'100%', maxWidth:680, marginTop:18 }}>
+              <button
+                type="button"
+                disabled={sel.type === 'tee' && !size}
+                style={{
+                  width:'100%', padding:'12px 16px', borderRadius:12,
+                  border:'1px solid rgba(0,0,0,.18)',
+                  background: (sel.type === 'tee' && !size) ? '#666' : '#111',
+                  color:'#fff', fontWeight:800, opacity: (sel.type === 'tee' && !size) ? .65 : 1,
+                  cursor: (sel.type === 'tee' && !size) ? 'not-allowed' : 'pointer'
+                }}
+                onClick={()=>{/* hook to cart */}}
+              >
+                Add to cart
+              </button>
             </div>
           </div>
-
-          <button
-            type="button"
-            className="product-hero-close"
-            aria-label="Close"
-            onClick={()=>window.dispatchEvent(new CustomEvent('lb:close-overlay'))}
-          >
-            ✕
-          </button>
-        </>
+        </div>
       )}
+      {/* NOTE: Removed the gray “close” button entirely.
+         Use the ORB in the header to exit, or dispatch window.dispatchEvent(new CustomEvent('lb:close-overlay')) from elsewhere if needed. */}
     </div>
   );
 }
