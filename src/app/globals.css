@@ -283,3 +283,31 @@ html:has([data-shop-root]) .product-img{
   display:grid; place-items:center;
   padding:0 !important; margin:0 !important; line-height:0 !important;
 }
+
+/* ======================================================================== */
+/* =========================  OVERRIDES (v4)  ============================== */
+/* Kill the animated blue bubble glow everywhere */
+.vscode-card{ box-shadow:none !important; border-color:rgba(255,255,255,.12) !important; }
+.bubble-button:hover{ box-shadow:none !important; }
+.bubble-glow-blue{ animation:none !important; }
+
+/* Center “Florida, USA” even if container changes */
+.florida-inline{
+  display:block !important;
+  text-align:center !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+}
+
+/* Keep the gate perfectly centered regardless of parent */
+.page-center{
+  display:grid !important;
+  place-items:center !important;
+}
+
+/* Neon cascade glow for BannedLogin overlay bands (if used outside component CSS) */
+.lb-cascade .lb-band{ position:relative; }
+.lb-cascade .lb-band::after{
+  content:""; position:absolute; inset:-14px; background:var(--c);
+  filter:blur(22px); opacity:.95; pointer-events:none;
+}

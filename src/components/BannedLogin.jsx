@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx
+// src/components/BannedLogin.jsx  (v3)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -13,9 +13,6 @@ import { useRouter } from 'next/navigation';
 
 const CASCADE_MS = 2400;
 const HOP_PATH = '/shop';
-
-/** @typedef {'banned'|'login'} ViewState */
-/** @typedef {'link'|'bypass'|null} Activation */
 
 /** Wordmark */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
@@ -78,6 +75,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
       <style jsx global>{`
         .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); }
         .lb-band{ position:relative; width:100%; height:100%; background:var(--c); }
+        /* neon glow around each band */
         .lb-band::after{
           content:""; position:absolute; inset:-14px; background:var(--c);
           filter:blur(22px); opacity:.95; pointer-events:none;
@@ -95,7 +93,6 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   );
 }
 
-/** @param {{ onProceed?: () => void }} props */
 export default function BannedLogin({ onProceed }) {
   const router = useRouter();
 
@@ -121,7 +118,7 @@ export default function BannedLogin({ onProceed }) {
     return () => clearInterval(id);
   }, []);
 
-  // orb state
+  // orb
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
   const [orbMode, setOrbMode] = useState/** @type {'chakra'|'red'} */('chakra');
@@ -143,7 +140,7 @@ export default function BannedLogin({ onProceed }) {
   }, [cascade, whiteout]);
 
   /** Run neon cascade and hop */
-  const runCascade = useCallback((after?: () => void, { washAway = false } = {}) => {
+  const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
@@ -189,6 +186,7 @@ export default function BannedLogin({ onProceed }) {
   return (
     <div
       className="page-center"
+      data-test="gate-v3"
       style={{
         minHeight:'100dvh',
         display:'grid',
@@ -253,7 +251,7 @@ export default function BannedLogin({ onProceed }) {
             </button>
           </div>
 
-          {/* Bubble (no animated blue glow) */}
+          {/* Bubble — NO animated blue glow classes here */}
           {!hideBubble && (
             <div
               style={{
@@ -356,7 +354,7 @@ export default function BannedLogin({ onProceed }) {
             </div>
           )}
 
-          {/* Florida line — centered */}
+          {/* Centered Florida, USA */}
           <button
             type="button"
             className={['ghost-btn','florida-link', floridaHot?'is-hot':''].join(' ')}

@@ -1,8 +1,9 @@
 // @ts-check
-// src/app/page.js
+// src/app/page.js  (v3)
 'use client';
 
-export const dynamic = 'force-static';
+// ⛔ Force dynamic so you don’t see a cached static page
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
@@ -36,7 +37,7 @@ export default function Page() {
   const [isShop, setIsShop] = useState(false); // ⬅️ start at the banned/login gate
   const [veil,  setVeil]    = useState(false);
 
-  // Sizing knobs
+  // Sizes
   const TOGGLE_KNOB_PX   = 28;
   const TOGGLE_TRACK_PAD = 1;
   const ORB_PX           = 64;
@@ -90,7 +91,7 @@ export default function Page() {
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
-        <header role="banner" style={headerStyle}>
+        <header role="banner" style={headerStyle} data-test="hdr-v3">
           {/* LEFT: orb */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
@@ -145,7 +146,8 @@ export default function Page() {
       <main style={{ minHeight:'100dvh' }}>
         {!isShop ? (
           <div className="page-center">
-            <BannedLogin onProceed={onProceed} />
+            {/* key busts any lingering caches for the gate component */}
+            <BannedLogin key="gate-v3" onProceed={onProceed} />
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
