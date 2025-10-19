@@ -1,104 +1,91 @@
-// @ts-check
-// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
-export const runtime = 'nodejs';
+export const runtime  = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 
-const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
-const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
-const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
-const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
-const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
-
-function useHeaderCtrlPx(defaultPx = 56) {
-  const [px, setPx] = useState(defaultPx);
-  useEffect(() => {
-    const read = () => {
-      const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
-      setPx(parseInt(v, 10) || defaultPx);
-    };
-    read();
-    window.addEventListener('resize', read);
-    return () => window.removeEventListener('resize', read);
-  }, [defaultPx]);
-  return px;
-}
+const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr:false });
+const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr:false });
+const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr:false });
+const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr:false });
+const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr:false });
 
 const HEADER_H = 86;
 
-export default function Page() {
-  const ctrlPx = useHeaderCtrlPx();
-  const [theme, setTheme]   = useState('day');
-  const [isShop, setIsShop] = useState(true); // start on shop for now
-  const [veil,  setVeil]    = useState(false);
+function useHeaderCtrlPx(defaultPx=56){
+  const [px,setPx] = useState(defaultPx);
+  useEffect(()=>{
+    const read = () => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
+      setPx(parseInt(v,10)||defaultPx);
+    };
+    read(); window.addEventListener('resize',read);
+    return () => window.removeEventListener('resize',read);
+  },[defaultPx]);
+  return px;
+}
 
-  // Sizes
-  const TOGGLE_KNOB_PX   = 28;
-  const TOGGLE_TRACK_PAD = 1;
-  const ORB_PX           = 64;
+export default function Page(){
+  const ctrlPx = useHeaderCtrlPx();
+  const [theme,setTheme] = useState('day');
+  const [isShop,setIsShop] = useState(false);
 
   // keep <html> in sync
-  useEffect(() => {
+  useEffect(()=>{
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
-    if (isShop) root.setAttribute('data-shop-root', '');
-    else root.removeAttribute('data-shop-root');
+    if (isShop) root.setAttribute('data-shop-root',''); else root.removeAttribute('data-shop-root');
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
-  }, [theme, isShop, ctrlPx]);
+  },[theme,isShop,ctrlPx]);
 
-  // pick up theme-change from toggle
-  useEffect(() => {
-    /** @param {CustomEvent<{theme:'day'|'night'}>} e */
-    const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
+  // pick up theme change from toggle
+  useEffect(()=>{
+    const onTheme = (e)=> setTheme(e?.detail?.theme==='night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
     document.addEventListener('theme-change', onTheme);
-    return () => {
-      window.removeEventListener('theme-change', onTheme);
-      document.removeEventListener('theme-change', onTheme);
-    };
-  }, []);
+    return ()=>{ window.removeEventListener('theme-change', onTheme); document.removeEventListener('theme-change', onTheme); };
+  },[]);
 
-  const headerStyle = useMemo(() => ({
+  const emitZoom = useCallback(()=>{
+    const overlayOpen = document.body.dataset.overlay === '1';
+    if (overlayOpen){
+      // act as BACK while overlay is open
+      try { window.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
+      try { document.dispatchEvent(new CustomEvent('lb:close-overlay')); } catch {}
+      return;
+    }
+    // otherwise: grid zoom ping-pong step
+    try { window.dispatchEvent(new CustomEvent('lb:zoom',{ detail:{ step:1 }})); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom',{ detail:{ step:1 }})); } catch {}
+  },[]);
+
+  const headerStyle = useMemo(()=>({
     position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
     display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
     padding:'0 16px', background:'transparent'
-  }), []);
-
-  // Single orb tap event all pages use
-  const fireOrbTap = () => {
-    const evt = new CustomEvent('lb:orb-tap');
-    try { window.dispatchEvent(evt); } catch {}
-    try { document.dispatchEvent(evt); } catch {}
-  };
+  }),[]);
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb */}
+          {/* LEFT — ORB */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
-              aria-label="Orb"
+              aria-label="Zoom grid / Back"
               data-orb="density"
               className="orb-ring"
-              style={{
-                width: ORB_PX, height: ORB_PX,
-                padding:0, margin:0, background:'transparent', border:0,
-                display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
-                borderRadius:'9999px',
-              }}
-              onClick={fireOrbTap}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fireOrbTap(); } }}
-              title="Orb"
+              style={{ width:ctrlPx, height:ctrlPx, display:'grid', placeItems:'center', borderRadius:'9999px', background:'transparent', border:0, padding:0, cursor:'pointer', lineHeight:0 }}
+              onClick={emitZoom}
+              onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); emitZoom(); }}}
+              title="Zoom / Back"
             >
               <BlueOrbCross3D
-                height={`${ORB_PX}px`}
+                height={`${ctrlPx}px`}
                 geomScale={1.08}
                 glow
                 glowScale={1.25}
@@ -106,24 +93,19 @@ export default function Page() {
                 rpm={36}
                 includeZAxis
                 interactive
-                onActivate={fireOrbTap}
+                onActivate={emitZoom}
               />
             </button>
           </div>
 
-          {/* CENTER: toggle */}
+          {/* CENTER — Toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
-            <DayNightToggle
-              id="lb-daynight"
-              circlePx={TOGGLE_KNOB_PX}
-              trackPad={TOGGLE_TRACK_PAD}
-              moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
-            />
+            <DayNightToggle id="lb-daynight" circlePx={28} trackPad={1} moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']} />
           </div>
 
-          {/* RIGHT: cart */}
+          {/* RIGHT — Cart */}
           <div style={{ display:'grid', justifyContent:'end' }}>
-            <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
+            <div style={{ height:ctrlPx, width:ctrlPx, display:'grid', placeItems:'center' }}>
               <CartButton inHeader />
             </div>
           </div>
@@ -133,27 +115,14 @@ export default function Page() {
       <main style={{ minHeight:'100dvh' }}>
         {!isShop ? (
           <div className="page-center">
-            <BannedLogin onProceed={() => setIsShop(true)} />
+            <BannedLogin onProceed={()=>setIsShop(true)} />
           </div>
         ) : (
-          <div style={{ paddingTop: HEADER_H }}>
+          <div style={{ paddingTop:HEADER_H }}>
             <ShopGrid hideTopRow />
           </div>
         )}
       </main>
-
-      {veil && (
-        <div
-          aria-hidden="true"
-          style={{
-            position:'fixed', inset:0, background:'#fff',
-            opacity:1, transition:'opacity .42s ease-out',
-            zIndex:200, pointerEvents:'none'
-          }}
-          ref={(el)=> el && requestAnimationFrame(() => (el.style.opacity = 0))}
-          onTransitionEnd={() => setVeil(false)}
-        />
-      )}
     </div>
   );
 }
