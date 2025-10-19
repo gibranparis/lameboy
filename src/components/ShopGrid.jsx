@@ -2,7 +2,7 @@
 // src/components/ShopGrid.jsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 /** Demo catalog */
 const PRODUCTS = [
@@ -21,30 +21,41 @@ export default function ShopGrid({ hideTopRow = false }) {
   const [size, setSize] = useState/** @type {string|null} */(null);
   useEffect(() => { setSize(null); }, [activeId]);
 
-  // === Grid zoom (2..5 wrap) controlled by CSS var --grid-cols ============
-  const [cols, setCols] = useState(() => {
+  // === Grid density controlled by CSS var --grid-cols =====================
+  // Start from whatever CSS has, default 4.
+  const readCols = () => {
     const v = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-cols') || '4', 10);
-    return isNaN(v) ? 4 : v;
-  });
+    return Number.isFinite(v) ? v : 4;
+  };
+  const [cols, setCols] = useState(readCols);
   useEffect(() => {
     document.documentElement.style.setProperty('--grid-cols', String(cols));
   }, [cols]);
 
-  // Mark overlay state on <html> so other code can read if needed
+  // Oscillation direction: +1 (up toward 5) or -1 (down toward 1)
+  const dirRef = useRef(1);
+  // Ensure overlay state reflected on <html> (handy for other components)
   useEffect(() => {
     const root = document.documentElement;
     if (active) root.setAttribute('data-overlay-open', '');
     else root.removeAttribute('data-overlay-open');
   }, [active]);
 
-  // Single orb event: close overlay if open; otherwise zoom grid +1
+  // Single orb event:
+  // - if overlay open: close overlay
+  // - else: step grid columns by 1, oscillating between 1..5 forever
   useEffect(() => {
     const onOrb = () => {
       if (active) {
         setActiveId(null);
-      } else {
-        setCols(c => (c >= 5 ? 2 : c + 1));
+        return;
       }
+      setCols(prev => {
+        let next = prev + dirRef.current;
+        if (next >= 5) { next = 5; dirRef.current = -1; }
+        else if (next <= 1) { next = 1; dirRef.current = 1; }
+        return next;
+      });
     };
     window.addEventListener('lb:orb-tap', onOrb);
     document.addEventListener('lb:orb-tap', onOrb);
@@ -53,6 +64,20 @@ export default function ShopGrid({ hideTopRow = false }) {
       document.removeEventListener('lb:orb-tap', onOrb);
     };
   }, [active]);
+
+  // Add-to-cart flash + badge bump
+  const [adding, setAdding] = useState(false);
+  const addToCart = () => {
+    if (!size || !active) return;
+    setAdding(true);
+    // Fire a few widely compatible events so your CartButton can listen to any:
+    const payload = { id: active.id, qty: 1, size };
+    try { window.dispatchEvent(new CustomEvent('lb:cart:add', { detail: payload })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('cart:add',     { detail: payload })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('add-to-cart',  { detail: payload })); } catch {}
+    // brief green flash during press
+    setTimeout(() => setAdding(false), 240);
+  };
 
   const showGrid = !active;
 
@@ -97,7 +122,7 @@ export default function ShopGrid({ hideTopRow = false }) {
               <div className="product-hero-price" style={{ marginTop:6 }}>${active.price.toFixed(2)}</div>
             </div>
 
-            {/* SIZE CHIPS */}
+            {/* SIZE CHIPS (centered) */}
             <div
               aria-label="Choose size"
               style={{
@@ -129,38 +154,36 @@ export default function ShopGrid({ hideTopRow = false }) {
               ))}
             </div>
 
-            {/* “+” BUTTON — pill like the size chips.
-                WHITE by default, turns GREEN when a size is selected. */}
-            <div style={{ display:'grid', placeItems:'center', marginTop:18 }}>
-              <button
-                type="button"
-                disabled={!size}
-                onClick={() => {
-                  if (!size) return;
-                  // TODO: hook into your cart add logic
-                }}
-                style={{
-                  border:'1px solid rgba(0,0,0,.15)',
-                  borderRadius:10,
-                  padding:'8px 14px',
-                  fontFamily:'var(--mono)',
-                  fontSize:'14px',
-                  fontWeight:800,
-                  lineHeight:1,
-                  letterSpacing:'.02em',
-                  cursor: size ? 'pointer' : 'default',
-                  background: size ? 'var(--hover-green, #0bf05f)' : '#fff', // white → green
-                  color: size ? '#000' : '#111',
-                  transition:'background .15s ease, transform .12s ease',
-                }}
-                onMouseDown={(e)=> e.currentTarget.style.transform = 'translateY(1px)'}
-                onMouseUp={(e)=> e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                +
-              </button>
-            </div>
+            {/* “+” BUTTON — only appears AFTER a size is chosen.
+                White by default; flashes green ONLY while clicking. */}
+            {size && (
+              <div style={{ display:'grid', placeItems:'center', marginTop:18 }}>
+                <button
+                  type="button"
+                  onClick={addToCart}
+                  style={{
+                    border:'1px solid rgba(0,0,0,.15)',
+                    borderRadius:10,
+                    padding:'8px 14px',
+                    fontFamily:'var(--mono)',
+                    fontSize:'14px',
+                    fontWeight:800,
+                    lineHeight:1,
+                    letterSpacing:'.02em',
+                    cursor:'pointer',
+                    background: adding ? 'var(--hover-green, #0bf05f)' : '#fff',
+                    color: adding ? '#000' : '#111',
+                    transition:'background .12s ease, transform .12s ease',
+                  }}
+                  onMouseDown={(e)=> e.currentTarget.style.transform = 'translateY(1px)'}
+                  onMouseUp={(e)=> e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  +
+                </button>
+              </div>
+            )}
 
-            {/* Hidden close (orb acts as back) */}
+            {/* Hidden close (orb in header acts as back) */}
             <button
               aria-label="Close"
               onClick={() => setActiveId(null)}
