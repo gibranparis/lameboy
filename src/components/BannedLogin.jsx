@@ -37,13 +37,12 @@ function Wordmark({ onClickWordmark, lRef, yRef }) {
   );
 }
 
-/** Neon cascade overlay (with glow) */
+/** Neon cascade overlay */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
   useEffect(() => {
-    /** @type {number|undefined} */ let start;
-    /** @type {number|undefined} */ let id;
-    const step = (t /** @type {number} */) => {
+    let start; let id;
+    const step = (t) => {
       if (start == null) start = t;
       const k = Math.min(1, (t - start) / durationMs);
       setP(k);
@@ -59,13 +58,10 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
 
   return createPortal(
     <>
-      {/* white panel sweep */}
       <div aria-hidden="true" style={{
         position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
         background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
       }}/>
-
-      {/* color bands with neon glow */}
       <div aria-hidden="true" style={{
         position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
         transform:`translate3d(${bandsTx}vw,0,0)`,
@@ -76,41 +72,22 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
           <div className="lb-band lb-b4"/><div className="lb-band lb-b5"/><div className="lb-band lb-b6"/><div className="lb-band lb-b7"/>
         </div>
       </div>
-
-      {/* center brand */}
       <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
         <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
-
       <style jsx global>{`
         .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); }
-        .lb-band{
-          position:relative;
-          width:100%; height:100%; background:var(--c);
-        }
-        /* Neon aura: blurred pseudo-element radiates color like your neon text */
+        .lb-band{ position:relative; width:100%; height:100%; background:var(--c); }
         .lb-band::after{
-          content:"";
-          position:absolute; inset:-14px;
-          background:var(--c);
-          filter:blur(22px);
-          opacity:.95;
-          pointer-events:none;
+          content:""; position:absolute; inset:-14px; background:var(--c);
+          filter:blur(22px); opacity:.95; pointer-events:none;
         }
-        /* Chakra colors (same hues as before) */
-        .lb-b1{ --c:#ef4444 } /* red (banned vibe) */
-        .lb-b2{ --c:#f97316 }
-        .lb-b3{ --c:#facc15 } /* yellow (Florida vibe) */
-        .lb-b4{ --c:#22c55e }
-        .lb-b5{ --c:#3b82f6 }
-        .lb-b6{ --c:#4f46e5 }
-        .lb-b7{ --c:#c084fc }
-
+        .lb-b1{ --c:#ef4444 } .lb-b2{ --c:#f97316 } .lb-b3{ --c:#facc15 }
+        .lb-b4{ --c:#22c55e } .lb-b5{ --c:#3b82f6 } .lb-b6{ --c:#4f46e5 } .lb-b7{ --c:#c084fc }
         .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
         .lb-brand-text{
           color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
-          font-size:clamp(11px,1.3vw,14px);
-          text-shadow:0 0 8px rgba(0,0,0,.25);
+          font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25);
         }
       `}</style>
     </>,
@@ -122,25 +99,20 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
 export default function BannedLogin({ onProceed }) {
   const router = useRouter();
 
-  /** @type {[ViewState, (v: ViewState) => void]} */
-  // @ts-ignore
-  const [view, setView] = useState/** @type {ViewState} */('banned');
+  const [view, setView] = useState/** @type {'banned'|'login'} */('banned');
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
   const [whiteout, setWhiteout] = useState(false);
 
   const [hideBubble, setHideBubble] = useState(false);
   const [floridaHot, setFloridaHot] = useState(false);
-  /** @type {[Activation, (a: Activation) => void]} */
-  // @ts-ignore
-  const [activated, setActivated] = useState/** @type {Activation} */(null);
+  const [activated, setActivated] = useState/** @type {'link'|'bypass'|null} */(null);
 
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  /** @type {import('react').RefObject<HTMLInputElement>} */
-  const emailRef = useRef(null);
+  const emailRef = useRef/** @type {import('react').RefObject<HTMLInputElement>} */(null);
 
-  // “hi” ↔ “…レ乃モ” every 22s
+  // “hi” ↔ “…レ乃モ”
   const HI = 'hi...';
   const JP = '...レ乃モ';
   const [hiMsg, setHiMsg] = useState(HI);
@@ -152,16 +124,12 @@ export default function BannedLogin({ onProceed }) {
   // orb state
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
-  /** @type {['chakra'|'red', (m: 'chakra'|'red') => void]} */
-  // @ts-ignore
   const [orbMode, setOrbMode] = useState/** @type {'chakra'|'red'} */('chakra');
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
-  /** @type {import('react').RefObject<HTMLSpanElement>} */
-  const lRef = useRef(null);
-  /** @type {import('react').RefObject<HTMLSpanElement>} */
-  const yRef = useRef(null);
+  const lRef = useRef/** @type {import('react').RefObject<HTMLSpanElement>} */(null);
+  const yRef = useRef/** @type {import('react').RefObject<HTMLSpanElement>} */(null);
   const [flyOnce, setFlyOnce] = useState(false);
 
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
@@ -174,18 +142,8 @@ export default function BannedLogin({ onProceed }) {
     return () => { document.body.style.overflow = prev; };
   }, [cascade, whiteout]);
 
-  const goLogin = useCallback(() => {
-    setHideBubble(false);
-    setView('login');
-    setTimeout(() => emailRef.current?.focus(), 200);
-  }, []);
-
-  /**
-   * Run the color cascade, optionally washing away bubble, then hop.
-   * @param {() => void} [after]
-   * @param {{ washAway?: boolean }} [opts]
-   */
-  const runCascade = useCallback((after, { washAway = false } = {}) => {
+  /** Run neon cascade and hop */
+  const runCascade = useCallback((after?: () => void, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
@@ -196,11 +154,8 @@ export default function BannedLogin({ onProceed }) {
       setWhiteout(true);
       after && after();
 
-      if (typeof onProceed === 'function') {
-        onProceed();
-      } else {
-        try { router.push(HOP_PATH); } catch {}
-      }
+      if (typeof onProceed === 'function') onProceed();
+      else try { router.push(HOP_PATH); } catch {}
     }, CASCADE_MS);
 
     return () => clearTimeout(t);
@@ -227,7 +182,7 @@ export default function BannedLogin({ onProceed }) {
     });
   }, []);
 
-  // --- Long-press support for the orb ---
+  // Long-press
   const pressTimer = useRef/** @type {ReturnType<typeof setTimeout> | null} */(null);
   const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
@@ -261,13 +216,9 @@ export default function BannedLogin({ onProceed }) {
       {!hideAll && (
         <div
           className="login-stack"
-          style={{
-            display:'grid',
-            justifyItems:'center',
-            gap:10,
-          }}
+          style={{ display:'grid', justifyItems:'center', gap:10 }}
         >
-          {/* Orb: click = step density; long-press/double-click = cascade+hop */}
+          {/* Orb */}
           <div className="orb-row" style={{ marginBottom:-16, display:'grid', placeItems:'center' }}>
             <button
               type="button"
@@ -295,27 +246,23 @@ export default function BannedLogin({ onProceed }) {
                 glowOpacity={orbGlow}
                 includeZAxis
                 height="72px"
-                /* ⛔ no onActivate; we control it above */
                 overrideAllColor={orbMode==='red' ? RED : null}
                 overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
-                interactive={true}
+                interactive
               />
             </button>
           </div>
 
+          {/* Bubble (no animated blue glow) */}
           {!hideBubble && (
             <div
-              className={[
-                'vscode-card','card-ultra-tight','login-card',
-                view==='banned' ? 'slide-in-left' : 'slide-in-right',
-                'bubble-button'
-              ].join(' ')}
               style={{
                 minWidth:260,
                 background:'rgba(20,20,26,.9)',
                 border:'2px solid rgba(255,255,255,.10)',
                 borderRadius:16,
                 boxShadow:'0 6px 18px rgba(0,0,0,.28)',
+                padding:'6px 8px'
               }}
               role={view==='login' ? 'form' : undefined}
               tabIndex={view==='login' ? 0 : -1}
