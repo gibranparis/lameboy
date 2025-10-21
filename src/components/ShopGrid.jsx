@@ -1,86 +1,120 @@
+// src/components/ShopGrid.jsx
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import ProductOverlay from './ProductOverlay';
+import Image from 'next/image';
+import { useEffect, useMemo, useState } from 'react';
 
-// Simple static catalog (use your real data or CMS later)
-const CATALOG = [
-  { id:'tee-black',  title:'LB Tee — Black',  price:3800, img:'/products/tee-black.png'  },
-  { id:'tee-white',  title:'LB Tee — White',  price:3800, img:'/products/tee-white.png'  },
-  { id:'dad-navy',   title:'Dad Cap — Navy',  price:3200, img:'/products/dad-navy.png'   },
-  { id:'stickers',   title:'Sticker Pack',    price:1200, img:'/products/stickers.png'   },
+/**
+ * Minimal product list stub — replace with your real data.
+ */
+const PRODUCTS = [
+  { id: 'tee-black',  title: 'LB Tee — Black',  price: 38, img: '/products/lb-tee-black.png'  },
+  { id: 'tee-white',  title: 'LB Tee — White',  price: 38, img: '/products/lb-tee-white.png'  },
+  { id: 'cap-navy',   title: 'Dad Cap — Navy',  price: 32, img: '/products/dad-cap-navy.png' },
+  { id: 'sticker',    title: 'Sticker Pack',    price: 12, img: '/products/sticker-pack.png'  },
 ];
 
-const MIN_COLS = 1;
-const MAX_COLS = 5;
+/**
+ * ShopGrid
+ * - Defaults to 5 columns on mount.
+ * - Orb click (CustomEvent 'lb:zoom' on document) steps grid by EXACTLY 1,
+ *   bouncing: 5→4→3→2→1→2→3→4→5→…
+ * - If overlay is open, an orb click closes overlay instead of changing columns.
+ */
+export default function ShopGrid({ hideTopRow = false }) {
+  const [cols, setCols] = useState(5);     // 1..5
+  const [dir, setDir]   = useState(-1);    // current direction (start stepping down)
+  const [overlay, setOverlay] = useState/** @type {null | {id:string}} */(null);
 
-export default function ShopGrid() {
-  const rootRef = useRef(null);
-  const [cols, setCols] = useState(() => {
-    const saved = Number(localStorage.getItem('lb:gridcols') || '4');
-    return Math.min(MAX_COLS, Math.max(MIN_COLS, saved || 4));
-  });
-  const [dir, setDir] = useState(1); // ping-pong direction
-  const [open, setOpen] = useState(null); // product id open in overlay
-
-  // set CSS var for grid columns
+  // Force CSS var to 5 on mount (default grid)
   useEffect(() => {
-    const el = document.documentElement;
-    el.style.setProperty('--grid-cols', String(cols));
-    try { localStorage.setItem('lb:gridcols', String(cols)); } catch {}
-  }, [cols]);
+    const root = document.documentElement;
+    root.style.setProperty('--grid-cols', '5');
+    setCols(5);
+  }, []);
 
-  // Orb behavior: close overlay else step 1..5..1 ping-pong
+  // Listen to single-source zoom events
   useEffect(() => {
-    const onOrb = () => {
-      if (open) { setOpen(null); return; }
-      setCols((c) => {
-        let next = c + dir;
-        if (next > MAX_COLS) { next = MAX_COLS - 1; setDir(-1); }
-        else if (next < MIN_COLS) { next = MIN_COLS + 1; setDir(1); }
-        return next;
+    const onZoom = (e) => {
+      // If a product overlay is open, orb acts as BACK/close.
+      if (overlay) {
+        setOverlay(null);
+        return;
+      }
+
+      // Single precise ladder step
+      setCols((prev) => {
+        let nextDir = dir;
+        if (prev === 5 && dir === 1) nextDir = -1;
+        if (prev === 1 && dir === -1) nextDir = 1;
+
+        const next = prev + nextDir;
+        // clamp for safety, then reflect direction if at ends
+        const clamped = Math.max(1, Math.min(5, next));
+        setDir(nextDir);
+        requestAnimationFrame(() => {
+          document.documentElement.style.setProperty('--grid-cols', String(clamped));
+        });
+        return clamped;
       });
     };
-    window.addEventListener('shop:orb', onOrb);
-    document.addEventListener('shop:orb', onOrb);
-    return () => {
-      window.removeEventListener('shop:orb', onOrb);
-      document.removeEventListener('shop:orb', onOrb);
-    };
-  }, [open, dir]);
 
-  // announce overlay state (useful if other components care)
-  useEffect(() => {
-    const evt = new CustomEvent('overlay:state', { detail: { open: !!open } });
-    try { window.dispatchEvent(evt); } catch {}
-  }, [open]);
+    document.addEventListener('lb:zoom', onZoom);
+    return () => document.removeEventListener('lb:zoom', onZoom);
+  }, [dir, overlay]);
 
-  const items = useMemo(() => CATALOG, []);
+  const openOverlay = (id) => setOverlay({ id });
+  const closeOverlay = () => setOverlay(null);
+
+  const gridStyle = useMemo(() => ({
+    padding: '24px 24px 80px',
+  }), []);
 
   return (
-    <div className="shop-wrap">
-      <div className="shop-grid" aria-label="Products grid" ref={rootRef} style={{ padding:'24px' }}>
-        {items.map(p => (
-          <button
+    <div className="shop-page">
+      {/* GRID */}
+      <div className="shop-grid" style={gridStyle} aria-hidden={!!overlay}>
+        {PRODUCTS.map((p) => (
+          <a
             key={p.id}
-            className="product-tile lb-tile"
-            onClick={() => setOpen(p.id)}
-            title={p.title}
-            style={{ background:'transparent', border:0, cursor:'pointer' }}
+            className="product-tile"
+            role="button"
+            tabIndex={0}
+            onClick={() => openOverlay(p.id)}
+            onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') openOverlay(p.id); }}
           >
             <div className="product-box">
-              <img className="product-img" src={p.img} alt={p.title} loading="lazy" />
+              {/* Use next/image if your files exist, else plain img */}
+              <img className="product-img" src={p.img} alt={p.title} />
             </div>
             <div className="product-meta">{p.title}</div>
-          </button>
+          </a>
         ))}
       </div>
 
-      {open && (
-        <ProductOverlay
-          product={items.find(i => i.id === open)}
-          onClose={() => setOpen(null)}
-        />
+      {/* OVERLAY */}
+      {overlay && (
+        <div className="product-hero-overlay" role="dialog" aria-modal="true">
+          <div className="product-hero">
+            {/* Hide the old gray back button; orb in header is the back control */}
+            {/* <button className="product-hero-close" onClick={closeOverlay} aria-label="Close">←</button> */}
+
+            {(() => {
+              const prod = PRODUCTS.find((x) => x.id === overlay.id);
+              if (!prod) return null;
+              return (
+                <>
+                  <img className="product-hero-img" src={prod.img} alt={prod.title} />
+                  <div className="product-hero-title">{prod.title}</div>
+                  <div className="product-hero-price">${prod.price.toFixed(2)}</div>
+
+                  {/* Your existing size / + flow can live here */}
+                  {/* We keep UI minimal so the orb behavior is the focus */}
+                </>
+              );
+            })()}
+          </div>
+        </div>
       )}
     </div>
   );

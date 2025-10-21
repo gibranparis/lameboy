@@ -1,11 +1,10 @@
-// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
 export const runtime = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 
 const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
 const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
@@ -32,15 +31,15 @@ const HEADER_H = 86;
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx();
   const [theme, setTheme]   = useState('day');
-  const [isShop, setIsShop] = useState(false); // start at gate
+  const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // sizes
+  // sizes used in header
   const TOGGLE_KNOB_PX   = 28;
   const TOGGLE_TRACK_PAD = 1;
   const ORB_PX           = 64;
 
-  // reflect mode/theme on <html>
+  // sync html attrs
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -50,7 +49,7 @@ export default function Page() {
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // listen for theme-change from toggle
+  // pick up theme-change from toggle
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
@@ -61,7 +60,7 @@ export default function Page() {
     };
   }, []);
 
-  // gentle white veil when hopping from the gate
+  // veil when hopping from cascade
   useEffect(() => {
     try {
       if (sessionStorage.getItem('fromCascade') === '1') {
@@ -73,25 +72,9 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // ===== ORB ZOOM EMIT (bounce 1..5..1) =====
-  // We store the current direction (up/down) in a ref to make it consistent across clicks.
-  const dirRef = useRef(1); // 1 = increasing columns, -1 = decreasing
-
-  const emitZoomStep = useCallback(() => {
-    try {
-      const root = document.documentElement;
-      const cur = Math.max(1, Math.min(5, parseInt(getComputedStyle(root).getPropertyValue('--grid-cols') || '4', 10) || 4));
-      // bounce logic
-      let next = cur + dirRef.current;
-      if (next > 5) { dirRef.current = -1; next = 4; }
-      if (next < 1) { dirRef.current = 1;  next = 2; }
-
-      root.style.setProperty('--grid-cols', String(next));
-
-      const evt = new CustomEvent('lb:zoom', { detail: { step: dirRef.current } });
-      window.dispatchEvent(evt);
-      document.dispatchEvent(evt);
-    } catch {}
+  // EMIT: single source of truth — dispatch ONLY on document to avoid “double step”
+  const emitZoomStep = useCallback((step = 1) => {
+    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step } })); } catch {}
   }, []);
 
   const headerStyle = useMemo(() => ({
@@ -104,7 +87,7 @@ export default function Page() {
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb */}
+          {/* LEFT: orb (grid zoom / overlay back) */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
@@ -117,11 +100,11 @@ export default function Page() {
                 display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
                 borderRadius:'9999px',
               }}
-              onClick={emitZoomStep}
+              onClick={() => emitZoomStep(1)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoomStep(); }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoomStep(1); }
               }}
-              title="Zoom products"
+              title="Zoom products / Back from item view"
             >
               <BlueOrbCross3D
                 height={`${ORB_PX}px`}
@@ -132,12 +115,12 @@ export default function Page() {
                 rpm={36}
                 includeZAxis
                 interactive
-                onActivate={emitZoomStep}
+                onActivate={() => emitZoomStep(1)}
               />
             </button>
           </div>
 
-          {/* CENTER: Day/Night toggle */}
+          {/* CENTER: toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
