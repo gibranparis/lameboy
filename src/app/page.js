@@ -1,5 +1,8 @@
 'use client';
 
+export const dynamic = 'force-static';
+export const runtime = 'nodejs';
+
 import nextDynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -8,8 +11,6 @@ const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
-
-const HEADER_H = 86;
 
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
@@ -25,12 +26,23 @@ function useHeaderCtrlPx(defaultPx = 56) {
   return px;
 }
 
+const HEADER_H = 86;
+
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx();
-  const [theme, setTheme]   = useState('day');
-  const [isShop, setIsShop] = useState(true); // keep shop as default; BannedLogin still available
 
-  // keep <html> in sync
+  // ⬇️ IMPORTANT: start at gate so the banned page shows
+  const [isShop, setIsShop] = useState(false);
+
+  const [theme, setTheme] = useState('day');
+  const [veil, setVeil] = useState(false);
+
+  // Sizes for header controls
+  const TOGGLE_KNOB_PX   = 28;
+  const TOGGLE_TRACK_PAD = 1;
+  const ORB_PX           = 64;
+
+  // reflect theme + mode on <html>
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -51,38 +63,57 @@ export default function Page() {
     };
   }, []);
 
-  // HEADER styles
+  // cascade veil (from gate)
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('fromCascade') === '1') {
+        setVeil(true);
+        sessionStorage.removeItem('fromCascade');
+      }
+    } catch {}
+  }, [isShop]);
+
+  const onProceed = () => setIsShop(true);
+
+  // single zoom event
+  const emitZoomStep = useCallback((step = 1) => {
+    const detail = { step };
+    const evt = new CustomEvent('lb:zoom', { detail });
+    try { window.dispatchEvent(evt); } catch {}
+    try { document.dispatchEvent(evt); } catch {}
+  }, []);
+
   const headerStyle = useMemo(() => ({
     position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
     display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
     padding:'0 16px', background:'transparent'
   }), []);
 
-  // Orb click: if overlay open -> close; else ping-pong grid cols
-  const onOrb = useCallback(() => {
-    const evt = new CustomEvent('shop:orb');
-    try { window.dispatchEvent(evt); } catch {}
-    try { document.dispatchEvent(evt); } catch {}
-  }, []);
-
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb (no extra back arrow ever) */}
+          {/* LEFT: orb (zoom control on grid; back from overlay is handled inside overlay) */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
-              aria-label="Zoom / Back"
+              aria-label="Zoom grid"
               data-orb="density"
               className="orb-ring"
-              style={{ width: ctrlPx, height: ctrlPx, display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0, borderRadius:'9999px', background:'transparent', border:0 }}
-              onClick={onOrb}
-              onKeyDown={(e) => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onOrb(); } }}
-              title="Zoom grid / Close product"
+              style={{
+                width: ORB_PX, height: ORB_PX,
+                padding:0, margin:0, background:'transparent', border:0,
+                display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
+                borderRadius:'9999px',
+              }}
+              onClick={() => emitZoomStep(1)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoomStep(1); }
+              }}
+              title="Zoom products"
             >
               <BlueOrbCross3D
-                height={`${ctrlPx}px`}
+                height={`${ORB_PX}px`}
                 geomScale={1.08}
                 glow
                 glowScale={1.25}
@@ -90,18 +121,17 @@ export default function Page() {
                 rpm={36}
                 includeZAxis
                 interactive
-                // also fire for pointer-up inside the canvas
-                onActivate={onOrb}
+                onActivate={() => emitZoomStep(1)}
               />
             </button>
           </div>
 
-          {/* CENTER: toggle */}
+          {/* CENTER: day/night toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
-              circlePx={28}
-              trackPad={1}
+              circlePx={TOGGLE_KNOB_PX}
+              trackPad={TOGGLE_TRACK_PAD}
               moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
             />
           </div>
@@ -118,7 +148,7 @@ export default function Page() {
       <main style={{ minHeight:'100dvh' }}>
         {!isShop ? (
           <div className="page-center">
-            <BannedLogin onProceed={() => setIsShop(true)} />
+            <BannedLogin onProceed={onProceed} />
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
@@ -126,6 +156,19 @@ export default function Page() {
           </div>
         )}
       </main>
+
+      {veil && (
+        <div
+          aria-hidden="true"
+          style={{
+            position:'fixed', inset:0, background:'#fff',
+            opacity:1, transition:'opacity .42s ease-out',
+            zIndex:200, pointerEvents:'none'
+          }}
+          ref={(el)=> el && requestAnimationFrame(() => (el.style.opacity = 0))}
+          onTransitionEnd={() => setVeil(false)}
+        />
+      )}
     </div>
   );
 }
