@@ -1,12 +1,73 @@
 // src/components/DayNightToggle.jsx
-// Restores clouds (day) and starry sky with LAMEBOY constellation (night)
+// Clouds (day), starry sky + LAMEBOY constellation (night)
+// Ridged sun with gradient + glow
 
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 /** @typedef {'day'|'night'} Theme */
 const THEME_KEY = 'lb:theme';
+
+// ---------- Ridged Sun SVG ----------
+function SunIcon({ size = 28 }) {
+  const id = useId();
+  // Build a 16-point star (outer/inner radii) for the “ridges”
+  const spokes = 16;
+  const rOuter = size * 0.52;
+  const rInner = size * 0.40;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  const pts = [];
+  for (let i = 0; i < spokes * 2; i++) {
+    const a = (i * Math.PI) / spokes;
+    const r = i % 2 === 0 ? rOuter : rInner;
+    pts.push(`${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`);
+  }
+  const points = pts.join(' ');
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      aria-hidden="true"
+      style={{ display:'block' }}
+    >
+      <defs>
+        <radialGradient id={`${id}-g`} cx="45%" cy="45%" r="65%">
+          <stop offset="0%"  stopColor="#fff6c6"/>
+          <stop offset="55%" stopColor="#ffd75e"/>
+          <stop offset="100%" stopColor="#ffb200"/>
+        </radialGradient>
+        <filter id={`${id}-glow`} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.4" result="b"/>
+          <feMerge>
+            <feMergeNode in="b"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Rays */}
+      <polygon
+        points={points}
+        fill={`url(#${id}-g)`}
+        filter={`url(#${id}-glow)`}
+      />
+
+      {/* Inner disc for a smooth center */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={size * 0.36}
+        fill={`url(#${id}-g)`}
+        style={{ filter: `drop-shadow(0 0 10px rgba(255,210,80,.55))` }}
+      />
+    </svg>
+  );
+}
 
 export default function DayNightToggle({
   id,
@@ -252,21 +313,21 @@ export default function DayNightToggle({
         />
       )}
 
-      {/* KNOB (sun/moon) — art fills the circle (no rim) */}
+      {/* KNOB (ridged sun / moon) */}
       <span
         aria-hidden
         style={{
           position:'absolute',
           top:dims.inset, left:dims.inset,
           height:dims.knob, width:dims.knob, borderRadius:'50%',
-          background:'transparent', boxShadow:'0 6px 16px rgba(0,0,0,.18)',
+          background:'transparent',
           display:'grid', placeItems:'center',
           transform:`translateX(${isNight ? dims.shift : 0}px)`,
           transition:'transform 320ms cubic-bezier(.22,.61,.21,.99)',
-          overflow:'hidden',
+          overflow:'visible', // allow sun rays to extend a hair
         }}
       >
-        {/* Sun */}
+        {/* Sun (ridged) */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -274,13 +335,7 @@ export default function DayNightToggle({
             filter:'drop-shadow(0 0 18px rgba(255,210,80,.65))',
           }}
         >
-          <span
-            style={{
-              width: dims.knob, height: dims.knob, borderRadius:'50%',
-              background:'radial-gradient(circle at 45% 45%, #fff6c6 0%, #ffd75e 55%, #ffb200 100%)',
-              display:'block',
-            }}
-          />
+          <SunIcon size={dims.knob}/>
         </span>
 
         {/* Moon */}
