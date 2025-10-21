@@ -1,10 +1,11 @@
+// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
 export const runtime = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
 const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
@@ -30,19 +31,16 @@ const HEADER_H = 86;
 
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx();
+  const [theme, setTheme]   = useState('day');
+  const [isShop, setIsShop] = useState(false); // start at gate
+  const [veil,  setVeil]    = useState(false);
 
-  // ⬇️ IMPORTANT: start at gate so the banned page shows
-  const [isShop, setIsShop] = useState(false);
-
-  const [theme, setTheme] = useState('day');
-  const [veil, setVeil] = useState(false);
-
-  // Sizes for header controls
+  // sizes
   const TOGGLE_KNOB_PX   = 28;
   const TOGGLE_TRACK_PAD = 1;
   const ORB_PX           = 64;
 
-  // reflect theme + mode on <html>
+  // reflect mode/theme on <html>
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -52,7 +50,7 @@ export default function Page() {
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // pick up theme-change from toggle
+  // listen for theme-change from toggle
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
@@ -63,7 +61,7 @@ export default function Page() {
     };
   }, []);
 
-  // cascade veil (from gate)
+  // gentle white veil when hopping from the gate
   useEffect(() => {
     try {
       if (sessionStorage.getItem('fromCascade') === '1') {
@@ -75,12 +73,25 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // single zoom event
-  const emitZoomStep = useCallback((step = 1) => {
-    const detail = { step };
-    const evt = new CustomEvent('lb:zoom', { detail });
-    try { window.dispatchEvent(evt); } catch {}
-    try { document.dispatchEvent(evt); } catch {}
+  // ===== ORB ZOOM EMIT (bounce 1..5..1) =====
+  // We store the current direction (up/down) in a ref to make it consistent across clicks.
+  const dirRef = useRef(1); // 1 = increasing columns, -1 = decreasing
+
+  const emitZoomStep = useCallback(() => {
+    try {
+      const root = document.documentElement;
+      const cur = Math.max(1, Math.min(5, parseInt(getComputedStyle(root).getPropertyValue('--grid-cols') || '4', 10) || 4));
+      // bounce logic
+      let next = cur + dirRef.current;
+      if (next > 5) { dirRef.current = -1; next = 4; }
+      if (next < 1) { dirRef.current = 1;  next = 2; }
+
+      root.style.setProperty('--grid-cols', String(next));
+
+      const evt = new CustomEvent('lb:zoom', { detail: { step: dirRef.current } });
+      window.dispatchEvent(evt);
+      document.dispatchEvent(evt);
+    } catch {}
   }, []);
 
   const headerStyle = useMemo(() => ({
@@ -93,7 +104,7 @@ export default function Page() {
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {isShop && (
         <header role="banner" style={headerStyle}>
-          {/* LEFT: orb (zoom control on grid; back from overlay is handled inside overlay) */}
+          {/* LEFT: orb */}
           <div style={{ display:'grid', justifyContent:'start' }}>
             <button
               type="button"
@@ -106,9 +117,9 @@ export default function Page() {
                 display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
                 borderRadius:'9999px',
               }}
-              onClick={() => emitZoomStep(1)}
+              onClick={emitZoomStep}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoomStep(1); }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoomStep(); }
               }}
               title="Zoom products"
             >
@@ -121,12 +132,12 @@ export default function Page() {
                 rpm={36}
                 includeZAxis
                 interactive
-                onActivate={() => emitZoomStep(1)}
+                onActivate={emitZoomStep}
               />
             </button>
           </div>
 
-          {/* CENTER: day/night toggle */}
+          {/* CENTER: Day/Night toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
@@ -152,7 +163,7 @@ export default function Page() {
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
-            <ShopGrid />
+            <ShopGrid hideTopRow />
           </div>
         )}
       </main>
