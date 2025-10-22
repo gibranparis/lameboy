@@ -1,7 +1,7 @@
 'use client';
 
 export const dynamic = 'force-static';
-export const runtime = 'nodejs';
+export const runtime  = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
 import { useEffect, useMemo, useState, useCallback } from 'react';
@@ -12,6 +12,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
+/** Read --header-ctrl from :root so header buttons size correctly */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
@@ -29,27 +30,31 @@ function useHeaderCtrlPx(defaultPx = 56) {
 const HEADER_H = 86;
 
 export default function Page() {
-  const ctrlPx = useHeaderCtrlPx();
+  const ctrlPx         = useHeaderCtrlPx();
   const [theme, setTheme]   = useState('day');
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // sizes used in header
+  // header control tuning
   const TOGGLE_KNOB_PX   = 28;
   const TOGGLE_TRACK_PAD = 1;
   const ORB_PX           = 64;
 
-  // sync html attrs
+  // Sync <html> attributes and default to 5 columns on first shop mount
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
-    if (isShop) root.setAttribute('data-shop-root', '');
-    else root.removeAttribute('data-shop-root');
+    if (isShop) {
+      root.setAttribute('data-shop-root', '');
+      root.style.setProperty('--grid-cols', '5'); // default 5 per row
+    } else {
+      root.removeAttribute('data-shop-root');
+    }
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // pick up theme-change from toggle
+  // Pick up theme-change from toggle (supports window & document emitter)
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
@@ -60,7 +65,7 @@ export default function Page() {
     };
   }, []);
 
-  // veil when hopping from cascade
+  // Veil when hopping from cascade
   useEffect(() => {
     try {
       if (sessionStorage.getItem('fromCascade') === '1') {
@@ -72,15 +77,22 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // EMIT: single source of truth — dispatch ONLY on document to avoid “double step”
+  // === Single source of truth for the orb density/back event ============
+  // Dispatch ON DOCUMENT ONLY so listeners don’t run twice.
   const emitZoomStep = useCallback((step = 1) => {
     try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step } })); } catch {}
   }, []);
 
   const headerStyle = useMemo(() => ({
-    position:'fixed', inset:'0 0 auto 0', height:HEADER_H, zIndex:140,
-    display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center',
-    padding:'0 16px', background:'transparent'
+    position:'fixed',
+    inset:'0 0 auto 0',
+    height:HEADER_H,
+    zIndex:140,
+    display:'grid',
+    gridTemplateColumns:'1fr auto 1fr',
+    alignItems:'center',
+    padding:'0 16px',
+    background:'transparent',
   }), []);
 
   return (
@@ -106,6 +118,7 @@ export default function Page() {
               }}
               title="Zoom products / Back from item view"
             >
+              {/* IMPORTANT: let the BUTTON drive the event so we don’t double-emit */}
               <BlueOrbCross3D
                 height={`${ORB_PX}px`}
                 geomScale={1.08}
@@ -115,12 +128,11 @@ export default function Page() {
                 rpm={36}
                 includeZAxis
                 interactive
-                onActivate={() => emitZoomStep(1)}
               />
             </button>
           </div>
 
-          {/* CENTER: toggle */}
+          {/* CENTER: day/night toggle */}
           <div style={{ display:'grid', placeItems:'center' }}>
             <DayNightToggle
               id="lb-daynight"
@@ -146,6 +158,7 @@ export default function Page() {
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
+            {/* ShopGrid stays as-is (no new files, no product synthesis) */}
             <ShopGrid hideTopRow />
           </div>
         )}
