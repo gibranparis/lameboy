@@ -1,132 +1,129 @@
+// @ts-check
+// src/components/ProductOverlay.jsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import { useCallback, useMemo, useState } from 'react';
 
-const SIZES = ['XS','S','M','L','XL'];
+/* ------------------------------------------------------------------ */
+/* Inline +/sizes control (NO new file)                               */
+/* ------------------------------------------------------------------ */
+function PlusSizesInline({
+  sizes = ['XS', 'S', 'M', 'L', 'XL'],
+  disabled = false,
+  title = 'Add to cart',
+  onAdd, // (size: string) => void
+}) {
+  const [showSizes, setShowSizes] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState/** @type {string|null} */(null);
 
-export default function ProductOverlay({ product, onClose }) {
-  const priceText = useMemo(
-    () => `$${((product?.price ?? 0) / 100).toFixed(2)}`,
-    [product]
+  const plusClass = useMemo(
+    () => ['pill', 'plus-pill', showSizes ? 'is-active' : ''].filter(Boolean).join(' '),
+    [showSizes]
   );
 
-  // UI flow: 'plus' → 'sizes' → (select) → add + badge → back to 'plus'
-  const [mode, setMode] = useState('plus');            // 'plus' | 'sizes'
-  const [activeSize, setActiveSize] = useState(null);  // 'M', etc.
-  const [adding, setAdding] = useState(false);
+  const clickPlus = useCallback(() => {
+    if (disabled || busy) return;
+    setShowSizes(true);
+  }, [disabled, busy]);
 
-  // Hide grid while overlay is open
-  useEffect(() => {
-    const grid = document.querySelector('.shop-grid');
-    const prev = grid?.style.visibility;
-    if (grid) grid.style.visibility = 'hidden';
-    return () => { if (grid) grid.style.visibility = prev || ''; };
-  }, []);
+  const pickSize = useCallback((size) => {
+    if (disabled || busy) return;
+    setBusy(true);
+    setPicked(size);
 
-  // Close on ESC
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    // let the rest of the app react (badge/bump etc.)
+    try { window.dispatchEvent(new CustomEvent('cart:add', { detail: { size, qty: 1 } })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('cart:bump')); } catch {}
 
-  // Orb-as-back-button (header orb should zoom on grid; here it should close)
-  useEffect(() => {
-    const onHeaderOrb = () => onClose?.();
-    window.addEventListener('lb:overlay:back', onHeaderOrb);
-    return () => window.removeEventListener('lb:overlay:back', onHeaderOrb);
-  }, [onClose]);
+    try { onAdd && onAdd(size); } catch {}
 
-  // Inform header orb to behave as back while overlay is shown
-  useEffect(() => {
-    const enable = () => {
-      try { window.dispatchEvent(new CustomEvent('lb:overlay:mode', { detail:{ active:true } })); } catch {}
-    };
-    const disable = () => {
-      try { window.dispatchEvent(new CustomEvent('lb:overlay:mode', { detail:{ active:false } })); } catch {}
-    };
-    enable();
-    return disable;
-  }, []);
-
-  const onPlusClick = () => setMode('sizes');
-
-  const onPickSize = (s) => {
-    setActiveSize(s);
-    setAdding(true);
-
-    // fake add → bump cart badge → reset UI
+    // brief green flash then reset back to only +
     setTimeout(() => {
-      try {
-        window.dispatchEvent(new CustomEvent('cart:add', {
-          detail: { id: product.id, size: s, qty: 1 }
-        }));
-      } catch {}
-      setAdding(false);
-      setMode('plus');
-      setActiveSize(null);
-    }, 260);
-  };
-
-  // “pill” fallback styles (bullet-proof even if CSS was purged)
-  const pillBase = {
-    display:'inline-grid', placeItems:'center',
-    minWidth:34, height:28, padding:'0 10px',
-    borderRadius:10, border:'1px solid rgba(0,0,0,.12)',
-    background:'#fff', color:'#111',
-    fontWeight:800, letterSpacing:'.02em',
-    boxShadow:'0 1px 0 rgba(0,0,0,.06)'
-  };
-  const pillGreen = { background:'#0bf05f', color:'#000', borderColor:'#06c94f' };
-  const pillGrey  = { background:'#f4f4f4', color:'#111' };
+      setShowSizes(false);
+      setPicked(null);
+      setBusy(false);
+    }, 420);
+  }, [disabled, busy, onAdd]);
 
   return (
-    <div
-      className="product-hero-overlay"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
-    >
-      <div className="product-hero">
-        <img className="product-hero-img" src={product?.img} alt="" />
+    <div className="row-nowrap" style={{ justifyContent: 'center', gap: 10 }}>
+      {/* “+” stays visible; goes grey while sizes are shown */}
+      <button
+        type="button"
+        aria-label={title}
+        title={title}
+        className={plusClass}
+        disabled={disabled}
+        onClick={clickPlus}
+      >
+        +
+      </button>
 
-        <div className="product-hero-title">{product?.title}</div>
-        <div className="product-hero-price">{priceText}</div>
-
-        {mode === 'plus' ? (
-          <div style={{ display:'grid', placeItems:'center', marginTop:12 }}>
+      {/* sizes visible while + is active */}
+      {showSizes && (
+        <div className="row-nowrap" style={{ gap: 8 }}>
+          {sizes.map((sz) => (
             <button
+              key={sz}
               type="button"
-              aria-label="Choose size"
-              className="pill"
-              style={{ ...pillBase, ...pillGrey }}
-              onClick={onPlusClick}
-              title="Choose size"
+              className={[
+                'pill',
+                'size-pill',
+                picked === sz ? 'is-selected flash-green' : '',
+              ].join(' ')}
+              aria-pressed={picked === sz}
+              disabled={busy}
+              onClick={() => pickSize(sz)}
             >
-              +
+              {sz}
             </button>
-          </div>
-        ) : (
-          <div style={{ display:'grid', placeItems:'center', gap:10, marginTop:12 }}>
-            <div className="row-nowrap" style={{ justifyContent:'center' }}>
-              {SIZES.map((s) => {
-                const isActive = activeSize === s && adding;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    className="pill"
-                    style={{ ...pillBase, ...(isActive ? pillGreen : pillGrey) }}
-                    onClick={() => onPickSize(s)}
-                    aria-pressed={activeSize === s}
-                  >
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Product overlay                                                     */
+/* ------------------------------------------------------------------ */
+export default function ProductOverlay({
+  product,
+  onClose,
+  onAddToCart, // (product, { size, qty }) => void
+}) {
+  if (!product) return null;
+
+  const handleAdd = useCallback((size) => {
+    try { onAddToCart && onAddToCart(product, { size, qty: 1 }); } catch {}
+  }, [onAddToCart, product]);
+
+  return (
+    <div className="product-hero-overlay" data-overlay>
+      <div className="product-hero">
+        {/* close (keep this single close; orb handles its own behavior elsewhere) */}
+        <button className="product-hero-close" onClick={onClose} aria-label="Close">×</button>
+
+        {product.image && (
+          <Image
+            src={product.image}
+            alt={product.title}
+            width={1000}
+            height={900}
+            priority
+            className="product-hero-img"
+          />
         )}
+
+        <div className="product-hero-title">{product.title}</div>
+        <div className="product-hero-price">{product.price}</div>
+
+        <PlusSizesInline
+          sizes={product.sizes || ['XS','S','M','L','XL']}
+          onAdd={handleAdd}
+        />
       </div>
     </div>
   );
