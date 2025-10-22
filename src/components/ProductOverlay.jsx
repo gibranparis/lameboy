@@ -3,7 +3,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 /* ------------------------------------------------------------------ */
 /* Inline +/sizes control (NO new file)                               */
@@ -33,13 +33,13 @@ function PlusSizesInline({
     setBusy(true);
     setPicked(size);
 
-    // let the rest of the app react (badge/bump etc.)
+    // cart hooks (badge/bump)
     try { window.dispatchEvent(new CustomEvent('cart:add', { detail: { size, qty: 1 } })); } catch {}
     try { window.dispatchEvent(new CustomEvent('cart:bump')); } catch {}
 
     try { onAdd && onAdd(size); } catch {}
 
-    // brief green flash then reset back to only +
+    // brief green flash then reset to just “+”
     setTimeout(() => {
       setShowSizes(false);
       setPicked(null);
@@ -49,7 +49,7 @@ function PlusSizesInline({
 
   return (
     <div className="row-nowrap" style={{ justifyContent: 'center', gap: 10 }}>
-      {/* “+” stays visible; goes grey while sizes are shown */}
+      {/* “+” stays visible; turns grey while sizes are shown */}
       <button
         type="button"
         aria-label={title}
@@ -61,7 +61,7 @@ function PlusSizesInline({
         +
       </button>
 
-      {/* sizes visible while + is active */}
+      {/* sizes appear while + is active */}
       {showSizes && (
         <div className="row-nowrap" style={{ gap: 8 }}>
           {sizes.map((sz) => (
@@ -94,6 +94,13 @@ export default function ProductOverlay({
   onClose,
   onAddToCart, // (product, { size, qty }) => void
 }) {
+  // mark overlay open so CSS can fully hide the grid
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-overlay-open', '1');
+    return () => root.removeAttribute('data-overlay-open');
+  }, []);
+
   if (!product) return null;
 
   const handleAdd = useCallback((size) => {
@@ -103,7 +110,7 @@ export default function ProductOverlay({
   return (
     <div className="product-hero-overlay" data-overlay>
       <div className="product-hero">
-        {/* close (keep this single close; orb handles its own behavior elsewhere) */}
+        {/* single explicit close; orb also acts as back */}
         <button className="product-hero-close" onClick={onClose} aria-label="Close">×</button>
 
         {product.image && (

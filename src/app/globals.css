@@ -189,13 +189,16 @@ html:has([data-shop-root]) .product-img{
 .cart-img-wrap{ display:inline-block; width:100%; height:100%; aspect-ratio:1/1; line-height:0; }
 .cart-img-wrap img{ width:100%; height:100%; object-fit:contain; pointer-events:none; }
 
-/* Badge */
+/* Badge — hug the top-right corner of the bag (like iMessage) */
 .cart-badge{
-  position:absolute; top:-6px; right:-6px;
+  position:absolute;
+  top:0; right:0;
+  transform: translate(35%, -35%);
   min-width:18px; height:18px; padding:0 5px;
   border-radius:999px; font-size:11px; line-height:18px; text-align:center;
   color:#000; background:var(--hover-green, #0bf05f);
   box-shadow:0 0 0 1px rgba(0,0,0,.25);
+  pointer-events:none;
 }
 
 /* Cart alignment in header (height only; does NOT stretch siblings) */
@@ -240,6 +243,13 @@ html:has([data-shop-root]) .product-img{
 
 /* HIDE the old back arrow – orb handles back */
 .product-hero-close{ display:none !important; }
+
+/* ===== Overlay vs Grid =================================================== */
+:root[data-overlay-open] .shop-grid{ visibility:hidden; pointer-events:none; }
+
+/* Cascade tiles pop */
+.lb-tile{ filter:saturate(1.12) brightness(1.02); }
+.lb-tile + .lb-tile{ box-shadow:-1px 0 0 rgba(255,255,255,.06) inset; }
 
 /* ========== Day ↔ Night toggle (always-on glow) ========================== */
 .lb-switch{
@@ -295,9 +305,6 @@ html:has([data-shop-root]) .product-img{
 /* Neon cascade glow helper (if used globally) */
 .lb-cascade .lb-band{ position:relative; }
 .lb-cascade .lb-band::after{ content:""; position:absolute; inset:-14px; background:var(--c); filter:blur(22px); opacity:.95; pointer-events:none; }
-
-/* ===== Overlay vs Grid =================================================== */
-:root[data-overlay-open] .shop-grid{ visibility:hidden; pointer-events:none; }
 
 /* ===== Pills (single, de-duped) ========================================= */
 .pill{
