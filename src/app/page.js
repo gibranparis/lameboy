@@ -1,7 +1,9 @@
 'use client';
 
+// Keep these — they were already in your file
 export const dynamic = 'force-static';
-export const runtime  = 'nodejs';
+// NOTE: runtime can stay, but if you still see a crash, remove the next line.
+// export const runtime = 'nodejs';
 
 import nextDynamic from 'next/dynamic';
 import { useEffect, useMemo, useState, useCallback } from 'react';
@@ -12,17 +14,25 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
 const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
 
-/** Read --header-ctrl from :root so header buttons size correctly */
+/** Read --header-ctrl from :root so header buttons size correctly (guarded) */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
     const read = () => {
-      const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
-      setPx(parseInt(v, 10) || defaultPx);
+      try {
+        const docStyle = typeof document !== 'undefined'
+          ? getComputedStyle(document.documentElement)
+          : null;
+        const v = docStyle?.getPropertyValue('--header-ctrl') || `${defaultPx}px`;
+        const n = parseInt(String(v).trim().replace('px',''), 10);
+        setPx(Number.isFinite(n) ? n : defaultPx);
+      } catch { setPx(defaultPx); }
     };
     read();
-    window.addEventListener('resize', read);
-    return () => window.removeEventListener('resize', read);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', read);
+      return () => window.removeEventListener('resize', read);
+    }
   }, [defaultPx]);
   return px;
 }
@@ -30,7 +40,7 @@ function useHeaderCtrlPx(defaultPx = 56) {
 const HEADER_H = 86;
 
 export default function Page() {
-  const ctrlPx         = useHeaderCtrlPx();
+  const ctrlPx = useHeaderCtrlPx();
   const [theme, setTheme]   = useState('day');
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
@@ -40,35 +50,43 @@ export default function Page() {
   const TOGGLE_TRACK_PAD = 1;
   const ORB_PX           = 64;
 
-  // Sync <html> attributes and default to 5 columns on first shop mount
-  useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
-    root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
-    if (isShop) {
-      root.setAttribute('data-shop-root', '');
-      root.style.setProperty('--grid-cols', '5'); // default 5 per row
-    } else {
-      root.removeAttribute('data-shop-root');
-    }
-    root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
-  }, [theme, isShop, ctrlPx]);
-
-  // Pick up theme-change from toggle (supports window & document emitter)
-  useEffect(() => {
-    const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
-    window.addEventListener('theme-change', onTheme);
-    document.addEventListener('theme-change', onTheme);
-    return () => {
-      window.removeEventListener('theme-change', onTheme);
-      document.removeEventListener('theme-change', onTheme);
-    };
-  }, []);
-
-  // Veil when hopping from cascade
+  // Sync <html> attrs & default grid columns (all guarded)
   useEffect(() => {
     try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
+      const root = document.documentElement;
+      root.setAttribute('data-theme', theme);
+      root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
+      if (isShop) {
+        root.setAttribute('data-shop-root', '');
+        // default to 5 per row, but don’t fight CSS if it’s already set
+        if (!root.style.getPropertyValue('--grid-cols')) {
+          root.style.setProperty('--grid-cols', '5');
+        }
+      } else {
+        root.removeAttribute('data-shop-root');
+      }
+      root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
+    } catch {}
+  }, [theme, isShop, ctrlPx]);
+
+  // Pick up theme-change from toggle (supports window & document emitters)
+  useEffect(() => {
+    const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
+    try {
+      window.addEventListener('theme-change', onTheme);
+      document.addEventListener('theme-change', onTheme);
+      return () => {
+        window.removeEventListener('theme-change', onTheme);
+        document.removeEventListener('theme-change', onTheme);
+      };
+    } catch { return () => {}; }
+  }, []);
+
+  // Veil when hopping from cascade (guarded)
+  useEffect(() => {
+    try {
+      if (typeof sessionStorage !== 'undefined' &&
+          sessionStorage.getItem('fromCascade') === '1') {
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
       }
@@ -77,10 +95,14 @@ export default function Page() {
 
   const onProceed = () => setIsShop(true);
 
-  // === Single source of truth for the orb density/back event ============
-  // Dispatch ON DOCUMENT ONLY so listeners don’t run twice.
+  // Single source of truth for orb zoom/back — dispatch on document ONLY
   const emitZoomStep = useCallback((step = 1) => {
-    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step } })); } catch {}
+    try {
+      const evt = typeof CustomEvent === 'function'
+        ? new CustomEvent('lb:zoom', { detail: { step } })
+        : null;
+      if (evt) document.dispatchEvent(evt);
+    } catch {}
   }, []);
 
   const headerStyle = useMemo(() => ({
@@ -118,7 +140,7 @@ export default function Page() {
               }}
               title="Zoom products / Back from item view"
             >
-              {/* IMPORTANT: let the BUTTON drive the event so we don’t double-emit */}
+              {/* Let the BUTTON be the only emitter to avoid double-steps */}
               <BlueOrbCross3D
                 height={`${ORB_PX}px`}
                 geomScale={1.08}
@@ -158,7 +180,6 @@ export default function Page() {
           </div>
         ) : (
           <div style={{ paddingTop: HEADER_H }}>
-            {/* ShopGrid stays as-is (no new files, no product synthesis) */}
             <ShopGrid hideTopRow />
           </div>
         )}
@@ -172,7 +193,7 @@ export default function Page() {
             opacity:1, transition:'opacity .42s ease-out',
             zIndex:200, pointerEvents:'none'
           }}
-          ref={(el)=> el && requestAnimationFrame(() => (el.style.opacity = 0))}
+          ref={(el)=> { if (el) requestAnimationFrame(() => { el.style.opacity = '0'; }); }}
           onTransitionEnd={() => setVeil(false)}
         />
       )}
