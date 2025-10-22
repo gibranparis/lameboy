@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v3.3 – hi... -> ...レ乃モ type cycle)
+// src/components/BannedLogin.jsx  (v3.4 – secret message type/hide cycle)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -17,17 +17,11 @@ const HOP_PATH = '/shop';
 /* ----------------------------- Wordmark ----------------------------- */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
-    <span
-      className="lb-word neon-glow"
-      onClick={onClickWordmark}
-      style={{ cursor: 'pointer' }}
-      title="Launch butterfly"
-    >
+    <span className="lb-word neon-glow" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
       <span className="lb-white neon-glow">
         <span ref={lRef}>L</span>amebo<span ref={yRef}>y</span>
         <span className="lb-seafoam neon-glow">.com</span>
       </span>
-
       <style jsx>{`
         .lb-word { display:inline; }
         .lb-white { color:#fff; font-weight:900; letter-spacing:0; word-spacing:0; }
@@ -109,55 +103,46 @@ export default function BannedLogin({ onProceed }) {
   const [phone, setPhone] = useState('');
   const emailRef = useRef(/** @type {HTMLInputElement|null} */(null));
 
-  /* ---- Message: hold "hi..." then type to "...レ乃モ", hold, and type back ---- */
-  const MSG_A = 'hi...';
-  const MSG_B = '...レ乃モ';
-  const HOLD_MS = 9000;   // how long to stay on a full message
-  const TYPE_MS = 140;    // speed per character while typing
+  /* ---- Secret message sequence: type → hold → erase → next ---- */
+  const MESSAGES = [
+    'hi...',
+    '...welcome to lameboy.com...',
+    '...greetings from レ乃モ'
+  ];
+  const TYPE_MS = 120;   // per character while typing
+  const ERASE_MS = 65;   // per character while erasing
+  const HOLD_MS  = 1600; // pause at full message
 
-  /** @type {'HOLD_A'|'TYPE_TO_B'|'HOLD_B'|'TYPE_TO_A'} */
-  const [phase, setPhase] = useState('HOLD_A');
-  const [typed, setTyped] = useState(MSG_A.length); // how many chars are visible during typing
+  const [msgIndex, setMsgIndex] = useState(0);
+  /** @type {'TYPE'|'HOLD'|'ERASE'} */
+  const [mode, setMode] = useState('TYPE');
+  const [count, setCount] = useState(0); // visible chars
 
-  // Advance the small state machine
   useEffect(() => {
     let t;
-    if (phase === 'HOLD_A') {
-      setTyped(MSG_A.length);
-      t = setTimeout(() => setPhase('TYPE_TO_B'), HOLD_MS);
-    } else if (phase === 'TYPE_TO_B') {
-      if (typed < MSG_B.length) {
-        t = setTimeout(() => setTyped(typed + 1), TYPE_MS);
+    const full = MESSAGES[msgIndex];
+
+    if (mode === 'TYPE') {
+      if (count < full.length) {
+        t = setTimeout(() => setCount(c => c + 1), TYPE_MS);
       } else {
-        t = setTimeout(() => setPhase('HOLD_B'), 0);
+        t = setTimeout(() => setMode('HOLD'), HOLD_MS);
       }
-    } else if (phase === 'HOLD_B') {
-      setTyped(MSG_B.length);
-      t = setTimeout(() => setPhase('TYPE_TO_A'), HOLD_MS);
-    } else if (phase === 'TYPE_TO_A') {
-      if (typed < MSG_A.length) {
-        // typing forward to A means we reset to 0 then type to A
-        // ensure we start from 0 when entering TYPE_TO_A
-        t = setTimeout(() => setTyped(typed + 1), TYPE_MS);
+    } else if (mode === 'HOLD') {
+      t = setTimeout(() => setMode('ERASE'), HOLD_MS);
+    } else if (mode === 'ERASE') {
+      if (count > 0) {
+        t = setTimeout(() => setCount(c => c - 1), ERASE_MS);
       } else {
-        t = setTimeout(() => setPhase('HOLD_A'), 0);
+        setMsgIndex(i => (i + 1) % MESSAGES.length);
+        setMode('TYPE');
       }
     }
+
     return () => { if (t) clearTimeout(t); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, typed]);
+  }, [mode, count, msgIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When we enter a typing phase, reset the counter
-  useEffect(() => {
-    if (phase === 'TYPE_TO_B') setTyped(0);
-    if (phase === 'TYPE_TO_A') setTyped(0);
-  }, [phase]);
-
-  // Compute which string we’re showing and how much of it
-  const currentFull = (phase === 'HOLD_A' || phase === 'TYPE_TO_A') ? MSG_A : MSG_B;
-  const isTypingPhase = (phase === 'TYPE_TO_B' || phase === 'TYPE_TO_A');
-  const shown = isTypingPhase ? currentFull.slice(0, typed) : currentFull;
-  const displayMsg = `"${shown}"`;
+  const displayMsg = `"${MESSAGES[msgIndex].slice(0, count)}"`;
 
   // orb color & glow
   const SEAFOAM = '#32ffc7';
@@ -167,7 +152,7 @@ export default function BannedLogin({ onProceed }) {
   const [orbVersion, setOrbVersion] = useState(0);
 
   const lRef = useRef(/** @type {HTMLSpanElement|null} */(null));
-  const yRef = useRef(/** type {HTMLSpanElement|null} */(null));
+  const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
   const [flyOnce, setFlyOnce] = useState(false);
 
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
