@@ -3,169 +3,169 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-/** Product overlay (no back arrow; orb closes it). */
-function ProductOverlay({ product, onAdd, onClose }) {
-  const [mode, setMode] = useState/** @type {'plus'|'sizes'} */('plus');
-  const [hot, setHot] = useState/** @type<null|string> */(null); // flash selected size
+/**
+ * Very small product model for demo purposes.
+ * If you already have products coming in via props,
+ * you can keep the prop and ignore this fallback.
+ */
+const FALLBACK_PRODUCTS = Array.from({ length: 20 }).map((_, i) => ({
+  id: `p${i + 1}`,
+  title: `LAMEBOY ${i + 1}`,
+  price: i % 2 === 0 ? '$120' : '$140',
+  img: '/products/shoe.png',
+  sizes: ['S', 'M', 'L', 'XL'],
+}));
 
-  // Close overlay when the header orb emits lb:zoom.
-  useEffect(() => {
-    const close = () => onClose();
-    window.addEventListener('lb:zoom', close);
-    document.addEventListener('lb:zoom', close);
-    return () => {
-      window.removeEventListener('lb:zoom', close);
-      document.removeEventListener('lb:zoom', close);
-    };
-  }, [onClose]);
-
-  // Esc closes
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const sizes = ['XS','S','M','L','XL'];
-
-  return (
-    <div className="product-hero-overlay" role="dialog" aria-modal="true">
-      <div className="product-hero">
-        <img
-          className="product-hero-img"
-          src={product.image}
-          alt={product.title}
-          draggable="false"
-        />
-        <div className="product-hero-title">{product.title}</div>
-        <div className="product-hero-price">{product.price}</div>
-
-        {/* PLUS → SIZES flow */}
-        <div style={{ display:'grid', placeItems:'center', gap:10 }}>
-          {mode === 'plus' ? (
-            <button
-              type="button"
-              aria-label="Choose size"
-              className="pill plus-pill"
-              onClick={() => setMode('sizes')}
-            >
-              +
-            </button>
-          ) : (
-            <div
-              className="sizes-row"
-              style={{
-                display:'grid',
-                gridAutoFlow:'column',
-                gap:8,
-                height:32,
-                opacity:1,
-                overflow:'hidden'
-              }}
-            >
-              {sizes.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className={[
-                    'pill','size-pill',
-                    hot === s ? 'is-selected flash-green' : ''
-                  ].join(' ')}
-                  onClick={() => {
-                    // flash the chosen size green, then add → reset to '+'
-                    setHot(s);
-                    // Add to cart after a short flash
-                    setTimeout(() => {
-                      onAdd({ product, size: s });
-                      setHot(null);
-                      setMode('plus');
-                    }, 260);
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+/** Emits a CustomEvent to increment the cart */
+function emitCartAdd(n = 1) {
+  const evt = new CustomEvent('cart:add', { detail: { count: n } });
+  try { window.dispatchEvent(evt); } catch {}
+  try { document.dispatchEvent(evt); } catch {}
 }
 
-export default function ShopGrid({ hideTopRow=false }) {
-  const [overlayProduct, setOverlayProduct] = useState(null);
+export default function ShopGrid({
+  products = FALLBACK_PRODUCTS,
+  hideTopRow = false,
+}) {
+  const [selected, setSelected] = useState/** @type {null | string} */(null);
+  const [showSizes, setShowSizes] = useState(false);
+  const [flashSize, setFlashSize] = useState/** @type {null | string} */(null);
 
-  // Your catalog (swap for real data)
-  const products = useMemo(() => ([
-    { id:'tee-black',  title:'LB Tee — Black', price:'$38.00', image:'/products/tee-black.png'  },
-    { id:'tee-white',  title:'LB Tee — White', price:'$38.00', image:'/products/tee-white.png'  },
-    { id:'dad-navy',   title:'Dad Cap — Navy', price:'$42.00', image:'/products/dad-navy.png'   },
-    { id:'sticker',    title:'Sticker Pack',   price:'$10.00', image:'/products/stickers.png'   },
-  ]), []);
-
-  // Hide grid while overlay is open (prevents “double view”)
+  // Keep the grid default at 5 columns (CSS var)
   useEffect(() => {
-    const r = document.documentElement;
-    if (overlayProduct) r.setAttribute('data-overlay-open','');
-    else r.removeAttribute('data-overlay-open');
-    return () => r.removeAttribute('data-overlay-open');
-  }, [overlayProduct]);
+    const root = document.documentElement;
+    // if someone else manipulated it, we still default back to 5 on mount
+    const existing = getComputedStyle(root).getPropertyValue('--grid-cols');
+    if (!existing) root.style.setProperty('--grid-cols', '5');
+  }, []);
 
-  // Grid zoom: strictly 1 step at a time, loop 1..5
+  // Overlay open/close → set a root flag so CSS can hide the grid behind it
   useEffect(() => {
-    if (overlayProduct) return; // when open, orb closes overlay instead
-    const onZoom = (e) => {
-      const step = Number(e?.detail?.step ?? 1);
-      const root = document.documentElement;
-      const cur = Number(getComputedStyle(root).getPropertyValue('--grid-cols') || '5') || 5;
-      let next = cur + step;
-      if (next > 5) next = 1;
-      if (next < 1) next = 5;
-      root.style.setProperty('--grid-cols', String(next));
-    };
-    window.addEventListener('lb:zoom', onZoom);
-    document.addEventListener('lb:zoom', onZoom);
+    const root = document.documentElement;
+    if (selected) root.setAttribute('data-overlay-open', '');
+    else root.removeAttribute('data-overlay-open');
+  }, [selected]);
+
+  // Close overlay (used by header/orb externally if needed)
+  useEffect(() => {
+    const onBack = () => setSelected(null);
+    window.addEventListener('lb:overlay:close', onBack);
+    document.addEventListener('lb:overlay:close', onBack);
     return () => {
-      window.removeEventListener('lb:zoom', onZoom);
-      document.removeEventListener('lb:zoom', onZoom);
+      window.removeEventListener('lb:overlay:close', onBack);
+      document.removeEventListener('lb:overlay:close', onBack);
     };
-  }, [overlayProduct]);
+  }, []);
 
-  // Add-to-cart event bridge (badge + pulse handled by CartButton)
-  const addToCart = ({ product, size }) => {
-    try {
-      const detail = { productId: product.id, title: product.title, price: product.price, size, qty: 1 };
-      const evt = new CustomEvent('lb:add-to-cart', { detail });
-      window.dispatchEvent(evt); document.dispatchEvent(evt);
-    } catch {}
+  const product = useMemo(
+    () => products.find((p) => p.id === selected) || null,
+    [products, selected]
+  );
+
+  const openProduct = (id) => {
+    setSelected(id);
+    // when we enter the overlay, default to plus closed (white)
+    setShowSizes(false);
+    setFlashSize(null);
+  };
+
+  const closeOverlay = () => {
+    setSelected(null);
+    setShowSizes(false);
+    setFlashSize(null);
+  };
+
+  const onPlus = () => {
+    // “+” turns grey and reveals sizes (stays visible)
+    setShowSizes((v) => !v);
+    setFlashSize(null);
+  };
+
+  const onPickSize = (sz) => {
+    // flash the selected size green
+    setFlashSize(sz);
+    // add to cart
+    emitCartAdd(1);
+    // reset controls after a tiny flash
+    setTimeout(() => {
+      setShowSizes(false);       // hide size pills
+      setFlashSize(null);        // clear flash
+      // plus goes back to default (white) because showSizes=false
+    }, 220);
   };
 
   return (
     <div className="shop-wrap">
-      {!hideTopRow && <div style={{ height: 8 }} aria-hidden="true" />}
+      {!hideTopRow && null}
+
+      {/* GRID */}
       <div className="shop-grid">
-        {products.map(p => (
+        {products.map((p) => (
           <a
             key={p.id}
             href="#"
-            onClick={(e)=>{ e.preventDefault(); setOverlayProduct(p); }}
-            className="product-tile"
+            className="product-tile lb-tile"
+            onClick={(e) => { e.preventDefault(); openProduct(p.id); }}
+            title={p.title}
           >
             <div className="product-box">
-              <img className="product-img" src={p.image} alt={p.title} />
+              <img className="product-img" src={p.img} alt="" />
             </div>
-            <div className="product-meta">{p.title}</div>
+            <div className="product-meta">
+              {p.title}
+            </div>
           </a>
         ))}
       </div>
 
-      {overlayProduct && (
-        <ProductOverlay
-          product={overlayProduct}
-          onAdd={(line) => { addToCart(line); setOverlayProduct(null); }}
-          onClose={() => setOverlayProduct(null)}
-        />
+      {/* OVERLAY */}
+      {product && (
+        <div className="product-hero-overlay" role="dialog" aria-modal="true">
+          <div className="product-hero">
+            {/* keep header visible — orb will emit lb:overlay:close elsewhere */}
+            <div style={{ width:'100%', display:'grid', placeItems:'center', gap:10 }}>
+              <img className="product-hero-img" src={product.img} alt="" />
+              <div className="product-hero-title">{product.title}</div>
+              <div className="product-hero-price">{product.price}</div>
+
+              {/* Controls row */}
+              <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'center' }}>
+                {/* PLUS pill — white by default, grey when active */}
+                <button
+                  type="button"
+                  className={`pill plus-pill ${showSizes ? 'is-active' : ''}`}
+                  onClick={onPlus}
+                  aria-pressed={showSizes}
+                  title="Show sizes"
+                >
+                  +
+                </button>
+
+                {/* Size pills — only visible when plus is active */}
+                {showSizes && product.sizes.map((sz) => (
+                  <button
+                    key={sz}
+                    type="button"
+                    className={`pill size-pill ${flashSize === sz ? 'is-selected flash-green' : ''}`}
+                    onClick={() => onPickSize(sz)}
+                    title={`Select size ${sz}`}
+                  >
+                    {sz}
+                  </button>
+                ))}
+              </div>
+
+              {/* Close overlay helper (hidden visually; orb handles back) */}
+              <button
+                type="button"
+                onClick={closeOverlay}
+                style={{ position:'absolute', inset:'0 auto auto 0', width:1, height:1, opacity:0, pointerEvents:'none' }}
+                aria-hidden="true"
+                tabIndex={-1}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

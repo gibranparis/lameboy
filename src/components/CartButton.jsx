@@ -1,46 +1,53 @@
 // @ts-check
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-const BIRKINS = ['/cart/birkin-green.png','/cart/birkin-royal.png','/cart/birkin-sky.png'];
-
-export default function CartButton({ inHeader=false }) {
+/**
+ * Simple cart button with Birkin PNG + hugging badge.
+ * Listens for `cart:add` events: { detail: { count: number } }
+ */
+export default function CartButton({ inHeader = false, imgSrc = '/cart/birkin.png' }) {
   const [count, setCount] = useState(0);
   const [pulse, setPulse] = useState(false);
+  const btnRef = useRef/** @type {React.RefObject<HTMLButtonElement>} */(null);
 
-  const src = useMemo(() => {
-    // simple stable pick per session
-    const i = Math.abs((Date.now() >> 6) % BIRKINS.length);
-    return BIRKINS[i];
-  }, []);
-
-  // Listen for adds
   useEffect(() => {
     const onAdd = (e) => {
-      setCount(c => c + Number(e?.detail?.qty || 1));
+      const delta = Number(e?.detail?.count ?? 1) || 1;
+      setCount((c) => c + delta);
       setPulse(true);
-      setTimeout(() => setPulse(false), 420);
+      // bump animation class helper
+      try {
+        btnRef.current?.classList.add('bump');
+        setTimeout(() => btnRef.current?.classList.remove('bump'), 350);
+      } catch {}
+      // clear the pulse class
+      const t = setTimeout(() => setPulse(false), 450);
+      return () => clearTimeout(t);
     };
-    window.addEventListener('lb:add-to-cart', onAdd);
-    document.addEventListener('lb:add-to-cart', onAdd);
+
+    window.addEventListener('cart:add', onAdd);
+    document.addEventListener('cart:add', onAdd);
     return () => {
-      window.removeEventListener('lb:add-to-cart', onAdd);
-      document.removeEventListener('lb:add-to-cart', onAdd);
+      window.removeEventListener('cart:add', onAdd);
+      document.removeEventListener('cart:add', onAdd);
     };
   }, []);
 
   return (
     <button
+      ref={btnRef}
       type="button"
-      className={['cart-fab', pulse ? 'cart-pulse' : ''].join(' ')}
-      aria-label="Open cart"
-      title="Cart"
+      className={`cart-fab ${pulse ? 'cart-pulse' : ''}`}
+      aria-label={`Cart${count ? `, ${count} item${count===1?'':'s'}` : ''}`}
     >
       <span className="cart-img-wrap">
-        <img src={src} alt="" />
+        <img src={imgSrc} alt="" />
       </span>
-      {count > 0 && <span className="cart-badge">{count}</span>}
+      {count > 0 && (
+        <span className="cart-badge" aria-hidden="true">{count}</span>
+      )}
     </button>
   );
 }
