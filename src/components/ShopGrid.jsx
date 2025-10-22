@@ -1,120 +1,205 @@
-// src/components/ShopGrid.jsx
+// @ts-check
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-/**
- * Minimal product list stub — replace with your real data.
- */
-const PRODUCTS = [
-  { id: 'tee-black',  title: 'LB Tee — Black',  price: 38, img: '/products/lb-tee-black.png'  },
-  { id: 'tee-white',  title: 'LB Tee — White',  price: 38, img: '/products/lb-tee-white.png'  },
-  { id: 'cap-navy',   title: 'Dad Cap — Navy',  price: 32, img: '/products/dad-cap-navy.png' },
-  { id: 'sticker',    title: 'Sticker Pack',    price: 12, img: '/products/sticker-pack.png'  },
-];
+/** A tiny, local product overlay (no routing). */
+function ProductOverlay({
+  product,
+  onClose,
+  onAdd,
+}) {
+  const [showSizes, setShowSizes] = useState(false);
+  const [size, setSize] = useState(null);
 
-/**
- * ShopGrid
- * - Defaults to 5 columns on mount.
- * - Orb click (CustomEvent 'lb:zoom' on document) steps grid by EXACTLY 1,
- *   bouncing: 5→4→3→2→1→2→3→4→5→…
- * - If overlay is open, an orb click closes overlay instead of changing columns.
- */
-export default function ShopGrid({ hideTopRow = false }) {
-  const [cols, setCols] = useState(5);     // 1..5
-  const [dir, setDir]   = useState(-1);    // current direction (start stepping down)
-  const [overlay, setOverlay] = useState/** @type {null | {id:string}} */(null);
-
-  // Force CSS var to 5 on mount (default grid)
+  // make Esc close
   useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty('--grid-cols', '5');
-    setCols(5);
-  }, []);
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
-  // Listen to single-source zoom events
+  // close on orb (your header emits `lb:zoom`)
   useEffect(() => {
-    const onZoom = (e) => {
-      // If a product overlay is open, orb acts as BACK/close.
-      if (overlay) {
-        setOverlay(null);
-        return;
-      }
-
-      // Single precise ladder step
-      setCols((prev) => {
-        let nextDir = dir;
-        if (prev === 5 && dir === 1) nextDir = -1;
-        if (prev === 1 && dir === -1) nextDir = 1;
-
-        const next = prev + nextDir;
-        // clamp for safety, then reflect direction if at ends
-        const clamped = Math.max(1, Math.min(5, next));
-        setDir(nextDir);
-        requestAnimationFrame(() => {
-          document.documentElement.style.setProperty('--grid-cols', String(clamped));
-        });
-        return clamped;
-      });
-    };
-
+    const onZoom = () => onClose();
+    window.addEventListener('lb:zoom', onZoom);
     document.addEventListener('lb:zoom', onZoom);
-    return () => document.removeEventListener('lb:zoom', onZoom);
-  }, [dir, overlay]);
+    return () => {
+      window.removeEventListener('lb:zoom', onZoom);
+      document.removeEventListener('lb:zoom', onZoom);
+    };
+  }, [onClose]);
 
-  const openOverlay = (id) => setOverlay({ id });
-  const closeOverlay = () => setOverlay(null);
-
-  const gridStyle = useMemo(() => ({
-    padding: '24px 24px 80px',
-  }), []);
+  // pill state → white (idle) → grey (active, sizes showing) → green (size chosen)
+  const plusState = useMemo(() => {
+    if (size) return 'ready';        // green
+    if (showSizes) return 'active';  // grey
+    return 'idle';                   // white
+  }, [showSizes, size]);
 
   return (
-    <div className="shop-page">
-      {/* GRID */}
-      <div className="shop-grid" style={gridStyle} aria-hidden={!!overlay}>
-        {PRODUCTS.map((p) => (
+    <div className="product-hero-overlay" role="dialog" aria-modal="true">
+      <button
+        className="product-hero-close"
+        aria-label="Close"
+        onClick={onClose}
+      >
+        ←
+      </button>
+
+      <div className="product-hero">
+        {/* image */}
+        <img
+          className="product-hero-img"
+          src={product.image}
+          alt={product.title}
+          draggable="false"
+        />
+
+        {/* title + price */}
+        <div className="product-hero-title">{product.title}</div>
+        <div className="product-hero-price">{product.price}</div>
+
+        {/* PLUS pill (always rendered). Click once → grey + reveal sizes.
+            Pick a size → pill turns green and clicking it adds to cart. */}
+        <div style={{ display:'grid', placeItems:'center', gap:10 }}>
+          <button
+            type="button"
+            aria-label={size ? `Add ${product.title} (${size}) to cart` : 'Choose size'}
+            className={[
+              'pill','plus-pill',
+              plusState === 'active' ? 'is-active' : '',
+              plusState === 'ready'  ? 'is-ready'  : '',
+            ].join(' ').trim()}
+            onClick={() => {
+              if (!showSizes && !size) { setShowSizes(true); return; }
+              if (size) {
+                onAdd({ product, size });
+                // reset to idle state after add
+                setShowSizes(false);
+                setSize(null);
+              }
+            }}
+          >
+            +
+          </button>
+
+          {/* size pills (toggle visibility only; don’t resize container) */}
+          <div
+            className="sizes-row"
+            aria-hidden={!showSizes}
+            style={{
+              display:'grid',
+              gridAutoFlow:'column',
+              gap:8,
+              height: showSizes ? 32 : 0,
+              opacity: showSizes ? 1 : 0,
+              overflow:'hidden',
+              transition:'opacity .18s ease, height .18s ease',
+            }}
+          >
+            {['XS','S','M','L','XL'].map(s => (
+              <button
+                key={s}
+                type="button"
+                className={[
+                  'pill','size-pill',
+                  size === s ? 'is-selected' : ''
+                ].join(' ')}
+                onClick={() => setSize(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Grid */
+export default function ShopGrid({ hideTopRow=false }) {
+  const [overlayProduct, setOverlayProduct] = useState(null);
+
+  // minimal catalogue (keep your actual data source)
+  const products = useMemo(() => ([
+    { id:'tee-black',  title:'LB Tee — Black', price:'$38.00', image:'/products/tee-black.png'  },
+    { id:'tee-white',  title:'LB Tee — White', price:'$38.00', image:'/products/tee-white.png'  },
+    { id:'dad-navy',   title:'Dad Cap — Navy', price:'$42.00', image:'/products/dad-navy.png'   },
+    { id:'sticker',    title:'Sticker Pack',   price:'$10.00', image:'/products/stickers.png'   },
+  ]), []);
+
+  // mark the DOM so CSS can hide the grid entirely when overlay is open
+  useEffect(() => {
+    const r = document.documentElement;
+    if (overlayProduct) r.setAttribute('data-overlay-open','');
+    else r.removeAttribute('data-overlay-open');
+    return () => r.removeAttribute('data-overlay-open');
+  }, [overlayProduct]);
+
+  // add-to-cart bridge (emit event your CartButton listens for)
+  const emitAddToCart = (line) => {
+    try {
+      const evt = new CustomEvent('lb:add-to-cart', { detail: line });
+      window.dispatchEvent(evt); document.dispatchEvent(evt);
+    } catch {}
+  };
+
+  // also wire orb to step grid density when overlay NOT open
+  useEffect(() => {
+    if (overlayProduct) return; // overlay captures lb:zoom to close itself
+    const onZoom = (e) => {
+      const step = Number(e?.detail?.step ?? 1);
+      const el = document.querySelector(':root');
+      const cur = Number(getComputedStyle(el).getPropertyValue('--grid-cols') || '4') || 4;
+
+      // loop 1..5 strictly one step at a time
+      let next = cur + step;
+      if (next > 5) next = 1;
+      if (next < 1) next = 5;
+      el.style.setProperty('--grid-cols', String(next));
+    };
+    window.addEventListener('lb:zoom', onZoom);
+    document.addEventListener('lb:zoom', onZoom);
+    return () => {
+      window.removeEventListener('lb:zoom', onZoom);
+      document.removeEventListener('lb:zoom', onZoom);
+    };
+  }, [overlayProduct]);
+
+  return (
+    <div className="shop-wrap">
+      {!hideTopRow && (
+        <div style={{ height: 8 }} aria-hidden="true" />
+      )}
+
+      <div className="shop-grid">
+        {products.map(p => (
           <a
             key={p.id}
+            href="#"
+            onClick={(e)=>{ e.preventDefault(); setOverlayProduct(p); }}
             className="product-tile"
-            role="button"
-            tabIndex={0}
-            onClick={() => openOverlay(p.id)}
-            onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') openOverlay(p.id); }}
           >
             <div className="product-box">
-              {/* Use next/image if your files exist, else plain img */}
-              <img className="product-img" src={p.img} alt={p.title} />
+              <img className="product-img" src={p.image} alt={p.title} />
             </div>
             <div className="product-meta">{p.title}</div>
           </a>
         ))}
       </div>
 
-      {/* OVERLAY */}
-      {overlay && (
-        <div className="product-hero-overlay" role="dialog" aria-modal="true">
-          <div className="product-hero">
-            {/* Hide the old gray back button; orb in header is the back control */}
-            {/* <button className="product-hero-close" onClick={closeOverlay} aria-label="Close">←</button> */}
-
-            {(() => {
-              const prod = PRODUCTS.find((x) => x.id === overlay.id);
-              if (!prod) return null;
-              return (
-                <>
-                  <img className="product-hero-img" src={prod.img} alt={prod.title} />
-                  <div className="product-hero-title">{prod.title}</div>
-                  <div className="product-hero-price">${prod.price.toFixed(2)}</div>
-
-                  {/* Your existing size / + flow can live here */}
-                  {/* We keep UI minimal so the orb behavior is the focus */}
-                </>
-              );
-            })()}
-          </div>
-        </div>
+      {overlayProduct && (
+        <ProductOverlay
+          product={overlayProduct}
+          onClose={() => setOverlayProduct(null)}
+          onAdd={({ product, size }) => {
+            emitAddToCart({ productId: product.id, title: product.title, price: product.price, size, qty: 1 });
+            setOverlayProduct(null);
+          }}
+        />
       )}
     </div>
   );
