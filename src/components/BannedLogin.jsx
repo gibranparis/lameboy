@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx (v4 - all text glows)
+// src/components/BannedLogin.jsx  (v4 – scrolling msg)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -14,32 +14,81 @@ import { useRouter } from 'next/navigation';
 const CASCADE_MS = 2400;
 const HOP_PATH = '/shop';
 
-/** Wordmark with glow */
+/* ──────────────────────────────────────────────────────────────────────────
+   Wordmark
+────────────────────────────────────────────────────────────────────────── */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
   return (
-    <span
-      className="lb-word"
-      onClick={onClickWordmark}
-      style={{ cursor: 'pointer' }}
-      title="Launch butterfly"
-    >
-      <span className="lb-white glow-white">
+    <span className="lb-word" onClick={onClickWordmark} style={{ cursor:'pointer' }} title="Launch butterfly">
+      <span className="lb-white">
         <span ref={lRef}>L</span>amebo<span ref={yRef}>y</span>
-        <span className="lb-seafoam glow-seafoam">.com</span>
+        <span className="lb-seafoam">.com</span>
       </span>
       <style jsx>{`
         .lb-word { display:inline; }
+        .lb-white {
+          color:#fff; font-weight:900; letter-spacing:0; word-spacing:0;
+          text-shadow:0 0 8px #fff,0 0 18px #fff,0 0 36px #fff,0 0 70px #fff;
+        }
+        .lb-seafoam { letter-spacing:0; word-spacing:0; }
       `}</style>
     </span>
   );
 }
 
-/** Neon cascade overlay (bands glow, not text) */
+/* ──────────────────────────────────────────────────────────────────────────
+   Smooth scrolling code string: "hi..." → marquee style
+   - Duplicates content for seamless loop
+   - Soft gradient mask on both sides
+   - Respects prefers-reduced-motion (falls back to static)
+────────────────────────────────────────────────────────────────────────── */
+function CodeScroller({
+  text = 'hi...',
+  widthCh = 16,           // visible width in ch units
+  gap = '   •   ',        // spacer between duplicates
+  secondsPerLoop = 12,    // speed control
+}) {
+  const content = `${text}${gap}${text}${gap}${text}${gap}${text}`;
+  return (
+    <span className="lb-scroll-wrap" style={{ '--w': `${widthCh}ch`, '--t': `${secondsPerLoop}s` }}>
+      <span className="lb-scroll-track">
+        <span className="lb-scroll-seg">{content}</span>
+        <span aria-hidden="true" className="lb-scroll-seg">{content}</span>
+      </span>
+      <style jsx>{`
+        .lb-scroll-wrap{
+          display:inline-block; vertical-align:bottom;
+          width:var(--w); max-width:100%;
+          overflow:hidden; position:relative;
+          mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,.9) 10%, rgba(0,0,0,.9) 90%, transparent 100%);
+          -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,.9) 10%, rgba(0,0,0,.9) 90%, transparent 100%);
+        }
+        .lb-scroll-track{
+          display:inline-flex; white-space:nowrap; will-change:transform;
+          animation: lbScrollX var(--t) linear infinite;
+        }
+        .lb-scroll-seg{ padding-right:2ch; }
+        @keyframes lbScrollX{
+          from{ transform:translate3d(0,0,0); }
+          to  { transform:translate3d(calc(-1 * var(--w)),0,0); }
+        }
+        @media (prefers-reduced-motion: reduce){
+          .lb-scroll-track{ animation:none; }
+        }
+      `}</style>
+    </span>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Neon cascade overlay
+────────────────────────────────────────────────────────────────────────── */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
   const [p, setP] = useState(0);
   useEffect(() => {
-    let start; let id;
-    const step = (t) => {
+    /** @type {number|undefined} */ let start;
+    /** @type {number|undefined} */ let id;
+    const step = (t /** @type {number} */) => {
       if (start == null) start = t;
       const k = Math.min(1, (t - start) / durationMs);
       setP(k);
@@ -70,23 +119,18 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
         </div>
       </div>
       <div className="lb-brand" aria-hidden="true" style={{ zIndex:10001 }}>
-        <span className="lb-brand-text glow-white">LAMEBOY, USA</span>
+        <span className="lb-brand-text">LAMEBOY, USA</span>
       </div>
-
       <style jsx global>{`
-        .lb-cascade{
-          position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr);
-        }
+        .lb-cascade{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(7,1fr); }
         .lb-band{ position:relative; width:100%; height:100%; background:var(--c); }
-        .lb-band::after{
-          content:""; position:absolute; inset:-14px; background:var(--c);
-          filter:blur(22px); opacity:.95; pointer-events:none;
-        }
+        .lb-band::after{ content:""; position:absolute; inset:-14px; background:var(--c); filter:blur(22px); opacity:.95; pointer-events:none; }
         .lb-b1{ --c:#ef4444 } .lb-b2{ --c:#f97316 } .lb-b3{ --c:#facc15 }
         .lb-b4{ --c:#22c55e } .lb-b5{ --c:#3b82f6 } .lb-b6{ --c:#4f46e5 } .lb-b7{ --c:#c084fc }
         .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
-        .lb-brand-text{ font-weight:700; letter-spacing:.08em; text-transform:uppercase;
-          font-size:clamp(11px,1.3vw,14px);
+        .lb-brand-text{
+          color:#fff; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+          font-size:clamp(11px,1.3vw,14px); text-shadow:0 0 8px rgba(0,0,0,.25);
         }
       `}</style>
     </>,
@@ -94,11 +138,15 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   );
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   BannedLogin (gate)
+────────────────────────────────────────────────────────────────────────── */
 /** @param {{ onProceed?: () => void }} props */
 export default function BannedLogin({ onProceed }) {
   const router = useRouter();
 
-  /** @type {'banned'|'login'} */
+  /** @type {[('banned'|'login'), (v:'banned'|'login')=>void]} */
+  // @ts-ignore
   const [view, setView] = useState('banned');
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
@@ -106,7 +154,8 @@ export default function BannedLogin({ onProceed }) {
 
   const [hideBubble, setHideBubble] = useState(false);
   const [floridaHot, setFloridaHot] = useState(false);
-  /** @type {'link'|'bypass'|null} */
+  /** @type {[('link'|'bypass'|null), (a:'link'|'bypass'|null)=>void]} */
+  // @ts-ignore
   const [activated, setActivated] = useState(null);
 
   const [email, setEmail] = useState('');
@@ -114,25 +163,19 @@ export default function BannedLogin({ onProceed }) {
   /** @type {import('react').RefObject<HTMLInputElement>} */
   const emailRef = useRef(null);
 
-  // “hi” ↔ “…レ乃モ”
-  const HI = 'hi...';
-  const JP = '...レ乃モ';
-  const [hiMsg, setHiMsg] = useState(HI);
-  useEffect(() => {
-    const id = setInterval(() => setHiMsg(v => (v === HI ? JP : HI)), 22000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Orb visuals
+  // orb state
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
-  /** @type {'chakra'|'red'} */
+  /** @type {['chakra'|'red', (m: 'chakra'|'red') => void]} */
+  // @ts-ignore
   const [orbMode, setOrbMode] = useState('chakra');
   const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
-  /** @type {import('react').RefObject<HTMLSpanElement>} */ const lRef = useRef(null);
-  /** @type {import('react').RefObject<HTMLSpanElement>} */ const yRef = useRef(null);
+  /** @type {import('react').RefObject<HTMLSpanElement>} */
+  const lRef = useRef(null);
+  /** @type {import('react').RefObject<HTMLSpanElement>} */
+  const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
 
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
@@ -145,34 +188,29 @@ export default function BannedLogin({ onProceed }) {
     return () => { document.body.style.overflow = prev; };
   }, [cascade, whiteout]);
 
-  /** Run neon cascade and hop */
+  /** Neon cascade + hop */
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
-
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
       setWhiteout(true);
       after && after();
-
       if (typeof onProceed === 'function') onProceed();
       else try { router.push(HOP_PATH); } catch {}
     }, CASCADE_MS);
-
     return () => clearTimeout(t);
   }, [onProceed, router]);
 
   const onLink = useCallback(() => {
-    setActivated('link');
-    setTimeout(()=>setActivated(null),650);
+    setActivated('link'); setTimeout(()=>setActivated(null),650);
     runCascade(()=>{}, { washAway:true });
   }, [runCascade]);
 
   const onBypass = useCallback(() => {
-    setActivated('bypass');
-    setTimeout(()=>setActivated(null),650);
+    setActivated('bypass'); setTimeout(()=>setActivated(null),650);
     runCascade(()=>{}, { washAway:true });
   }, [runCascade]);
 
@@ -185,9 +223,14 @@ export default function BannedLogin({ onProceed }) {
     });
   }, []);
 
-  // Long-press
+  // Long-press for instant cascade/hop
   const pressTimer = useRef/** @type {ReturnType<typeof setTimeout> | null} */(null);
   const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+
+  // SINGLE emission for grid zoom (avoid double-step)
+  const emitZoomStep = useCallback((step = 1) => {
+    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step } })); } catch {}
+  }, []);
 
   return (
     <div
@@ -218,8 +261,8 @@ export default function BannedLogin({ onProceed }) {
       )}
 
       {!hideAll && (
-        <div className="login-stack glow-scope" style={{ display:'grid', justifyItems:'center', gap:10 }}>
-          {/* Orb */}
+        <div className="login-stack" style={{ display:'grid', justifyItems:'center', gap:10 }}>
+          {/* Orb: tap = grid step; double-tap/press = cascade+hop */}
           <div className="orb-row" style={{ marginBottom:-16, display:'grid', placeItems:'center' }}>
             <button
               type="button"
@@ -229,15 +272,11 @@ export default function BannedLogin({ onProceed }) {
               onMouseLeave={clearPressTimer}
               onTouchStart={() => { clearPressTimer(); pressTimer.current = setTimeout(() => runCascade(()=>{}, { washAway:true }), 650); }}
               onTouchEnd={clearPressTimer}
-              onClick={() => {
-                const detail = { step: 1 };
-                try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
-                try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
-              }}
+              onClick={() => emitZoomStep(1)}
               onDoubleClick={() => runCascade(()=>{}, { washAway:true })}
               className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
               style={{ lineHeight: 0, background:'transparent', border:0, padding:0 }}
-              title="Tap to zoom grid · Hold to enter"
+              title="Zoom grid / Hold to enter"
             >
               <BlueOrbCross3D
                 key={`${orbMode}-${orbGlow}-${orbVersion}`}
@@ -251,19 +290,16 @@ export default function BannedLogin({ onProceed }) {
                 overrideAllColor={orbMode==='red' ? RED : null}
                 overrideGlowOpacity={orbMode==='red' ? 1.0 : undefined}
                 interactive
-                // Toggle color on keypress for accessibility
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleOrbColor(); }}
-                onClick={(e) => { e.stopPropagation(); /* zoom emitted above */ }}
               />
             </button>
           </div>
 
-          {/* Bubble (frame de-emphasized; text glows) */}
+          {/* Bubble (no blue pulse) */}
           {!hideBubble && (
             <div
               style={{
                 minWidth:260,
-                background:'rgba(20,20,26,.90)',
+                background:'rgba(20,20,26,.9)',
                 border:'2px solid rgba(255,255,255,.10)',
                 borderRadius:16,
                 boxShadow:'0 6px 18px rgba(0,0,0,.28)',
@@ -274,33 +310,33 @@ export default function BannedLogin({ onProceed }) {
             >
               {view==='banned' ? (
                 <pre className="code-tight" style={{ margin:0 }}>
-                  <span className="lb-seafoam code-comment glow-seafoam">//</span>{' '}
+                  <span className="lb-seafoam code-comment">//</span>{' '}
                   <Wordmark onClickWordmark={() => setFlyOnce(true)} lRef={lRef} yRef={yRef} />
                   {'\n'}
-                  <span className="lb-seafoam code-comment glow-seafoam">//</span>{' '}
-                  <span className="code-banned glow-red">is </span>
+                  <span className="lb-seafoam code-comment">//</span>{' '}
+                  <span className="code-banned">is </span>
                   <span
                     role="button" tabIndex={0}
-                    className="code-banned glow-red banned-trigger"
+                    className="code-banned banned-trigger"
                     onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}
                     onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
                     title="Toggle orb color"
                   >
                     banned
                   </span>{'\n'}
-                  <span className="code-keyword glow-white">const</span>{' '}
-                  <span className="code-var glow-white">msg</span>{' '}
-                  <span className="code-op glow-white">=</span>{' '}
+                  <span className="code-keyword">const</span>{' '}
+                  <span className="code-var">msg</span>{' '}
+                  <span className="code-op">=</span>{' '}
+                  {/* "  [scrolling text]  " ; with soft mask & marquee loop */}
                   <span className="nogap">
-                    <span
-                      role="button" tabIndex={0}
-                      className="code-string glow-amber code-link"
-                      onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setView('login'); }}
-                      onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); setView('login'); }}}
-                    >
-                      {JSON.stringify(hiMsg)}
-                    </span>
-                    <span className="code-punc glow-white">;</span>
+                    <span className="code-string">"</span>
+                    <CodeScroller
+                      text={'hi... welcome to LAMEBOY — press & hold the orb to enter'}
+                      widthCh={22}
+                      secondsPerLoop={14}
+                    />
+                    <span className="code-string">"</span>
+                    <span className="code-punc">;</span>
                   </span>
                 </pre>
               ) : (
@@ -310,12 +346,12 @@ export default function BannedLogin({ onProceed }) {
                   </div>
 
                   <div className="code-row">
-                    <span className="code-var glow-white">email</span>
-                    <span className="code-op glow-white">=</span>
-                    <span className="code-string glow-violet">"</span>
+                    <span className="code-var neon-violet">email</span>
+                    <span className="code-op neon-violet">=</span>
+                    <span className="code-string neon-violet">"</span>
                     <input
                       ref={emailRef}
-                      className="code-input code-input-violet glow-input"
+                      className="code-input code-input-violet"
                       value={email}
                       onChange={(e)=>setEmail(e.target.value)}
                       placeholder="you@example.com"
@@ -327,17 +363,17 @@ export default function BannedLogin({ onProceed }) {
                       style={{ minWidth: '18ch' }}
                     />
                     <span className="nogap">
-                      <span className="code-string glow-violet">"</span>
-                      <span className="code-punc glow-white">;</span>
+                      <span className="code-string neon-violet">"</span>
+                      <span className="code-punc neon-violet">;</span>
                     </span>
                   </div>
 
                   <div className="code-row">
-                    <span className="code-var glow-white">phone</span>
-                    <span className="code-op glow-white">=</span>
-                    <span className="code-string glow-violet">"</span>
+                    <span className="code-var neon-violet">phone</span>
+                    <span className="code-op neon-violet">=</span>
+                    <span className="code-string neon-violet">"</span>
                     <input
-                      className="code-input code-input-violet glow-input"
+                      className="code-input code-input-violet"
                       value={phone}
                       onChange={(e)=>setPhone(e.target.value)}
                       placeholder="+1 305 555 0123"
@@ -347,25 +383,21 @@ export default function BannedLogin({ onProceed }) {
                       style={{ minWidth: '16ch' }}
                     />
                     <span className="nogap">
-                      <span className="code-string glow-violet">"</span>
-                      <span className="code-punc glow-white">;</span>
+                      <span className="code-string neon-violet">"</span>
+                      <span className="code-punc neon-violet">;</span>
                     </span>
                   </div>
 
                   <div className="row-nowrap" style={{ marginTop:6, gap:8, justifyContent:'center' }}>
-                    <button type="button" className={`commit-btn btn-yellow ${activated==='link'?'btn-activated':''}`} onClick={onLink}>
-                      <span className="glow-yellow">Link</span>
-                    </button>
-                    <button type="button" className={`commit-btn btn-red ${activated==='bypass'?'btn-activated':''}`} onClick={onBypass}>
-                      <span className="glow-red">Bypass</span>
-                    </button>
+                    <button type="button" className={`commit-btn btn-yellow ${activated==='link'?'btn-activated':''}`} onClick={onLink}>Link</button>
+                    <button type="button" className={`commit-btn btn-red ${activated==='bypass'?'btn-activated':''}`} onClick={onBypass}>Bypass</button>
                   </div>
                 </form>
               )}
             </div>
           )}
 
-          {/* Florida, USA (glowing) */}
+          {/* Centered Florida, USA (can glow via your CSS) */}
           <button
             type="button"
             className={['ghost-btn','florida-link', floridaHot?'is-hot':''].join(' ')}
@@ -374,37 +406,10 @@ export default function BannedLogin({ onProceed }) {
             onMouseLeave={()=>setFloridaHot(false)}
             style={{ marginTop: 8, display:'block', textAlign:'center' }}
           >
-            <span className="glow-white">Florida, USA</span>
+            Florida, USA
           </button>
         </div>
       )}
-
-      {/* Text glow rules (scoped) */}
-      <style jsx global>{`
-        /* Scope to this component so we don't leak glow site-wide */
-        .glow-scope .glow-white    { text-shadow:0 0 8px rgba(255,255,255,.35), 0 0 18px rgba(255,255,255,.20); }
-        .glow-scope .glow-seafoam  { text-shadow:0 0 8px rgba(46,230,184,.60), 0 0 18px rgba(46,230,184,.35); }
-        .glow-scope .glow-red      { text-shadow:0 0 8px rgba(242,14,14,.55), 0 0 18px rgba(242,14,14,.35); }
-        .glow-scope .glow-violet   { text-shadow:0 0 8px rgba(168,85,247,.55), 0 0 18px rgba(168,85,247,.35); }
-        .glow-scope .glow-yellow   { text-shadow:0 0 8px rgba(255,235,59,.60), 0 0 18px rgba(255,235,59,.35); }
-        .glow-scope .glow-amber    { text-shadow:0 0 8px rgba(206,145,120,.55), 0 0 18px rgba(206,145,120,.35); }
-        .glow-scope .glow-input::placeholder{ text-shadow:none !important; }
-
-        /* Make *all* code tokens glow without wrapping every span */
-        .glow-scope .code-comment,
-        .glow-scope .code-keyword,
-        .glow-scope .code-var,
-        .glow-scope .code-op,
-        .glow-scope .code-punc,
-        .glow-scope .code-string {
-          text-shadow:0 0 8px currentColor, 0 0 18px currentColor;
-        }
-
-        /* Florida hover keeps neon vibe */
-        .glow-scope .florida-link.is-hot{
-          text-shadow:0 0 10px rgba(255,235,59,.75), 0 0 22px rgba(255,235,59,.45);
-        }
-      `}</style>
     </div>
   );
 }
