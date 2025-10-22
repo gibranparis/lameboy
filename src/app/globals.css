@@ -26,7 +26,7 @@
   --header-ctrl:56px;
 
   /* ===== Grid zoom (core): number of columns (1..5) ===== */
-  --grid-cols: 4;
+  --grid-cols: 5; /* default to 5 per line */
 }
 
 /* Native UI matches the theme */
@@ -209,11 +209,10 @@ html:has([data-shop-root]) .product-img{
 :root[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform:translateY(-1px); }
 
 /* ========== Grid & tiles ================================================= */
-/* NEW: columns driven by CSS variable --grid-cols */
 .shop-grid{
   --gap:28px;
   display:grid;
-  grid-template-columns: repeat(var(--grid-cols, 4), minmax(0,1fr));
+  grid-template-columns: repeat(var(--grid-cols, 5), minmax(0,1fr));
   gap:var(--gap);
 }
 @media (max-width:640px){
@@ -225,23 +224,22 @@ html:has([data-shop-root]) .product-img{
 .product-img{ width:88%; height:88%; object-fit:contain; }
 .product-meta{ padding:10px 2px 0; letter-spacing:.02em; font-weight:800; text-align:center; font-size:clamp(12px,1.7vw,18px); line-height:1.05; }
 
-/* Product overlay */
-.product-hero-overlay{ position:fixed; inset:0; z-index:90; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; padding:20px; }
-.product-hero{ width:min(92vw,1000px); max-height:86vh; display:flex; flex-direction:column; align-items:center; gap:14px; position:relative; }
+/* ========== Product overlay ============================================= */
+.product-hero-overlay{
+  position:fixed; inset:0; z-index:90;
+  background:var(--bg); color:var(--text);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.product-hero{
+  width:min(92vw,1000px); max-height:86vh;
+  display:flex; flex-direction:column; align-items:center; gap:14px; position:relative;
+}
 .product-hero-img{ width:100%; max-height:70vh; object-fit:contain; }
 .product-hero-title{ font-weight:800; font-size:clamp(14px,2vw,20px); text-align:center; }
 .product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
-.product-hero-close{
-  position:fixed; left:24px; top:24px; z-index:95; width:42px; height:42px; border-radius:12px;
-  display:grid; place-items:center; cursor:pointer; border:1px solid rgba(0,0,0,.12);
-  background:rgba(0,0,0,.04); color:#111; font-weight:900; font-size:22px;
-  transition:transform .12s ease, background .2s, border-color .2s;
-}
-.product-hero-close:hover{ transform:translateY(-1px); background:rgba(0,0,0,.06); border-color:rgba(0,0,0,.2); }
 
-/* Cascade tiles pop */
-.lb-tile{ filter:saturate(1.12) brightness(1.02); }
-.lb-tile + .lb-tile{ box-shadow:-1px 0 0 rgba(255,255,255,.06) inset; }
+/* HIDE the old back arrow – orb handles back */
+.product-hero-close{ display:none !important; }
 
 /* ========== Day ↔ Night toggle (always-on glow) ========================== */
 .lb-switch{
@@ -262,26 +260,18 @@ html:has([data-shop-root]) .product-img{
   background:transparent !important; line-height:0 !important;
   border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
 }
-[data-orb="density"], [data-orb="density"] *{
-  outline:0 !important; box-shadow:none !important;
-}
-/* Let the BUTTON receive the click (no canvas intercept) */
+[data-orb="density"], [data-orb="density"] *{ outline:0 !important; box-shadow:none !important; }
 [data-orb="density"] canvas{ display:block; pointer-events:none; }
 
 /* Visual ring to match the toggle halo */
-.orb-ring{
-  outline:2px solid rgba(74,165,255,.9);
-  outline-offset:3px;
-  border-radius:9999px;
-}
+.orb-ring{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; border-radius:9999px; }
 
 /* Heavier token weights */
 .code-keyword,.code-var,.code-string,.code-comment{ font-weight:800; }
 
 /* === Header control helpers (no stretching) ============================== */
 :root[data-mode="shop"] header[role="banner"] #lb-daynight{
-  display:grid; place-items:center;
-  padding:0 !important; margin:0 !important; line-height:0 !important;
+  display:grid; place-items:center; padding:0 !important; margin:0 !important; line-height:0 !important;
 }
 
 /* ======================================================================== */
@@ -300,30 +290,16 @@ html:has([data-shop-root]) .product-img{
 }
 
 /* Keep the gate perfectly centered regardless of parent */
-.page-center{
-  display:grid !important;
-  place-items:center !important;
-}
+.page-center{ display:grid !important; place-items:center !important; }
 
-/* Neon cascade glow for BannedLogin overlay bands (if used outside component CSS) */
+/* Neon cascade glow helper (if used globally) */
 .lb-cascade .lb-band{ position:relative; }
-.lb-cascade .lb-band::after{
-  content:""; position:absolute; inset:-14px; background:var(--c);
-  filter:blur(22px); opacity:.95; pointer-events:none;
-}
-/* ===== Overlay vs Grid ================================================== */
-/* When an overlay is open, don’t let the grid show through or receive clicks */
-:root[data-overlay-open] .shop-grid {
-  visibility: hidden;
-  pointer-events: none;
-}
+.lb-cascade .lb-band::after{ content:""; position:absolute; inset:-14px; background:var(--c); filter:blur(22px); opacity:.95; pointer-events:none; }
 
-/* Give the overlay a neutral, on-brand backdrop so “grid bleed” can’t happen */
-.product-hero-overlay{
-  background: var(--bg);
-}
+/* ===== Overlay vs Grid =================================================== */
+:root[data-overlay-open] .shop-grid{ visibility:hidden; pointer-events:none; }
 
-/* ===== Pills ============================================================ */
+/* ===== Pills (single, de-duped) ========================================= */
 .pill{
   display:inline-grid; place-items:center;
   height:28px; padding:0 10px; border-radius:9999px;
@@ -331,37 +307,7 @@ html:has([data-shop-root]) .product-img{
   border:1px solid rgba(0,0,0,.14);
   background:#fff; color:#111;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.6);
-  transition: background .15s ease, color .15s ease, box-shadow .15s ease, border-color .15s ease;
-}
-:root[data-theme="night"] .pill{
-  border-color: rgba(255,255,255,.18);
-  background:#111; color:#fff;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
-}
-
-/* size selection state */
-.size-pill.is-selected{
-  background: var(--hover-green); color:#000; border-color: rgba(0,0,0,.45);
-}
-
-/* plus pill: idle=white, active=grey (sizes visible), ready=green (size picked) */
-.plus-pill.is-active{ background:#d1d5db; color:#111; }             /* grey */
-.plus-pill.is-ready { background:var(--hover-green); color:#000; }  /* green */
-/* Hide the grid behind product overlay (no double view) */
-:root[data-overlay-open] .shop-grid { visibility:hidden; pointer-events:none; }
-
-/* Overlay backdrop should match theme */
-.product-hero-overlay { background:var(--bg); }
-
-/* Pills */
-.pill{
-  display:inline-grid; place-items:center;
-  height:28px; padding:0 10px; border-radius:9999px;
-  font-weight:800; font-size:13px;
-  border:1px solid rgba(0,0,0,.14);
-  background:#fff; color:#111;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.6);
-  transition: background .15s ease, color .15s ease, transform .15s ease;
+  transition: background .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease, border-color .15s ease;
 }
 :root[data-theme="night"] .pill{
   border-color: rgba(255,255,255,.18);
@@ -374,10 +320,10 @@ html:has([data-shop-root]) .product-img{
 @keyframes flashGreen { 0%{filter:saturate(1)} 50%{filter:saturate(1.6)} 100%{filter:saturate(1)} }
 .flash-green{ animation:flashGreen .26s ease; }
 
+/* Plus pill state */
+.plus-pill.is-active{ background:#d1d5db; color:#111; }            /* grey when showing sizes */
+.plus-pill.is-ready { background:var(--hover-green); color:#000; } /* green when adding */
+
 /* Cart green pulse */
-@keyframes cartPulse {
-  0%{ box-shadow:0 0 0 0 rgba(11,240,95,.55) }
-  70%{ box-shadow:0 0 0 12px rgba(11,240,95,0) }
-  100%{ box-shadow:0 0 0 0 rgba(11,240,95,0) }
-}
+@keyframes cartPulse { 0%{ box-shadow:0 0 0 0 rgba(11,240,95,.55) } 70%{ box-shadow:0 0 0 12px rgba(11,240,95,0) } 100%{ box-shadow:0 0 0 0 rgba(11,240,95,0) } }
 .cart-fab.cart-pulse{ animation:cartPulse .42s ease; }
