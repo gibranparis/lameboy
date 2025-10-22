@@ -1,12 +1,12 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v3.4 – secret message type/hide cycle)
+// src/components/BannedLogin.jsx  (v3.5 – fixed-width neon ticker)
 'use client';
 
 import nextDynamic from 'next/dynamic';
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 import ButterflyChakra from '@/components/ButterflyChakra';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 import { useRouter } from 'next/navigation';
@@ -103,58 +103,7 @@ export default function BannedLogin({ onProceed }) {
   const [phone, setPhone] = useState('');
   const emailRef = useRef(/** @type {HTMLInputElement|null} */(null));
 
-  /* ---- Secret message sequence: type → hold → erase → next ---- */
-  const MESSAGES = [
-    'hi...',
-    '...welcome to lameboy.com...',
-    '...greetings from レ乃モ'
-  ];
-  const TYPE_MS = 120;   // per character while typing
-  const ERASE_MS = 65;   // per character while erasing
-  const HOLD_MS  = 1600; // pause at full message
-
-  const [msgIndex, setMsgIndex] = useState(0);
-  /** @type {'TYPE'|'HOLD'|'ERASE'} */
-  const [mode, setMode] = useState('TYPE');
-  const [count, setCount] = useState(0); // visible chars
-
-  useEffect(() => {
-    let t;
-    const full = MESSAGES[msgIndex];
-
-    if (mode === 'TYPE') {
-      if (count < full.length) {
-        t = setTimeout(() => setCount(c => c + 1), TYPE_MS);
-      } else {
-        t = setTimeout(() => setMode('HOLD'), HOLD_MS);
-      }
-    } else if (mode === 'HOLD') {
-      t = setTimeout(() => setMode('ERASE'), HOLD_MS);
-    } else if (mode === 'ERASE') {
-      if (count > 0) {
-        t = setTimeout(() => setCount(c => c - 1), ERASE_MS);
-      } else {
-        setMsgIndex(i => (i + 1) % MESSAGES.length);
-        setMode('TYPE');
-      }
-    }
-
-    return () => { if (t) clearTimeout(t); };
-  }, [mode, count, msgIndex]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const displayMsg = `"${MESSAGES[msgIndex].slice(0, count)}"`;
-
-  // orb color & glow
-  const SEAFOAM = '#32ffc7';
-  const RED = '#ff001a';
-  /** @type {'chakra'|'red'} */ const [orbMode, setOrbMode] = useState('chakra');
-  const [orbGlow, setOrbGlow] = useState(0.9);
-  const [orbVersion, setOrbVersion] = useState(0);
-
-  const lRef = useRef(/** @type {HTMLSpanElement|null} */(null));
-  const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
-  const [flyOnce, setFlyOnce] = useState(false);
-
+  // Prefetch hop page
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
 
   // lock scroll during cascade/whiteout
@@ -194,6 +143,12 @@ export default function BannedLogin({ onProceed }) {
     runCascade(()=>{}, { washAway:true });
   }, [runCascade]);
 
+  // Orb presentation / color toggle
+  const SEAFOAM = '#32ffc7';
+  const RED = '#ff001a';
+  /** @type {'chakra'|'red'} */ const [orbMode, setOrbMode] = useState('chakra');
+  const [orbGlow, setOrbGlow] = useState(0.9);
+  const [orbVersion, setOrbVersion] = useState(0);
   const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
@@ -207,6 +162,26 @@ export default function BannedLogin({ onProceed }) {
   const pressTimer = useRef(/** @type {ReturnType<typeof setTimeout> | null} */(null));
   const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
+  // Butterfly wordmark refs
+  const lRef = useRef(/** @type {HTMLSpanElement|null} */(null));
+  const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
+  const [flyOnce, setFlyOnce] = useState(false);
+
+  /* ======================= FIXED-WIDTH TICKER ======================= */
+  // The ticker never changes container size; it scrolls inside a clipped viewport.
+  const TICKER_MESSAGES = useMemo(() => ([
+    'hi...',
+    '...welcome to lameboy.com...',
+    '...greetings from レ乃モ'
+  ]), []);
+
+  // Join with a nice spacer and duplicate for seamless loop
+  const spacer = '   •   ';
+  const tickerLine = useMemo(() => {
+    const base = TICKER_MESSAGES.join(spacer);
+    return `${base}${spacer}${base}`; // doubled
+  }, [TICKER_MESSAGES]);
+
   return (
     <div
       className="page-center"
@@ -216,7 +191,7 @@ export default function BannedLogin({ onProceed }) {
         position:'relative', gridAutoRows:'min-content',
       }}
     >
-      {/* Local styles for neon text + pill buttons */}
+      {/* Local styles for neon text + pill buttons + ticker */}
       <style jsx global>{`
         .neon-glow{
           text-shadow:
@@ -245,6 +220,25 @@ export default function BannedLogin({ onProceed }) {
             0 0 8px rgba(50,255,199,.45),
             inset 0 0 0 1px rgba(50,255,199,.25);
           border-color:rgba(50,255,199,.55);
+        }
+
+        /* Ticker: fixed width viewport, no resize while text scrolls */
+        .ticker-viewport{
+          display:inline-block;
+          vertical-align:bottom;
+          width:min(32ch, 72vw);   /* <-- control container width here */
+          overflow:hidden;
+          white-space:nowrap;
+        }
+        .ticker-track{
+          display:inline-block;
+          padding-left:100%;        /* start off-screen to the right for a clean loop */
+          will-change:transform;
+          animation:lb-marquee 22s linear infinite;
+        }
+        @keyframes lb-marquee{
+          0%   { transform:translate3d(0,0,0); }
+          100% { transform:translate3d(-100%,0,0); }
         }
       `}</style>
 
@@ -334,10 +328,13 @@ export default function BannedLogin({ onProceed }) {
                   <span className="code-keyword neon-glow">const</span>{' '}
                   <span className="code-var neon-glow">msg</span>{' '}
                   <span className="code-op neon-glow">=</span>{' '}
-                  <span className="nogap">
-                    <span className="code-string neon-glow">{displayMsg}</span>
-                    <span className="code-punc neon-glow">;</span>
+                  {/* Fixed-width TICKER viewport so container never resizes */}
+                  <span className="code-string neon-glow">
+                    "<span className="ticker-viewport">
+                      <span className="ticker-track">{tickerLine}</span>
+                    </span>"
                   </span>
+                  <span className="code-punc neon-glow">;</span>
                 </pre>
               ) : (
                 <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:6 }}>
