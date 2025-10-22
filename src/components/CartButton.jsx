@@ -1,56 +1,46 @@
+// @ts-check
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-const BIRKINS = [
-  '/cart/birkin-green.png',
-  '/cart/birkin-royal.png',
-  '/cart/birkin-sky.png',
-];
+const BIRKINS = ['/cart/birkin-green.png','/cart/birkin-royal.png','/cart/birkin-sky.png'];
 
 export default function CartButton({ inHeader=false }) {
   const [count, setCount] = useState(0);
-  const [img, setImg] = useState(BIRKINS[0]);
-  const btnRef = useRef(null);
+  const [pulse, setPulse] = useState(false);
 
-  // pick a birkin on mount
-  useEffect(() => {
-    const i = Math.floor(Math.random() * BIRKINS.length);
-    setImg(BIRKINS[i]);
+  const src = useMemo(() => {
+    // simple stable pick per session
+    const i = Math.abs((Date.now() >> 6) % BIRKINS.length);
+    return BIRKINS[i];
   }, []);
 
-  // listen for add-to-cart events
+  // Listen for adds
   useEffect(() => {
     const onAdd = (e) => {
-      setCount(c => c + (e?.detail?.qty || 1));
-      // tiny bump animation
-      const el = btnRef.current;
-      if (!el) return;
-      el.classList.remove('bump');
-      void el.offsetWidth;
-      el.classList.add('bump');
-      setTimeout(() => el.classList.remove('bump'), 350);
+      setCount(c => c + Number(e?.detail?.qty || 1));
+      setPulse(true);
+      setTimeout(() => setPulse(false), 420);
     };
-    window.addEventListener('cart:add', onAdd);
-    return () => window.removeEventListener('cart:add', onAdd);
+    window.addEventListener('lb:add-to-cart', onAdd);
+    document.addEventListener('lb:add-to-cart', onAdd);
+    return () => {
+      window.removeEventListener('lb:add-to-cart', onAdd);
+      document.removeEventListener('lb:add-to-cart', onAdd);
+    };
   }, []);
-
-  const showBadge = count > 0;
 
   return (
     <button
-      ref={btnRef}
-      className="cart-fab"
       type="button"
-      aria-label="Cart"
-      title={`Cart (${count})`}
-      style={inHeader ? {} : { position:'fixed', right:16, top:16 }}
-      onClick={() => { /* hook up drawer later */ }}
+      className={['cart-fab', pulse ? 'cart-pulse' : ''].join(' ')}
+      aria-label="Open cart"
+      title="Cart"
     >
       <span className="cart-img-wrap">
-        <img src={img} alt="" />
+        <img src={src} alt="" />
       </span>
-      {showBadge && <span className="cart-badge">{count}</span>}
+      {count > 0 && <span className="cart-badge">{count}</span>}
     </button>
   );
 }
