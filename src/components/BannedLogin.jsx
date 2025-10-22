@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v3.2 – neon text glow + simple scroll msg)
+// src/components/BannedLogin.jsx  (v3.3 – hi... -> ...レ乃モ type cycle)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -109,36 +109,55 @@ export default function BannedLogin({ onProceed }) {
   const [phone, setPhone] = useState('');
   const emailRef = useRef(/** @type {HTMLInputElement|null} */(null));
 
-  /* ---- Scrolling msg: only "hi..." <=> "...lbe" ---- */
+  /* ---- Message: hold "hi..." then type to "...レ乃モ", hold, and type back ---- */
   const MSG_A = 'hi...';
-  const MSG_B = '...lbe';
-  const [msg, setMsg] = useState(MSG_A);
-  const [cursor, setCursor] = useState(0);
+  const MSG_B = '...レ乃モ';
+  const HOLD_MS = 9000;   // how long to stay on a full message
+  const TYPE_MS = 140;    // speed per character while typing
 
-  // simple left->right ticker across the chosen message
+  /** @type {'HOLD_A'|'TYPE_TO_B'|'HOLD_B'|'TYPE_TO_A'} */
+  const [phase, setPhase] = useState('HOLD_A');
+  const [typed, setTyped] = useState(MSG_A.length); // how many chars are visible during typing
+
+  // Advance the small state machine
   useEffect(() => {
-    let active = true;
-    const SPEED = 140; // ms per char
-    const id = setInterval(() => {
-      if (!active) return;
-      setCursor((c) => (c + 1) % (msg.length + 8)); // +8 = small blank loop before restart
-    }, SPEED);
-    return () => { active = false; clearInterval(id); };
-  }, [msg]);
+    let t;
+    if (phase === 'HOLD_A') {
+      setTyped(MSG_A.length);
+      t = setTimeout(() => setPhase('TYPE_TO_B'), HOLD_MS);
+    } else if (phase === 'TYPE_TO_B') {
+      if (typed < MSG_B.length) {
+        t = setTimeout(() => setTyped(typed + 1), TYPE_MS);
+      } else {
+        t = setTimeout(() => setPhase('HOLD_B'), 0);
+      }
+    } else if (phase === 'HOLD_B') {
+      setTyped(MSG_B.length);
+      t = setTimeout(() => setPhase('TYPE_TO_A'), HOLD_MS);
+    } else if (phase === 'TYPE_TO_A') {
+      if (typed < MSG_A.length) {
+        // typing forward to A means we reset to 0 then type to A
+        // ensure we start from 0 when entering TYPE_TO_A
+        t = setTimeout(() => setTyped(typed + 1), TYPE_MS);
+      } else {
+        t = setTimeout(() => setPhase('HOLD_A'), 0);
+      }
+    }
+    return () => { if (t) clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, typed]);
 
-  // swap between MSG_A and MSG_B every 22s
+  // When we enter a typing phase, reset the counter
   useEffect(() => {
-    const id = setInterval(() => setMsg(v => (v === MSG_A ? MSG_B : MSG_A)), 22000);
-    return () => clearInterval(id);
-  }, []);
+    if (phase === 'TYPE_TO_B') setTyped(0);
+    if (phase === 'TYPE_TO_A') setTyped(0);
+  }, [phase]);
 
-  // derived display (scroll window)
-  const displayMsg = (() => {
-    const pad = '        '; // blank space
-    const base = pad + msg + pad;
-    const slice = base.slice(cursor, cursor + msg.length);
-    return `"${slice}"`;
-  })();
+  // Compute which string we’re showing and how much of it
+  const currentFull = (phase === 'HOLD_A' || phase === 'TYPE_TO_A') ? MSG_A : MSG_B;
+  const isTypingPhase = (phase === 'TYPE_TO_B' || phase === 'TYPE_TO_A');
+  const shown = isTypingPhase ? currentFull.slice(0, typed) : currentFull;
+  const displayMsg = `"${shown}"`;
 
   // orb color & glow
   const SEAFOAM = '#32ffc7';
@@ -148,7 +167,7 @@ export default function BannedLogin({ onProceed }) {
   const [orbVersion, setOrbVersion] = useState(0);
 
   const lRef = useRef(/** @type {HTMLSpanElement|null} */(null));
-  const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
+  const yRef = useRef(/** type {HTMLSpanElement|null} */(null));
   const [flyOnce, setFlyOnce] = useState(false);
 
   useEffect(() => { try { router.prefetch?.(HOP_PATH); } catch {} }, [router]);
@@ -406,9 +425,7 @@ export default function BannedLogin({ onProceed }) {
                       className="pill neon"
                       aria-label="Link"
                       onClick={onLink}
-                      style={{
-                        filter: activated==='link' ? 'brightness(1.25)' : undefined
-                      }}
+                      style={{ filter: activated==='link' ? 'brightness(1.25)' : undefined }}
                     >
                       <span className="neon-glow">Link</span>
                     </button>
@@ -418,9 +435,7 @@ export default function BannedLogin({ onProceed }) {
                       className="pill neon"
                       aria-label="Bypass"
                       onClick={onBypass}
-                      style={{
-                        filter: activated==='bypass' ? 'brightness(1.25)' : undefined
-                      }}
+                      style={{ filter: activated==='bypass' ? 'brightness(1.25)' : undefined }}
                     >
                       <span className="neon-glow">Bypass</span>
                     </button>
