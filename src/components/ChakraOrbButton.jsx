@@ -59,7 +59,6 @@ export default function ChakraOrbButton({
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
     const THRESH = 16; // ignore micro scroll noise
-
     if (absX < THRESH && absY < THRESH) return;
 
     // Horizontal dominant → left=in, right=out (mirrors Arrow keys)
@@ -73,6 +72,8 @@ export default function ChakraOrbButton({
     }
   };
 
+  const px = typeof size === 'number' ? `${size}px` : size;
+
   return (
     <button
       type="button"
@@ -85,13 +86,13 @@ export default function ChakraOrbButton({
       onWheel={onWheel}
       className={className}
       style={{
-        width: size,
-        height: size,
+        width: px,
+        height: px,
         display: 'inline-grid',
         placeItems: 'center',
         lineHeight: 0,
         borderRadius: '9999px',
-        overflow: 'hidden',
+        overflow: 'visible',               // do not clip fallback ring glow
         clipPath: 'circle(50% at 50% 50%)',
         padding: 0,
         margin: 0,
@@ -100,23 +101,29 @@ export default function ChakraOrbButton({
         cursor: 'pointer',
         // contain to keep GPU happy and avoid layout thrash
         contain: 'layout paint style',
+        // MAKE SURE we sit above overlay/images
+        position: 'relative',
+        zIndex: 400,
         ...style,
       }}
     >
-      <BlueOrbCross3D
+      {/* Always-visible fallback ring so the control is visible even if canvas fails */}
+      <span
+        aria-hidden
         style={{
-          display: 'block',
-          width: '100%',
-          height: '100%',
-          border: 0,
-          outline: 0,
-          background: 'transparent',
-          // NOTE: site CSS sets `[data-orb="density"] canvas { pointer-events:none }`
-          // so the wrapper button handles interaction. Keep this 'auto' harmless.
-          pointerEvents: 'auto',
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '9999px',
+          background: 'radial-gradient(closest-side, rgba(50,255,199,.22), rgba(50,255,199,.06) 60%, transparent 72%)',
+          boxShadow: '0 0 18px rgba(50,255,199,.28), inset 0 0 0 1px rgba(255,255,255,.22)',
+          pointerEvents: 'none',
+          filter: 'saturate(1.1)',
         }}
-        width={`${size}px`}
-        height={`${size}px`}
+      />
+
+      <BlueOrbCross3D
+        // IMPORTANT: this component sizes by its `height` prop (width is derived)
+        height={px}
         rpm={rpm}
         color={color}
         geomScale={geomScale}
@@ -129,6 +136,18 @@ export default function ChakraOrbButton({
         interactive
         // Canvas “activate” will pass through debounce to avoid double triggers
         onActivate={() => emitZoom(1, 'in')}
+        // Make sure the canvas participates in hit-testing (our CSS won’t disable it)
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          border: 0,
+          outline: 0,
+          background: 'transparent',
+          pointerEvents: 'auto',
+          position: 'relative',
+          zIndex: 1,
+        }}
       />
     </button>
   );
