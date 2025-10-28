@@ -1,3 +1,4 @@
+// src/components/BlueOrbCross3D.jsx
 'use client';
 
 import * as THREE from 'three';
@@ -35,7 +36,7 @@ function OrbCross({
       const pulse = 0.85 + Math.sin(t * 3.6) * 0.15;
       const b = u.base * pulse;
       u.barHalo.opacity = b * 0.55;
-      u.sphereHalos.forEach(m => (m.opacity = b));
+      u.sphereHalos.forEach((m) => (m.opacity = b));
       u.halo2.opacity = b * 0.65;
       u.halo3.opacity = b * 0.35;
     }
@@ -71,10 +72,18 @@ function OrbCross({
       crownV:'#c084fc', crownW:'#f6f3ff',
     };
 
-    return { sphereGeo, armGeoX, armGeoY, armGeoZ, armGlowGeoX, armGlowGeoY, armGlowGeoZ, centers, CHAKRA };
+    return {
+      sphereGeo, armGeoX, armGeoY, armGeoZ,
+      armGlowGeoX, armGlowGeoY, armGlowGeoZ,
+      centers, CHAKRA
+    };
   }, [geomScale, armRatio, offsetFactor, glowScale, includeZAxis]);
 
-  const { sphereGeo, armGeoX, armGeoY, armGeoZ, armGlowGeoX, armGlowGeoY, armGlowGeoZ, centers, CHAKRA } = memo;
+  const {
+    sphereGeo, armGeoX, armGeoY, armGeoZ,
+    armGlowGeoX, armGlowGeoY, armGlowGeoZ,
+    centers, CHAKRA
+  } = memo;
 
   const useOverride = !!overrideAllColor;
   const barColor = useOverride ? overrideAllColor : color;
@@ -135,30 +144,48 @@ function OrbCross({
 
   useEffect(() => {
     if (!group.current) return;
-    group.current.userData = { pulse:true, base:haloBase, barHalo:barHaloMat, sphereHalos:sphereHaloMats, halo2:halo2Mat, halo3:halo3Mat };
+    group.current.userData = {
+      pulse:true, base:haloBase,
+      barHalo:barHaloMat, sphereHalos:sphereHaloMats,
+      halo2:halo2Mat, halo3:halo3Mat
+    };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
   const handlePointerDown = (e) => { e.stopPropagation(); onActivate && onActivate(); };
   const handleKeyDown = (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } };
 
+  // --- Render -------------------------------------------------------------
   return (
     <group ref={group} onPointerDown={handlePointerDown} onKeyDown={handleKeyDown} tabIndex={0}>
+      {/* Bars */}
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
       <mesh geometry={armGeoY} material={barCoreMat} />
-      <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
+      {includeZAxis && <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />}
 
-      {centers.map((p, i) => <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />)}
+      {/* Spheres */}
+      {centers.map((p, i) => (
+        <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />
+      ))}
 
+      {/* Halos */}
       {glow && (
         <>
           <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} />
           <mesh geometry={armGlowGeoY} material={barHaloMat} />
-          <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />
-          {centers.map((p, i) => <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />)}
+          {includeZAxis && <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />}
+
+          {centers.map((p, i) => (
+            <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />
+          ))}
+
           {overrideAllColor && (
             <>
-              {centers.map((p, i) => <mesh key={`h2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />)}
-              {centers.map((p, i) => <mesh key={`h3-${i}`} geometry={sphereGeo} material={halo3Mat} position={p} scale={glowScale * 1.95} />)}
+              {centers.map((p, i) => (
+                <mesh key={`h2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />
+              ))}
+              {centers.map((p, i) => (
+                <mesh key={`h3-${i}`} geometry={sphereGeo} material={halo3Mat} position={p} scale={glowScale * 1.95} />
+              ))}
             </>
           )}
         </>
@@ -184,13 +211,15 @@ export default function BlueOrbCross3D({
   style = {},
   className = '',
   interactive = true,
+  ariaLabel = 'Activate',
+  title,
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
-    const pr = Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
-    setMaxDpr(Math.max(2, pr));
+    const pr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    setMaxDpr(Math.min(2, Math.max(1, pr))); // cap at 2 for perf
     const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     setReduced(!!mq?.matches);
     const onChange = (e) => setReduced(e.matches);
@@ -198,7 +227,6 @@ export default function BlueOrbCross3D({
     return () => mq?.removeEventListener?.('change', onChange);
   }, []);
 
-  // Fire onActivate for ANY pointer down inside the canvas
   const handleCanvasPointerDown = () => {
     if (!interactive) return;
     onActivate && onActivate();
@@ -214,6 +242,9 @@ export default function BlueOrbCross3D({
   return (
     <div
       className={className}
+      title={title}
+      aria-label={ariaLabel}
+      role="button"
       style={{
         height,
         width: height,
@@ -223,15 +254,15 @@ export default function BlueOrbCross3D({
         pointerEvents: interactive ? 'auto' : 'none',
         ...style,
       }}
+      tabIndex={interactive ? 0 : -1}
+      onKeyDown={handleCanvasKeyDown}
+      onPointerDown={handleCanvasPointerDown}
     >
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         style={{ pointerEvents: interactive ? 'auto' : 'none', outline: 'none' }}
-        onPointerDown={handleCanvasPointerDown}
-        tabIndex={interactive ? 0 : -1}
-        onKeyDown={handleCanvasKeyDown}
       >
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />

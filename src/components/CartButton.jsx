@@ -1,3 +1,4 @@
+// src/components/CartButton.jsx
 // @ts-check
 'use client';
 
@@ -5,16 +6,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * CartButton
- * - Badge count updates via CustomEvents:
- *   - 'lb:add-to-cart' | 'cart:add'   -> detail: { id?, size?, count: +n }
- *   - 'cart:set'                      -> detail: { count: n } (hard set)
- *   - 'cart:clear'                    -> no detail (resets to 0)
- *
- * Props:
- * - size?: number        (button square size in px; default 48)
- * - inHeader?: boolean   (applies subtle style tweaks)
- * - imgSrc?: string      (cart image path; default '/cart/birkin.png')
- * - onClick?: () => void (optional click handler to open drawer, etc.)
+ * Events it reacts to:
+ *  - 'lb:add-to-cart' | 'cart:add'   -> detail: { id?, size?, count?: number, qty?: number }
+ *  - 'cart:set'                      -> detail: { count: number }
+ *  - 'cart:clear'                    -> resets to 0
  */
 export default function CartButton({
   size = 48,
@@ -26,20 +21,22 @@ export default function CartButton({
   const [pulse, setPulse] = useState(false);
   const [imgOk, setImgOk] = useState(true);
 
-  const btnRef = useRef/** @type {React.RefObject<HTMLButtonElement>} */(null);
-  const pulseTimer = useRef/** @type {ReturnType<typeof setTimeout> | null} */(null);
-  const bumpTimer  = useRef/** @type {ReturnType<typeof setTimeout> | null} */(null);
+  const btnRef = useRef(null);
+  const pulseTimer = useRef(null);
+  const bumpTimer  = useRef(null);
 
   useEffect(() => {
     const add = (delta = 1) => {
-      setCount(c => Math.max(0, c + delta));
-      // visual feedback
+      setCount((c) => Math.max(0, c + delta));
       setPulse(true);
-      if (btnRef.current) {
-        btnRef.current.classList.add('lb-bump');
+
+      // bump animation
+      try {
+        btnRef.current?.classList.add('lb-bump');
         if (bumpTimer.current) clearTimeout(bumpTimer.current);
         bumpTimer.current = setTimeout(() => btnRef.current?.classList.remove('lb-bump'), 280);
-      }
+      } catch {}
+
       if (pulseTimer.current) clearTimeout(pulseTimer.current);
       pulseTimer.current = setTimeout(() => setPulse(false), 420);
     };
@@ -59,7 +56,7 @@ export default function CartButton({
 
     const onClear = () => setCount(0);
 
-    // Listen to both our new and legacy channels
+    // Listen on window + document (legacy senders)
     window.addEventListener('lb:add-to-cart', onAdd);
     window.addEventListener('cart:add', onAdd);
     window.addEventListener('cart:set', onSet);
@@ -83,14 +80,12 @@ export default function CartButton({
     };
   }, []);
 
-  // Accessible label
   const aria = useMemo(() => {
-    const base = 'Cart';
-    if (!count) return base;
-    return `${base}, ${count} item${count === 1 ? '' : 's'}`;
+    if (!count) return 'Cart';
+    return `Cart, ${count} item${count === 1 ? '' : 's'}`;
   }, [count]);
 
-  // Fallback inline SVG if birkin image is missing
+  // inline SVG fallback if image is missing
   const fallbackSrc = useMemo(() => {
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 64 64">
@@ -165,7 +160,7 @@ export default function CartButton({
       transition: 'transform 160ms ease',
       pointerEvents: 'none',
     },
-  } as const;
+  };
 
   return (
     <>
@@ -196,9 +191,7 @@ export default function CartButton({
 
       {/* minimal local styles for bump animation */}
       <style jsx>{`
-        .lb-bump {
-          animation: lb-bump-kf 240ms ease;
-        }
+        .lb-bump { animation: lb-bump-kf 240ms ease; }
         @keyframes lb-bump-kf {
           0%   { transform: scale(1.00); }
           50%  { transform: scale(1.06); }
