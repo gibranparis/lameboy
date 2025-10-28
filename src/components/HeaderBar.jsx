@@ -1,3 +1,4 @@
+// src/components/HeaderBar.jsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -5,26 +6,61 @@ import ChakraOrbButton from '@/components/ChakraOrbButton';
 import DayNightToggle from '@/components/DayNightToggle';
 import CartButton from '@/components/CartButton';
 
-/** New + legacy zoom event emitter */
+/** Emit both new and legacy zoom events */
 function emitZoom(step = 1, dir = 'in') {
   try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step, dir } })); } catch {}
   try { window.dispatchEvent(new CustomEvent('grid-density', { detail: { step } })); } catch {}
 }
 
-export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
-  const [isNight, setIsNight] = useState(false);
-  const ctrlPx = useCtrlPx(56);
+/** Read --header-ctrl safely and update on resize */
+function useCtrlPx(defaultPx = 56) {
+  const [px, setPx] = useState(defaultPx);
+  useEffect(() => {
+    const read = () => {
+      try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
+        const n = parseInt(String(v).trim().replace('px',''), 10);
+        setPx(Number.isFinite(n) ? n : defaultPx);
+      } catch { setPx(defaultPx); }
+    };
+    read();
+    window.addEventListener('resize', read);
+    return () => window.removeEventListener('resize', read);
+  }, [defaultPx]);
+  return px;
+}
 
-  // initial theme from storage or system
+export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
+  const ctrlPx = useCtrlPx(56);
+  const [isNight, setIsNight] = useState(false);
+
+  // Boot theme from storage or system preference
   useEffect(() => {
     try {
       const saved = localStorage.getItem('lb:theme');
-      if (saved === 'night' || saved === 'day') setIsNight(saved === 'night');
-      else setIsNight(!!window.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
+      if (saved === 'night' || saved === 'day') {
+        setIsNight(saved === 'night');
+      } else {
+        setIsNight(!!window.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
+      }
     } catch {}
   }, []);
 
-  // reflect on root for CSS tokens
+  // React to external theme-change events (e.g., other toggles)
+  useEffect(() => {
+    const onTheme = (e) => {
+      const t = e?.detail?.theme;
+      if (t === 'night' || t === 'day') setIsNight(t === 'night');
+    };
+    window.addEventListener('theme-change', onTheme);
+    document.addEventListener('theme-change', onTheme);
+    return () => {
+      window.removeEventListener('theme-change', onTheme);
+      document.removeEventListener('theme-change', onTheme);
+    };
+  }, []);
+
+  // Reflect mode + theme to root and persist
   useEffect(() => {
     try {
       const root = document.querySelector(rootSelector) || document.documentElement;
@@ -35,8 +71,11 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
   }, [isNight, rootSelector]);
 
   return (
-    <header role="banner" className="w-full px-4 pt-3 pb-1"
-      style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
+    <header
+      role="banner"
+      className="w-full px-4 pt-3 pb-1"
+      style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}
+    >
       {/* LEFT: orb (click = zoom in, right-click = zoom out) */}
       <div className="flex items-center">
         <div style={{ height: ctrlPx, width: ctrlPx, display: 'grid', placeItems: 'center' }}>
@@ -51,14 +90,15 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
               if (e.key === 'ArrowRight') emitZoom(1, 'out');
             }}
             style={{ cursor:'pointer', lineHeight:0 }}
+            title="Zoom products (Right-click: zoom out)"
           >
             <ChakraOrbButton size={ctrlPx} onActivate={() => emitZoom(1, 'in')} />
           </div>
         </div>
       </div>
 
-      {/* CENTER: toggle — knob equals ctrlPx */}
-      <div className="flex justify-center" id="lb-daynight">
+      {/* CENTER: day/night toggle — knob equals ctrlPx */}
+      <div className="flex justify-center" id="lb-daynight" style={{ lineHeight: 0 }}>
         <DayNightToggle
           className="select-none"
           circlePx={ctrlPx}
@@ -77,21 +117,4 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
       </div>
     </header>
   );
-}
-
-function useCtrlPx(defaultPx = 56) {
-  const [px, setPx] = useState(defaultPx);
-  useEffect(() => {
-    const read = () => {
-      try {
-        const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
-        const n = parseInt(v, 10);
-        setPx(Number.isFinite(n) ? n : defaultPx);
-      } catch { setPx(defaultPx); }
-    };
-    read();
-    window.addEventListener('resize', read);
-    return () => window.removeEventListener('resize', read);
-  }, [defaultPx]);
-  return px;
 }
