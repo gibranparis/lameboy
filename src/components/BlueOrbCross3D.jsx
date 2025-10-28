@@ -54,9 +54,9 @@ function OrbCross({
     const armGeoY     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
     const armGeoZ     = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true);
 
-    const armGlowGeoX = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
-    const armGlowGeoY = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
-    const armGlowGeoZ = new THREE.CylinderGeometry(armR * glowScale, armR * glowScale, armLen * 1.02, 48, 1, true);
+    const armGlowGeoX = new THREE.CylinderGeometry(armR * 1.35, armR * 1.35, armLen * 1.02, 48, 1, true);
+    const armGlowGeoY = new THREE.CylinderGeometry(armR * 1.35, armR * 1.35, armLen * 1.02, 48, 1, true);
+    const armGlowGeoZ = new THREE.CylinderGeometry(armR * 1.35, armR * 1.35, armLen * 1.02, 48, 1, true);
 
     const centers = [
       [0, 0, 0],
@@ -73,12 +73,8 @@ function OrbCross({
       crownV:'#c084fc', crownW:'#f6f3ff',
     };
 
-    return {
-      sphereGeo, armGeoX, armGeoY, armGeoZ,
-      armGlowGeoX, armGlowGeoY, armGlowGeoZ,
-      centers, CHAKRA
-    };
-  }, [geomScale, armRatio, offsetFactor, glowScale, includeZAxis]);
+    return { sphereGeo, armGeoX, armGeoY, armGeoZ, armGlowGeoX, armGlowGeoY, armGlowGeoZ, centers, CHAKRA };
+  }, [geomScale, armRatio, offsetFactor, includeZAxis]);
 
   const {
     sphereGeo, armGeoX, armGeoY, armGeoZ,
@@ -215,7 +211,8 @@ export default function BlueOrbCross3D({
   overrideGlowOpacity,
   style = {},
   className = '',
-  interactive = false, // ChakraOrbButton passes true
+  interactive = false,
+  respectReducedMotion = false,
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
@@ -223,60 +220,42 @@ export default function BlueOrbCross3D({
   useEffect(() => {
     const pr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
     setMaxDpr(Math.min(2, Math.max(1, pr)));
-    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-    setReduced(!!mq?.matches);
-    const onChange = (e) => setReduced(e.matches);
-    mq?.addEventListener?.('change', onChange);
-    return () => mq?.removeEventListener?.('change', onChange);
-  }, []);
-
-  const px = typeof height === 'number' ? `${height}px` : height;
+    if (respectReducedMotion) {
+      const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+      setReduced(!!mq?.matches);
+      const onChange = (e) => setReduced(e.matches);
+      mq?.addEventListener?.('change', onChange);
+      return () => mq?.removeEventListener?.('change', onChange);
+    } else {
+      setReduced(false);
+    }
+  }, [respectReducedMotion]);
 
   return (
     <div
       className={className}
       style={{
-        height: px,
-        width: px,
-        position: 'relative',
-        zIndex: 1,                    // draw above neighbors inside control
+        position: 'relative',           // ⟵ create stacking context
+        height,
+        width: height,
         display: 'inline-block',
         contain: 'layout paint style',
         isolation: 'isolate',
         pointerEvents: interactive ? 'auto' : 'none',
         ...style,
       }}
-      // Soft visible fallback halo in case WebGL/canvas fails to paint
-      aria-hidden
     >
-      <span
-        style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: '9999px',
-          background: 'radial-gradient(closest-side, rgba(50,255,199,.18), rgba(50,255,199,.06) 62%, transparent 74%)',
-          filter: 'saturate(1.1)',
-          pointerEvents: 'none',
-        }}
-      />
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
-        gl={{
-          antialias: true,
-          alpha: true,
-          powerPreference: 'high-performance',
-          premultipliedAlpha: true,
-        }}
-        frameloop="always"
+        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+        // ABSOLUTE + INSET keeps the canvas on top of any fallback ring
         style={{
-          width: '100%',
-          height: '100%',
-          display: 'block',
-          outline: 'none',
+          position: 'absolute',
+          inset: 0,
           pointerEvents: interactive ? 'auto' : 'none',
-          position: 'relative',
-          zIndex: 2,
+          outline: 'none',
+          zIndex: 2,                    // ⟵ above any sibling inside the button
         }}
       >
         <ambientLight intensity={0.9} />

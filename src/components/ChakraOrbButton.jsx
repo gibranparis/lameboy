@@ -5,12 +5,12 @@ import React, { useCallback, useRef } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
-  size = 64,             // visual diameter in px
+  size = 64,
   rpm = 44,
   color = '#32ffc7',
-  geomScale = 1.25,      // bolder fill
-  offsetFactor = 2.25,   // push arms outward a touch
-  armRatio = 0.35,       // slightly thicker arms
+  geomScale = 1.25,
+  offsetFactor = 2.25,
+  armRatio = 0.35,
   glow = true,
   glowOpacity = 0.9,
   includeZAxis = true,
@@ -18,7 +18,6 @@ export default function ChakraOrbButton({
   className = '',
   style = {},
 }) {
-  // Debounce so click + onActivate don’t double-fire
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 200;
 
@@ -26,7 +25,6 @@ export default function ChakraOrbButton({
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
-
     try { document.dispatchEvent(new CustomEvent('lb:zoom',      { detail: { step, dir } })); } catch {}
     try { document.dispatchEvent(new CustomEvent('grid-density', { detail: { step, dir } })); } catch {}
   }, []);
@@ -66,21 +64,20 @@ export default function ChakraOrbButton({
         placeItems: 'center',
         lineHeight: 0,
         borderRadius: '9999px',
-        overflow: 'hidden',
+        overflow: 'visible',
         clipPath: 'circle(50% at 50% 50%)',
         padding: 0,
         margin: 0,
         background: 'transparent',
         border: '0 none',
         cursor: 'pointer',
-        // sit above overlay/images/header content
         position: 'relative',
-        zIndex: 600,
+        zIndex: 900,               // ⟵ above everything in the header & overlay
         contain: 'layout paint style',
         ...style,
       }}
     >
-      {/* visible halo even if WebGL fails, so you always “see” the control */}
+      {/* visible even if WebGL fails */}
       <span
         aria-hidden
         style={{
@@ -90,13 +87,12 @@ export default function ChakraOrbButton({
           background: 'radial-gradient(closest-side, rgba(50,255,199,.22), rgba(50,255,199,.06) 60%, transparent 72%)',
           boxShadow: '0 0 18px rgba(50,255,199,.28), inset 0 0 0 1px rgba(255,255,255,.22)',
           pointerEvents: 'none',
-          filter: 'saturate(1.08)',
-          zIndex: 0,
+          filter: 'saturate(1.1)',
+          zIndex: 1,
         }}
       />
-
       <BlueOrbCross3D
-        height={px}                  // component derives width from height
+        height={px}
         rpm={rpm}
         color={color}
         geomScale={geomScale}
@@ -107,18 +103,9 @@ export default function ChakraOrbButton({
         includeZAxis={includeZAxis}
         overrideAllColor={overrideAllColor}
         interactive
+        respectReducedMotion={false}
         onActivate={() => emitZoom(1, 'in')}
-        style={{
-          display: 'block',
-          width: '100%',
-          height: '100%',
-          border: 0,
-          outline: 0,
-          background: 'transparent',
-          pointerEvents: 'auto',
-          position: 'relative',
-          zIndex: 1,
-        }}
+        // wrapper div in BlueOrbCross3D is relative; Canvas is absolute inset:0 with z-index:2
       />
     </button>
   );
