@@ -25,8 +25,8 @@
   /* Header control square (orb/toggle/cart) */
   --header-ctrl:56px;
 
-  /* ===== Grid zoom (core): number of columns (1..5) ===== */
-  --grid-cols: 5; /* default to 5 per line */
+  /* Grid zoom (1..5) */
+  --grid-cols: 5;
 }
 
 /* Native UI matches the theme */
@@ -59,7 +59,7 @@ html[data-overlay-open]{ overflow:hidden; }
 .page-center{ min-height:100dvh; display:flex; align-items:center; justify-content:center; gap:18px; padding:2rem; }
 .row-nowrap{ display:flex; align-items:center; gap:14px; flex-wrap:nowrap; }
 
-/* ========== Cards / Bubble ============================================== */
+/* ========== Cards / Bubble (NEON DEFAULT, keep for banned) ============== */
 .vscode-card{
   background:var(--panel);
   border:2px solid var(--accent);
@@ -121,7 +121,7 @@ html[data-overlay-open]{ overflow:hidden; }
 .chakra-thirdeye{--c:#b300ff;background:#4B0082}
 .chakra-crown{--c:#faf5ff;background:#ff00c8}
 
-/* ========== Shop grid & hero ============================================ */
+/* ========== Shop mode ==================================================== */
 :root[data-mode="shop"][data-theme="day"]  { --bg:var(--shop-offwhite); --panel:var(--shop-offwhite); --text:#111; }
 :root[data-mode="shop"][data-theme="night"]{ --bg:#000;               --panel:#000;               --text:#fff; }
 
@@ -131,10 +131,10 @@ html[data-overlay-open]{ overflow:hidden; }
   transition:background-color .35s ease, color .35s ease;
 }
 
-/* Header transparent, centered controls, and above overlays */
+/* Header transparent, centered controls, layered above overlay */
 :root[data-mode="shop"] header[role="banner"]{
   position:relative;
-  z-index:120;                 /* keep orb/cart above overlay */
+  z-index:120;
   background:transparent !important;
   box-shadow:none !important;
   border:0 !important;
@@ -142,7 +142,7 @@ html[data-overlay-open]{ overflow:hidden; }
 }
 :root[data-mode="shop"] header[role="banner"] > *{ align-self:center !important; }
 
-/* Nuke stray whites so wrapper color shows */
+/* Remove stray whites */
 :root[data-mode="shop"] .shop-page,
 :root[data-mode="shop"] .shop-wrap,
 :root[data-mode="shop"] .shop-grid,
@@ -171,13 +171,18 @@ html:has([data-shop-root]) .product-img{
   backface-visibility:hidden;
 }
 
+/* ===== Shop-scoped overrides (do NOT affect banned) ===================== */
+:root[data-mode="shop"] .vscode-card{ box-shadow:none !important; border-color:rgba(255,255,255,.12) !important; }
+:root[data-mode="shop"] .bubble-button:hover{ box-shadow:none !important; }
+:root[data-mode="shop"] .bubble-glow-blue{ animation:none !important; }
+
 /* ========== Cart (Birkin PNG) =========================================== */
 .cart-fab{
   position:relative;
   display:inline-flex; align-items:center; justify-content:center;
   width:48px; height:48px;
   padding:0; border:0; background:transparent; cursor:pointer;
-  transform:translateZ(0); z-index:2; /* ensure above local backgrounds */
+  transform:translateZ(0); z-index:2;
 }
 .cart-fab.bump{ animation:cart-bump 350ms ease; }
 @keyframes cart-bump{
@@ -188,7 +193,7 @@ html:has([data-shop-root]) .product-img{
 .cart-img-wrap{ display:inline-block; width:100%; height:100%; aspect-ratio:1/1; line-height:0; }
 .cart-img-wrap img{ width:100%; height:100%; object-fit:contain; pointer-events:none; }
 
-/* Badge — hug the top-right corner of the bag (like iMessage) */
+/* Badge */
 .cart-badge{
   position:absolute;
   top:0; right:0;
@@ -200,7 +205,7 @@ html:has([data-shop-root]) .product-img{
   pointer-events:none;
 }
 
-/* Cart alignment in header (height only; does NOT stretch siblings) */
+/* Cart alignment in header */
 :root[data-mode="shop"] header[role="banner"] .cart-fab{
   position:static !important; width:auto; height:var(--header-ctrl); padding:6px 8px;
   background:transparent !important; border:none !important; box-shadow:none !important;
@@ -210,7 +215,7 @@ html:has([data-shop-root]) .product-img{
 :root[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
 :root[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform:translateY(-1px); }
 
-/* Cart green pulse (triggered via .cart-pulse class) */
+/* Cart green pulse */
 @keyframes cartPulse { 0%{ box-shadow:0 0 0 0 rgba(11,240,95,.55) } 70%{ box-shadow:0 0 0 12px rgba(11,240,95,0) } 100%{ box-shadow:0 0 0 0 rgba(11,240,95,0) } }
 .cart-fab.cart-pulse{ animation:cartPulse .42s ease; }
 
@@ -221,9 +226,7 @@ html:has([data-shop-root]) .product-img{
   grid-template-columns: repeat(var(--grid-cols, 5), minmax(0,1fr));
   gap:var(--gap);
 }
-@media (max-width:640px){
-  .shop-grid{ --gap:20px; }
-}
+@media (max-width:640px){ .shop-grid{ --gap:20px; } }
 
 .product-tile{ display:block; color:inherit; text-decoration:none; }
 .product-box{ aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:transparent; border:none; }
@@ -232,7 +235,7 @@ html:has([data-shop-root]) .product-img{
 
 /* ========== Product overlay ============================================= */
 .product-hero-overlay{
-  position:fixed; inset:0; z-index:90; /* below header (120) */
+  position:fixed; inset:0; z-index:90; /* below header */
   background:var(--bg); color:var(--text);
   display:flex; align-items:center; justify-content:center; padding:20px;
 }
@@ -244,7 +247,7 @@ html:has([data-shop-root]) .product-img{
 .product-hero-title{ font-weight:800; font-size:clamp(14px,2vw,20px); text-align:center; }
 .product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
 
-/* Show the explicit close button again (top-right inside overlay) */
+/* Overlay close button (visible) */
 .product-hero-close{
   position:absolute; top:10px; right:10px;
   display:inline-grid !important; place-items:center;
@@ -256,7 +259,7 @@ html:has([data-shop-root]) .product-img{
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.6);
 }
 
-/* ===== Overlay vs Grid =================================================== */
+/* Overlay vs Grid */
 :root[data-overlay-open] .shop-grid{ visibility:hidden; pointer-events:none; }
 
 /* Cascade tiles pop */
@@ -276,18 +279,27 @@ html:has([data-shop-root]) .product-img{
 }
 .lb-switch:focus-visible{ outline-color:rgba(74,165,255,1); }
 
-/* ========== Header orb / click-through ================================== */
+/* ========== Header orb =================================================== */
 [data-orb="density"]{
-  padding:0 !important; margin:0 !important; border:0 !important;
-  background:transparent !important; line-height:0 !important;
-  border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
-  position:relative; z-index:1;
+  padding:0 !important;
+  margin:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  line-height:0 !important;
+  border-radius:9999px;
+  overflow:hidden;
+  clip-path:circle(50% at 50% 50%);
+  position:relative;
+  z-index:200;                 /* above tiles & overlay */
 }
-[data-orb="density"], [data-orb="density"] *{ outline:0 !important; box-shadow:none !important; }
-/* IMPORTANT: allow interaction on the canvas so click/wheel work */
-[data-orb="density"] canvas{ display:block; pointer-events:auto; }
-
-/* Visual ring to match the toggle halo */
+[data-orb="density"], [data-orb="density"] *{
+  outline:0 !important;
+  box-shadow:none !important;
+}
+[data-orb="density"] canvas{
+  display:block;
+  pointer-events:auto;         /* allow click/wheel on canvas */
+}
 .orb-ring{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; border-radius:9999px; }
 
 /* Heavier token weights */
@@ -299,19 +311,8 @@ html:has([data-shop-root]) .product-img{
 }
 
 /* ======================================================================== */
-/* =========================  OVERRIDES (v4)  ============================== */
-/* Kill the animated blue bubble glow everywhere */
-.vscode-card{ box-shadow:none !important; border-color:rgba(255,255,255,.12) !important; }
-.bubble-button:hover{ box-shadow:none !important; }
-.bubble-glow-blue{ animation:none !important; }
-
 /* Center “Florida, USA” even if container changes */
-.florida-inline{
-  display:block !important;
-  text-align:center !important;
-  margin-left:auto !important;
-  margin-right:auto !important;
-}
+.florida-inline{ display:block !important; text-align:center !important; margin-left:auto !important; margin-right:auto !important; }
 
 /* Keep the gate perfectly centered regardless of parent */
 .page-center{ display:grid !important; place-items:center !important; }
@@ -320,7 +321,7 @@ html:has([data-shop-root]) .product-img{
 .lb-cascade .lb-band{ position:relative; }
 .lb-cascade .lb-band::after{ content:""; position:absolute; inset:-14px; background:var(--c); filter:blur(22px); opacity:.95; pointer-events:none; }
 
-/* ===== Pills (single, de-duped) ========================================= */
+/* ===== Pills ============================================================= */
 .pill{
   display:inline-grid; place-items:center;
   height:28px; padding:0 10px; border-radius:9999px;
@@ -335,48 +336,13 @@ html:has([data-shop-root]) .product-img{
   background:#111; color:#fff;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
 }
-
-/* Size selected → quick green flash */
 .size-pill.is-selected{ background:var(--hover-green); color:#000; border-color:rgba(0,0,0,.45); }
 @keyframes flashGreen { 0%{filter:saturate(1)} 50%{filter:saturate(1.6)} 100%{filter:saturate(1)} }
 .flash-green{ animation:flashGreen .26s ease; }
+.plus-pill.is-active{ background:#d1d5db; color:#111; }
+.plus-pill.is-ready { background:var(--hover-green); color:#000; }
 
-/* Plus pill state */
-.plus-pill.is-active{ background:#d1d5db; color:#111; }            /* grey when showing sizes */
-.plus-pill.is-ready { background:var(--hover-green); color:#000; } /* green when adding */
-/* … everything above stays the same … */
-
-/* === Header control helpers (no stretching) ============================== */
-:root[data-mode="shop"] header[role="banner"] #lb-daynight{
-  display:grid; place-items:center; padding:0 !important; margin:0 !important; line-height:0 !important;
-}
-
-/* ======================================================================== */
-/* =========================  OVERRIDES (v4)  ============================== */
-/* LIMIT these overrides to SHOP mode so the banned screen keeps its glow */
-:root[data-mode="shop"] .vscode-card{ box-shadow:none !important; border-color:rgba(255,255,255,.12) !important; }
-:root[data-mode="shop"] .bubble-button:hover{ box-shadow:none !important; }
-:root[data-mode="shop"] .bubble-glow-blue{ animation:none !important; }
-
-/* Center “Florida, USA” even if container changes (both modes ok) */
-.florida-inline{
-  display:block !important;
-  text-align:center !important;
-  margin-left:auto !important;
-  margin-right:auto !important;
-}
-
-/* Keep the gate perfectly centered regardless of parent */
-.page-center{ display:grid !important; place-items:center !important; }
-
-/* Neon cascade glow helper (if used globally) */
-.lb-cascade .lb-band{ position:relative; }
-.lb-cascade .lb-band::after{ content:""; position:absolute; inset:-14px; background:var(--c); filter:blur(22px); opacity:.95; pointer-events:none; }
-
-/* ===== Pills (single, de-duped) ========================================= */
-.pill{ /* … unchanged … */ }
-
-/* --- Banned bubble should CONTAIN text, not stretch --- */
+/* --- Banned bubble should CONTAIN text, not stretch --------------------- */
 :root[data-mode="gate"] .login-card{
   max-width:min(92vw, 720px) !important;
 }
@@ -386,16 +352,3 @@ html:has([data-shop-root]) .product-img{
   word-break:break-word !important;
   overflow-wrap:anywhere !important;
 }
-
-/* --- Orb usability/visibility polish --- */
-[data-orb="density"]{
-  padding:0 !important; margin:0 !important; border:0 !important;
-  background:transparent !important; line-height:0 !important;
-  border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
-  /* ensure it sits above the grid images */
-  position:relative; z-index:150;
-}
-[data-orb="density"] canvas{ display:block; pointer-events:none; }
-.orb-ring{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; border-radius:9999px; }
-
-/* … keep the rest of your file as-is … */
