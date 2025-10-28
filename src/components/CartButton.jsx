@@ -1,3 +1,4 @@
+// src/components/CartButton.jsx
 // @ts-check
 'use client';
 
@@ -13,58 +14,39 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 export default function CartButton({
   size = 48,
   inHeader = false,
-  /** You can still pass a single explicit path; otherwise we'll probe the list below. */
   imgSrc,
   onClick,
 }) {
-  const [count, setCount]   = useState(0);
-  const [pulse, setPulse]   = useState(false);
+  const [count, setCount] = useState(0);
+  const [pulse, setPulse] = useState(false);
+  const [resolvedSrc, setResolvedSrc] = useState('');
 
-  // --- Birkin image resolution -------------------------------------------
-  /** Preferred list; first that loads wins */
-  const candidates = useMemo(
-    () => [
-      imgSrc, // allow explicit override to be tried first
-      '/cart/birkin.png',
-      '/cart/birkin-royal.png',
-      '/cart/birkin-green.png',
-      '/cart/birkin-sky.png',
-    ].filter(Boolean),
-    [imgSrc]
-  );
+  // Try your Birkin PNGs in order; fall back to SVG only if all fail
+  const candidates = useMemo(() => {
+    const list = [imgSrc].filter(Boolean);
+    // If imgSrc not passed, prefer your green/royal/sky variants.
+    if (!imgSrc) list.push('/cart/birkin-green.png','/cart/birkin-royal.png','/cart/birkin-sky.png');
+    return list;
+  }, [imgSrc]);
 
-  const [resolvedSrc, setResolvedSrc] = useState(null);
   useEffect(() => {
     let cancelled = false;
-
-    // Try candidates in order until one loads
     (async () => {
-      for (const url of candidates) {
+      for (const src of candidates) {
+        if (!src) continue;
         try {
-          const ok = await probe(url);
-          if (ok && !cancelled) { setResolvedSrc(url); return; }
+          const ok = await probe(src);
+          if (ok && !cancelled) { setResolvedSrc(src); return; }
         } catch {}
       }
-      // none loaded → leave null to use inline SVG fallback
-      if (!cancelled) setResolvedSrc(null);
+      if (!cancelled) setResolvedSrc(fallbackSvg(size));
     })();
-
     return () => { cancelled = true; };
-  }, [candidates]);
+  }, [candidates, size]);
 
-  function probe(src) {
-    return new Promise((res) => {
-      const img = new Image();
-      img.onload  = () => res(true);
-      img.onerror = () => res(false);
-      img.src = src;
-    });
-  }
-
-  // --- Events & visuals ---------------------------------------------------
-  const btnRef  = useRef/** @type {HTMLButtonElement|null} */(null);
-  const tPulse  = useRef/** @type {ReturnType<typeof setTimeout>|null} */(null);
-  const tBump   = useRef/** @type {ReturnType<typeof setTimeout>|null} */(null);
+  const btnRef = useRef/** @type {HTMLButtonElement|null} */(null);
+  const tPulse = useRef/** @type {ReturnType<typeof setTimeout> | null} */(null);
+  const tBump  = useRef/** @type {ReturnType<typeof setTimeout> | null} */(null);
 
   useEffect(() => {
     const add = (delta = 1) => {
@@ -78,9 +60,8 @@ export default function CartButton({
       if (tPulse.current) clearTimeout(tPulse.current);
       tPulse.current = setTimeout(() => setPulse(false), 360);
     };
-
-    const onAdd   = (e) => add(Number(e?.detail?.count ?? e?.detail?.qty ?? 1) || 1);
-    const onSet   = (e) => setCount(Math.max(0, Number(e?.detail?.count ?? 0) || 0));
+    const onAdd = (e) => add(Number(e?.detail?.count ?? e?.detail?.qty ?? 1) || 1);
+    const onSet = (e) => setCount(Math.max(0, Number(e?.detail?.count ?? 0) || 0));
     const onClear = () => setCount(0);
 
     for (const target of [window, document]) {
@@ -103,27 +84,17 @@ export default function CartButton({
 
   const aria = useMemo(() => (count ? `Cart, ${count} item${count===1?'':'s'}` : 'Cart'), [count]);
 
-  const fallbackSrc = useMemo(() => {
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 64 64">
-        <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs>
-        <rect width="64" height="64" rx="14" ry="14" fill="#0f1115"/>
-        <path d="M18 26h28l-3 20H21l-3-20z" fill="url(#g)"/>
-        <circle cx="26" cy="49" r="2.8" fill="#fff"/><circle cx="38" cy="49" r="2.8" fill="#fff"/>
-        <path d="M24 26v-3a8 8 0 0 1 16 0v3" stroke="#a7f3d0" stroke-width="2.5" fill="none"/>
-      </svg>`;
-    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-  }, [size]);
-
   const S = {
     btn: {
-      position:'relative',
-      display:'inline-grid', placeItems:'center',
-      width:size, height:size, borderRadius:9999,
-      padding:0, border:0, cursor:'pointer', lineHeight:0, outline:'none',
+      position: 'relative',
+      display: 'inline-grid',
+      placeItems: 'center',
+      width: size, height: size,
+      borderRadius: 9999, padding: 0, border: 0,
       background: inHeader ? 'transparent' : 'rgba(255,255,255,.06)',
+      cursor: 'pointer', lineHeight: 0, outline: 'none',
       boxShadow: inHeader ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,.08)',
-      transition:'transform 120ms ease',
+      transition: 'transform 120ms ease',
       zIndex: 2,
     },
     imgWrap: { width: Math.round(size*0.86), height: Math.round(size*0.86), display:'grid', placeItems:'center' },
@@ -144,28 +115,49 @@ export default function CartButton({
       <button
         ref={btnRef}
         type="button"
-        className={`cart-fab ${pulse ? 'cart-pulse' : ''}`}
+        className={pulse ? 'cart-pulse' : ''}
         aria-label={aria}
         title="Cart"
         onClick={onClick}
         style={S.btn}
       >
-        <span className="cart-img-wrap" style={S.imgWrap}>
-          <img
-            src={resolvedSrc ?? fallbackSrc}
-            alt=""
-            style={S.img}
-            draggable={false}
-          />
+        <span style={S.imgWrap}>
+          {/* resolvedSrc is guaranteed to be set (one of Birkin PNGs or SVG fallback) */}
+          <img src={resolvedSrc} alt="" style={S.img} draggable={false} />
         </span>
-        {count > 0 && <span className="cart-badge" aria-hidden="true" style={S.badge}>{count}</span>}
+        {count > 0 && <span aria-hidden="true" style={S.badge}>{count}</span>}
       </button>
 
-      {/* local bump animation */}
       <style jsx>{`
+        .cart-pulse { animation: cartPulse .42s ease; }
+        @keyframes cartPulse { 0%{ box-shadow:0 0 0 0 rgba(11,240,95,.55) } 70%{ box-shadow:0 0 0 12px rgba(11,240,95,0) } 100%{ box-shadow:0 0 0 0 rgba(11,240,95,0) } }
         .lb-bump { animation: lbBump 240ms ease; }
         @keyframes lbBump { 0%{ transform:scale(1) } 50%{ transform:scale(1.06) } 100%{ transform:scale(1) } }
       `}</style>
     </>
   );
+}
+
+/** Probe an image URL without throwing */
+function probe(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.decoding = 'async';
+    img.referrerPolicy = 'no-referrer';
+    img.src = src;
+  });
+}
+
+function fallbackSvg(size) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 64 64">
+      <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs>
+      <rect width="64" height="64" rx="14" ry="14" fill="#0f1115"/>
+      <path d="M18 26h28l-3 20H21l-3-20z" fill="url(#g)"/>
+      <circle cx="26" cy="49" r="2.8" fill="#fff"/><circle cx="38" cy="49" r="2.8" fill="#fff"/>
+      <path d="M24 26v-3a8 8 0 0 1 16 0v3" stroke="#a7f3d0" stroke-width="2.5" fill="none"/>
+    </svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 }
