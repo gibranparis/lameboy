@@ -1,151 +1,22 @@
-// @ts-check
 // src/components/ProductOverlay.jsx
+// @ts-check
 'use client';
 
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-/** Normalize images to a non-empty array */
-function useImages(product) {
-  return useMemo(() => {
-    const imgs =
-      (Array.isArray(product?.images) && product.images.length ? product.images :
-      (product?.image ? [product.image] : []))
-      .filter(Boolean);
-    return imgs.length ? imgs : ['/placeholder.png'];
-  }, [product]);
-}
-
-/** Clamp helper */
-const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-
-/** Wheel throttle so we move one step per gesture */
-function useWheelNavigator({ onPrevProduct, onNextProduct, onPrevImage, onNextImage }) {
-  const cool = useRef(false);
-  const COOLDOWN_MS = 380;     // feel-good pacing
-  const THRESH = 40;           // min delta to count as navigation
-
-  const handle = useCallback((e) => {
-    // prevent page scroll while overlay is open
-    e.preventDefault();
-
-    if (cool.current) return;
-    const dx = e.deltaX;
-    const dy = e.deltaY;
-
-    // Horizontal wins for image nav if it's the dominant intent
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > THRESH) {
-      if (dx > 0) onNextImage?.();
-      else onPrevImage?.();
-    } else if (Math.abs(dy) > THRESH) {
-      if (dy > 0) onNextProduct?.();
-      else onPrevProduct?.();
-    } else {
-      return; // ignore micro-scroll
-    }
-
-    cool.current = true;
-    setTimeout(() => { cool.current = false; }, COOLDOWN_MS);
-  }, [onPrevProduct, onNextProduct, onPrevImage, onNextImage]);
-
-  return handle;
-}
-
-/** Touch/swipe navigation (vertical = product, horizontal = image) */
-function useTouchNavigator({ onPrevProduct, onNextProduct, onPrevImage, onNextImage }) {
-  const start = useRef({ x: 0, y: 0, t: 0 });
-  const SWIPE_PX = 32;
-  const SWIPE_MS = 700;
-
-  const onTouchStart = useCallback((e) => {
-    const t = e.touches?.[0];
-    if (!t) return;
-    start.current = { x: t.clientX, y: t.clientY, t: Date.now() };
-  }, []);
-
-  const onTouchEnd = useCallback((e) => {
-    const t = start.current;
-    const dx = (e.changedTouches?.[0]?.clientX ?? t.x) - t.x;
-    const dy = (e.changedTouches?.[0]?.clientY ?? t.y) - t.y;
-    const dt = Date.now() - t.t;
-    if (dt > SWIPE_MS) return;
-
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_PX) {
-      if (dx < 0) onNextImage?.(); else onPrevImage?.();
-    } else if (Math.abs(dy) > SWIPE_PX) {
-      if (dy < 0) onNextProduct?.(); else onPrevProduct?.();
-    }
-  }, [onPrevProduct, onNextProduct, onPrevImage, onNextImage]);
-
-  return { onTouchStart, onTouchEnd };
-}
-
-/* ------------------------------------------------------------------ */
-/* Inline +/sizes control                                              */
-/* ------------------------------------------------------------------ */
-function PlusSizesInline({
-  sizes = ['XS', 'S', 'M', 'L', 'XL'],
-  disabled = false,
-  title = 'Add to cart',
-  onAdd, // (size: string) => void
-}) {
-  const [showSizes, setShowSizes] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [picked, setPicked] = useState/** @type {string|null} */(null);
-
-  const clickPlus = useCallback(() => {
-    if (disabled || busy) return;
-    setShowSizes((v) => !v);
-  }, [disabled, busy]);
-
-  const pickSize = useCallback((size) => {
-    if (disabled || busy) return;
-    setBusy(true);
-    setPicked(size);
-
-    // cart hooks (badge/bump)
-    try { window.dispatchEvent(new CustomEvent('cart:add',  { detail: { qty: 1, size } })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('cart:bump', { detail: { size } })); } catch {}
-
-    try { onAdd && onAdd(size); } catch {}
-
-    setTimeout(() => {
-      setShowSizes(false);
-      setPicked(null);
-      setBusy(false);
-    }, 420);
-  }, [disabled, busy, onAdd]);
-
+function PlusSizesInline({ sizes = ['XS','S','M','L','XL'], onAdd, disabled=false, title='Add to cart' }) {
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState(null);
+  const clickPlus = () => !disabled && setOpen((v)=>!v);
+  const pick = (sz) => { if (disabled) return; setPicked(sz); try{ onAdd?.(sz); }catch{} setTimeout(()=>setPicked(null),260); setOpen(false); };
   return (
-    <div className="row-nowrap" style={{ justifyContent: 'center', gap: 10 }}>
-      <button
-        type="button"
-        aria-label={title}
-        title={title}
-        className={['pill', 'plus-pill', showSizes ? 'is-active' : ''].join(' ')}
-        disabled={disabled}
-        onClick={clickPlus}
-      >
-        +
-      </button>
-
-      {showSizes && (
-        <div className="row-nowrap" style={{ gap: 8 }}>
-          {sizes.map((sz) => (
-            <button
-              key={sz}
-              type="button"
-              className={[
-                'pill',
-                'size-pill',
-                picked === sz ? 'is-selected flash-green' : '',
-              ].join(' ')}
-              aria-pressed={picked === sz}
-              disabled={busy}
-              onClick={() => pickSize(sz)}
-            >
-              {sz}
-            </button>
+    <div className="row-nowrap" style={{ justifyContent:'center', gap:10 }}>
+      <button type="button" aria-label={title} className={['pill','plus-pill', open?'is-active':''].join(' ')} onClick={clickPlus}>+</button>
+      {open && (
+        <div className="row-nowrap" style={{ gap:8 }}>
+          {sizes.map((sz)=>(
+            <button key={sz} type="button" className={['pill','size-pill', picked===sz?'is-selected flash-green':''].join(' ')} onClick={()=>pick(sz)}>{sz}</button>
           ))}
         </div>
       )}
@@ -153,124 +24,118 @@ function PlusSizesInline({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Product overlay                                                     */
-/* ------------------------------------------------------------------ */
-export default function ProductOverlay({
-  product,
-  onClose,
-  onAddToCart,            // (product, { size, qty }) => void
-  onPrevProduct,          // () => void
-  onNextProduct,          // () => void
-}) {
-  const images = useImages(product);
-  const [idx, setIdx] = useState(0);
+export default function ProductOverlay({ product, onClose, onAddToCart }) {
+  const rootRef = useRef(null);
+  const galleryRef = useRef(0); // index within product.images
 
-  // mark overlay open so CSS can fully hide the grid & lock scroll
-  useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute('data-overlay-open', '1');
-    return () => root.removeAttribute('data-overlay-open');
-  }, []);
-
-  // keep idx in range if product changes
-  useEffect(() => { setIdx(0); }, [product?.id]);
-
-  const priceText = useMemo(() => {
-    const p = product?.price;
-    if (typeof p === 'number') return `$${(p / 100).toFixed(2)}`;
-    if (typeof p === 'string') return p;
-    return '';
+  const images = useMemo(() => {
+    const arr = Array.isArray(product?.images) && product.images.length ? product.images : [product?.image].filter(Boolean);
+    return arr;
   }, [product]);
 
-  const prevImg = useCallback(() => setIdx((i) => clamp(i - 1, 0, images.length - 1)), [images.length]);
-  const nextImg = useCallback(() => setIdx((i) => clamp(i + 1, 0, images.length - 1)), [images.length]);
-
-  // Mouse wheel navigation (product ↕, image ↔)
-  const onWheel = useWheelNavigator({
-    onPrevProduct, onNextProduct, onPrevImage: prevImg, onNextImage: nextImg
-  });
-
-  // Touch navigation
-  const touch = useTouchNavigator({
-    onPrevProduct, onNextProduct, onPrevImage: prevImg, onNextImage: nextImg
-  });
-
-  // Keyboard navigation
+  // mark overlay open to hide grid clicks behind
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') return onClose?.();
-      if (e.key === 'ArrowUp')    { e.preventDefault(); onPrevProduct?.(); }
-      if (e.key === 'ArrowDown')  { e.preventDefault(); onNextProduct?.(); }
-      if (e.key === 'ArrowLeft')  { e.preventDefault(); prevImg(); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); nextImg(); }
-    };
+    const r = document.documentElement;
+    r.setAttribute('data-overlay-open', '1');
+    return () => r.removeAttribute('data-overlay-open');
+  }, []);
+
+  // ESC closes
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, onPrevProduct, onNextProduct, prevImg, nextImg]);
+  }, [onClose]);
 
-  // orb acts as back while overlay is open
+  // Orb = back (close overlay)
   useEffect(() => {
     const onZoom = () => onClose?.();
     window.addEventListener('lb:zoom', onZoom);
-    return () => window.removeEventListener('lb:zoom', onZoom);
+    document.addEventListener('lb:zoom', onZoom);
+    return () => {
+      window.removeEventListener('lb:zoom', onZoom);
+      document.removeEventListener('lb:zoom', onZoom);
+    };
   }, [onClose]);
 
+  // Scroll/trackpad to next/prev product in parent
+  useEffect(() => {
+    if (!rootRef.current) return;
+    let acc = 0;
+    const THRESH = 38;
+
+    const onWheel = (e) => {
+      // horizontal → gallery; vertical → product navigation
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        if (e.deltaX > 0) stepImage(1);
+        else if (e.deltaX < 0) stepImage(-1);
+        return;
+      }
+      acc += e.deltaY;
+      if (acc > THRESH) { acc = 0; emitNavigate('next'); }
+      else if (acc < -THRESH) { acc = 0; emitNavigate('prev'); }
+    };
+
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight') stepImage(1);
+      if (e.key === 'ArrowLeft')  stepImage(-1);
+      if (e.key === 'PageDown')   emitNavigate('next');
+      if (e.key === 'PageUp')     emitNavigate('prev');
+    };
+
+    rootRef.current.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('keydown', onKey);
+    return () => {
+      rootRef.current?.removeEventListener('wheel', onWheel);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  const stepImage = (dir) => {
+    if (images.length < 2) return;
+    galleryRef.current = (galleryRef.current + dir + images.length) % images.length;
+    // force a re-render by poking state via no-op setter pattern:
+    setVersion((v)=>v+1);
+  };
+  const [_, setVersion] = useState(0);
+
+  const emitNavigate = (dir) => {
+    try { window.dispatchEvent(new CustomEvent('lb:overlay:navigate', { detail:{ dir } })); } catch {}
+  };
+
   const handleAdd = useCallback((size) => {
-    try { onAddToCart && onAddToCart(product, { size, qty: 1 }); } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent('cart:add', { detail:{ size, count:1 } }));
+      window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size, count:1 } }));
+    } catch {}
+    onAddToCart?.(product, { size, qty:1 });
   }, [onAddToCart, product]);
 
   if (!product) return null;
 
   return (
-    <div
-      className="product-hero-overlay"
-      data-overlay
-      onWheel={onWheel}
-      onTouchStart={touch.onTouchStart}
-      onTouchEnd={touch.onTouchEnd}
-    >
+    <div className="product-hero-overlay" data-overlay ref={rootRef}>
       <div className="product-hero">
-        {/* explicit close (hidden by CSS if you prefer orb-only) */}
-        <button className="product-hero-close" onClick={onClose} aria-label="Close">×</button>
+        {/* Close (hidden visually; still accessible) */}
+        <button className="product-hero-close" onClick={onClose} aria-label="Close overlay">×</button>
 
-        {/* image */}
+        {/* Image / gallery */}
         <div style={{ width:'100%', display:'grid', placeItems:'center' }}>
           <Image
-            src={images[idx]}
+            key={images[galleryRef.current] || product.id}
+            src={images[galleryRef.current] || product.image}
             alt={product.title}
             width={1200}
             height={1000}
-            className="product-hero-img"
             priority
+            className="product-hero-img"
           />
         </div>
 
-        {/* simple pager dots (optional tiny control) */}
-        {images.length > 1 && (
-          <div className="row-nowrap" style={{ gap:6, marginTop:4 }}>
-            {images.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                aria-label={`Go to image ${i+1}`}
-                onClick={() => setIdx(i)}
-                className="pill"
-                style={{ width:10, height:10, padding:0, borderRadius:9999, opacity:i===idx?1:.45 }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* title & price */}
         <div className="product-hero-title">{product.title}</div>
-        {priceText && <div className="product-hero-price">{priceText}</div>}
+        <div className="product-hero-price">${(product.price/100).toFixed(2)}</div>
 
-        {/* + / sizes */}
-        <PlusSizesInline
-          sizes={product.sizes || ['XS','S','M','L','XL']}
-          onAdd={handleAdd}
-        />
+        <PlusSizesInline sizes={product.sizes || ['XS','S','M','L','XL']} onAdd={handleAdd} />
       </div>
     </div>
   );
