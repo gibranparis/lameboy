@@ -1,4 +1,3 @@
-// src/components/HeaderBar.jsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -27,18 +26,17 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
 
   // reflect on root for CSS tokens
   useEffect(() => {
-    const root = document.querySelector(rootSelector) || document.documentElement;
-    root.setAttribute('data-mode', 'shop');
-    root.setAttribute('data-theme', isNight ? 'night' : 'day');
-    try { localStorage.setItem('lb:theme', isNight ? 'night' : 'day'); } catch {}
+    try {
+      const root = document.querySelector(rootSelector) || document.documentElement;
+      root.setAttribute('data-mode', 'shop');
+      root.setAttribute('data-theme', isNight ? 'night' : 'day');
+      localStorage.setItem('lb:theme', isNight ? 'night' : 'day');
+    } catch {}
   }, [isNight, rootSelector]);
 
   return (
-    <header
-      role="banner"
-      className="w-full px-4 pt-3 pb-1"
-      style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}
-    >
+    <header role="banner" className="w-full px-4 pt-3 pb-1"
+      style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
       {/* LEFT: orb (click = zoom in, right-click = zoom out) */}
       <div className="flex items-center">
         <div style={{ height: ctrlPx, width: ctrlPx, display: 'grid', placeItems: 'center' }}>
@@ -85,8 +83,11 @@ function useCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
     const read = () => {
-      const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
-      setPx(parseInt(v, 10) || defaultPx);
+      try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
+        const n = parseInt(v, 10);
+        setPx(Number.isFinite(n) ? n : defaultPx);
+      } catch { setPx(defaultPx); }
     };
     read();
     window.addEventListener('resize', read);
