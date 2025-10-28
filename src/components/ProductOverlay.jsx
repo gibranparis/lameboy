@@ -3,7 +3,21 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+/* ============================= Utilities ============================= */
+function formatPrice(val) {
+  // Accept numbers (assume cents), strings (use as-is), or falsy (0.00)
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    const dollars = (val / 100).toFixed(2);
+    return `$${dollars}`;
+  }
+  if (typeof val === 'string' && val.trim() !== '') {
+    // If string already has $, return as-is; otherwise prefix
+    return /^\$/.test(val) ? val : `$${val}`;
+  }
+  return '$0.00';
+}
 
 /* ------------------------------------------------------------------ */
 /* Inline +/sizes control (NO new file)                               */
@@ -25,19 +39,14 @@ function PlusSizesInline({
 
   const clickPlus = useCallback(() => {
     if (disabled || busy) return;
-    setShowSizes(true);
+    setShowSizes((v) => !v);
   }, [disabled, busy]);
 
   const pickSize = useCallback((size) => {
     if (disabled || busy) return;
     setBusy(true);
     setPicked(size);
-
-    // cart hooks (badge/bump)
-    try { window.dispatchEvent(new CustomEvent('cart:add', { detail: { size, qty: 1 } })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('cart:bump')); } catch {}
-
-    try { onAdd && onAdd(size); } catch {}
+    try { onAdd?.(size); } catch {}
 
     // brief green flash then reset to just “+”
     setTimeout(() => {
@@ -92,45 +101,86 @@ function PlusSizesInline({
 export default function ProductOverlay({
   product,
   onClose,
-  onAddToCart, // (product, { size, qty }) => void
+  onAddToCart, // (product, { size, count }) => void
 }) {
-  // mark overlay open so CSS can fully hide the grid
+  const closeBtnRef = useRef/** @type {React.RefObject<HTMLButtonElement>} */(null);
+
+  // Guard early
+  if (!product) return null;
+
+  // close on Escape + orb “back” (lb:zoom)
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    const onZoom = () => onClose?.();
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('lb:zoom', onZoom);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('lb:zoom', onZoom);
+    };
+  }, [onClose]);
+
+  // mark overlay open so CSS can dim / disable grid
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-overlay-open', '1');
+    // focus close for a11y
+    requestAnimationFrame(() => { try { closeBtnRef.current?.focus(); } catch {} });
     return () => root.removeAttribute('data-overlay-open');
   }, []);
 
-  if (!product) return null;
+  const sizes = useMemo(
+    () => (Array.isArray(product?.sizes) && product.sizes.length ? product.sizes : ['XS','S','M','L','XL']),
+    [product?.sizes]
+  );
 
   const handleAdd = useCallback((size) => {
-    try { onAddToCart && onAddToCart(product, { size, qty: 1 }); } catch {}
+    const count = 1;
+    const id = product?.id ?? null;
+
+    // app-level event bus (new + legacy)
+    try { window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail: { id, size, count } })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('cart:add',       { detail: { size, count } })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('cart:bump')); } catch {}
+
+    // optional hook for store integration
+    try { onAddToCart?.(product, { size, count }); } catch {}
   }, [onAddToCart, product]);
 
+  const title = product?.title ?? 'LAMEBOY';
+  const priceText = formatPrice(product?.price);
+
   return (
-    <div className="product-hero-overlay" data-overlay>
+    <div className="product-hero-overlay" role="dialog" aria-modal="true" aria-label={`${title} details`} data-overlay>
       <div className="product-hero">
         {/* single explicit close; orb also acts as back */}
-        <button className="product-hero-close" onClick={onClose} aria-label="Close">×</button>
+        <button
+          ref={closeBtnRef}
+          className="product-hero-close"
+          onClick={onClose}
+          aria-label="Close product"
+          title="Close"
+        >
+          ×
+        </button>
 
-        {product.image && (
-          <Image
-            src={product.image}
-            alt={product.title}
-            width={1000}
-            height={900}
-            priority
-            className="product-hero-img"
-          />
+        {!!product?.image && (
+          <div style={{ width:'100%', display:'grid', placeItems:'center' }}>
+            <Image
+              src={product.image}
+              alt={title}
+              width={1000}
+              height={900}
+              priority
+              className="product-hero-img"
+            />
+          </div>
         )}
 
-        <div className="product-hero-title">{product.title}</div>
-        <div className="product-hero-price">{product.price}</div>
+        <div className="product-hero-title">{title}</div>
+        <div className="product-hero-price">{priceText}</div>
 
-        <PlusSizesInline
-          sizes={product.sizes || ['XS','S','M','L','XL']}
-          onAdd={handleAdd}
-        />
+        <PlusSizesInline sizes={sizes} onAdd={handleAdd} />
       </div>
     </div>
   );
