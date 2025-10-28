@@ -3,23 +3,85 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-/* ============================= Utilities ============================= */
-function formatPrice(val) {
-  // Accept numbers (assume cents), strings (use as-is), or falsy (0.00)
-  if (typeof val === 'number' && Number.isFinite(val)) {
-    const dollars = (val / 100).toFixed(2);
-    return `$${dollars}`;
-  }
-  if (typeof val === 'string' && val.trim() !== '') {
-    return /^\$/.test(val) ? val : `$${val}`;
-  }
-  return '$0.00';
+/** Normalize images to a non-empty array */
+function useImages(product) {
+  return useMemo(() => {
+    const imgs =
+      (Array.isArray(product?.images) && product.images.length ? product.images :
+      (product?.image ? [product.image] : []))
+      .filter(Boolean);
+    return imgs.length ? imgs : ['/placeholder.png'];
+  }, [product]);
+}
+
+/** Clamp helper */
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+/** Wheel throttle so we move one step per gesture */
+function useWheelNavigator({ onPrevProduct, onNextProduct, onPrevImage, onNextImage }) {
+  const cool = useRef(false);
+  const COOLDOWN_MS = 380;     // feel-good pacing
+  const THRESH = 40;           // min delta to count as navigation
+
+  const handle = useCallback((e) => {
+    // prevent page scroll while overlay is open
+    e.preventDefault();
+
+    if (cool.current) return;
+    const dx = e.deltaX;
+    const dy = e.deltaY;
+
+    // Horizontal wins for image nav if it's the dominant intent
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > THRESH) {
+      if (dx > 0) onNextImage?.();
+      else onPrevImage?.();
+    } else if (Math.abs(dy) > THRESH) {
+      if (dy > 0) onNextProduct?.();
+      else onPrevProduct?.();
+    } else {
+      return; // ignore micro-scroll
+    }
+
+    cool.current = true;
+    setTimeout(() => { cool.current = false; }, COOLDOWN_MS);
+  }, [onPrevProduct, onNextProduct, onPrevImage, onNextImage]);
+
+  return handle;
+}
+
+/** Touch/swipe navigation (vertical = product, horizontal = image) */
+function useTouchNavigator({ onPrevProduct, onNextProduct, onPrevImage, onNextImage }) {
+  const start = useRef({ x: 0, y: 0, t: 0 });
+  const SWIPE_PX = 32;
+  const SWIPE_MS = 700;
+
+  const onTouchStart = useCallback((e) => {
+    const t = e.touches?.[0];
+    if (!t) return;
+    start.current = { x: t.clientX, y: t.clientY, t: Date.now() };
+  }, []);
+
+  const onTouchEnd = useCallback((e) => {
+    const t = start.current;
+    const dx = (e.changedTouches?.[0]?.clientX ?? t.x) - t.x;
+    const dy = (e.changedTouches?.[0]?.clientY ?? t.y) - t.y;
+    const dt = Date.now() - t.t;
+    if (dt > SWIPE_MS) return;
+
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_PX) {
+      if (dx < 0) onNextImage?.(); else onPrevImage?.();
+    } else if (Math.abs(dy) > SWIPE_PX) {
+      if (dy < 0) onNextProduct?.(); else onPrevProduct?.();
+    }
+  }, [onPrevProduct, onNextProduct, onPrevImage, onNextImage]);
+
+  return { onTouchStart, onTouchEnd };
 }
 
 /* ------------------------------------------------------------------ */
-/* Inline +/sizes control (NO new file)                               */
+/* Inline +/sizes control                                              */
 /* ------------------------------------------------------------------ */
 function PlusSizesInline({
   sizes = ['XS', 'S', 'M', 'L', 'XL'],
@@ -31,11 +93,6 @@ function PlusSizesInline({
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState/** @type {string|null} */(null);
 
-  const plusClass = useMemo(
-    () => ['pill', 'plus-pill', showSizes ? 'is-active' : ''].filter(Boolean).join(' '),
-    [showSizes]
-  );
-
   const clickPlus = useCallback(() => {
     if (disabled || busy) return;
     setShowSizes((v) => !v);
@@ -45,9 +102,13 @@ function PlusSizesInline({
     if (disabled || busy) return;
     setBusy(true);
     setPicked(size);
-    try { onAdd?.(size); } catch {}
 
-    // brief green flash then reset to just “+”
+    // cart hooks (badge/bump)
+    try { window.dispatchEvent(new CustomEvent('cart:add',  { detail: { qty: 1, size } })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('cart:bump', { detail: { size } })); } catch {}
+
+    try { onAdd && onAdd(size); } catch {}
+
     setTimeout(() => {
       setShowSizes(false);
       setPicked(null);
@@ -57,19 +118,17 @@ function PlusSizesInline({
 
   return (
     <div className="row-nowrap" style={{ justifyContent: 'center', gap: 10 }}>
-      {/* “+” stays visible; turns grey while sizes are shown */}
       <button
         type="button"
         aria-label={title}
         title={title}
-        className={plusClass}
+        className={['pill', 'plus-pill', showSizes ? 'is-active' : ''].join(' ')}
         disabled={disabled}
         onClick={clickPlus}
       >
         +
       </button>
 
-      {/* sizes appear while + is active */}
       {showSizes && (
         <div className="row-nowrap" style={{ gap: 8 }}>
           {sizes.map((sz) => (
@@ -100,87 +159,118 @@ function PlusSizesInline({
 export default function ProductOverlay({
   product,
   onClose,
-  onAddToCart, // (product, { size, count }) => void
+  onAddToCart,            // (product, { size, qty }) => void
+  onPrevProduct,          // () => void
+  onNextProduct,          // () => void
 }) {
-  // Guard early
-  if (!product) return null;
+  const images = useImages(product);
+  const [idx, setIdx] = useState(0);
 
-  // Close on Escape + orb “back” (lb:zoom)
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
-    const onZoom = () => onClose?.();
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('lb:zoom', onZoom);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('lb:zoom', onZoom);
-    };
-  }, [onClose]);
-
-  // Flag overlay on <html> for CSS (and optional scroll-lock via CSS)
+  // mark overlay open so CSS can fully hide the grid & lock scroll
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-overlay-open', '1');
     return () => root.removeAttribute('data-overlay-open');
   }, []);
 
-  const sizes = useMemo(
-    () => (Array.isArray(product?.sizes) && product.sizes.length ? product.sizes : ['XS','S','M','L','XL']),
-    [product?.sizes]
-  );
+  // keep idx in range if product changes
+  useEffect(() => { setIdx(0); }, [product?.id]);
+
+  const priceText = useMemo(() => {
+    const p = product?.price;
+    if (typeof p === 'number') return `$${(p / 100).toFixed(2)}`;
+    if (typeof p === 'string') return p;
+    return '';
+  }, [product]);
+
+  const prevImg = useCallback(() => setIdx((i) => clamp(i - 1, 0, images.length - 1)), [images.length]);
+  const nextImg = useCallback(() => setIdx((i) => clamp(i + 1, 0, images.length - 1)), [images.length]);
+
+  // Mouse wheel navigation (product ↕, image ↔)
+  const onWheel = useWheelNavigator({
+    onPrevProduct, onNextProduct, onPrevImage: prevImg, onNextImage: nextImg
+  });
+
+  // Touch navigation
+  const touch = useTouchNavigator({
+    onPrevProduct, onNextProduct, onPrevImage: prevImg, onNextImage: nextImg
+  });
+
+  // Keyboard navigation
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') return onClose?.();
+      if (e.key === 'ArrowUp')    { e.preventDefault(); onPrevProduct?.(); }
+      if (e.key === 'ArrowDown')  { e.preventDefault(); onNextProduct?.(); }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); prevImg(); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); nextImg(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, onPrevProduct, onNextProduct, prevImg, nextImg]);
+
+  // orb acts as back while overlay is open
+  useEffect(() => {
+    const onZoom = () => onClose?.();
+    window.addEventListener('lb:zoom', onZoom);
+    return () => window.removeEventListener('lb:zoom', onZoom);
+  }, [onClose]);
 
   const handleAdd = useCallback((size) => {
-    const count = 1;
-    const id = product?.id ?? null;
-
-    // app-level event bus (new + legacy)
-    try { window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail: { id, size, count } })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('cart:add',       { detail: { size, count } })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('cart:bump')); } catch {}
-
-    // optional hook for store integration
-    try { onAddToCart?.(product, { size, count }); } catch {}
+    try { onAddToCart && onAddToCart(product, { size, qty: 1 }); } catch {}
   }, [onAddToCart, product]);
 
-  const title = product?.title ?? 'LAMEBOY';
-  const priceText = formatPrice(product?.price);
+  if (!product) return null;
 
   return (
     <div
       className="product-hero-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${title} details`}
       data-overlay
+      onWheel={onWheel}
+      onTouchStart={touch.onTouchStart}
+      onTouchEnd={touch.onTouchEnd}
     >
       <div className="product-hero">
-        {/* single explicit close; orb also acts as back (X hidden by CSS) */}
-        <button
-          className="product-hero-close"
-          onClick={onClose}
-          aria-label="Close product"
-          title="Close"
-        >
-          ×
-        </button>
+        {/* explicit close (hidden by CSS if you prefer orb-only) */}
+        <button className="product-hero-close" onClick={onClose} aria-label="Close">×</button>
 
-        {!!product?.image && (
-          <div style={{ width:'100%', display:'grid', placeItems:'center' }}>
-            <Image
-              src={product.image}
-              alt={title}
-              width={1000}
-              height={900}
-              priority
-              className="product-hero-img"
-            />
+        {/* image */}
+        <div style={{ width:'100%', display:'grid', placeItems:'center' }}>
+          <Image
+            src={images[idx]}
+            alt={product.title}
+            width={1200}
+            height={1000}
+            className="product-hero-img"
+            priority
+          />
+        </div>
+
+        {/* simple pager dots (optional tiny control) */}
+        {images.length > 1 && (
+          <div className="row-nowrap" style={{ gap:6, marginTop:4 }}>
+            {images.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`Go to image ${i+1}`}
+                onClick={() => setIdx(i)}
+                className="pill"
+                style={{ width:10, height:10, padding:0, borderRadius:9999, opacity:i===idx?1:.45 }}
+              />
+            ))}
           </div>
         )}
 
-        <div className="product-hero-title">{title}</div>
-        <div className="product-hero-price">{priceText}</div>
+        {/* title & price */}
+        <div className="product-hero-title">{product.title}</div>
+        {priceText && <div className="product-hero-price">{priceText}</div>}
 
-        <PlusSizesInline sizes={sizes} onAdd={handleAdd} />
+        {/* + / sizes */}
+        <PlusSizesInline
+          sizes={product.sizes || ['XS','S','M','L','XL']}
+          onAdd={handleAdd}
+        />
       </div>
     </div>
   );

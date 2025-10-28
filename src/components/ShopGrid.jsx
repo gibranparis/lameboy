@@ -1,21 +1,16 @@
 // @ts-check
+// src/components/ShopGrid.jsx
 'use client';
 
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-
-/** Tiny inline placeholder to avoid 404s if no /public/placeholder.png */
-const PLACEHOLDER_SRC = 'data:image/svg+xml;utf8,' + encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800">
-     <rect width="100%" height="100%" fill="#0e0e12"/>
-     <text x="50%" y="50%" fill="#6ee7b7" font-size="36" font-family="Helvetica,Arial,sans-serif" dominant-baseline="middle" text-anchor="middle">LAMEBOY</text>
-   </svg>`
-);
+import ProductOverlay from '@/components/ProductOverlay';
 
 /** Pill (shared look) */
 function Pill({ children, onClick, active=false, ready=false, selected=false, className='', ...rest }) {
   const cls = [
-    'pill', className,
+    'pill',
+    className,
     active ? 'plus-pill is-active' : '',
     ready ? 'plus-pill is-ready' : '',
     selected ? 'size-pill is-selected flash-green' : '',
@@ -27,155 +22,121 @@ function Pill({ children, onClick, active=false, ready=false, selected=false, cl
   );
 }
 
-/** Overlay for a single product */
-function ProductOverlay({ product, onClose }) {
-  const [plusOpen, setPlusOpen] = useState(false);
-  const [justAdded, setJustAdded] = useState(false);
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    const onZoom = () => onClose(); // orb = back
-    window.addEventListener('lb:zoom', onZoom);
-    return () => window.removeEventListener('lb:zoom', onZoom);
-  }, [onClose]);
-
-  useEffect(() => {
-    const r = document.documentElement;
-    r.setAttribute('data-overlay-open', '1');
-    return () => r.removeAttribute('data-overlay-open');
-  }, []);
-
-  const handlePlus = () => { setPlusOpen(v => !v); setJustAdded(false); };
-
-  const handlePickSize = (size) => {
-    try { window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail: { id: product.id, size, count: 1 } })); } catch {}
-    setJustAdded(true);
-    setPlusOpen(false);
-    setTimeout(() => setJustAdded(false), 260);
-  };
-
-  const sizes = Array.isArray(product?.sizes) ? product.sizes : [];
-
-  return (
-    <div className="product-hero-overlay" role="dialog" aria-modal="true">
-      <div className="product-hero">
-        <div style={{ width:'100%', display:'grid', placeItems:'center' }}>
-          <Image
-            src={product?.image || PLACEHOLDER_SRC}
-            alt={product?.title || 'Product'}
-            width={1000}
-            height={800}
-            className="product-hero-img"
-            priority
-          />
-        </div>
-
-        <div className="product-hero-title">{product?.title ?? 'LAMEBOY'}</div>
-        <div className="product-hero-price">${(((product?.price ?? 0)/100) || 0).toFixed(2)}</div>
-
-        <div style={{ display:'grid', justifyItems:'center', gap:10, marginTop:4 }}>
-          <Pill aria-label="Add" active={plusOpen && !justAdded} ready={justAdded} onClick={handlePlus} className="w-[34px] h-[34px] !p-0">+</Pill>
-          {plusOpen && (
-            <div className="row-nowrap" style={{ gap:8 }}>
-              {['XS','S','M','L','XL']
-                .filter(sz => sizes.includes(sz))
-                .map(sz => <Pill key={sz} onClick={() => handlePickSize(sz)}>{sz}</Pill>)}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Fallback placeholders if no products are passed */
-function placeholders(n = 16) {
-  return Array.from({ length: n }).map((_, i) => ({
-    id: `ph-${i}`,
-    title: `LAMEBOY ${i + 1}`,
-    image: PLACEHOLDER_SRC,
-    price: 4000 + i * 100,
-    sizes: ['S','M','L','XL'],
-  }));
-}
+// Fallback minimal catalog if none is supplied (non-blocking)
+const FALLBACK = [
+  { id: 'p1', title: 'LAME Tee – White', price: 3200, image: '/products/tee-white.png', images: ['/products/tee-white.png'], sizes: ['S','M','L','XL'] },
+  { id: 'p2', title: 'LAME Hoodie – Pink', price: 8800, image: '/products/hoodie-pink.png', images: ['/products/hoodie-pink.png'], sizes: ['M','L','XL'] },
+  { id: 'p3', title: 'LAME Cap – Brown',  price: 4200, image: '/products/cap-brown.png',  images: ['/products/cap-brown.png'],  sizes: ['OS'] },
+];
 
 /** Grid */
-export default function ShopGrid({ products, hideTopRow = false }) {
-  // Normalize products to a safe array
-  const list = useMemo(() => (Array.isArray(products) ? products : placeholders(24)), [products]);
+export default function ShopGrid({ products }) {
+  const catalog = Array.isArray(products) && products.length ? products : FALLBACK;
 
-  const [overlayId, setOverlayId] = useState(null);
+  const [overlayId, setOverlayId] = useState/** @type {string|null} */(null);
 
   // === Grid density (orb) — smooth 5→1→5 bounce, one step per click ===
   const [cols, setCols] = useState(5);
-  const [down, setDown] = useState(true);
+  const [down, setDown] = useState(true); // are we stepping downward?
 
   const stepCols = useCallback(() => {
-    setCols(prev => {
-      const next = down ? Math.max(1, prev - 1) : Math.min(5, prev + 1);
-      const nd = (next === 1) ? false : (next === 5) ? true : down;
-      setDown(nd);
-      try { document.documentElement.style.setProperty('--grid-cols', String(next)); } catch {}
+    setCols((prev) => {
+      let next = prev;
+      if (down) next = Math.max(1, prev - 1);
+      else next = Math.min(5, prev + 1);
+
+      let nextDown = down;
+      if (next === 1) nextDown = false;
+      if (next === 5) nextDown = true;
+      setDown(nextDown);
+
+      document.documentElement.style.setProperty('--grid-cols', String(next));
       return next;
     });
   }, [down]);
 
+  // hook up to orb
   useEffect(() => {
-    const onZoom = () => { if (overlayId == null) stepCols(); };
+    const onZoom = (e) => {
+      // If overlay open, ignore density (overlay consumes orb as back)
+      if (overlayId != null) return;
+      stepCols();
+    };
     window.addEventListener('lb:zoom', onZoom);
     return () => window.removeEventListener('lb:zoom', onZoom);
   }, [overlayId, stepCols]);
 
+  // open/close helpers
   const open = (id) => setOverlayId(id);
   const close = () => setOverlayId(null);
 
-  const overlayProduct = useMemo(
-    () => list.find?.(p => p?.id === overlayId) ?? null,
-    [overlayId, list]
-  );
+  // current product & index
+  const index = useMemo(() => catalog.findIndex(p => p.id === overlayId), [catalog, overlayId]);
+  const overlayProduct = index >= 0 ? catalog[index] : null;
+
+  // next/prev product from overlay (wrap disabled; clamp instead)
+  const prevProduct = useCallback(() => {
+    if (index <= 0) return; // clamp at first
+    setOverlayId(catalog[index - 1].id);
+  }, [index, catalog]);
+
+  const nextProduct = useCallback(() => {
+    if (index < 0) return;
+    if (index >= catalog.length - 1) return; // clamp at last
+    setOverlayId(catalog[index + 1].id);
+  }, [index, catalog]);
+
+  // When overlay is open, dim grid interactions via the html flag (CSS handles)
+  useEffect(() => {
+    const r = document.documentElement;
+    if (overlayId) r.setAttribute('data-overlay-open', '1');
+    else r.removeAttribute('data-overlay-open');
+    return () => r.removeAttribute('data-overlay-open');
+  }, [overlayId]);
+
+  // Add-to-cart passthrough (optional external hook)
+  const onAddToCart = useCallback((product, { size, qty }) => {
+    // external hook goes here if needed; events already dispatched in overlay
+    // console.log('added', product.id, size, qty);
+  }, []);
 
   return (
     <div className="shop-wrap" style={{ padding:'28px 28px 60px' }}>
-      {hideTopRow ? <div style={{ height: 0 }} aria-hidden="true" /> : null}
-
-      <div
-        className="shop-grid"
-        style={{
-          display:'grid',
-          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          gap: 12,
-        }}
-      >
-        {list.map((p, i) => (
+      <div className="shop-grid" style={{ '--grid-cols': cols }}>
+        {catalog.map((p) => (
           <a
-            key={p?.id ?? i}
+            key={p.id}
             className="product-tile lb-tile"
             role="button"
             tabIndex={0}
-            onClick={(e)=>{ e.preventDefault(); open(p?.id ?? i); }}
-            onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); open(p?.id ?? i); }}}
+            onClick={(e)=>{ e.preventDefault(); open(p.id); }}
+            onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); open(p.id); }}}
           >
             <div className="product-box">
               <Image
-                src={p?.image || PLACEHOLDER_SRC}
-                alt={p?.title ?? 'Item'}
+                src={p.image || p.images?.[0] || '/placeholder.png'}
+                alt={p.title}
                 width={800}
                 height={800}
                 className="product-img"
-                priority={i === 0}
+                priority={p===catalog[0]}
               />
             </div>
-            <div className="product-meta">{p?.title ?? `Item ${i + 1}`}</div>
+            <div className="product-meta">{p.title}</div>
           </a>
         ))}
       </div>
 
-      {overlayProduct && <ProductOverlay product={overlayProduct} onClose={close} />}
+      {/* Overlay */}
+      {overlayProduct && (
+        <ProductOverlay
+          product={overlayProduct}
+          onClose={close}
+          onAddToCart={onAddToCart}
+          onPrevProduct={prevProduct}
+          onNextProduct={nextProduct}
+        />
+      )}
     </div>
   );
 }
