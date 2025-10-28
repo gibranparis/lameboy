@@ -18,7 +18,6 @@ function OrbCross({
   onActivate = null,
   overrideAllColor = null,
   overrideGlowOpacity,
-  // internal: only used when `interactive` on parent is true
   __interactive = false,
 }) {
   const group = useRef();
@@ -153,7 +152,6 @@ function OrbCross({
     };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
-  // Only bind handlers if we explicitly run interactive mode (standalone usage)
   const handlePointerDown = __interactive ? (e) => { e.stopPropagation(); onActivate && onActivate(); } : undefined;
   const handleKeyDown     = __interactive ? (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } } : undefined;
 
@@ -217,15 +215,14 @@ export default function BlueOrbCross3D({
   overrideGlowOpacity,
   style = {},
   className = '',
-  // IMPORTANT: default false so ChakraOrbButton remains the only interactive element
-  interactive = false,
+  interactive = false, // ChakraOrbButton passes true
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
 
   useEffect(() => {
     const pr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
-    setMaxDpr(Math.min(2, Math.max(1, pr))); // cap at 2 for perf
+    setMaxDpr(Math.min(2, Math.max(1, pr)));
     const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     setReduced(!!mq?.matches);
     const onChange = (e) => setReduced(e.matches);
@@ -233,26 +230,54 @@ export default function BlueOrbCross3D({
     return () => mq?.removeEventListener?.('change', onChange);
   }, []);
 
+  const px = typeof height === 'number' ? `${height}px` : height;
+
   return (
     <div
       className={className}
       style={{
-        height,
-        width: height,
+        height: px,
+        width: px,
+        position: 'relative',
+        zIndex: 1,                    // draw above neighbors inside control
         display: 'inline-block',
         contain: 'layout paint style',
         isolation: 'isolate',
-        // Let parent button receive all events when not interactive
         pointerEvents: interactive ? 'auto' : 'none',
         ...style,
       }}
+      // Soft visible fallback halo in case WebGL/canvas fails to paint
+      aria-hidden
     >
+      <span
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '9999px',
+          background: 'radial-gradient(closest-side, rgba(50,255,199,.18), rgba(50,255,199,.06) 62%, transparent 74%)',
+          filter: 'saturate(1.1)',
+          pointerEvents: 'none',
+        }}
+      />
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        // Canvas also does not intercept events unless interactive
-        style={{ pointerEvents: interactive ? 'auto' : 'none', outline: 'none' }}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: 'high-performance',
+          premultipliedAlpha: true,
+        }}
+        frameloop="always"
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          outline: 'none',
+          pointerEvents: interactive ? 'auto' : 'none',
+          position: 'relative',
+          zIndex: 2,
+        }}
       >
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 2, 4]} intensity={1.25} />
