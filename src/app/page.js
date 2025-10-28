@@ -12,6 +12,7 @@ const ChakraOrbButton  = nextDynamic(() => import('@/components/ChakraOrbButton'
 const CartButton       = nextDynamic(() => import('@/components/CartButton'),       { ssr: false });
 const DayNightToggle   = nextDynamic(() => import('@/components/DayNightToggle'),   { ssr: false });
 
+/* Simple in-file ErrorBoundary */
 class PageErrorBoundary extends React.Component {
   constructor(props){ super(props); this.state = { hasError:false, error:null }; }
   static getDerivedStateFromError(error){ return { hasError:true, error }; }
@@ -30,6 +31,7 @@ class PageErrorBoundary extends React.Component {
   }
 }
 
+/* Read --header-ctrl safely */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
@@ -98,24 +100,17 @@ export default function Page(){
 
   const onProceed = () => setIsShop(true);
 
-  // Emit zoom/density step; also used as "back" when overlay is open
+  // Optional: emit zoom/density step (ChakraOrbButton already emits)
   const emitZoomStep = useCallback((step = 1, dir = 'in') => {
-    try {
-      const evt = new CustomEvent('lb:zoom', { detail:{ step, dir } });
-      // use *document* only to avoid double listeners
-      document.dispatchEvent(evt);
-    } catch {}
-    try {
-      const evt2 = new CustomEvent('grid-density', { detail:{ step, dir } });
-      document.dispatchEvent(evt2);
-    } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail:{ step, dir } })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('grid-density', { detail:{ step, dir } })); } catch {}
   }, []);
 
   const headerStyle = useMemo(() => ({
     position:'fixed',
     inset:'0 0 auto 0',
     height:HEADER_H,
-    zIndex:140,
+    zIndex:300,                                // ABOVE overlay
     display:'grid',
     gridTemplateColumns:'auto 1fr auto',
     alignItems:'center',
@@ -133,17 +128,16 @@ export default function Page(){
               <ChakraOrbButton
                 size={ORB_PX}
                 className="orb-ring"
-                // click / enter = in, right-click = out, wheel handled inside
-                // also dispatches lb:zoom & grid-density
-                // we still pass onActivate to be safe
                 style={{ display:'grid', placeItems:'center' }}
+                // ChakraOrbButton handles click/right-click/wheel + dispatches events
+                // If you ever want this button to also trigger programmatically:
+                // onClick={() => emitZoomStep(1, 'in')}
               />
             </div>
 
             {/* CENTER: day/night toggle */}
-            <div style={{ display:'grid', placeItems:'center' }}>
+            <div id="lb-daynight" style={{ display:'grid', placeItems:'center' }}>
               <DayNightToggle
-                id="lb-daynight"
                 circlePx={TOGGLE_KNOB_PX}
                 trackPad={TOGGLE_TRACK_PAD}
                 moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
