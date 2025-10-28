@@ -18,7 +18,7 @@ export default function ChakraOrbButton({
   className = '',
   style = {},
 }) {
-  // ---- Debounce guard so click + onActivate don't double-fire ----
+  // Debounce so click + onActivate don’t double-fire
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 200;
 
@@ -44,31 +44,30 @@ export default function ChakraOrbButton({
       emitZoom(1, 'in');
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      emitZoom(1, 'in');
+      emitZoom(1, 'in');  // tighter grid
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
-      emitZoom(1, 'out');
+      emitZoom(1, 'out'); // looser grid
     }
   };
 
-  // Trackpad/Mouse wheel: vertical/horizontal both supported
+  // Trackpad/Mouse wheel (React's wheel is non-passive → preventDefault works)
   const onWheel = (e) => {
-    // Keep the gesture on the control; don't scroll the page
+    // Keep the gesture on the control; don't scroll the page behind
     e.preventDefault();
     const { deltaX, deltaY } = e;
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
-    const THRESH = 16; // ignore micro scroll
+    const THRESH = 16; // ignore micro scroll noise
 
     if (absX < THRESH && absY < THRESH) return;
 
-    // Horizontal wins if dominant (left = out, right = in is unintuitive;
-    // we'll map: scroll right -> out, left -> in, to mirror Arrow keys)
+    // Horizontal dominant → left=in, right=out (mirrors Arrow keys)
     if (absX > absY) {
       if (deltaX > 0) emitZoom(1, 'out');
       else emitZoom(1, 'in');
     } else {
-      // Vertical: down = in (tighter), up = out (looser)
+      // Vertical → down=in (denser), up=out (sparser)
       if (deltaY > 0) emitZoom(1, 'in');
       else emitZoom(1, 'out');
     }
@@ -78,7 +77,7 @@ export default function ChakraOrbButton({
     <button
       type="button"
       aria-label="Zoom products"
-      title="Zoom products (Click/Enter = In, Right-click = Out, Wheel = In/Out)"
+      title="Zoom products (Click/Enter = In, Right-click = Out, Wheel/Trackpad = In/Out)"
       data-orb="density"
       onClick={onClick}
       onContextMenu={onContextMenu}
@@ -99,12 +98,23 @@ export default function ChakraOrbButton({
         background: 'transparent',
         border: '0 none',
         cursor: 'pointer',
+        // contain to keep GPU happy and avoid layout thrash
         contain: 'layout paint style',
         ...style,
       }}
     >
       <BlueOrbCross3D
-        style={{ display:'block', width:'100%', height:'100%', border:0, outline:0, background:'transparent', pointerEvents:'auto' }}
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          border: 0,
+          outline: 0,
+          background: 'transparent',
+          // NOTE: site CSS sets `[data-orb="density"] canvas { pointer-events:none }`
+          // so the wrapper button handles interaction. Keep this 'auto' harmless.
+          pointerEvents: 'auto',
+        }}
         width={`${size}px`}
         height={`${size}px`}
         rpm={rpm}
@@ -117,8 +127,7 @@ export default function ChakraOrbButton({
         includeZAxis={includeZAxis}
         overrideAllColor={overrideAllColor}
         interactive
-        // If the 3D canvas emits its own "activate", it will still pass through
-        // our debounce so we won't double-trigger with the button click.
+        // Canvas “activate” will pass through debounce to avoid double triggers
         onActivate={() => emitZoom(1, 'in')}
       />
     </button>

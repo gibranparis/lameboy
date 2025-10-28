@@ -18,6 +18,8 @@ function OrbCross({
   onActivate = null,
   overrideAllColor = null,
   overrideGlowOpacity,
+  // internal: only used when `interactive` on parent is true
+  __interactive = false,
 }) {
   const group = useRef();
 
@@ -151,12 +153,17 @@ function OrbCross({
     };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
-  const handlePointerDown = (e) => { e.stopPropagation(); onActivate && onActivate(); };
-  const handleKeyDown = (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } };
+  // Only bind handlers if we explicitly run interactive mode (standalone usage)
+  const handlePointerDown = __interactive ? (e) => { e.stopPropagation(); onActivate && onActivate(); } : undefined;
+  const handleKeyDown     = __interactive ? (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } } : undefined;
 
-  // --- Render -------------------------------------------------------------
   return (
-    <group ref={group} onPointerDown={handlePointerDown} onKeyDown={handleKeyDown} tabIndex={0}>
+    <group
+      ref={group}
+      onPointerDown={handlePointerDown}
+      onKeyDown={handleKeyDown}
+      tabIndex={__interactive ? 0 : -1}
+    >
       {/* Bars */}
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
       <mesh geometry={armGeoY} material={barCoreMat} />
@@ -210,9 +217,8 @@ export default function BlueOrbCross3D({
   overrideGlowOpacity,
   style = {},
   className = '',
-  interactive = true,
-  ariaLabel = 'Activate',
-  title,
+  // IMPORTANT: default false so ChakraOrbButton remains the only interactive element
+  interactive = false,
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
@@ -227,41 +233,25 @@ export default function BlueOrbCross3D({
     return () => mq?.removeEventListener?.('change', onChange);
   }, []);
 
-  const handleCanvasPointerDown = () => {
-    if (!interactive) return;
-    onActivate && onActivate();
-  };
-  const handleCanvasKeyDown = (e) => {
-    if (!interactive) return;
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onActivate && onActivate();
-    }
-  };
-
   return (
     <div
       className={className}
-      title={title}
-      aria-label={ariaLabel}
-      role="button"
       style={{
         height,
         width: height,
         display: 'inline-block',
         contain: 'layout paint style',
         isolation: 'isolate',
+        // Let parent button receive all events when not interactive
         pointerEvents: interactive ? 'auto' : 'none',
         ...style,
       }}
-      tabIndex={interactive ? 0 : -1}
-      onKeyDown={handleCanvasKeyDown}
-      onPointerDown={handleCanvasPointerDown}
     >
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+        // Canvas also does not intercept events unless interactive
         style={{ pointerEvents: interactive ? 'auto' : 'none', outline: 'none' }}
       >
         <ambientLight intensity={0.9} />
@@ -280,6 +270,7 @@ export default function BlueOrbCross3D({
           onActivate={interactive ? onActivate : null}
           overrideAllColor={overrideAllColor}
           overrideGlowOpacity={overrideGlowOpacity}
+          __interactive={interactive}
         />
       </Canvas>
     </div>

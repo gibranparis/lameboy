@@ -42,11 +42,12 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
       style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}
     >
       {/* LEFT: orb (click = zoom in, right-click = zoom out) */}
-      <div className="flex items-center">
+      <div className="flex items-center select-none" style={{ lineHeight: 0 }}>
         <div style={{ height: ctrlPx, width: ctrlPx, display: 'grid', placeItems: 'center' }}>
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
+            aria-label="Zoom products"
+            title="Zoom products"
             onClick={() => emitZoom(1, 'in')}
             onContextMenu={(e) => { e.preventDefault(); emitZoom(1, 'out'); }}
             onKeyDown={(e) => {
@@ -54,10 +55,10 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
               if (e.key === 'ArrowLeft') emitZoom(1, 'in');
               if (e.key === 'ArrowRight') emitZoom(1, 'out');
             }}
-            style={{ cursor:'pointer', lineHeight:0 }}
+            style={{ cursor: 'pointer', lineHeight: 0, padding: 0, margin: 0, border: 0, background: 'transparent' }}
           >
             <ChakraOrbButton size={ctrlPx} onActivate={() => emitZoom(1, 'in')} />
-          </div>
+          </button>
         </div>
       </div>
 
@@ -74,7 +75,7 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
       </div>
 
       {/* RIGHT: cart (note inHeader prop) */}
-      <div className="justify-self-end">
+      <div className="justify-self-end" style={{ lineHeight: 0 }}>
         <div style={{ height: ctrlPx, width: ctrlPx, display: 'grid', placeItems: 'center' }}>
           <CartButton size={ctrlPx} inHeader />
         </div>

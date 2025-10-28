@@ -18,14 +18,26 @@ export default function SilentWarmup({
     if (started.current) return;
     started.current = true;
 
-    // Polyfilled requestIdleCallback
+    // SSR guard
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    // Skip if we're already on the target route
+    const here = window.location?.pathname || '';
+    if (here === prefetchPath) return;
+
+    // Respect Data Saver when present
+    const saveData = !!navigator?.connection?.saveData;
+    // Only warm when tab is visible
+    const isVisible = () => document.visibilityState !== 'hidden';
+
+    // requestIdleCallback polyfill
     const rIC = (cb, timeout = 1200) => {
       try {
         if (typeof window.requestIdleCallback === 'function') {
           return window.requestIdleCallback(cb, { timeout });
         }
       } catch {}
-      const id = setTimeout(() => cb({ didTimeout: true, timeRemaining: () => 0 }), timeout);
+      const id = window.setTimeout(() => cb({ didTimeout: true, timeRemaining: () => 0 }), timeout);
       return id;
     };
     const cRIC = (id) => {
@@ -37,53 +49,52 @@ export default function SilentWarmup({
       clearTimeout(id);
     };
 
-    // Only warm when tab is visible to avoid wasting work in the background.
-    const isVisible = () => document.visibilityState !== 'hidden';
+    const idleIds = [];
+    let rafId = 0;
 
-    let idleIds = [];
-
-    // 1) After first paint, lightly prefetch the route.
-    const rafId = requestAnimationFrame(() => {
-      if (!isVisible()) return;
+    // 1) After first paint, lightly prefetch the route (only if visible & not on saver)
+    rafId = requestAnimationFrame(() => {
+      if (!isVisible() || saveData) return;
       idleIds.push(
         rIC(() => { try { router.prefetch(prefetchPath); } catch {} }, 800)
       );
     });
 
-    // 2) Warm image cache gently (Birkin + moons).
-    idleIds.push(
-      rIC(() => {
-        if (!isVisible()) return;
-        try {
-          images.forEach((src) => {
-            const img = new Image();
-            img.decoding = 'async';
-            img.loading = 'eager'; // hint only; still async
-            img.referrerPolicy = 'no-referrer';
-            img.src = src;
-            // Best-effort decode to push into the decode queue without blocking.
-            img.decode?.().catch(() => {});
-          });
-        } catch {}
-      }, 1500)
-    );
-
-    // 3) Final nudge once the page fully loads.
-    const onLoad = () => {
-      try { router.prefetch(prefetchPath); } catch {}
+    // Helper to warm a list of images
+    const warmImages = (list) => {
       try {
-        images.forEach((src) => {
+        list.forEach((src) => {
+          if (!src) return;
           const img = new Image();
           img.decoding = 'async';
+          // keep it async; no fetch priority to avoid stealing bandwidth
+          img.referrerPolicy = 'no-referrer';
           img.src = src;
+          // queue decode if supported, but don’t block or throw on fail
+          img.decode?.().catch(() => {});
         });
       } catch {}
     };
+
+    // 2) Warm image cache gently (Birkin + moons) if not on saver
+    idleIds.push(
+      rIC(() => {
+        if (!isVisible() || saveData) return;
+        warmImages(images);
+      }, 1500)
+    );
+
+    // 3) Final nudge once the page fully loads
+    const onLoad = () => {
+      if (saveData) return;
+      try { router.prefetch(prefetchPath); } catch {}
+      warmImages(images);
+    };
     window.addEventListener('load', onLoad, { once: true });
 
-    // 4) If the tab becomes visible later, kick a tiny follow-up prefetch.
+    // 4) If the tab becomes visible later, do one tiny follow-up prefetch
     const onVisible = () => {
-      if (!isVisible()) return;
+      if (!isVisible() || saveData) return;
       try { router.prefetch(prefetchPath); } catch {}
       document.removeEventListener('visibilitychange', onVisible);
     };

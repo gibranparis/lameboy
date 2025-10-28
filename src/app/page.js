@@ -1,21 +1,19 @@
+// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
-// NOTE: If you previously had `export const runtime = 'nodejs'`, it’s intentionally removed here.
 
-/* Imports */
 import nextDynamic from 'next/dynamic';
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 
 /* Dynamic client components (no SSR) */
-const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
-const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
-const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
-const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
-const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
+const BannedLogin      = nextDynamic(() => import('@/components/BannedLogin'),      { ssr: false });
+const ShopGrid         = nextDynamic(() => import('@/components/ShopGrid'),         { ssr: false });
+const ChakraOrbButton  = nextDynamic(() => import('@/components/ChakraOrbButton'),  { ssr: false });
+const CartButton       = nextDynamic(() => import('@/components/CartButton'),       { ssr: false });
+const DayNightToggle   = nextDynamic(() => import('@/components/DayNightToggle'),   { ssr: false });
 
-/* Simple, in-file ErrorBoundary (no new files) */
-import React from 'react';
+/* Simple, in-file ErrorBoundary */
 class PageErrorBoundary extends React.Component {
   constructor(props){ super(props); this.state = { hasError:false, error:null }; }
   static getDerivedStateFromError(error){ return { hasError:true, error }; }
@@ -63,12 +61,12 @@ export default function Page(){
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // Header sizing
+  // Header control sizing
   const TOGGLE_KNOB_PX   = 28;
   const TOGGLE_TRACK_PAD = 1;
   const ORB_PX           = 64;
 
-  // Sync <html> attributes, default 5-per-row
+  // Sync <html> attributes + defaults
   useEffect(() => {
     try {
       const root = document.documentElement;
@@ -111,11 +109,16 @@ export default function Page(){
 
   const onProceed = () => setIsShop(true);
 
-  // Orb event emitter — document only (avoids double-steps)
-  const emitZoomStep = useCallback((step = 1) => {
+  // Orb event emitter — send to BOTH window and document (prevents “orb does nothing”)
+  const emitZoomStep = useCallback((step = 1, dir = 'in') => {
     try {
-      const evt = new CustomEvent('lb:zoom', { detail:{ step } });
+      const evt = new CustomEvent('lb:zoom', { detail:{ step, dir } });
+      window.dispatchEvent(evt);
       document.dispatchEvent(evt);
+      // legacy channel for older listeners
+      const legacy = new CustomEvent('grid-density', { detail:{ step, dir } });
+      window.dispatchEvent(legacy);
+      document.dispatchEvent(legacy);
     } catch {}
   }, []);
 
@@ -123,7 +126,7 @@ export default function Page(){
     position:'fixed',
     inset:'0 0 auto 0',
     height:HEADER_H,
-    zIndex:140,
+    zIndex:140, // above .product-hero-overlay (z:90) per CSS
     display:'grid',
     gridTemplateColumns:'1fr auto 1fr',
     alignItems:'center',
@@ -136,34 +139,19 @@ export default function Page(){
       <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
         {isShop && (
           <header role="banner" style={headerStyle}>
-            {/* LEFT: orb */}
+            {/* LEFT: orb (click = zoom in, right-click = zoom out, wheel = in/out) */}
             <div style={{ display:'grid', justifyContent:'start' }}>
-              <button
-                type="button"
-                aria-label="Zoom grid"
-                data-orb="density"
+              <ChakraOrbButton
+                size={ORB_PX}
+                rpm={36}
+                geomScale={1.08}
+                glow
+                glowOpacity={0.9}
+                includeZAxis
                 className="orb-ring"
-                style={{
-                  width: ORB_PX, height: ORB_PX,
-                  padding:0, margin:0, background:'transparent', border:0,
-                  display:'grid', placeItems:'center', cursor:'pointer', lineHeight:0,
-                  borderRadius:'9999px',
-                }}
-                onClick={() => emitZoomStep(1)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoomStep(1); } }}
-                title="Zoom products / Back from item view"
-              >
-                <BlueOrbCross3D
-                  height={`${ORB_PX}px`}
-                  geomScale={1.08}
-                  glow
-                  glowScale={1.25}
-                  overrideGlowOpacity={0.38}
-                  rpm={36}
-                  includeZAxis
-                  interactive
-                />
-              </button>
+                onActivate={() => emitZoomStep(1, 'in')}
+                style={{ pointerEvents:'auto' }}
+              />
             </div>
 
             {/* CENTER: day/night toggle */}
@@ -192,7 +180,8 @@ export default function Page(){
             </div>
           ) : (
             <div style={{ paddingTop: HEADER_H }}>
-              <ShopGrid hideTopRow />
+              {/* ShopGrid should already listen for 'lb:zoom' to close overlay or step density */}
+              <ShopGrid />
             </div>
           )}
         </main>
