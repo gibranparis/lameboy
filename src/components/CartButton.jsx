@@ -1,4 +1,3 @@
-// src/components/CartButton.jsx
 // @ts-check
 'use client';
 
@@ -14,19 +13,58 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 export default function CartButton({
   size = 48,
   inHeader = false,
-  imgSrc = '/cart/birkin.png',
+  /** You can still pass a single explicit path; otherwise we'll probe the list below. */
+  imgSrc,
   onClick,
 }) {
-  const [count, setCount] = useState(0);
-  const [pulse, setPulse] = useState(false);
-  const [imgOk, setImgOk] = useState(true);
+  const [count, setCount]   = useState(0);
+  const [pulse, setPulse]   = useState(false);
 
-  /** @type {React.RefObject<HTMLButtonElement>} */
-  const btnRef = useRef(null);
-  /** @type {React.MutableRefObject<ReturnType<typeof setTimeout> | null>} */
-  const tPulse = useRef(null);
-  /** @type {React.MutableRefObject<ReturnType<typeof setTimeout> | null>} */
-  const tBump = useRef(null);
+  // --- Birkin image resolution -------------------------------------------
+  /** Preferred list; first that loads wins */
+  const candidates = useMemo(
+    () => [
+      imgSrc, // allow explicit override to be tried first
+      '/cart/birkin.png',
+      '/cart/birkin-royal.png',
+      '/cart/birkin-green.png',
+      '/cart/birkin-sky.png',
+    ].filter(Boolean),
+    [imgSrc]
+  );
+
+  const [resolvedSrc, setResolvedSrc] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+
+    // Try candidates in order until one loads
+    (async () => {
+      for (const url of candidates) {
+        try {
+          const ok = await probe(url);
+          if (ok && !cancelled) { setResolvedSrc(url); return; }
+        } catch {}
+      }
+      // none loaded → leave null to use inline SVG fallback
+      if (!cancelled) setResolvedSrc(null);
+    })();
+
+    return () => { cancelled = true; };
+  }, [candidates]);
+
+  function probe(src) {
+    return new Promise((res) => {
+      const img = new Image();
+      img.onload  = () => res(true);
+      img.onerror = () => res(false);
+      img.src = src;
+    });
+  }
+
+  // --- Events & visuals ---------------------------------------------------
+  const btnRef  = useRef/** @type {HTMLButtonElement|null} */(null);
+  const tPulse  = useRef/** @type {ReturnType<typeof setTimeout>|null} */(null);
+  const tBump   = useRef/** @type {ReturnType<typeof setTimeout>|null} */(null);
 
   useEffect(() => {
     const add = (delta = 1) => {
@@ -41,38 +79,34 @@ export default function CartButton({
       tPulse.current = setTimeout(() => setPulse(false), 360);
     };
 
-    const onAdd = (e) => add(Number(e?.detail?.count ?? e?.detail?.qty ?? 1) || 1);
-    const onSet = (e) => setCount(Math.max(0, Number(e?.detail?.count ?? 0) || 0));
+    const onAdd   = (e) => add(Number(e?.detail?.count ?? e?.detail?.qty ?? 1) || 1);
+    const onSet   = (e) => setCount(Math.max(0, Number(e?.detail?.count ?? 0) || 0));
     const onClear = () => setCount(0);
 
     for (const target of [window, document]) {
       target.addEventListener('lb:add-to-cart', onAdd);
-      target.addEventListener('cart:add', onAdd);
-      target.addEventListener('cart:set', onSet);
-      target.addEventListener('cart:clear', onClear);
+      target.addEventListener('cart:add',       onAdd);
+      target.addEventListener('cart:set',       onSet);
+      target.addEventListener('cart:clear',     onClear);
     }
     return () => {
       for (const target of [window, document]) {
         target.removeEventListener('lb:add-to-cart', onAdd);
-        target.removeEventListener('cart:add', onAdd);
-        target.removeEventListener('cart:set', onSet);
-        target.removeEventListener('cart:clear', onClear);
+        target.removeEventListener('cart:add',       onAdd);
+        target.removeEventListener('cart:set',       onSet);
+        target.removeEventListener('cart:clear',     onClear);
       }
       if (tPulse.current) clearTimeout(tPulse.current);
-      if (tBump.current) clearTimeout(tBump.current);
+      if (tBump.current)  clearTimeout(tBump.current);
     };
   }, []);
 
-  const aria = useMemo(
-    () => (count ? `Cart, ${count} item${count === 1 ? '' : 's'}` : 'Cart'),
-    [count]
-  );
+  const aria = useMemo(() => (count ? `Cart, ${count} item${count===1?'':'s'}` : 'Cart'), [count]);
 
   const fallbackSrc = useMemo(() => {
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 64 64">
-        <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs>
+        <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs>
         <rect width="64" height="64" rx="14" ry="14" fill="#0f1115"/>
         <path d="M18 26h28l-3 20H21l-3-20z" fill="url(#g)"/>
         <circle cx="26" cy="49" r="2.8" fill="#fff"/><circle cx="38" cy="49" r="2.8" fill="#fff"/>
@@ -83,57 +117,27 @@ export default function CartButton({
 
   const S = {
     btn: {
-      position: 'relative',
-      display: 'inline-grid',
-      placeItems: 'center',
-      width: size,
-      height: size,
-      borderRadius: 9999,
-      padding: 0,
-      border: 0,
+      position:'relative',
+      display:'inline-grid', placeItems:'center',
+      width:size, height:size, borderRadius:9999,
+      padding:0, border:0, cursor:'pointer', lineHeight:0, outline:'none',
       background: inHeader ? 'transparent' : 'rgba(255,255,255,.06)',
-      cursor: 'pointer',
-      lineHeight: 0,
-      outline: 'none',
       boxShadow: inHeader ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,.08)',
-      transition: 'transform 120ms ease',
+      transition:'transform 120ms ease',
       zIndex: 2,
     },
-    imgWrap: {
-      width: Math.round(size * 0.86),
-      height: Math.round(size * 0.86),
-      display: 'grid',
-      placeItems: 'center',
+    imgWrap: { width: Math.round(size*0.86), height: Math.round(size*0.86), display:'grid', placeItems:'center' },
+    img:     { width:'100%', height:'100%', objectFit:'contain', display:'block', userSelect:'none', pointerEvents:'none' },
+    badge:   {
+      position:'absolute', right:-4, top:-4,
+      minWidth:18, height:18, padding:'0 5px',
+      borderRadius:9999, background:'linear-gradient(180deg,#34d399,#22c55e)', color:'#0b0f15',
+      fontWeight:800, fontSize:11, display:'grid', placeItems:'center',
+      border:'1px solid rgba(255,255,255,.55)', boxShadow:'0 2px 10px rgba(0,0,0,.45)',
+      transform: pulse ? 'scale(1.06)' : 'scale(1)', transition:'transform 160ms ease',
+      pointerEvents:'none',
     },
-    img: {
-      width: '100%',
-      height: '100%',
-      objectFit: 'contain',
-      display: 'block',
-      userSelect: 'none',
-      pointerEvents: 'none',
-    },
-    badge: {
-      position: 'absolute',
-      right: -4,
-      top: -4,
-      minWidth: 18,
-      height: 18,
-      padding: '0 5px',
-      borderRadius: 9999,
-      background: 'linear-gradient(180deg,#34d399,#22c55e)',
-      color: '#0b0f15',
-      fontWeight: 800,
-      fontSize: 11,
-      display: 'grid',
-      placeItems: 'center',
-      border: '1px solid rgba(255,255,255,.55)',
-      boxShadow: '0 2px 10px rgba(0,0,0,.45)',
-      transform: pulse ? 'scale(1.06)' : 'scale(1)',
-      transition: 'transform 160ms ease',
-      pointerEvents: 'none',
-    },
-  };
+  } as const;
 
   return (
     <>
@@ -148,34 +152,19 @@ export default function CartButton({
       >
         <span className="cart-img-wrap" style={S.imgWrap}>
           <img
-            src={imgOk ? imgSrc : fallbackSrc}
+            src={resolvedSrc ?? fallbackSrc}
             alt=""
             style={S.img}
             draggable={false}
-            onError={() => setImgOk(false)}
           />
         </span>
-        {count > 0 && (
-          <span className="cart-badge" aria-hidden="true" style={S.badge}>
-            {count}
-          </span>
-        )}
+        {count > 0 && <span className="cart-badge" aria-hidden="true" style={S.badge}>{count}</span>}
       </button>
 
-      {/* local animations; your global CSS can still target .cart-fab/.cart-badge */}
+      {/* local bump animation */}
       <style jsx>{`
-        .cart-pulse { animation: cartPulse .42s ease; }
-        @keyframes cartPulse {
-          0% { box-shadow: 0 0 0 0 rgba(11,240,95,.55) }
-          70% { box-shadow: 0 0 0 12px rgba(11,240,95,0) }
-          100% { box-shadow: 0 0 0 0 rgba(11,240,95,0) }
-        }
         .lb-bump { animation: lbBump 240ms ease; }
-        @keyframes lbBump {
-          0% { transform: scale(1) }
-          50% { transform: scale(1.06) }
-          100% { transform: scale(1) }
-        }
+        @keyframes lbBump { 0%{ transform:scale(1) } 50%{ transform:scale(1.06) } 100%{ transform:scale(1) } }
       `}</style>
     </>
   );
