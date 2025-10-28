@@ -344,3 +344,58 @@ html:has([data-shop-root]) .product-img{
 /* Plus pill state */
 .plus-pill.is-active{ background:#d1d5db; color:#111; }            /* grey when showing sizes */
 .plus-pill.is-ready { background:var(--hover-green); color:#000; } /* green when adding */
+/* … everything above stays the same … */
+
+/* === Header control helpers (no stretching) ============================== */
+:root[data-mode="shop"] header[role="banner"] #lb-daynight{
+  display:grid; place-items:center; padding:0 !important; margin:0 !important; line-height:0 !important;
+}
+
+/* ======================================================================== */
+/* =========================  OVERRIDES (v4)  ============================== */
+/* LIMIT these overrides to SHOP mode so the banned screen keeps its glow */
+:root[data-mode="shop"] .vscode-card{ box-shadow:none !important; border-color:rgba(255,255,255,.12) !important; }
+:root[data-mode="shop"] .bubble-button:hover{ box-shadow:none !important; }
+:root[data-mode="shop"] .bubble-glow-blue{ animation:none !important; }
+
+/* Center “Florida, USA” even if container changes (both modes ok) */
+.florida-inline{
+  display:block !important;
+  text-align:center !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+}
+
+/* Keep the gate perfectly centered regardless of parent */
+.page-center{ display:grid !important; place-items:center !important; }
+
+/* Neon cascade glow helper (if used globally) */
+.lb-cascade .lb-band{ position:relative; }
+.lb-cascade .lb-band::after{ content:""; position:absolute; inset:-14px; background:var(--c); filter:blur(22px); opacity:.95; pointer-events:none; }
+
+/* ===== Pills (single, de-duped) ========================================= */
+.pill{ /* … unchanged … */ }
+
+/* --- Banned bubble should CONTAIN text, not stretch --- */
+:root[data-mode="gate"] .login-card{
+  max-width:min(92vw, 720px) !important;
+}
+:root[data-mode="gate"] .login-card pre,
+:root[data-mode="gate"] .login-card code{
+  white-space:pre-wrap !important;
+  word-break:break-word !important;
+  overflow-wrap:anywhere !important;
+}
+
+/* --- Orb usability/visibility polish --- */
+[data-orb="density"]{
+  padding:0 !important; margin:0 !important; border:0 !important;
+  background:transparent !important; line-height:0 !important;
+  border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
+  /* ensure it sits above the grid images */
+  position:relative; z-index:150;
+}
+[data-orb="density"] canvas{ display:block; pointer-events:none; }
+.orb-ring{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; border-radius:9999px; }
+
+/* … keep the rest of your file as-is … */

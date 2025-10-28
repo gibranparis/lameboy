@@ -1,4 +1,3 @@
-// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
@@ -6,14 +5,13 @@ export const dynamic = 'force-static';
 import nextDynamic from 'next/dynamic';
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 
-/* Dynamic client components (no SSR) */
+/* Dynamic client components */
 const BannedLogin      = nextDynamic(() => import('@/components/BannedLogin'),      { ssr: false });
 const ShopGrid         = nextDynamic(() => import('@/components/ShopGrid'),         { ssr: false });
 const ChakraOrbButton  = nextDynamic(() => import('@/components/ChakraOrbButton'),  { ssr: false });
 const CartButton       = nextDynamic(() => import('@/components/CartButton'),       { ssr: false });
 const DayNightToggle   = nextDynamic(() => import('@/components/DayNightToggle'),   { ssr: false });
 
-/* Simple, in-file ErrorBoundary */
 class PageErrorBoundary extends React.Component {
   constructor(props){ super(props); this.state = { hasError:false, error:null }; }
   static getDerivedStateFromError(error){ return { hasError:true, error }; }
@@ -32,23 +30,19 @@ class PageErrorBoundary extends React.Component {
   }
 }
 
-/* Read --header-ctrl safely */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
     const read = () => {
       try {
-        const root = typeof document !== 'undefined' ? document.documentElement : null;
-        const v = root ? getComputedStyle(root).getPropertyValue('--header-ctrl') : `${defaultPx}px`;
+        const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
         const n = parseInt(String(v).trim().replace('px',''), 10);
         setPx(Number.isFinite(n) ? n : defaultPx);
       } catch { setPx(defaultPx); }
     };
     read();
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', read);
-      return () => window.removeEventListener('resize', read);
-    }
+    window.addEventListener('resize', read);
+    return () => window.removeEventListener('resize', read);
   }, [defaultPx]);
   return px;
 }
@@ -61,44 +55,39 @@ export default function Page(){
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // Header control sizing
+  // header control sizes
   const TOGGLE_KNOB_PX   = 28;
   const TOGGLE_TRACK_PAD = 1;
   const ORB_PX           = 64;
 
-  // Sync <html> attributes + defaults
+  // Sync <html> attributes
   useEffect(() => {
-    try {
-      const root = document.documentElement;
-      root.setAttribute('data-theme', theme);
-      root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
-      if (isShop) {
-        root.setAttribute('data-shop-root','');
-        if (!root.style.getPropertyValue('--grid-cols')) {
-          root.style.setProperty('--grid-cols','5');
-        }
-      } else {
-        root.removeAttribute('data-shop-root');
-      }
-      root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
-    } catch {}
+    const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
+    if (isShop) {
+      root.setAttribute('data-shop-root','');
+      if (!root.style.getPropertyValue('--grid-cols')) root.style.setProperty('--grid-cols','5');
+    } else {
+      root.removeAttribute('data-shop-root');
+    }
+    root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // Listen for theme-change from toggle
+  // Theme sync from toggle
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
-    try {
-      window.addEventListener('theme-change', onTheme);
-      document.addEventListener('theme-change', onTheme);
-      return () => {
-        window.removeEventListener('theme-change', onTheme);
-        document.removeEventListener('theme-change', onTheme);
-      };
-    } catch { return () => {}; }
+    window.addEventListener('theme-change', onTheme);
+    document.addEventListener('theme-change', onTheme);
+    return () => {
+      window.removeEventListener('theme-change', onTheme);
+      document.removeEventListener('theme-change', onTheme);
+    };
   }, []);
 
   // White veil after cascade
   useEffect(() => {
+    if (!isShop) return;
     try {
       if (sessionStorage.getItem('fromCascade') === '1') {
         setVeil(true);
@@ -109,16 +98,16 @@ export default function Page(){
 
   const onProceed = () => setIsShop(true);
 
-  // Orb event emitter — send to BOTH window and document (prevents “orb does nothing”)
+  // Emit zoom/density step; also used as "back" when overlay is open
   const emitZoomStep = useCallback((step = 1, dir = 'in') => {
     try {
       const evt = new CustomEvent('lb:zoom', { detail:{ step, dir } });
-      window.dispatchEvent(evt);
+      // use *document* only to avoid double listeners
       document.dispatchEvent(evt);
-      // legacy channel for older listeners
-      const legacy = new CustomEvent('grid-density', { detail:{ step, dir } });
-      window.dispatchEvent(legacy);
-      document.dispatchEvent(legacy);
+    } catch {}
+    try {
+      const evt2 = new CustomEvent('grid-density', { detail:{ step, dir } });
+      document.dispatchEvent(evt2);
     } catch {}
   }, []);
 
@@ -126,9 +115,9 @@ export default function Page(){
     position:'fixed',
     inset:'0 0 auto 0',
     height:HEADER_H,
-    zIndex:140, // above .product-hero-overlay (z:90) per CSS
+    zIndex:140,
     display:'grid',
-    gridTemplateColumns:'1fr auto 1fr',
+    gridTemplateColumns:'auto 1fr auto',
     alignItems:'center',
     padding:'0 16px',
     background:'transparent',
@@ -139,18 +128,15 @@ export default function Page(){
       <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
         {isShop && (
           <header role="banner" style={headerStyle}>
-            {/* LEFT: orb (click = zoom in, right-click = zoom out, wheel = in/out) */}
+            {/* LEFT: orb */}
             <div style={{ display:'grid', justifyContent:'start' }}>
               <ChakraOrbButton
                 size={ORB_PX}
-                rpm={36}
-                geomScale={1.08}
-                glow
-                glowOpacity={0.9}
-                includeZAxis
                 className="orb-ring"
-                onActivate={() => emitZoomStep(1, 'in')}
-                style={{ pointerEvents:'auto' }}
+                // click / enter = in, right-click = out, wheel handled inside
+                // also dispatches lb:zoom & grid-density
+                // we still pass onActivate to be safe
+                style={{ display:'grid', placeItems:'center' }}
               />
             </div>
 
@@ -180,8 +166,7 @@ export default function Page(){
             </div>
           ) : (
             <div style={{ paddingTop: HEADER_H }}>
-              {/* ShopGrid should already listen for 'lb:zoom' to close overlay or step density */}
-              <ShopGrid />
+              <ShopGrid hideTopRow />
             </div>
           )}
         </main>
