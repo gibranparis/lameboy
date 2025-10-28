@@ -3,7 +3,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 /* ============================= Utilities ============================= */
 function formatPrice(val) {
@@ -13,7 +13,6 @@ function formatPrice(val) {
     return `$${dollars}`;
   }
   if (typeof val === 'string' && val.trim() !== '') {
-    // If string already has $, return as-is; otherwise prefix
     return /^\$/.test(val) ? val : `$${val}`;
   }
   return '$0.00';
@@ -103,12 +102,10 @@ export default function ProductOverlay({
   onClose,
   onAddToCart, // (product, { size, count }) => void
 }) {
-  const closeBtnRef = useRef/** @type {React.RefObject<HTMLButtonElement>} */(null);
-
   // Guard early
   if (!product) return null;
 
-  // close on Escape + orb “back” (lb:zoom)
+  // Close on Escape + orb “back” (lb:zoom)
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
     const onZoom = () => onClose?.();
@@ -120,12 +117,10 @@ export default function ProductOverlay({
     };
   }, [onClose]);
 
-  // mark overlay open so CSS can dim / disable grid
+  // Flag overlay on <html> for CSS (and optional scroll-lock via CSS)
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-overlay-open', '1');
-    // focus close for a11y
-    requestAnimationFrame(() => { try { closeBtnRef.current?.focus(); } catch {} });
     return () => root.removeAttribute('data-overlay-open');
   }, []);
 
@@ -151,11 +146,16 @@ export default function ProductOverlay({
   const priceText = formatPrice(product?.price);
 
   return (
-    <div className="product-hero-overlay" role="dialog" aria-modal="true" aria-label={`${title} details`} data-overlay>
+    <div
+      className="product-hero-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${title} details`}
+      data-overlay
+    >
       <div className="product-hero">
-        {/* single explicit close; orb also acts as back */}
+        {/* single explicit close; orb also acts as back (X hidden by CSS) */}
         <button
-          ref={closeBtnRef}
           className="product-hero-close"
           onClick={onClose}
           aria-label="Close product"

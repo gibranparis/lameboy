@@ -45,7 +45,7 @@ export default function CartButton({
     };
 
     const onAdd = (e) => {
-      const delta = Number(e?.detail?.count ?? 1) || 1;
+      const delta = Number(e?.detail?.count ?? e?.detail?.qty ?? 1) || 1;
       add(delta);
     };
 
@@ -172,7 +172,7 @@ export default function CartButton({
       <button
         ref={btnRef}
         type="button"
-        className="cart-fab"
+        className={`cart-fab ${pulse ? 'cart-pulse' : ''}`}
         aria-label={aria}
         title="Cart"
         onClick={onClick}
