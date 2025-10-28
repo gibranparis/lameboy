@@ -27,7 +27,7 @@
   --grid-cols:5;
 }
 
-/* Theme hint for form controls, etc. */
+/* Theme hint for native form controls */
 :root[data-theme="day"]  { color-scheme: light; }
 :root[data-theme="night"]{ color-scheme: dark;  }
 
@@ -110,10 +110,9 @@ html[data-overlay-open]{ overflow:hidden; }
   transition:background-color .35s ease, color .35s ease;
 }
 
-/* Header above overlays */
+/* Header above overlays (actual positioning is in page.js) */
 :root[data-mode="shop"] header[role="banner"]{
-  /* position set inline (fixed) by page.js; keep only layer here */
-  z-index: 300 !important;  /* higher than overlay */
+  z-index: 500 !important;
   background:transparent!important; box-shadow:none!important; border:0!important; padding:0 16px;
 }
 :root[data-mode="shop"] header[role="banner"] > *{ align-self:center!important; }
@@ -181,7 +180,7 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
 
 /* ========== Product overlay ============================================= */
 .product-hero-overlay{
-  position:fixed; inset:0; z-index:220;  /* BELOW header(300), ABOVE grid */
+  position:fixed; inset:0; z-index:420;  /* BELOW header(500), ABOVE grid */
   background:var(--bg); color:var(--text);
   display:flex; align-items:center; justify-content:center; padding:20px;
 }
@@ -217,16 +216,25 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
 :root[data-mode="shop"] header [data-orb="density"]{
   padding:0!important; margin:0!important; border:0!important; background:transparent!important; line-height:0!important;
   border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
-  position:relative; z-index: 400; /* > overlay(220) and header layer */
+  position:relative; z-index: 600 !important; /* above overlay(420) & header */
 }
 [data-orb="density"], [data-orb="density"] *{ outline:0!important; box-shadow:none!important; }
-[data-orb="density"] canvas{ display:block; pointer-events:auto; }
+
+/* ensure canvas is actually visible & clickable */
+:root[data-mode="shop"] header [data-orb="density"] canvas{
+  display:block !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  pointer-events:auto !important;
+}
+
+/* optional ring */
 .orb-ring{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; border-radius:9999px; }
 
 /* Code weight accents */
 .code-keyword,.code-var,.code-string,.code-comment{ font-weight:800; }
 
-/* === Do not stretch the banned bubble; wrap text inside ================== */
+/* === Gate: do not stretch the banned bubble; wrap text inside =========== */
 :root[data-mode="gate"] .login-card{ max-width:min(92vw,720px)!important; }
 :root[data-mode="gate"] .login-card pre,
 :root[data-mode="gate"] .login-card code{

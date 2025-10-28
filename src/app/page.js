@@ -100,17 +100,11 @@ export default function Page(){
 
   const onProceed = () => setIsShop(true);
 
-  // Optional: emit zoom/density step (ChakraOrbButton already emits)
-  const emitZoomStep = useCallback((step = 1, dir = 'in') => {
-    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail:{ step, dir } })); } catch {}
-    try { document.dispatchEvent(new CustomEvent('grid-density', { detail:{ step, dir } })); } catch {}
-  }, []);
-
   const headerStyle = useMemo(() => ({
     position:'fixed',
     inset:'0 0 auto 0',
     height:HEADER_H,
-    zIndex:300,                                // ABOVE overlay
+    zIndex:500,                                // ABOVE overlay
     display:'grid',
     gridTemplateColumns:'auto 1fr auto',
     alignItems:'center',
@@ -129,9 +123,6 @@ export default function Page(){
                 size={ORB_PX}
                 className="orb-ring"
                 style={{ display:'grid', placeItems:'center' }}
-                // ChakraOrbButton handles click/right-click/wheel + dispatches events
-                // If you ever want this button to also trigger programmatically:
-                // onClick={() => emitZoomStep(1, 'in')}
               />
             </div>
 

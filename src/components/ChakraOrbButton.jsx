@@ -5,7 +5,7 @@ import React, { useCallback, useRef } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
-  size = 56,             // DOM & visual diameter in px
+  size = 64,             // visual diameter in px
   rpm = 44,
   color = '#32ffc7',
   geomScale = 1.25,      // bolder fill
@@ -27,49 +27,23 @@ export default function ChakraOrbButton({
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
 
-    try { window.dispatchEvent(new CustomEvent('lb:zoom',      { detail: { step, dir } })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('grid-density', { detail: { step, dir } })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom',      { detail: { step, dir } })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('grid-density', { detail: { step, dir } })); } catch {}
   }, []);
 
   const onClick = () => emitZoom(1, 'in');
-
-  const onContextMenu = (e) => {
-    e.preventDefault();
-    emitZoom(1, 'out');
-  };
-
+  const onContextMenu = (e) => { e.preventDefault(); emitZoom(1, 'out'); };
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      emitZoom(1, 'in');
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      emitZoom(1, 'in');  // tighter grid
-    } else if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      emitZoom(1, 'out'); // looser grid
-    }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoom(1, 'in'); }
+    else if (e.key === 'ArrowLeft')  { e.preventDefault(); emitZoom(1, 'in');  }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); emitZoom(1, 'out'); }
   };
-
-  // Trackpad/Mouse wheel (React's wheel is non-passive → preventDefault works)
   const onWheel = (e) => {
-    // Keep the gesture on the control; don't scroll the page behind
     e.preventDefault();
     const { deltaX, deltaY } = e;
-    const absX = Math.abs(deltaX);
-    const absY = Math.abs(deltaY);
-    const THRESH = 16; // ignore micro scroll noise
-    if (absX < THRESH && absY < THRESH) return;
-
-    // Horizontal dominant → left=in, right=out (mirrors Arrow keys)
-    if (absX > absY) {
-      if (deltaX > 0) emitZoom(1, 'out');
-      else emitZoom(1, 'in');
-    } else {
-      // Vertical → down=in (denser), up=out (sparser)
-      if (deltaY > 0) emitZoom(1, 'in');
-      else emitZoom(1, 'out');
-    }
+    const ax = Math.abs(deltaX), ay = Math.abs(deltaY);
+    if (ax > ay) { deltaX > 0 ? emitZoom(1, 'out') : emitZoom(1, 'in'); }
+    else         { deltaY > 0 ? emitZoom(1, 'in')  : emitZoom(1, 'out'); }
   };
 
   const px = typeof size === 'number' ? `${size}px` : size;
@@ -78,7 +52,7 @@ export default function ChakraOrbButton({
     <button
       type="button"
       aria-label="Zoom products"
-      title="Zoom products (Click/Enter = In, Right-click = Out, Wheel/Trackpad = In/Out)"
+      title="Zoom products (Click/Enter = In, Right-click = Out, Wheel = In/Out)"
       data-orb="density"
       onClick={onClick}
       onContextMenu={onContextMenu}
@@ -92,22 +66,21 @@ export default function ChakraOrbButton({
         placeItems: 'center',
         lineHeight: 0,
         borderRadius: '9999px',
-        overflow: 'visible',               // do not clip fallback ring glow
+        overflow: 'hidden',
         clipPath: 'circle(50% at 50% 50%)',
         padding: 0,
         margin: 0,
         background: 'transparent',
         border: '0 none',
         cursor: 'pointer',
-        // contain to keep GPU happy and avoid layout thrash
-        contain: 'layout paint style',
-        // MAKE SURE we sit above overlay/images
+        // sit above overlay/images/header content
         position: 'relative',
-        zIndex: 400,
+        zIndex: 600,
+        contain: 'layout paint style',
         ...style,
       }}
     >
-      {/* Always-visible fallback ring so the control is visible even if canvas fails */}
+      {/* visible halo even if WebGL fails, so you always “see” the control */}
       <span
         aria-hidden
         style={{
@@ -117,13 +90,13 @@ export default function ChakraOrbButton({
           background: 'radial-gradient(closest-side, rgba(50,255,199,.22), rgba(50,255,199,.06) 60%, transparent 72%)',
           boxShadow: '0 0 18px rgba(50,255,199,.28), inset 0 0 0 1px rgba(255,255,255,.22)',
           pointerEvents: 'none',
-          filter: 'saturate(1.1)',
+          filter: 'saturate(1.08)',
+          zIndex: 0,
         }}
       />
 
       <BlueOrbCross3D
-        // IMPORTANT: this component sizes by its `height` prop (width is derived)
-        height={px}
+        height={px}                  // component derives width from height
         rpm={rpm}
         color={color}
         geomScale={geomScale}
@@ -134,9 +107,7 @@ export default function ChakraOrbButton({
         includeZAxis={includeZAxis}
         overrideAllColor={overrideAllColor}
         interactive
-        // Canvas “activate” will pass through debounce to avoid double triggers
         onActivate={() => emitZoom(1, 'in')}
-        // Make sure the canvas participates in hit-testing (our CSS won’t disable it)
         style={{
           display: 'block',
           width: '100%',
