@@ -24,8 +24,7 @@ export default function CartButton({
   // Try your Birkin PNGs in order; fall back to SVG only if all fail
   const candidates = useMemo(() => {
     const list = [imgSrc].filter(Boolean);
-    // If imgSrc not passed, prefer your green/royal/sky variants.
-    if (!imgSrc) list.push('/cart/birkin-green.png','/cart/birkin-royal.png','/cart/birkin-sky.png');
+    if (!imgSrc) list.push('/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png');
     return list;
   }, [imgSrc]);
 
@@ -108,7 +107,7 @@ export default function CartButton({
       transform: pulse ? 'scale(1.06)' : 'scale(1)', transition:'transform 160ms ease',
       pointerEvents:'none',
     },
-  } as const;
+  };
 
   return (
     <>
@@ -122,7 +121,6 @@ export default function CartButton({
         style={S.btn}
       >
         <span style={S.imgWrap}>
-          {/* resolvedSrc is guaranteed to be set (one of Birkin PNGs or SVG fallback) */}
           <img src={resolvedSrc} alt="" style={S.img} draggable={false} />
         </span>
         {count > 0 && <span aria-hidden="true" style={S.badge}>{count}</span>}
