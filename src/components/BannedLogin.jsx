@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v4.1 – one-line typer, no glow box, no looping, レ乃モ default)
+// src/components/BannedLogin.jsx  (v4.2 – line→hold→clear→next; loops; no glow box; レ乃モ)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -14,13 +14,13 @@ const CASCADE_MS = 2400;
 
 /** @typedef {{
  *  onProceed?: ()=>void,
- *  sysMessages?: string[],    // lines the "computer" will type (one at a time)
- *  cps?: number,              // avg chars/sec
- *  jitter?: number,           // 0..1 randomness per char
- *  punctDelayMs?: number,     // pause after punctuation
- *  lineHoldMs?: number,       // hold after a line completes
- *  lineBeatMs?: number,       // dramatic beat between lines (content dims/clears)
- *  loop?: boolean             // advance past last line? default false (stop)
+ *  sysMessages?: string[],    // lines the computer will type, one-by-one
+ *  cps?: number,              // characters per second (avg)
+ *  jitter?: number,           // 0..1 randomness per keystroke
+ *  punctDelayMs?: number,     // extra pause after punctuation
+ *  lineHoldMs?: number,       // how long to HOLD after finishing a line
+ *  clearMs?: number,          // how long to stay BLANK between lines
+ *  loop?: boolean             // loop messages (default true for your spec)
  * }} BannedLoginProps */
 
 /* ----------------------------- Wordmark ----------------------------- */
@@ -112,16 +112,16 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   );
 }
 
-/* --------------- ConsoleTyper: one line at a time with beat ----------- */
-/** @param {{messages:string[], cps:number, jitter:number, punctDelayMs:number, lineHoldMs:number, lineBeatMs:number, loop:boolean}} p */
-function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBeatMs, loop }) {
-  const [i, setI] = useState(0);               // which line
-  const [n, setN] = useState(0);               // chars typed
-  const [phase, setPhase] = useState(/** @type {'typing'|'hold'|'beat'} */('typing'));
+/* -------- ConsoleTyper: type → hold → clear(blank) → next (loops) ------- */
+/** @param {{messages:string[], cps:number, jitter:number, punctDelayMs:number, lineHoldMs:number, clearMs:number, loop:boolean}} p */
+function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, clearMs, loop }) {
+  const [i, setI] = useState(0);   // which message
+  const [n, setN] = useState(0);   // chars typed
+  const [phase, setPhase] = useState(/** @type {'typing'|'hold'|'clear'} */('typing'));
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const line = messages[i] ?? '';
-  const visible = reduceMotion ? line : line.slice(0, n);
+  const visible = reduceMotion ? (phase === 'clear' ? '' : line) : (phase === 'clear' ? '' : line.slice(0, n));
 
   // typing cadence
   useEffect(() => {
@@ -134,8 +134,9 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
     }
 
     const baseMs = 1000 / Math.max(1, cps);
-    const r = (Math.random() * 2 - 1) * jitter; // [-jitter,+jitter]
+    const r = (Math.random()*2 - 1) * jitter;
     let delay = baseMs * (1 + r);
+
     const ch = line[n];
     if (/[.,;:!?]/.test(ch)) delay += punctDelayMs;
     if (ch === ' ') delay += baseMs * 0.15;
@@ -144,25 +145,26 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
     return () => clearTimeout(id);
   }, [n, line, cps, jitter, punctDelayMs, phase, reduceMotion]);
 
-  // end-of-line hold → beat → next line (or stop)
+  // end-of-line hold → clear(blank)
   useEffect(() => {
     if (reduceMotion) return;
     if (phase !== 'hold') return;
-    const id = setTimeout(() => setPhase('beat'), Math.max(0, lineHoldMs));
+    const id = setTimeout(() => setPhase('clear'), Math.max(0, lineHoldMs));
     return () => clearTimeout(id);
   }, [phase, lineHoldMs, reduceMotion]);
 
+  // clear(blank) → next line (or loop back)
   useEffect(() => {
     if (reduceMotion) return;
-    if (phase !== 'beat') return;
+    if (phase !== 'clear') return;
     const id = setTimeout(() => {
       const next = i + 1;
       if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
       else if (loop && messages.length) { setI(0); setN(0); setPhase('typing'); }
-      // else stop (no stacking, no looping)
-    }, Math.max(0, lineBeatMs));
+      else { setPhase('typing'); } // stop on last if loop=false (won't advance)
+    }, Math.max(0, clearMs));
     return () => clearTimeout(id);
-  }, [phase, i, messages.length, lineBeatMs, loop, reduceMotion]);
+  }, [phase, i, messages.length, clearMs, loop, reduceMotion]);
 
   // click to skip/advance
   const onClick = useCallback(() => {
@@ -170,7 +172,7 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
     if (phase === 'typing') {
       setN(line.length); setPhase('hold');
     } else if (phase === 'hold') {
-      setPhase('beat');
+      setPhase('clear');
     } else {
       const next = i + 1;
       if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
@@ -179,9 +181,18 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
   }, [phase, line.length, i, messages.length, loop, reduceMotion]);
 
   return (
-    <span onClick={onClick} className={`console-bare neon-glow ${phase==='beat' ? 'msg-dim' : 'msg-clear'}`}>
-      <span className="txt" style={{ fontFamily:'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace', fontWeight:700, color:'#ccfff3', whiteSpace:'pre-wrap', wordBreak:'break-word', cursor:'pointer' }}>
-        {visible}{!reduceMotion && <span className="caret" aria-hidden="true" style={{ marginLeft:2, animation:'blink 1.05s steps(2) infinite' }}>█</span>}
+    <span onClick={onClick} className={`console-bare neon-glow ${phase==='hold' ? 'msg-clear' : 'msg-dim'}`}>
+      <span
+        className="txt"
+        style={{
+          fontFamily:'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+          fontWeight:700, color:'#ccfff3', whiteSpace:'pre-wrap', wordBreak:'break-word', cursor:'pointer'
+        }}
+      >
+        {visible}
+        {!reduceMotion && phase !== 'clear' && (
+          <span className="caret" aria-hidden="true" style={{ marginLeft:2, animation:'blink 1.05s steps(2) infinite' }}>█</span>
+        )}
       </span>
       <style jsx>{`
         @keyframes blink { 50% { opacity:0; } }
@@ -192,16 +203,15 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
 }
 
 /* ============================== Component ============================== */
-/** @param {BannedLoginProps} props */
 export default function BannedLogin({
   onProceed,
   sysMessages,
   cps = 13,
   jitter = 0.25,
   punctDelayMs = 220,
-  lineHoldMs = 900,
-  lineBeatMs = 180,  // small dramatic beat
-  loop = false       // stop after last line (no looping, no stacking)
+  lineHoldMs = 950,   // how long to keep a finished line on screen
+  clearMs = 280,      // how long to stay blank before next line
+  loop = true         // loop back to the first line
 }) {
   /** @type {'banned'|'login'} */ const [view, setView] = useState('banned');
   const [cascade, setCascade] = useState(false);
@@ -265,9 +275,15 @@ export default function BannedLogin({
   const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
   const [flyOnce, setFlyOnce] = useState(false);
 
-  /* ======= Default messages (ONLY your line, with レ乃モ) ======= */
+  /* ======= Your exact sequence: each line disappears, loops to start ======= */
   const DEFAULT_SYS = useMemo(() => ([
-    'hi, welcome to lameboy.com — greetings from レ乃モ'
+    'hi',
+    'welcome',
+    'to',
+    'lameboy.com',
+    'Greetings!',
+    'from',
+    'レ乃モ'
   ]), []);
   const MESSAGES = useMemo(
     () => (Array.isArray(sysMessages) && sysMessages.length ? sysMessages : DEFAULT_SYS),
@@ -357,7 +373,7 @@ export default function BannedLogin({
                         jitter={jitter}
                         punctDelayMs={punctDelayMs}
                         lineHoldMs={lineHoldMs}
-                        lineBeatMs={lineBeatMs}
+                        clearMs={clearMs}
                         loop={loop}
                       />
                     </span>
