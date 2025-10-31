@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v3.9 – ConsoleTyper: computer/terminal-style typing)
+// src/components/BannedLogin.jsx  (v3.10 – ConsoleTyper with line-by-line dramatization + wrapped bubble)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -14,12 +14,13 @@ const CASCADE_MS = 2400;
 
 /** @typedef {{
  *  onProceed?: ()=>void,
- *  sysMessages?: string[],     // messages the "computer" will type
- *  cps?: number,               // average characters per second (default 13)
- *  jitter?: number,            // 0..1 random speed jitter per char (default 0.25)
- *  punctDelayMs?: number,      // extra pause after . , ; : ! ? (default 220)
- *  newlineDelayMs?: number,    // pause after finishing a message (default 900)
- *  loop?: boolean              // loop through messages (default true)
+ *  sysMessages?: string[],    // lines the "computer" will type (one at a time)
+ *  cps?: number,              // avg chars/sec
+ *  jitter?: number,           // 0..1 randomness per char
+ *  punctDelayMs?: number,     // pause after punctuation
+ *  lineHoldMs?: number,       // hold after a line completes
+ *  lineBeatMs?: number,       // dramatic beat between lines (content dims/clears)
+ *  loop?: boolean
  * }} BannedLoginProps */
 
 /* ----------------------------- Wordmark ----------------------------- */
@@ -86,91 +87,118 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
         .lb-b4{ --c:#22c55e } .lb-b5{ --c:#3b82f6 } .lb-b6{ --c:#4f46e5 } .lb-b7{ --c:#c084fc }
         .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
         .lb-brand-text{ color:#fff; font-weight:800; letter-spacing:.08em; text-transform:uppercase; font-size:clamp(11px,1.3vw,14px); }
+
+        /* shared neon + pills */
+        .neon-glow{ text-shadow: 0 0 6px rgba(50,255,199,.45), 0 0 14px rgba(50,255,199,.35), 0 0 26px rgba(50,255,199,.22); }
+        .neon-red{  text-shadow: 0 0 6px rgba(255,64,64,.55), 0 0 14px rgba(255,64,64,.35), 0 0 26px rgba(255,64,64,.22); }
+        .pill{ display:inline-flex; align-items:center; justify-content:center; height:28px; min-width:28px; padding:0 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#fff; font-weight:700; letter-spacing:.02em; transition:transform .12s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease; box-shadow:0 0 0 0 rgba(50,255,199,0); }
+        .pill:hover{ transform:translateY(-1px); }
+        .pill:active{ transform:translateY(0); }
+        .pill.neon{ box-shadow: 0 0 8px rgba(50,255,199,.45), inset 0 0 0 1px rgba(50,255,199,.25); border-color:rgba(50,255,199,.55); }
+
+        /* message bubble that wraps inside <pre> */
+        .msg-box{
+          display:inline-block; vertical-align:baseline;
+          max-width:min(32ch, 72vw);
+          padding:4px 8px; margin:0 2px;
+          background:rgba(10,12,12,.92);
+          border:1px solid rgba(50,255,199,.35);
+          border-radius:10px;
+          box-shadow:0 10px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(50,255,199,.15);
+          white-space: normal; word-break: break-word;
+        }
+        .msg-dim { opacity:.25; transition:opacity .14s ease; }
+        .msg-clear { opacity:1; transition:opacity .14s ease; }
+        .msg-box .caret { filter: drop-shadow(0 0 6px rgba(50,255,199,.45)); }
       `}</style>
     </>,
     document.body
   );
 }
 
-/* -------------------- ConsoleTyper (computer vibe) ------------------- */
-/** @param {{messages:string[], cps:number, jitter:number, punctDelayMs:number, newlineDelayMs:number, loop:boolean}} p */
-function ConsoleTyper({ messages, cps, jitter, punctDelayMs, newlineDelayMs, loop }) {
-  const [i, setI] = useState(0);
-  const [n, setN] = useState(0);               // chars typed in current message
-  const [holding, setHolding] = useState(false);
+/* --------------- ConsoleTyper: one line at a time with beat ----------- */
+/** @param {{messages:string[], cps:number, jitter:number, punctDelayMs:number, lineHoldMs:number, lineBeatMs:number, loop:boolean}} p */
+function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBeatMs, loop }) {
+  const [i, setI] = useState(0);               // which line
+  const [n, setN] = useState(0);               // chars typed
+  const [phase, setPhase] = useState(/** @type {'typing'|'hold'|'beat'} */('typing'));
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const line = messages[i] ?? '';
   const visible = reduceMotion ? line : line.slice(0, n);
 
-  // compute per-char delay
+  // typing cadence
   useEffect(() => {
     if (reduceMotion) return;
-    if (holding) return;
+    if (phase !== 'typing') return;
 
-    // done with this line → hold, then next
     if (n >= line.length) {
-      setHolding(true);
-      const id = setTimeout(() => {
-        const next = i + 1;
-        if (next < messages.length) { setI(next); setN(0); setHolding(false); }
-        else if (loop && messages.length) { setI(0); setN(0); setHolding(false); }
-      }, newlineDelayMs);
-      return () => clearTimeout(id);
+      setPhase('hold');
+      return;
     }
 
-    // base delay from cps, with jitter and punctuation pauses
     const baseMs = 1000 / Math.max(1, cps);
-    const r = (Math.random() * 2 - 1) * jitter; // [-jitter, +jitter]
+    const r = (Math.random() * 2 - 1) * jitter; // [-jitter,+jitter]
     let delay = baseMs * (1 + r);
-
     const ch = line[n];
     if (/[.,;:!?]/.test(ch)) delay += punctDelayMs;
     if (ch === ' ') delay += baseMs * 0.15;
 
     const id = setTimeout(() => setN(x => x + 1), Math.max(8, delay));
     return () => clearTimeout(id);
-  }, [n, line, cps, jitter, punctDelayMs, newlineDelayMs, loop, messages.length, i, holding, reduceMotion]);
+  }, [n, line, cps, jitter, punctDelayMs, phase, reduceMotion]);
 
-  // click to skip to end / advance
+  // end-of-line hold → beat → next line
+  useEffect(() => {
+    if (reduceMotion) return;
+    if (phase !== 'hold') return;
+    const id = setTimeout(() => setPhase('beat'), Math.max(0, lineHoldMs));
+    return () => clearTimeout(id);
+  }, [phase, lineHoldMs, reduceMotion]);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    if (phase !== 'beat') return;
+    const id = setTimeout(() => {
+      const next = i + 1;
+      if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
+      else if (loop && messages.length) { setI(0); setN(0); setPhase('typing'); }
+    }, Math.max(0, lineBeatMs));
+    return () => clearTimeout(id);
+  }, [phase, i, messages.length, lineBeatMs, loop, reduceMotion]);
+
+  // click to skip/advance
   const onClick = useCallback(() => {
     if (reduceMotion) return;
-    if (n < line.length) {
+    if (phase === 'typing') {
       setN(line.length);
+      setPhase('hold');
+    } else if (phase === 'hold') {
+      setPhase('beat');
     } else {
       const next = i + 1;
-      if (next < messages.length) { setI(next); setN(0); setHolding(false); }
-      else if (loop) { setI(0); setN(0); setHolding(false); }
+      if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
+      else if (loop) { setI(0); setN(0); setPhase('typing'); }
     }
-  }, [n, line, i, messages.length, loop, reduceMotion]);
+  }, [phase, line.length, i, messages.length, loop, reduceMotion]);
 
   return (
-    <div onClick={onClick} title="Tap to skip/advance" className="console-wrap">
-      <div className="console neon-glow">
-        <span className="prompt">› </span>
-        <span className="txt">{visible}</span>
-        {!reduceMotion && <span className="caret" aria-hidden="true">█</span>}
-      </div>
+    <span onClick={onClick} className={`console-bare neon-glow ${phase==='beat' ? 'msg-dim' : 'msg-clear'}`}>
+      <span className="txt">{visible}</span>
+      {!reduceMotion && <span className="caret" aria-hidden="true">█</span>}
       <style jsx>{`
-        .console-wrap { display:inline-block; max-width:min(44ch, 80vw); cursor:pointer; }
-        .console {
-          background: rgba(10,12,12,.92);
-          border: 1px solid rgba(50,255,199,.4);
-          border-radius: 10px;
-          padding: 8px 12px;
-          box-shadow: 0 10px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(50,255,199,.15);
+        .console-bare{
+          display:inline;
           font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-          font-weight: 600;
-          color: #ccfff3;
-          letter-spacing: 0.02em;
-          line-height: 1.3;
+          font-weight:700; color:#ccfff3; letter-spacing:.02em;
+          white-space: pre-wrap; word-break: break-word;
+          cursor:pointer;
         }
-        .prompt { color:#32ffc7; }
-        .caret { margin-left:2px; animation: blink 1.05s steps(2) infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
+        .caret{ margin-left:2px; animation: blink 1.05s steps(2) infinite; }
+        @keyframes blink { 50% { opacity:0; } }
         @media (prefers-reduced-motion: reduce){ .caret{ display:none; } }
       `}</style>
-    </div>
+    </span>
   );
 }
 
@@ -182,7 +210,8 @@ export default function BannedLogin({
   cps = 13,
   jitter = 0.25,
   punctDelayMs = 220,
-  newlineDelayMs = 900,
+  lineHoldMs = 900,
+  lineBeatMs = 180,  // the little dramatic beat
   loop = true
 }) {
   /** @type {'banned'|'login'} */ const [view, setView] = useState('banned');
@@ -247,9 +276,11 @@ export default function BannedLogin({
   const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
   const [flyOnce, setFlyOnce] = useState(false);
 
-  /* ======= Default computer-typed messages ======= */
+  /* ======= Default computer-typed messages (includes レ乃モ) ======= */
   const DEFAULT_SYS = useMemo(() => ([
-    'hi, welcome to lameboy.com — greetings from LBE'
+    'hi, welcome to lameboy.com — greetings from レ乃モ',
+    'initializing chakra matrix… OK',
+    'access requires bypass — hold orb to enter'
   ]), []);
   const MESSAGES = useMemo(
     () => (Array.isArray(sysMessages) && sysMessages.length ? sysMessages : DEFAULT_SYS),
@@ -258,16 +289,6 @@ export default function BannedLogin({
 
   return (
     <div className="page-center" data-test="gate-v3" style={{ minHeight:'100dvh', display:'grid', placeItems:'center', padding:'2rem', position:'relative', gridAutoRows:'min-content' }}>
-      {/* Local styles */}
-      <style jsx global>{`
-        .neon-glow{ text-shadow: 0 0 6px rgba(50,255,199,.45), 0 0 14px rgba(50,255,199,.35), 0 0 26px rgba(50,255,199,.22); }
-        .neon-red{  text-shadow: 0 0 6px rgba(255,64,64,.55), 0 0 14px rgba(255,64,64,.35), 0 0 26px rgba(255,64,64,.22); }
-        .pill{ display:inline-flex; align-items:center; justify-content:center; height:28px; min-width:28px; padding:0 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#fff; font-weight:700; letter-spacing:.02em; transition:transform .12s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease; box-shadow:0 0 0 0 rgba(50,255,199,0); }
-        .pill:hover{ transform:translateY(-1px); }
-        .pill:active{ transform:translateY(0); }
-        .pill.neon{ box-shadow: 0 0 8px rgba(50,255,199,.45), inset 0 0 0 1px rgba(50,255,199,.25); border-color:rgba(50,255,199,.55); }
-      `}</style>
-
       {flyOnce && <ButterflyChakra startEl={lRef.current} endEl={yRef.current} durationMs={1600} onDone={() => setFlyOnce(false)} />}
 
       {cascade && <CascadeOverlay durationMs={CASCADE_MS} />}
@@ -341,14 +362,19 @@ export default function BannedLogin({
                   <span className="code-var neon-glow">msg</span>{' '}
                   <span className="code-op neon-glow">=</span>{' '}
                   <span className="code-string neon-glow">
-                    "<ConsoleTyper
-                      messages={MESSAGES}
-                      cps={cps}
-                      jitter={jitter}
-                      punctDelayMs={punctDelayMs}
-                      newlineDelayMs={newlineDelayMs}
-                      loop={loop}
-                    />"
+                    "
+                    <span className="msg-box">
+                      <ConsoleTyper
+                        messages={MESSAGES}
+                        cps={cps}
+                        jitter={jitter}
+                        punctDelayMs={punctDelayMs}
+                        lineHoldMs={lineHoldMs}
+                        lineBeatMs={lineBeatMs}
+                        loop={loop}
+                      />
+                    </span>
+                    "
                   </span>
                   <span className="code-punc neon-glow">;</span>
                 </pre>
