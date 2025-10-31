@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v3.10 – ConsoleTyper with line-by-line dramatization + wrapped bubble)
+// src/components/BannedLogin.jsx  (v4.1 – one-line typer, no glow box, no looping, レ乃モ default)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -20,7 +20,7 @@ const CASCADE_MS = 2400;
  *  punctDelayMs?: number,     // pause after punctuation
  *  lineHoldMs?: number,       // hold after a line completes
  *  lineBeatMs?: number,       // dramatic beat between lines (content dims/clears)
- *  loop?: boolean
+ *  loop?: boolean             // advance past last line? default false (stop)
  * }} BannedLoginProps */
 
 /* ----------------------------- Wordmark ----------------------------- */
@@ -96,20 +96,16 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
         .pill:active{ transform:translateY(0); }
         .pill.neon{ box-shadow: 0 0 8px rgba(50,255,199,.45), inset 0 0 0 1px rgba(50,255,199,.25); border-color:rgba(50,255,199,.55); }
 
-        /* message bubble that wraps inside <pre> */
+        /* Invisible wrapper: keeps text contained within the bubble, no extra frame */
         .msg-box{
           display:inline-block; vertical-align:baseline;
           max-width:min(32ch, 72vw);
-          padding:4px 8px; margin:0 2px;
-          background:rgba(10,12,12,.92);
-          border:1px solid rgba(50,255,199,.35);
-          border-radius:10px;
-          box-shadow:0 10px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(50,255,199,.15);
           white-space: normal; word-break: break-word;
+          padding:0; margin:0 2px; background:transparent; border:0; border-radius:0; box-shadow:none;
         }
+
         .msg-dim { opacity:.25; transition:opacity .14s ease; }
         .msg-clear { opacity:1; transition:opacity .14s ease; }
-        .msg-box .caret { filter: drop-shadow(0 0 6px rgba(50,255,199,.45)); }
       `}</style>
     </>,
     document.body
@@ -148,7 +144,7 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
     return () => clearTimeout(id);
   }, [n, line, cps, jitter, punctDelayMs, phase, reduceMotion]);
 
-  // end-of-line hold → beat → next line
+  // end-of-line hold → beat → next line (or stop)
   useEffect(() => {
     if (reduceMotion) return;
     if (phase !== 'hold') return;
@@ -163,6 +159,7 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
       const next = i + 1;
       if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
       else if (loop && messages.length) { setI(0); setN(0); setPhase('typing'); }
+      // else stop (no stacking, no looping)
     }, Math.max(0, lineBeatMs));
     return () => clearTimeout(id);
   }, [phase, i, messages.length, lineBeatMs, loop, reduceMotion]);
@@ -171,8 +168,7 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
   const onClick = useCallback(() => {
     if (reduceMotion) return;
     if (phase === 'typing') {
-      setN(line.length);
-      setPhase('hold');
+      setN(line.length); setPhase('hold');
     } else if (phase === 'hold') {
       setPhase('beat');
     } else {
@@ -184,17 +180,10 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
 
   return (
     <span onClick={onClick} className={`console-bare neon-glow ${phase==='beat' ? 'msg-dim' : 'msg-clear'}`}>
-      <span className="txt">{visible}</span>
-      {!reduceMotion && <span className="caret" aria-hidden="true">█</span>}
+      <span className="txt" style={{ fontFamily:'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace', fontWeight:700, color:'#ccfff3', whiteSpace:'pre-wrap', wordBreak:'break-word', cursor:'pointer' }}>
+        {visible}{!reduceMotion && <span className="caret" aria-hidden="true" style={{ marginLeft:2, animation:'blink 1.05s steps(2) infinite' }}>█</span>}
+      </span>
       <style jsx>{`
-        .console-bare{
-          display:inline;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-          font-weight:700; color:#ccfff3; letter-spacing:.02em;
-          white-space: pre-wrap; word-break: break-word;
-          cursor:pointer;
-        }
-        .caret{ margin-left:2px; animation: blink 1.05s steps(2) infinite; }
         @keyframes blink { 50% { opacity:0; } }
         @media (prefers-reduced-motion: reduce){ .caret{ display:none; } }
       `}</style>
@@ -211,8 +200,8 @@ export default function BannedLogin({
   jitter = 0.25,
   punctDelayMs = 220,
   lineHoldMs = 900,
-  lineBeatMs = 180,  // the little dramatic beat
-  loop = true
+  lineBeatMs = 180,  // small dramatic beat
+  loop = false       // stop after last line (no looping, no stacking)
 }) {
   /** @type {'banned'|'login'} */ const [view, setView] = useState('banned');
   const [cascade, setCascade] = useState(false);
@@ -276,11 +265,9 @@ export default function BannedLogin({
   const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
   const [flyOnce, setFlyOnce] = useState(false);
 
-  /* ======= Default computer-typed messages (includes レ乃モ) ======= */
+  /* ======= Default messages (ONLY your line, with レ乃モ) ======= */
   const DEFAULT_SYS = useMemo(() => ([
-    'hi, welcome to lameboy.com — greetings from レ乃モ',
-    'initializing chakra matrix… OK',
-    'access requires bypass — hold orb to enter'
+    'hi, welcome to lameboy.com — greetings from レ乃モ'
   ]), []);
   const MESSAGES = useMemo(
     () => (Array.isArray(sysMessages) && sysMessages.length ? sysMessages : DEFAULT_SYS),
@@ -352,8 +339,8 @@ export default function BannedLogin({
                   <span
                     role="button" tabIndex={0}
                     className="code-banned neon-red banned-trigger"
-                    onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}
-                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
+                    onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setOrbMode(m => m==='red'?'chakra':'red'); }}
+                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); setOrbMode(m => m==='red'?'chakra':'red'); }}}
                     title="Toggle orb color"
                   >
                     banned
