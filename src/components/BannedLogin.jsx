@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v3.6 – fixed-width neon ticker + single-page onProceed)
+// src/components/BannedLogin.jsx  (v3.9 – ConsoleTyper: computer/terminal-style typing)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -11,6 +11,16 @@ import { createPortal } from 'react-dom';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
+
+/** @typedef {{
+ *  onProceed?: ()=>void,
+ *  sysMessages?: string[],     // messages the "computer" will type
+ *  cps?: number,               // average characters per second (default 13)
+ *  jitter?: number,            // 0..1 random speed jitter per char (default 0.25)
+ *  punctDelayMs?: number,      // extra pause after . , ; : ! ? (default 220)
+ *  newlineDelayMs?: number,    // pause after finishing a message (default 900)
+ *  loop?: boolean              // loop through messages (default true)
+ * }} BannedLoginProps */
 
 /* ----------------------------- Wordmark ----------------------------- */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
@@ -82,8 +92,99 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   );
 }
 
+/* -------------------- ConsoleTyper (computer vibe) ------------------- */
+/** @param {{messages:string[], cps:number, jitter:number, punctDelayMs:number, newlineDelayMs:number, loop:boolean}} p */
+function ConsoleTyper({ messages, cps, jitter, punctDelayMs, newlineDelayMs, loop }) {
+  const [i, setI] = useState(0);
+  const [n, setN] = useState(0);               // chars typed in current message
+  const [holding, setHolding] = useState(false);
+  const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+  const line = messages[i] ?? '';
+  const visible = reduceMotion ? line : line.slice(0, n);
+
+  // compute per-char delay
+  useEffect(() => {
+    if (reduceMotion) return;
+    if (holding) return;
+
+    // done with this line → hold, then next
+    if (n >= line.length) {
+      setHolding(true);
+      const id = setTimeout(() => {
+        const next = i + 1;
+        if (next < messages.length) { setI(next); setN(0); setHolding(false); }
+        else if (loop && messages.length) { setI(0); setN(0); setHolding(false); }
+      }, newlineDelayMs);
+      return () => clearTimeout(id);
+    }
+
+    // base delay from cps, with jitter and punctuation pauses
+    const baseMs = 1000 / Math.max(1, cps);
+    const r = (Math.random() * 2 - 1) * jitter; // [-jitter, +jitter]
+    let delay = baseMs * (1 + r);
+
+    const ch = line[n];
+    if (/[.,;:!?]/.test(ch)) delay += punctDelayMs;
+    if (ch === ' ') delay += baseMs * 0.15;
+
+    const id = setTimeout(() => setN(x => x + 1), Math.max(8, delay));
+    return () => clearTimeout(id);
+  }, [n, line, cps, jitter, punctDelayMs, newlineDelayMs, loop, messages.length, i, holding, reduceMotion]);
+
+  // click to skip to end / advance
+  const onClick = useCallback(() => {
+    if (reduceMotion) return;
+    if (n < line.length) {
+      setN(line.length);
+    } else {
+      const next = i + 1;
+      if (next < messages.length) { setI(next); setN(0); setHolding(false); }
+      else if (loop) { setI(0); setN(0); setHolding(false); }
+    }
+  }, [n, line, i, messages.length, loop, reduceMotion]);
+
+  return (
+    <div onClick={onClick} title="Tap to skip/advance" className="console-wrap">
+      <div className="console neon-glow">
+        <span className="prompt">› </span>
+        <span className="txt">{visible}</span>
+        {!reduceMotion && <span className="caret" aria-hidden="true">█</span>}
+      </div>
+      <style jsx>{`
+        .console-wrap { display:inline-block; max-width:min(44ch, 80vw); cursor:pointer; }
+        .console {
+          background: rgba(10,12,12,.92);
+          border: 1px solid rgba(50,255,199,.4);
+          border-radius: 10px;
+          padding: 8px 12px;
+          box-shadow: 0 10px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(50,255,199,.15);
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+          font-weight: 600;
+          color: #ccfff3;
+          letter-spacing: 0.02em;
+          line-height: 1.3;
+        }
+        .prompt { color:#32ffc7; }
+        .caret { margin-left:2px; animation: blink 1.05s steps(2) infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+        @media (prefers-reduced-motion: reduce){ .caret{ display:none; } }
+      `}</style>
+    </div>
+  );
+}
+
 /* ============================== Component ============================== */
-export default function BannedLogin({ onProceed }) {
+/** @param {BannedLoginProps} props */
+export default function BannedLogin({
+  onProceed,
+  sysMessages,
+  cps = 13,
+  jitter = 0.25,
+  punctDelayMs = 220,
+  newlineDelayMs = 900,
+  loop = true
+}) {
   /** @type {'banned'|'login'} */ const [view, setView] = useState('banned');
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
@@ -146,17 +247,14 @@ export default function BannedLogin({ onProceed }) {
   const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
   const [flyOnce, setFlyOnce] = useState(false);
 
-  /* ======================= FIXED-WIDTH TICKER ======================= */
-  const TICKER_MESSAGES = useMemo(() => ([
-    'hi...',
-    '...welcome to lameboy.com...',
-    '...greetings from レ乃モ'
+  /* ======= Default computer-typed messages ======= */
+  const DEFAULT_SYS = useMemo(() => ([
+    'hi, welcome to lameboy.com — greetings from LBE'
   ]), []);
-  const spacer = '   •   ';
-  const tickerLine = useMemo(() => {
-    const base = TICKER_MESSAGES.join(spacer);
-    return `${base}${spacer}${base}`;
-  }, [TICKER_MESSAGES]);
+  const MESSAGES = useMemo(
+    () => (Array.isArray(sysMessages) && sysMessages.length ? sysMessages : DEFAULT_SYS),
+    [sysMessages, DEFAULT_SYS]
+  );
 
   return (
     <div className="page-center" data-test="gate-v3" style={{ minHeight:'100dvh', display:'grid', placeItems:'center', padding:'2rem', position:'relative', gridAutoRows:'min-content' }}>
@@ -168,9 +266,6 @@ export default function BannedLogin({ onProceed }) {
         .pill:hover{ transform:translateY(-1px); }
         .pill:active{ transform:translateY(0); }
         .pill.neon{ box-shadow: 0 0 8px rgba(50,255,199,.45), inset 0 0 0 1px rgba(50,255,199,.25); border-color:rgba(50,255,199,.55); }
-        .ticker-viewport{ display:inline-block; vertical-align:bottom; width:min(32ch, 72vw); overflow:hidden; white-space:nowrap; }
-        .ticker-track{ display:inline-block; padding-left:100%; will-change:transform; animation:lb-marquee 22s linear infinite; }
-        @keyframes lb-marquee{ 0%{ transform:translate3d(0,0,0);} 100%{ transform:translate3d(-100%,0,0);} }
       `}</style>
 
       {flyOnce && <ButterflyChakra startEl={lRef.current} endEl={yRef.current} durationMs={1600} onDone={() => setFlyOnce(false)} />}
@@ -246,7 +341,14 @@ export default function BannedLogin({ onProceed }) {
                   <span className="code-var neon-glow">msg</span>{' '}
                   <span className="code-op neon-glow">=</span>{' '}
                   <span className="code-string neon-glow">
-                    "<span className="ticker-viewport"><span className="ticker-track">{tickerLine}</span></span>"
+                    "<ConsoleTyper
+                      messages={MESSAGES}
+                      cps={cps}
+                      jitter={jitter}
+                      punctDelayMs={punctDelayMs}
+                      newlineDelayMs={newlineDelayMs}
+                      loop={loop}
+                    />"
                   </span>
                   <span className="code-punc neon-glow">;</span>
                 </pre>
