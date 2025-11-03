@@ -6,9 +6,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 
 function OrbCross({
-  rpm = 14.4,                 // base RPM (sign controls CW/CCW)
-  rpmBreath = 0.12,           // 0..≈0.3 gentle modulation depth
-  breathHz = 0.18,            // cycles per second for the “wind”
+  rpm = 14.4,
+  rpmBreath = 0.12,
+  breathHz = 0.18,
   color = '#32ffc7',
   geomScale = 1,
   offsetFactor = 2.05,
@@ -18,8 +18,8 @@ function OrbCross({
   glowScale = 1.35,
   includeZAxis = true,
   onActivate = null,
-  overrideAllColor = null,     // legacy (kept for compat)
-  overrideHaloColor = null,    // NEW: only halos/glow take this color
+  overrideAllColor = null,     // not used for pulses now
+  overrideHaloColor = null,    // halos-only pulse
   overrideGlowOpacity,
   __interactive = false,
 }) {
@@ -32,22 +32,19 @@ function OrbCross({
 
   useFrame((state, dt) => {
     if (!group.current) return;
-
-    // Hypnotic “wind” – small RPM breathing
     const t = state.clock.getElapsedTime();
     const breath = 1 + (Math.sin(t * Math.PI * 2 * breathHz) * rpmBreath);
     const rpmNow = rpm * breath;
     group.current.rotation.y += ((rpmNow * Math.PI * 2) / 60) * dt;
 
-    // pulse animation for halos if needed
     const u = group.current.userData;
     if ((overrideAllColor || overrideHaloColor) && glow && u?.pulse) {
       const p = 0.85 + Math.sin(t * 3.6) * 0.15;
       const b = u.base * p;
-      u.barHalo.opacity = b * 0.55;
+      u.barHalo.opacity = b * 0.45;  // slightly lower to avoid white wash
       u.sphereHalos.forEach((m) => (m.opacity = b));
-      u.halo2.opacity = b * 0.65;
-      u.halo3.opacity = b * 0.35;
+      u.halo2.opacity = b * 0.6;
+      u.halo3.opacity = b * 0.3;
     }
   });
 
@@ -90,84 +87,62 @@ function OrbCross({
     centers, CHAKRA
   } = memo;
 
-  const useOverrideAll   = !!overrideAllColor;
   const useHaloOverride  = !!overrideHaloColor;
 
-  const barColor = useOverrideAll ? overrideAllColor : color;
+  const barColor = color;
 
-  const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * (coarse ? 0.55 : 1.0);
-  const coreEmissive = useOverrideAll ? 2.25 : 1.25;
-  const barEmissive  = useOverrideAll ? 1.35 : 0.6;
+  // lower base to avoid white/blue wash
+  const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.05)) * (coarse ? 0.55 : 1.0);
+  const coreEmissive = 1.15;
+  const barEmissive  = 0.55;
 
   const barCoreMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: barColor, roughness:0.32, metalness:0.25,
     emissive:new THREE.Color(barColor), emissiveIntensity:barEmissive, toneMapped:true,
   }), [barColor, barEmissive]);
 
-  // If halo override is set, use that color for the bar glow; otherwise use barColor
   const barHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
     color: useHaloOverride ? overrideHaloColor : barColor,
-    transparent:true, opacity: glow ? haloBase * 0.5 : 0,
+    transparent:true, opacity: glow ? haloBase * 0.35 : 0, // toned down default
     blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
   }), [useHaloOverride, overrideHaloColor, barColor, glow, haloBase]);
 
-  // Sphere definitions for CORE colors (always chakra unless overrideAllColor)
-  const sphereDefs = useOverrideAll
-    ? new Array(centers.length).fill({ core: barColor })
-    : [
-        { core: CHAKRA.crownW },
-        { core: CHAKRA.root   },
-        { core: CHAKRA.sacral },
-        { core: CHAKRA.solar  },
-        { core: CHAKRA.heart  },
-        { core: CHAKRA.throat },
-        { core: CHAKRA.thirdEye },
-      ];
-
-  // Core materials stay chakra-colored unless overrideAllColor
+  // cores keep chakra colors
   const sphereCoreMats = useMemo(
-    () => sphereDefs.map(({ core }) => new THREE.MeshStandardMaterial({
+    () => ([
+      CHAKRA.crownW, CHAKRA.root, CHAKRA.sacral, CHAKRA.solar, CHAKRA.heart, CHAKRA.throat, CHAKRA.thirdEye
+    ]).map((core) => new THREE.MeshStandardMaterial({
       color: core, roughness:0.28, metalness:0.25,
       emissive:new THREE.Color(core), emissiveIntensity: coreEmissive, toneMapped:true,
     })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [useOverrideAll ? barColor : JSON.stringify(sphereDefs), coreEmissive]
+    [CHAKRA, coreEmissive]
   );
 
-  // Halo materials: either chakra hues OR the override halo color (keeping cores intact)
+  // halos: chakra by default, neon override on pulse
   const sphereHaloMats = useMemo(() => {
-    if (!glow) return sphereDefs.map(() => new THREE.MeshBasicMaterial({ transparent:true, opacity:0 }));
+    if (!glow) return new Array(centers.length).fill(new THREE.MeshBasicMaterial({ transparent:true, opacity:0 }));
     if (useHaloOverride) {
-      return sphereDefs.map(() => new THREE.MeshBasicMaterial({
+      return centers.map(() => new THREE.MeshBasicMaterial({
         color: overrideHaloColor, transparent:true, opacity: haloBase,
         blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
       }));
     }
-    // default: chakra halo colors mirroring cores
-    const HALOS = [
-      '#c084fc',  // crownV
-      '#ef4444',  // root
-      '#f97316',  // sacral
-      '#facc15',  // solar
-      '#22c55e',  // heart
-      '#3b82f6',  // throat
-      '#4f46e5',  // thirdEye
-    ];
+    const HALOS = ['#c084fc','#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5'];
     return HALOS.map((h) => new THREE.MeshBasicMaterial({
-      color: h, transparent:true, opacity: haloBase,
+      color: h, transparent:true, opacity: haloBase * 0.9,
       blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
     }));
-  }, [glow, useHaloOverride, overrideHaloColor, haloBase, sphereDefs.length]);
+  }, [glow, useHaloOverride, overrideHaloColor, haloBase, centers.length]);
 
   const halo2Mat = useMemo(() => new THREE.MeshBasicMaterial({
     color: useHaloOverride ? overrideHaloColor : barColor,
-    transparent:true, opacity: haloBase * 0.6,
+    transparent:true, opacity: haloBase * 0.5,
     blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
   }), [useHaloOverride, overrideHaloColor, barColor, haloBase]);
 
   const halo3Mat = useMemo(() => new THREE.MeshBasicMaterial({
     color: useHaloOverride ? overrideHaloColor : barColor,
-    transparent:true, opacity: haloBase * 0.32,
+    transparent:true, opacity: haloBase * 0.26,
     blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
   }), [useHaloOverride, overrideHaloColor, barColor, haloBase]);
 
@@ -190,7 +165,7 @@ function OrbCross({
       <mesh geometry={armGeoY} material={barCoreMat} />
       {includeZAxis && <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />}
 
-      {/* Spheres (cores keep their colors) */}
+      {/* Spheres: chakra cores */}
       {centers.map((p, i) => (
         <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />
       ))}
@@ -206,15 +181,12 @@ function OrbCross({
             <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />
           ))}
 
-          {/* Outer breathing halos (use halo override color if present) */}
-          <>
-            {centers.map((p, i) => (
-              <mesh key={`h2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />
-            ))}
-            {centers.map((p, i) => (
-              <mesh key={`h3-${i}`} geometry={sphereGeo} material={halo3Mat} position={p} scale={glowScale * 1.95} />
-            ))}
-          </>
+          {centers.map((p, i) => (
+            <mesh key={`h2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />
+          ))}
+          {centers.map((p, i) => (
+            <mesh key={`h3-${i}`} geometry={sphereGeo} material={halo3Mat} position={p} scale={glowScale * 1.95} />
+          ))}
         </>
       )}
     </group>
@@ -236,7 +208,7 @@ export default function BlueOrbCross3D({
   includeZAxis = true,
   onActivate = null,
   overrideAllColor = null,
-  overrideHaloColor = null,   // NEW
+  overrideHaloColor = null,
   overrideGlowOpacity,
   style = {},
   className = '',
@@ -297,7 +269,7 @@ export default function BlueOrbCross3D({
           includeZAxis={includeZAxis}
           onActivate={interactive ? onActivate : null}
           overrideAllColor={overrideAllColor}
-          overrideHaloColor={overrideHaloColor}     // ⟵ only halos change on pulse
+          overrideHaloColor={overrideHaloColor}
           overrideGlowOpacity={overrideGlowOpacity}
           __interactive={interactive}
         />

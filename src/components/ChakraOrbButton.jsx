@@ -4,13 +4,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
-const GO_GREEN = '#00ff5a';  // neon go
+const GO_GREEN = '#39ff14';   // bright neon "go"
 const STOP_RED = '#ff001a';
 const SEAFOAM  = '#32ffc7';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 16,                 // slower base RPM
+  rpm = 16,                 // slow, soothing
   rpmBreath = 0.16,         // gentle wind modulation
   breathHz = 0.16,
   color = SEAFOAM,
@@ -18,7 +18,7 @@ export default function ChakraOrbButton({
   offsetFactor = 2.25,
   armRatio = 0.35,
   glow = true,
-  glowOpacity = 0.95,
+  glowOpacity = 0.70,       // lower base glow so it’s not bluish/white
   includeZAxis = true,
   className = '',
   style = {},
@@ -47,7 +47,7 @@ export default function ChakraOrbButton({
   // IN = CW (positive), OUT = CCW (negative)
   const rpmEffective = useMemo(() => (mode === 'in' ?  Math.abs(rpm) : -Math.abs(rpm)), [rpm, mode]);
 
-  // halo-only pulse color
+  // halo-only pulse color (cores stay chakra colors)
   const [pulseHalo, setPulseHalo] = useState/** @type {string|null} */(null);
   const pulseTimer = useRef/** @type {ReturnType<typeof setTimeout>|null} */(null);
   const pulse = useCallback((hex) => {
@@ -86,10 +86,8 @@ export default function ChakraOrbButton({
   return (
     <>
       <style jsx>{`
-        [data-orb="density"] { outline: none; }
-        [data-orb="density"]:focus,
-        [data-orb="density"]:focus-visible { outline: none; box-shadow: none; }
-        [data-orb="density"] { -webkit-tap-highlight-color: transparent; }
+        [data-orb="density"] { outline: none; -webkit-tap-highlight-color: transparent; }
+        [data-orb="density"]:focus, [data-orb="density"]:focus-visible { outline: none; box-shadow: none; }
       `}</style>
       <button
         type="button"
@@ -109,16 +107,7 @@ export default function ChakraOrbButton({
         }}
         title={mode === 'in' ? 'Zoom (IN: 5→1) – CW' : 'Zoom (OUT: 1→5) – CCW'}
       >
-        {/* soft halo fallback */}
-        <span
-          aria-hidden
-          style={{
-            position:'absolute', inset:0, borderRadius:'9999px',
-            background:'radial-gradient(closest-side, rgba(50,255,199,.22), rgba(50,255,199,.06) 60%, transparent 72%)',
-            boxShadow:'0 0 18px rgba(50,255,199,.28), inset 0 0 0 1px rgba(255,255,255,.22)',
-            pointerEvents:'none', filter:'saturate(1.1)', zIndex:1,
-          }}
-        />
+        {/* NOTE: removed DOM fallback halo to avoid cyan/white ring */}
         <BlueOrbCross3D
           height={px}
           rpm={rpmEffective}
@@ -131,9 +120,9 @@ export default function ChakraOrbButton({
           glow={glow}
           glowOpacity={glowOpacity}
           includeZAxis={includeZAxis}
-          // ⟵ only halos change on pulse; cores stay chakra-colored
+          // halos-only pulse; cores keep chakra colors
           overrideHaloColor={pulseHalo ?? undefined}
-          overrideGlowOpacity={pulseHalo ? 1.0 : undefined}
+          overrideGlowOpacity={pulseHalo ? 0.9 : undefined}
           interactive
           respectReducedMotion={false}
           onActivate={onClick}
