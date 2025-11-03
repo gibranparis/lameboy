@@ -21,19 +21,19 @@ export default function ChakraOrbButton({
   const FIRE_COOLDOWN_MS = 150;
   const lastFireRef = useRef(0);
 
+  // we learn current density from ShopGrid broadcasts
   const [cols, setCols] = useState(5);
-  // REVERSED: spinDir = +1 when density>1 (grid growing), -1 when density===1 (zoom-out indicator)
-  const [spinDir, setSpinDir] = useState(+1);
-  const [haloTint, setHaloTint] = useState(null); // transient ring color
+  const [spinDir, setSpinDir] = useState(+1);      // +1 cw, -1 ccw
+  const [haloTint, setHaloTint] = useState(null);  // transient ring
 
-  // Receive density broadcasts
+  // receive density updates
   useEffect(() => {
     const onDensity = (e) => {
       const d = e?.detail?.density ?? e?.detail?.value;
       if (typeof d === 'number') {
         setCols(d);
-        // REVERSED mapping vs previous: at 1 (zoom-out mode), spin CCW (-1); otherwise CW (+1)
-        setSpinDir(d === 1 ? -1 : +1);
+        // spin points “expand/outward” when we’re at min density to hint zooming out of 1
+        setSpinDir(d === 1 ? +1 : -1);
       }
     };
     const names = ['lb:grid-density', 'lb:zoom/grid-density'];
@@ -43,42 +43,42 @@ export default function ChakraOrbButton({
 
   const flash = (hex) => {
     setHaloTint(hex);
-    // longer so it’s visible during overlay close
     setTimeout(() => setHaloTint(null), 520);
   };
 
-  const emitZoom = useCallback((dir) => {
+  const sendZoom = useCallback((dir) => {
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
 
-    // REVERSED meaning: we’re flipping the visual but keeping names the same for callers.
-    // 'in' => grid grows (5→…) and should glow GREEN
-    // 'out' => grid shrinks (…→1) and should glow RED
-    flash(dir === 'in' ? '#39ff14' : '#ff001a');
+    flash(dir === 'in' ? '#39ff14' : '#ff001a'); // green grow / red shrink
 
     const detail = { step: 1, dir };
     try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
     try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
   }, []);
 
+  // primary click:
+  // - if overlay open → always "out" (close) → red
+  // - else ping-pong by density: cols>1 => "out" (shrink, red), cols===1 => "in" (expand, green)
   const onPrimary = () => {
     const overlayOpen = document.documentElement.hasAttribute('data-overlay-open');
-    // If overlay is open, we want “zoom-out” (shrink to 1) to close it → RED
-    emitZoom(overlayOpen ? 'out' : 'in');
+    if (overlayOpen) return sendZoom('out');
+    return sendZoom(cols > 1 ? 'out' : 'in');
   };
-  const onContextMenu = (e) => { e.preventDefault(); emitZoom('out'); };
+
+  const onContextMenu = (e) => { e.preventDefault(); sendZoom('out'); };
   const onKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPrimary(); }
-    else if (e.key === 'ArrowLeft')  emitZoom('in');
-    else if (e.key === 'ArrowRight') emitZoom('out');
+    else if (e.key === 'ArrowLeft')  sendZoom('in');
+    else if (e.key === 'ArrowRight') sendZoom('out');
   };
   const onWheel = (e) => {
     e.preventDefault();
     const { deltaX, deltaY } = e;
     const ax = Math.abs(deltaX), ay = Math.abs(deltaY);
-    if (ax > ay) { deltaX > 0 ? emitZoom('out') : emitZoom('in'); }
-    else         { deltaY > 0 ? emitZoom('in')  : emitZoom('out'); }
+    if (ax > ay) { deltaX > 0 ? sendZoom('out') : sendZoom('in'); }
+    else         { deltaY > 0 ? sendZoom('in')  : sendZoom('out'); }
   };
 
   const px = typeof size === 'number' ? `${size}px` : size;
@@ -87,7 +87,7 @@ export default function ChakraOrbButton({
     <button
       type="button"
       aria-label="Zoom products"
-      title="Zoom products (Click/Enter = In, Right-click = Out, Wheel = In/Out)"
+      title="Zoom products (Click/Enter = In (at 1) or Out, Right-click = Out, Wheel = In/Out)"
       data-orb="density"
       onClick={onPrimary}
       onContextMenu={onContextMenu}
@@ -102,7 +102,7 @@ export default function ChakraOrbButton({
         contain: 'layout paint style', ...style,
       }}
     >
-      {/* idle soft pulse */}
+      {/* gentle idle pulse */}
       {idlePulse && !haloTint && (
         <>
           <span aria-hidden className="lb-idle-pulse" style={{ position:'absolute', inset:0, borderRadius:'9999px', pointerEvents:'none', zIndex:1 }} />
@@ -117,7 +117,7 @@ export default function ChakraOrbButton({
         </>
       )}
 
-      {/* GREEN / RED transient ring above canvas */}
+      {/* GREEN / RED transient ring */}
       {haloTint && (
         <span
           aria-hidden
@@ -131,7 +131,7 @@ export default function ChakraOrbButton({
 
       <BlueOrbCross3D
         height={px}
-        rpm={rpmBase * spinDir}          // reversed spin mapping applied here
+        rpm={rpmBase * spinDir}
         color={color}
         geomScale={geomScale}
         offsetFactor={offsetFactor}
@@ -139,7 +139,7 @@ export default function ChakraOrbButton({
         glow={glow}
         glowOpacity={glowOpacity}
         includeZAxis={includeZAxis}
-        haloTintColor={haloTint}         // tint outer halos only; chakra cores keep their colors
+        haloTintColor={haloTint}     // tint outer glow only; chakra cores keep colors
         interactive
         respectReducedMotion={false}
         onActivate={onPrimary}

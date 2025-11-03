@@ -42,21 +42,30 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
   );
 }
 
-function NavPill({ label, rotate180=false, onClick, pulse=false }) {
+function NavPill({ up=false, onClick, pulse=false }) {
   return (
     <button
       type="button"
-      aria-label={label}
+      aria-label={up ? 'Previous product' : 'Next product'}
       className={`pill product-hero-nav ${pulse ? 'pulse-soft' : ''}`}
       onClick={onClick}
       style={{
-        width: 28, height: 28, padding: 0, lineHeight: 1,
-        display:'grid', placeItems:'center',
-        transform: rotate180 ? 'rotate(180deg)' : 'none'
+        width: 28, height: 28, padding: 0,
+        display:'flex', alignItems:'center', justifyContent:'center',
+        fontFamily:'ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace',
+        fontSize:16, lineHeight:1, letterSpacing:0,
       }}
     >
-      {/* Always the caret ^ ; down is rotated version */}
-      ^
+      <span
+        aria-hidden
+        style={{
+          display:'block',
+          transform: up ? 'translateY(-1px)' : 'translateY(1px) rotate(180deg)',
+          // center the caret glyph optically
+        }}
+      >
+        ^
+      </span>
       <style jsx global>{`
         @keyframes lbPulseSoft {
           0%   { box-shadow: 0 0 0 0 rgba(50,255,199,0.22); }
@@ -154,10 +163,10 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   return (
     <div className="product-hero-overlay" data-overlay>
       <div className="product-hero">
-        {/* caret cluster centered on right edge */}
+        {/* caret cluster centered right */}
         <div style={{ position:'absolute', right:16, top:'50%', transform:'translateY(-50%)', display:'grid', gap:6 }}>
-          <NavPill label="Previous product" onClick={() => goto(-1)} pulse />
-          <NavPill label="Next product" rotate180 onClick={() => goto(+1)} pulse />
+          <NavPill up onClick={() => goto(-1)} pulse />
+          <NavPill onClick={() => goto(+1)} pulse />
         </div>
 
         {imgs[imgIdx] && (
