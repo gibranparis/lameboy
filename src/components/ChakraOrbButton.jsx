@@ -6,7 +6,7 @@ import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 44,                 // base magnitude; direction auto-flips at min density (1 col)
+  rpm = 44,                 // base magnitude; direction flips at min density (1 col)
   color = '#32ffc7',
   geomScale = 1.25,
   offsetFactor = 2.25,
@@ -21,63 +21,59 @@ export default function ChakraOrbButton({
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 200;
 
-  // Track current grid density (default 5). App should broadcast updates.
+  // track current grid density pushed by ShopGrid
   const [gridDensity, setGridDensity] = useState(5);
 
-  // Accept density updates from both window & document (multiple event names for safety)
+  // accept density events from both window & document
   useEffect(() => {
-    const handler = (e) => {
+    const onDensity = (e) => {
       const d = e?.detail;
-      const val =
+      const v =
         (typeof d === 'number' && d) ??
         (typeof d?.density === 'number' && d.density) ??
         (typeof d?.value === 'number' && d.value) ??
         null;
-      if (val != null) setGridDensity(Math.max(1, val | 0));
+      if (v != null) setGridDensity(Math.max(1, v | 0));
     };
     const names = ['lb:grid-density', 'lb:zoom/grid-density'];
     names.forEach((n) => {
-      window.addEventListener(n, handler);
-      document.addEventListener(n, handler);
+      window.addEventListener(n, onDensity);
+      document.addEventListener(n, onDensity);
     });
     return () => {
       names.forEach((n) => {
-        window.removeEventListener(n, handler);
-        document.removeEventListener(n, handler);
+        window.removeEventListener(n, onDensity);
+        document.removeEventListener(n, onDensity);
       });
     };
   }, []);
 
-  // Only reverse when we are EXACTLY at 1 col
   const isMinDensity = gridDensity === 1;
   const rpmEffective = useMemo(() => (isMinDensity ? -Math.abs(rpm) : Math.abs(rpm)), [rpm, isMinDensity]);
 
+  // emit lb:zoom to BOTH targets so any listener style works
   const emitZoom = useCallback((step = 1, dir = 'in') => {
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
-
     const detail = { step, dir };
-
-    // NEW: send to both document and window so either listener style works
-    try { document.dispatchEvent(new CustomEvent('lb:zoom', detail ? { detail } : undefined)); } catch {}
-    try { window.dispatchEvent(   new CustomEvent('lb:zoom', detail ? { detail } : undefined)); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
+    try { window.dispatchEvent(   new CustomEvent('lb:zoom', { detail })); } catch {}
   }, []);
 
-  // Primary click: zoom IN normally; at min density, flip to zoom OUT.
+  // primary click zooms IN normally; at min density flips to OUT
   const onClick = () => emitZoom(1, isMinDensity ? 'out' : 'in');
   const onContextMenu = (e) => { e.preventDefault(); emitZoom(1, isMinDensity ? 'in' : 'out'); };
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoom(1, isMinDensity ? 'out' : 'in'); }
-    else if (e.key === 'ArrowLeft')  { e.preventDefault(); emitZoom(1, 'in');  }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+    else if (e.key === 'ArrowLeft')  { e.preventDefault(); emitZoom(1, 'in'); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); emitZoom(1, 'out'); }
   };
   const onWheel = (e) => {
     e.preventDefault();
-    const { deltaX, deltaY } = e;
-    const ax = Math.abs(deltaX), ay = Math.abs(deltaY);
-    if (ax > ay) { deltaX > 0 ? emitZoom(1, 'out') : emitZoom(1, 'in'); }
-    else         { deltaY > 0 ? emitZoom(1, 'in')  : emitZoom(1, 'out'); }
+    const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
+    if (ax > ay) { e.deltaX > 0 ? emitZoom(1, 'out') : emitZoom(1, 'in'); }
+    else         { e.deltaY > 0 ? emitZoom(1, 'in')  : emitZoom(1, 'out'); }
   };
 
   const px = typeof size === 'number' ? `${size}px` : size;
@@ -116,7 +112,7 @@ export default function ChakraOrbButton({
         ...style,
       }}
     >
-      {/* fallback highlight even if WebGL fails */}
+      {/* soft halo even if WebGL fails */}
       <span
         aria-hidden
         style={{
@@ -132,7 +128,7 @@ export default function ChakraOrbButton({
       />
       <BlueOrbCross3D
         height={px}
-        rpm={rpmEffective}            // ← reverse at exactly 1 col
+        rpm={rpmEffective}            // ⟵ reverse only at 1-col
         color={color}
         geomScale={geomScale}
         offsetFactor={offsetFactor}
