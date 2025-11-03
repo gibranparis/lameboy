@@ -4,13 +4,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
-const GREEN = '#32ffc7';
-const RED   = '#ff001a';
+const GO_GREEN = '#00ff5a';  // neon "go" green
+const STOP_RED = '#ff001a';
+const SEAFOAM  = '#32ffc7';  // normal orb color between pulses
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 44,                 // magnitude; sign chosen by mode below
-  color = GREEN,
+  rpm = 44,                // magnitude; sign chosen by mode below
+  color = SEAFOAM,         // steady color (pulse overrides briefly)
   geomScale = 1.25,
   offsetFactor = 2.25,
   armRatio = 0.35,
@@ -22,11 +23,10 @@ export default function ChakraOrbButton({
 }) {
   const px = typeof size === 'number' ? `${size}px` : size;
 
-  // Grid state & mode (IN = 5→1, OUT = 1→5)
+  // --- density + mode (IN = 5→1, OUT = 1→5)
   const [density, setDensity] = useState(5);
   const [mode, setMode] = useState/** @type {'in'|'out'} */('in');
 
-  // Listen ONLY on document for density broadcasts
   useEffect(() => {
     const onDensity = (e) => {
       const d = e?.detail;
@@ -36,17 +36,23 @@ export default function ChakraOrbButton({
       if (v == null) return;
       const val = Math.max(1, v|0);
       setDensity(val);
-      if (val === 5) setMode('in');     // at max we’re in zoom-in mode (next click goes 5→4)
-      if (val === 1) setMode('out');    // at min we’re in zoom-out mode (next click goes 1→2)
+      if (val === 5) setMode('in');
+      if (val === 1) setMode('out');
     };
     document.addEventListener('lb:grid-density', onDensity);
     return () => document.removeEventListener('lb:grid-density', onDensity);
   }, []);
 
-  // Spin direction: CCW for IN, CW for OUT
-  const rpmEffective = useMemo(() => (mode === 'in' ? -Math.abs(rpm) : Math.abs(rpm)), [rpm, mode]);
+  // --- spin direction (FLIPPED per your request)
+  // Previously: IN = CCW (negative). Now invert:
+  // IN  => CW  => +|rpm|
+  // OUT => CCW => -|rpm|
+  const rpmEffective = useMemo(
+    () => (mode === 'in' ?  Math.abs(rpm) : -Math.abs(rpm)),
+    [rpm, mode]
+  );
 
-  // Green/Red pulse on click
+  // --- neon pulse on click (GO green for IN, STOP red for OUT)
   const [pulseColor, setPulseColor] = useState/** @type {string|null} */(null);
   const pulseTimer = useRef/** @type {ReturnType<typeof setTimeout>|null} */(null);
   const pulse = useCallback((hex) => {
@@ -56,7 +62,7 @@ export default function ChakraOrbButton({
   }, []);
   useEffect(() => () => { if (pulseTimer.current) clearTimeout(pulseTimer.current); }, []);
 
-  // Emit to document ONLY (simple and reliable)
+  // --- emit zoom (document-only)
   const FIRE_COOLDOWN_MS = 160;
   const lastFireRef = useRef(0);
   const emitZoom = useCallback((dir /** 'in'|'out' */, step = 1) => {
@@ -66,9 +72,8 @@ export default function ChakraOrbButton({
     try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step, dir } })); } catch {}
   }, []);
 
-  // Primary click follows current mode; context-click does the opposite
-  const clickIn  = () => { pulse(GREEN); emitZoom('in');  };
-  const clickOut = () => { pulse(RED);   emitZoom('out'); };
+  const clickIn  = () => { pulse(GO_GREEN); emitZoom('in');  };
+  const clickOut = () => { pulse(STOP_RED);  emitZoom('out'); };
 
   const onClick = () => (mode === 'in' ? clickIn() : clickOut());
   const onContextMenu = (e) => { e.preventDefault(); (mode === 'in' ? clickOut() : clickIn()); };
@@ -86,52 +91,64 @@ export default function ChakraOrbButton({
 
   const title =
     mode === 'in'
-      ? 'Zoom (IN: 5→1)  Click=In  Right-click=Out'
-      : 'Zoom (OUT: 1→5) Click=Out Right-click=In';
+      ? 'Zoom (IN: 5→1). Click=In, Right-click=Out'
+      : 'Zoom (OUT: 1→5). Click=Out, Right-click=In';
 
   return (
-    <button
-      type="button"
-      aria-label="Zoom products"
-      title={title}
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      onKeyDown={onKeyDown}
-      onWheel={onWheel}
-      className={className}
-      style={{
-        width: px, height: px, display:'inline-grid', placeItems:'center',
-        lineHeight:0, borderRadius:'9999px', background:'transparent', border:0,
-        cursor:'pointer', position:'relative', zIndex:900, contain:'layout paint style',
-        ...style,
-      }}
-    >
-      {/* soft halo fallback */}
-      <span
-        aria-hidden
+    <>
+      <style jsx>{`
+        /* kill the default blue focus ring and any external ring classes */
+        [data-orb="density"] { outline: none; }
+        [data-orb="density"]:focus { outline: none; }
+        [data-orb="density"]:focus-visible { outline: none; box-shadow: none; }
+        [data-orb="density"] { -webkit-tap-highlight-color: transparent; }
+      `}</style>
+      <button
+        type="button"
+        data-orb="density"
+        aria-label="Zoom products"
+        title={title}
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        onKeyDown={onKeyDown}
+        onWheel={onWheel}
+        className={className}
         style={{
-          position:'absolute', inset:0, borderRadius:'9999px',
-          background:'radial-gradient(closest-side, rgba(50,255,199,.22), rgba(50,255,199,.06) 60%, transparent 72%)',
-          boxShadow:'0 0 18px rgba(50,255,199,.28), inset 0 0 0 1px rgba(255,255,255,.22)',
-          pointerEvents:'none', filter:'saturate(1.1)', zIndex:1,
+          width: px, height: px, display:'inline-grid', placeItems:'center',
+          lineHeight:0, borderRadius:'9999px', background:'transparent', border:0,
+          cursor:'pointer', position:'relative', zIndex:900, contain:'layout paint style',
+          outline:'none', boxShadow:'none',  // <-- extra safety against blue ring
+          ...style,
         }}
-      />
-      <BlueOrbCross3D
-        height={px}
-        rpm={rpmEffective}                    // CCW for IN, CW for OUT
-        color={color}
-        geomScale={1.25}
-        offsetFactor={2.25}
-        armRatio={0.35}
-        glow
-        glowOpacity={glowOpacity}
-        includeZAxis
-        overrideAllColor={pulseColor ?? undefined} // green/red click pulse
-        overrideGlowOpacity={pulseColor ? 1.0 : undefined}
-        interactive
-        respectReducedMotion={false}
-        onActivate={onClick}
-      />
-    </button>
+      >
+        {/* soft halo fallback (not blue) */}
+        <span
+          aria-hidden
+          style={{
+            position:'absolute', inset:0, borderRadius:'9999px',
+            background:'radial-gradient(closest-side, rgba(50,255,199,.22), rgba(50,255,199,.06) 60%, transparent 72%)',
+            boxShadow:'0 0 18px rgba(50,255,199,.28), inset 0 0 0 1px rgba(255,255,255,.22)',
+            pointerEvents:'none', filter:'saturate(1.1)', zIndex:1,
+          }}
+        />
+        <BlueOrbCross3D
+          height={px}
+          rpm={rpmEffective}                 // IN=CW, OUT=CCW (flipped)
+          color={color}                      // steady seafoam
+          geomScale={geomScale}
+          offsetFactor={offsetFactor}
+          armRatio={armRatio}
+          glow={glow}
+          glowOpacity={glowOpacity}
+          includeZAxis={includeZAxis}
+          // neon pulse overrides on click: GO green (+) / STOP red (−)
+          overrideAllColor={pulseColor ?? undefined}
+          overrideGlowOpacity={pulseColor ? 1.0 : undefined}
+          interactive
+          respectReducedMotion={false}
+          onActivate={onClick}
+        />
+      </button>
+    </>
   );
 }
