@@ -4,182 +4,133 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
-const SEAFOAM = '#32ffc7';
-const RED     = '#ff001a';
+const GREEN = '#32ffc7';
+const RED   = '#ff001a';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 44,                 // base magnitude; sign set by current zoom mode
-  color = SEAFOAM,
+  rpm = 44,                 // magnitude; sign chosen by mode below
+  color = GREEN,
   geomScale = 1.25,
   offsetFactor = 2.25,
   armRatio = 0.35,
   glow = true,
   glowOpacity = 0.9,
   includeZAxis = true,
-  overrideAllColor = null,   // not used by default; we pulse our own color
   className = '',
   style = {},
 }) {
-  const lastFireRef = useRef(0);
-  const FIRE_COOLDOWN_MS = 200;
+  const px = typeof size === 'number' ? `${size}px` : size;
 
-  // === Grid density + current zoom "mode" ===
-  // mode: 'in'  -> going 5→1 (CCW)
-  //       'out' -> going 1→5 (CW)
-  const [gridDensity, setGridDensity] = useState(5);
+  // Grid state & mode (IN = 5→1, OUT = 1→5)
+  const [density, setDensity] = useState(5);
   const [mode, setMode] = useState/** @type {'in'|'out'} */('in');
 
-  // Accept density broadcasts from ShopGrid (both window + document)
+  // Listen ONLY on document for density broadcasts
   useEffect(() => {
     const onDensity = (e) => {
       const d = e?.detail;
-      const v =
-        (typeof d === 'number' && d) ??
-        (typeof d?.density === 'number' && d.density) ??
-        (typeof d?.value === 'number' && d.value) ??
-        null;
+      const v = (typeof d === 'number' ? d :
+                typeof d?.density === 'number' ? d.density :
+                typeof d?.value === 'number' ? d.value : null);
       if (v == null) return;
-      const val = Math.max(1, v | 0);
-      setGridDensity(val);
-
-      // Flip mode at the bounds; otherwise keep current mode
-      if (val === 1) setMode('out'); // at min, next logical action is zoom OUT
-      if (val === 5) setMode('in');  // at max, next logical action is zoom IN
+      const val = Math.max(1, v|0);
+      setDensity(val);
+      if (val === 5) setMode('in');     // at max we’re in zoom-in mode (next click goes 5→4)
+      if (val === 1) setMode('out');    // at min we’re in zoom-out mode (next click goes 1→2)
     };
-
-    const names = ['lb:grid-density', 'lb:zoom/grid-density'];
-    names.forEach((n) => {
-      window.addEventListener(n, onDensity);
-      document.addEventListener(n, onDensity);
-    });
-    return () => {
-      names.forEach((n) => {
-        window.removeEventListener(n, onDensity);
-        document.removeEventListener(n, onDensity);
-      });
-    };
+    document.addEventListener('lb:grid-density', onDensity);
+    return () => document.removeEventListener('lb:grid-density', onDensity);
   }, []);
 
-  // Directional spin: CCW when mode === 'in', CW when 'out'
-  // If your visual looks flipped, just swap the signs here.
-  const rpmEffective = useMemo(
-    () => (mode === 'in' ? -Math.abs(rpm) : Math.abs(rpm)),
-    [rpm, mode]
-  );
+  // Spin direction: CCW for IN, CW for OUT
+  const rpmEffective = useMemo(() => (mode === 'in' ? -Math.abs(rpm) : Math.abs(rpm)), [rpm, mode]);
 
-  // === Click pulse color (green for + / red for -) ===
+  // Green/Red pulse on click
   const [pulseColor, setPulseColor] = useState/** @type {string|null} */(null);
   const pulseTimer = useRef/** @type {ReturnType<typeof setTimeout>|null} */(null);
-  const triggerPulse = useCallback((hex) => {
+  const pulse = useCallback((hex) => {
     if (pulseTimer.current) clearTimeout(pulseTimer.current);
     setPulseColor(hex);
-    pulseTimer.current = setTimeout(() => setPulseColor(null), 320);
+    pulseTimer.current = setTimeout(() => setPulseColor(null), 260);
   }, []);
   useEffect(() => () => { if (pulseTimer.current) clearTimeout(pulseTimer.current); }, []);
 
-  // Emit lb:zoom to BOTH window and document (unified)
-  const emitZoom = useCallback((step = 1, dir = /** @type {'in'|'out'} */('in')) => {
+  // Emit to document ONLY (simple and reliable)
+  const FIRE_COOLDOWN_MS = 160;
+  const lastFireRef = useRef(0);
+  const emitZoom = useCallback((dir /** 'in'|'out' */, step = 1) => {
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
-    const detail = { step, dir };
-    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
-    try { window.dispatchEvent(   new CustomEvent('lb:zoom', { detail })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step, dir } })); } catch {}
   }, []);
 
-  // Primary click executes current "mode"
-  const onPrimary = useCallback(() => {
-    if (mode === 'in') { triggerPulse(SEAFOAM); emitZoom(1, 'in'); }
-    else               { triggerPulse(RED);     emitZoom(1, 'out'); }
-  }, [mode, emitZoom, triggerPulse]);
+  // Primary click follows current mode; context-click does the opposite
+  const clickIn  = () => { pulse(GREEN); emitZoom('in');  };
+  const clickOut = () => { pulse(RED);   emitZoom('out'); };
 
-  const onClick = onPrimary;
-  const onContextMenu = (e) => { e.preventDefault(); // secondary = opposite mode
-    if (mode === 'in') { triggerPulse(RED);     emitZoom(1, 'out'); }
-    else               { triggerPulse(SEAFOAM); emitZoom(1, 'in');  }
-  };
+  const onClick = () => (mode === 'in' ? clickIn() : clickOut());
+  const onContextMenu = (e) => { e.preventDefault(); (mode === 'in' ? clickOut() : clickIn()); };
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPrimary(); }
-    else if (e.key === 'ArrowLeft')  { triggerPulse(SEAFOAM); emitZoom(1, 'in'); }
-    else if (e.key === 'ArrowRight') { triggerPulse(RED);     emitZoom(1, 'out'); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+    else if (e.key === 'ArrowLeft')  { clickIn(); }
+    else if (e.key === 'ArrowRight') { clickOut(); }
   };
   const onWheel = (e) => {
     e.preventDefault();
     const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
-    if (ax > ay) { e.deltaX > 0 ? (triggerPulse(RED),     emitZoom(1,'out'))
-                                : (triggerPulse(SEAFOAM), emitZoom(1,'in')); }
-    else         { e.deltaY > 0 ? (triggerPulse(SEAFOAM), emitZoom(1,'in'))
-                                : (triggerPulse(RED),     emitZoom(1,'out')); }
+    if (ax > ay) { e.deltaX > 0 ? clickOut() : clickIn(); }
+    else         { e.deltaY > 0 ? clickIn()  : clickOut(); }
   };
 
-  const px = typeof size === 'number' ? `${size}px` : size;
   const title =
     mode === 'in'
-      ? 'Zoom products (Mode: IN — 5→1). Click/Enter = +, Right-click = −'
-      : 'Zoom products (Mode: OUT — 1→5). Click/Enter = −, Right-click = +';
+      ? 'Zoom (IN: 5→1)  Click=In  Right-click=Out'
+      : 'Zoom (OUT: 1→5) Click=Out Right-click=In';
 
   return (
     <button
       type="button"
       aria-label="Zoom products"
       title={title}
-      data-orb="density"
       onClick={onClick}
       onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
       onWheel={onWheel}
       className={className}
       style={{
-        width: px,
-        height: px,
-        display: 'inline-grid',
-        placeItems: 'center',
-        lineHeight: 0,
-        borderRadius: '9999px',
-        overflow: 'visible',
-        clipPath: 'circle(50% at 50% 50%)',
-        padding: 0,
-        margin: 0,
-        background: 'transparent',
-        border: '0 none',
-        cursor: 'pointer',
-        position: 'relative',
-        zIndex: 900,
-        contain: 'layout paint style',
+        width: px, height: px, display:'inline-grid', placeItems:'center',
+        lineHeight:0, borderRadius:'9999px', background:'transparent', border:0,
+        cursor:'pointer', position:'relative', zIndex:900, contain:'layout paint style',
         ...style,
       }}
     >
-      {/* soft halo so it's not visually empty if WebGL fails */}
+      {/* soft halo fallback */}
       <span
         aria-hidden
         style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: '9999px',
-          background: 'radial-gradient(closest-side, rgba(50,255,199,.22), rgba(50,255,199,.06) 60%, transparent 72%)',
-          boxShadow: '0 0 18px rgba(50,255,199,.28), inset 0 0 0 1px rgba(255,255,255,.22)',
-          pointerEvents: 'none',
-          filter: 'saturate(1.1)',
-          zIndex: 1,
+          position:'absolute', inset:0, borderRadius:'9999px',
+          background:'radial-gradient(closest-side, rgba(50,255,199,.22), rgba(50,255,199,.06) 60%, transparent 72%)',
+          boxShadow:'0 0 18px rgba(50,255,199,.28), inset 0 0 0 1px rgba(255,255,255,.22)',
+          pointerEvents:'none', filter:'saturate(1.1)', zIndex:1,
         }}
       />
       <BlueOrbCross3D
         height={px}
-        rpm={rpmEffective}                 // CCW for 'in', CW for 'out'
+        rpm={rpmEffective}                    // CCW for IN, CW for OUT
         color={color}
-        geomScale={geomScale}
-        offsetFactor={offsetFactor}
-        armRatio={armRatio}
-        glow={glow}
+        geomScale={1.25}
+        offsetFactor={2.25}
+        armRatio={0.35}
+        glow
         glowOpacity={glowOpacity}
-        includeZAxis={includeZAxis}
-        // click pulse: temporarily override orb color (green for +, red for −)
-        overrideAllColor={pulseColor ?? undefined}
+        includeZAxis
+        overrideAllColor={pulseColor ?? undefined} // green/red click pulse
         overrideGlowOpacity={pulseColor ? 1.0 : undefined}
         interactive
         respectReducedMotion={false}
-        onActivate={onPrimary}
+        onActivate={onClick}
       />
     </button>
   );
