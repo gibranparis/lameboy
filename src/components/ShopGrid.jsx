@@ -1,121 +1,137 @@
+// src/components/ShopGrid.jsx
 // @ts-check
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProductOverlay from '@/components/ProductOverlay';
 
 export default function ShopGrid({ products }) {
-  // ---- product seed ----
+  // Robust product source:
+  // 1) prop
+  // 2) window.__LB_PRODUCTS (if injected from backend)
+  // 3) tiny demo list cloned if only one item exists (prevents “exit” feel)
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null;
     // eslint-disable-next-line no-undef
-    const fromWin  = typeof window !== 'undefined' && Array.isArray(window.__LB_PRODUCTS) ? window.__LB_PRODUCTS : null;
+    const fromWin =
+      typeof window !== 'undefined' && Array.isArray(window.__LB_PRODUCTS)
+        ? window.__LB_PRODUCTS
+        : null;
 
-    const base = (fromProp && fromProp.length) ? fromProp
-              : (fromWin && fromWin.length)     ? fromWin
-              : [{
-                  id: 'demo-1',
-                  title: 'LAME Cap – Brown',
-                  price: 4200,
-                  image: '/products/lame-cap-brown.png',
-                  images: ['/products/lame-cap-brown.png'],
-                  sizes: ['OS']
-                }];
+    // --- FALLBACK: your hoodie image ---
+    const base =
+      (fromProp && fromProp.length)
+        ? fromProp
+        : (fromWin && fromWin.length)
+          ? fromWin
+          : [{
+              id: 'lame-hoodie-brown',
+              title: 'LAME Hoodie – Brown',
+              price: 6500, // $65.00 (adjust as needed)
+              image: '/products/lame-hoodie-brown.png',
+              images: ['/products/lame-hoodie-brown.png'],
+              sizes: ['S','M','L','XL'],
+            }];
 
     if (base.length >= 2) return base;
 
-    return Array.from({ length: 5 }, (_, i) => ({
+    // If only one product is present, make a few virtual clones so the overlay
+    // can move up/down. These are placeholders only.
+    const clones = Array.from({ length: 5 }, (_, i) => ({
       ...base[0],
-      id: `${base[0].id}-v${i+1}`,
-      title: `${base[0].title} ${i ? `#${i+1}` : ''}`.trim(),
+      id: `${base[0].id}-v${i + 1}`,
+      title: `${base[0].title} ${i ? `#${i + 1}` : ''}`.trim(),
     }));
+    return clones;
   }, [products]);
 
-  // ---- overlay ----
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
-  const overlayOpen = overlayIdx != null;
-  const open  = (i) => setOverlayIdx(i);
-  const close = () => setOverlayIdx(null);
 
-  // ---- grid density (single source of truth) ----
-  const MIN = 1, MAX = 5;
-  const [cols, setCols] = useState(MAX);
-  const [down, setDown] = useState(true); // true => moving toward 1 on next ping
+  // === grid density (orb) — bounce 5↔1 with each click when no dir is given ===
+  const MIN_COLS = 1;
+  const MAX_COLS = 5;
 
-  // Apply CSS + broadcast (density + down) whenever cols changes
-  useEffect(() => {
-    try { document.documentElement.style.setProperty('--grid-cols', String(cols)); } catch {}
-    const detail = { density: cols, value: cols, down };
-    try { document.dispatchEvent(new CustomEvent('lb:grid-density', { detail })); } catch {}
-    try { document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail })); } catch {}
-  }, [cols, down]);
+  const [cols, setCols] = useState(MAX_COLS);
+  const [towardMin, setTowardMin] = useState(true); // true = shrinking toward 1
 
-  // Initial broadcast so the orb knows where we are at start
-  useEffect(() => {
-    const detail = { density: MAX, value: MAX, down: true };
-    try { document.dispatchEvent(new CustomEvent('lb:grid-density', { detail })); } catch {}
-    try { document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail })); } catch {}
+  // Broadcast current density (so the orb can decide rotation direction etc.)
+  const broadcastDensity = useCallback((density, dir) => {
+    const detail = { density, value: density, dir };
+    try { document.dispatchEvent(new CustomEvent('lb:grid-density',        { detail })); } catch {}
+    try { window.dispatchEvent(   new CustomEvent('lb:grid-density',        { detail })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom/grid-density',   { detail })); } catch {}
+    try { window.dispatchEvent(   new CustomEvent('lb:zoom/grid-density',   { detail })); } catch {}
   }, []);
 
-  const clamp = (n) => Math.max(MIN, Math.min(MAX, n|0));
+  const applyCols = useCallback((next, dirHint /** 'in' | 'out' | null */) => {
+    const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, next | 0));
+    setCols(clamped);
+    try { document.documentElement.style.setProperty('--grid-cols', String(clamped)); } catch {}
+    // If no explicit direction supplied, infer from movement
+    const inferred =
+      dirHint ??
+      (clamped < cols ? 'in' : clamped > cols ? 'out' : (towardMin ? 'in' : 'out'));
+    broadcastDensity(clamped, inferred);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cols, towardMin, broadcastDensity]);
 
-  const shrink = useCallback((step = 1) => {
-    setCols((p) => {
-      const n = clamp(p - step);
-      if (n === MIN) setDown(false);
-      if (n === MAX) setDown(true);
-      return n;
-    });
-  }, []);
-
-  const expand = useCallback((step = 1) => {
-    setCols((p) => {
-      const n = clamp(p + step);
-      if (n === MIN) setDown(false);
-      if (n === MAX) setDown(true);
-      return n;
-    });
-  }, []);
-
-  const pingPong = useCallback((step = 1) => {
-    setCols((p) => {
-      let n = p;
-      if (down)  n = clamp(p - step);   // toward 1
-      else       n = clamp(p + step);   // toward 5
-      if (n === MIN) setDown(false);
-      if (n === MAX) setDown(true);
-      return n;
-    });
-  }, [down]);
-
-  // De-dupe duplicate events (sometimes window+document fire together)
-  const lastStampRef = useRef(0);
-
+  // Initial CSS var + broadcast so the orb knows starting state
   useEffect(() => {
-    /** @param {CustomEvent & {timeStamp?:number}} e */
+    applyCols(cols, 'out');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const stepIn  = useCallback((step = 1) => applyCols(cols - step, 'in'),  [applyCols, cols]);
+  const stepOut = useCallback((step = 1) => applyCols(cols + step, 'out'), [applyCols, cols]);
+
+  const pingPong = useCallback(() => {
+    // when no direction provided, bounce 5↔1
+    const next = towardMin ? Math.max(MIN_COLS, cols - 1) : Math.min(MAX_COLS, cols + 1);
+    const atMin = next === MIN_COLS;
+    const atMax = next === MAX_COLS;
+    if (atMin) setTowardMin(false);
+    if (atMax) setTowardMin(true);
+    applyCols(next, towardMin ? 'in' : 'out');
+  }, [cols, towardMin, applyCols]);
+
+  // orb → density OR overlay close
+  useEffect(() => {
     const onZoom = (e) => {
-      if (overlayOpen) { setOverlayIdx(null); return; } // first click closes overlay
-
-      const ts = Number(e?.timeStamp || 0);
-      if (ts && ts === lastStampRef.current) return;
-      lastStampRef.current = ts;
+      // If overlay is open, first close the overlay (back to grid)
+      if (overlayIdx != null) { setOverlayIdx(null); return; }
 
       const d = e?.detail || {};
       const step = Math.max(1, Math.min(3, Number(d.step) || 1));
-      const dir = typeof d.dir === 'string' ? d.dir : null;
+      const dir  = typeof d.dir === 'string' ? d.dir : null;
 
-      if (dir === 'in')  return expand(step);  // expand (1→5) = green
-      if (dir === 'out') return shrink(step);  // shrink (5→1) = red
-      pingPong(step);                          // bounce when dir not given
+      if (dir === 'in')  { setTowardMin(true);  return stepIn(step);  }
+      if (dir === 'out') { setTowardMin(false); return stepOut(step); }
+
+      // legacy “no dir” mode ➜ ping-pong
+      pingPong();
     };
 
-    document.addEventListener('lb:zoom', onZoom);
-    return () => document.removeEventListener('lb:zoom', onZoom);
-  }, [overlayOpen, expand, shrink, pingPong]);
+    // Listen on BOTH window and document to match any emitter
+    ['lb:zoom'].forEach((n) => {
+      window.addEventListener(n, onZoom);
+      document.addEventListener(n, onZoom);
+    });
+    return () => {
+      ['lb:zoom'].forEach((n) => {
+        window.removeEventListener(n, onZoom);
+        document.removeEventListener(n, onZoom);
+      });
+    };
+  }, [overlayIdx, stepIn, stepOut, pingPong]);
+
+  const open  = (i) => setOverlayIdx(i);
+  const close = () => setOverlayIdx(null);
+  const overlayOpen = overlayIdx != null;
 
   return (
-    <div className="shop-wrap" style={{ padding:'28px 28px 60px' }}>
+    <div className="shop-wrap" style={{ padding: '28px 28px 60px' }}>
+      {/* inline CSS var is fine in React */}
       <div className="shop-grid" style={{ '--grid-cols': cols }}>
         {seed.map((p, idx) => (
           <a
@@ -123,8 +139,8 @@ export default function ShopGrid({ products }) {
             className="product-tile lb-tile"
             role="button"
             tabIndex={0}
-            onClick={(e)=>{ e.preventDefault(); open(idx); }}
-            onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(idx); }}}
+            onClick={(e) => { e.preventDefault(); open(idx); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(idx); } }}
           >
             <div className="product-box">
               <Image
@@ -133,7 +149,7 @@ export default function ShopGrid({ products }) {
                 width={800}
                 height={800}
                 className="product-img"
-                priority={idx===0}
+                priority={idx === 0}
                 unoptimized
               />
             </div>
@@ -146,7 +162,7 @@ export default function ShopGrid({ products }) {
         <ProductOverlay
           products={seed}
           index={overlayIdx}
-          onIndexChange={(i) => setOverlayIdx(Math.max(0, Math.min(seed.length-1, i)))}
+          onIndexChange={(i) => setOverlayIdx(Math.max(0, Math.min(seed.length - 1, i)))}
           onClose={close}
         />
       )}
