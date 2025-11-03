@@ -1,3 +1,4 @@
+// src/components/ProductOverlay.jsx
 // @ts-check
 'use client';
 
@@ -43,7 +44,7 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
 /**
  * ProductOverlay
  * - Scroll/keys horizontally for gallery; vertically for prev/next product.
- * - If there is only one product, vertical navigation is disabled (prevents accidental “exit” feel).
+ * - If there is only one product, vertical navigation is disabled.
  */
 export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
   const product = products[index];
@@ -52,11 +53,22 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   useEffect(() => setImgIdx(0), [index]);
 
-  // Close overlay via orb zoom event
+  // Close overlay via orb zoom event (listen on both window and document; support legacy name too)
   useEffect(() => {
-    const onZoom = () => onClose?.();
-    window.addEventListener('lb:zoom', onZoom);
-    return () => window.removeEventListener('lb:zoom', onZoom);
+    const handler = () => onClose?.();
+    const names = ['lb:zoom', 'lb:zoom/grid-density'];
+
+    names.forEach((n) => {
+      window.addEventListener(n, handler);
+      document.addEventListener(n, handler);
+    });
+
+    return () => {
+      names.forEach((n) => {
+        window.removeEventListener(n, handler);
+        document.removeEventListener(n, handler);
+      });
+    };
   }, [onClose]);
 
   // Keyboard

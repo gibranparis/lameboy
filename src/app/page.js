@@ -3,7 +3,7 @@
 export const dynamic = 'force-static';
 
 import nextDynamic from 'next/dynamic';
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 /* Dynamic client components */
 const BannedLogin      = nextDynamic(() => import('@/components/BannedLogin'),      { ssr: false });
@@ -57,10 +57,10 @@ export default function Page(){
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
 
-  // header control sizes
+  // header control sizes (bind orb to ctrlPx so it scales with --header-ctrl)
   const TOGGLE_KNOB_PX   = 28;
   const TOGGLE_TRACK_PAD = 1;
-  const ORB_PX           = 64;
+  const ORB_PX           = ctrlPx;
 
   // Sync <html> attributes
   useEffect(() => {
@@ -151,7 +151,7 @@ export default function Page(){
             </div>
           ) : (
             <div style={{ paddingTop: HEADER_H }}>
-              <ShopGrid hideTopRow />
+              <ShopGrid />
             </div>
           )}
         </main>

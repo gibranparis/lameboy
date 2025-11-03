@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v4.2 – line→hold→clear→next; loops; no glow box; レ乃モ)
+// src/components/BannedLogin.jsx  (v4.3 – ConsoleTyper line-by-line, wrapped bubble, no inner glow box)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -11,17 +11,6 @@ import { createPortal } from 'react-dom';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const CASCADE_MS = 2400;
-
-/** @typedef {{
- *  onProceed?: ()=>void,
- *  sysMessages?: string[],    // lines the computer will type, one-by-one
- *  cps?: number,              // characters per second (avg)
- *  jitter?: number,           // 0..1 randomness per keystroke
- *  punctDelayMs?: number,     // extra pause after punctuation
- *  lineHoldMs?: number,       // how long to HOLD after finishing a line
- *  clearMs?: number,          // how long to stay BLANK between lines
- *  loop?: boolean             // loop messages (default true for your spec)
- * }} BannedLoginProps */
 
 /* ----------------------------- Wordmark ----------------------------- */
 function Wordmark({ onClickWordmark, lRef, yRef }) {
@@ -88,40 +77,28 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
         .lb-brand{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; }
         .lb-brand-text{ color:#fff; font-weight:800; letter-spacing:.08em; text-transform:uppercase; font-size:clamp(11px,1.3vw,14px); }
 
-        /* shared neon + pills */
         .neon-glow{ text-shadow: 0 0 6px rgba(50,255,199,.45), 0 0 14px rgba(50,255,199,.35), 0 0 26px rgba(50,255,199,.22); }
         .neon-red{  text-shadow: 0 0 6px rgba(255,64,64,.55), 0 0 14px rgba(255,64,64,.35), 0 0 26px rgba(255,64,64,.22); }
         .pill{ display:inline-flex; align-items:center; justify-content:center; height:28px; min-width:28px; padding:0 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#fff; font-weight:700; letter-spacing:.02em; transition:transform .12s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease; box-shadow:0 0 0 0 rgba(50,255,199,0); }
         .pill:hover{ transform:translateY(-1px); }
         .pill:active{ transform:translateY(0); }
         .pill.neon{ box-shadow: 0 0 8px rgba(50,255,199,.45), inset 0 0 0 1px rgba(50,255,199,.25); border-color:rgba(50,255,199,.55); }
-
-        /* Invisible wrapper: keeps text contained within the bubble, no extra frame */
-        .msg-box{
-          display:inline-block; vertical-align:baseline;
-          max-width:min(32ch, 72vw);
-          white-space: normal; word-break: break-word;
-          padding:0; margin:0 2px; background:transparent; border:0; border-radius:0; box-shadow:none;
-        }
-
-        .msg-dim { opacity:.25; transition:opacity .14s ease; }
-        .msg-clear { opacity:1; transition:opacity .14s ease; }
       `}</style>
     </>,
     document.body
   );
 }
 
-/* -------- ConsoleTyper: type → hold → clear(blank) → next (loops) ------- */
-/** @param {{messages:string[], cps:number, jitter:number, punctDelayMs:number, lineHoldMs:number, clearMs:number, loop:boolean}} p */
-function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, clearMs, loop }) {
-  const [i, setI] = useState(0);   // which message
-  const [n, setN] = useState(0);   // chars typed
-  const [phase, setPhase] = useState(/** @type {'typing'|'hold'|'clear'} */('typing'));
+/* --------------- ConsoleTyper: one line at a time with beat ----------- */
+/** @param {{messages:string[], cps:number, jitter:number, punctDelayMs:number, lineHoldMs:number, lineBeatMs:number, loop:boolean}} p */
+function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBeatMs, loop }) {
+  const [i, setI] = useState(0);               // which line
+  const [n, setN] = useState(0);               // chars typed
+  const [phase, setPhase] = useState(/** @type {'typing'|'hold'|'beat'} */('typing'));
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const line = messages[i] ?? '';
-  const visible = reduceMotion ? (phase === 'clear' ? '' : line) : (phase === 'clear' ? '' : line.slice(0, n));
+  const visible = reduceMotion ? line : line.slice(0, n);
 
   // typing cadence
   useEffect(() => {
@@ -134,9 +111,8 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, clearMs
     }
 
     const baseMs = 1000 / Math.max(1, cps);
-    const r = (Math.random()*2 - 1) * jitter;
+    const r = (Math.random() * 2 - 1) * jitter; // [-jitter,+jitter]
     let delay = baseMs * (1 + r);
-
     const ch = line[n];
     if (/[.,;:!?]/.test(ch)) delay += punctDelayMs;
     if (ch === ' ') delay += baseMs * 0.15;
@@ -145,34 +121,33 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, clearMs
     return () => clearTimeout(id);
   }, [n, line, cps, jitter, punctDelayMs, phase, reduceMotion]);
 
-  // end-of-line hold → clear(blank)
+  // end-of-line hold → beat → next line
   useEffect(() => {
     if (reduceMotion) return;
     if (phase !== 'hold') return;
-    const id = setTimeout(() => setPhase('clear'), Math.max(0, lineHoldMs));
+    const id = setTimeout(() => setPhase('beat'), Math.max(0, lineHoldMs));
     return () => clearTimeout(id);
   }, [phase, lineHoldMs, reduceMotion]);
 
-  // clear(blank) → next line (or loop back)
   useEffect(() => {
     if (reduceMotion) return;
-    if (phase !== 'clear') return;
+    if (phase !== 'beat') return;
     const id = setTimeout(() => {
       const next = i + 1;
       if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
       else if (loop && messages.length) { setI(0); setN(0); setPhase('typing'); }
-      else { setPhase('typing'); } // stop on last if loop=false (won't advance)
-    }, Math.max(0, clearMs));
+    }, Math.max(0, lineBeatMs));
     return () => clearTimeout(id);
-  }, [phase, i, messages.length, clearMs, loop, reduceMotion]);
+  }, [phase, i, messages.length, lineBeatMs, loop, reduceMotion]);
 
   // click to skip/advance
   const onClick = useCallback(() => {
     if (reduceMotion) return;
     if (phase === 'typing') {
-      setN(line.length); setPhase('hold');
+      setN(line.length);
+      setPhase('hold');
     } else if (phase === 'hold') {
-      setPhase('clear');
+      setPhase('beat');
     } else {
       const next = i + 1;
       if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
@@ -181,20 +156,20 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, clearMs
   }, [phase, line.length, i, messages.length, loop, reduceMotion]);
 
   return (
-    <span onClick={onClick} className={`console-bare neon-glow ${phase==='hold' ? 'msg-clear' : 'msg-dim'}`}>
-      <span
-        className="txt"
-        style={{
-          fontFamily:'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-          fontWeight:700, color:'#ccfff3', whiteSpace:'pre-wrap', wordBreak:'break-word', cursor:'pointer'
-        }}
-      >
-        {visible}
-        {!reduceMotion && phase !== 'clear' && (
-          <span className="caret" aria-hidden="true" style={{ marginLeft:2, animation:'blink 1.05s steps(2) infinite' }}>█</span>
-        )}
-      </span>
+    <span onClick={onClick} className={`console-bare neon-glow ${phase==='beat' ? 'msg-dim' : 'msg-clear'}`}>
+      <span className="txt">{visible}</span>
+      {!reduceMotion && <span className="caret" aria-hidden="true">█</span>}
       <style jsx>{`
+        .console-bare{
+          display:inline;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+          font-weight:700; color:#ccfff3; letter-spacing:.02em;
+          white-space: pre-wrap; word-break: break-word;
+          cursor:pointer;
+        }
+        .msg-dim{ opacity:.15; transition:opacity .14s ease; }
+        .msg-clear{ opacity:1; transition:opacity .14s ease; }
+        .caret{ margin-left:2px; animation: blink 1.05s steps(2) infinite; }
         @keyframes blink { 50% { opacity:0; } }
         @media (prefers-reduced-motion: reduce){ .caret{ display:none; } }
       `}</style>
@@ -209,9 +184,9 @@ export default function BannedLogin({
   cps = 13,
   jitter = 0.25,
   punctDelayMs = 220,
-  lineHoldMs = 950,   // how long to keep a finished line on screen
-  clearMs = 280,      // how long to stay blank before next line
-  loop = true         // loop back to the first line
+  lineHoldMs = 900,
+  lineBeatMs = 180,  // the little dramatic beat
+  loop = true
 }) {
   /** @type {'banned'|'login'} */ const [view, setView] = useState('banned');
   const [cascade, setCascade] = useState(false);
@@ -275,14 +250,14 @@ export default function BannedLogin({
   const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
   const [flyOnce, setFlyOnce] = useState(false);
 
-  /* ======= Your exact sequence: each line disappears, loops to start ======= */
+  /* ======= Default computer-typed messages (no extra lines) ======= */
   const DEFAULT_SYS = useMemo(() => ([
     'hi',
     'welcome to',
     'lameboy.com',
-    'Greetings! from',
-    'レ乃モ:)',
-
+    'Greetings!',
+    'from',
+    'レ乃モ'
   ]), []);
   const MESSAGES = useMemo(
     () => (Array.isArray(sysMessages) && sysMessages.length ? sysMessages : DEFAULT_SYS),
@@ -354,8 +329,8 @@ export default function BannedLogin({
                   <span
                     role="button" tabIndex={0}
                     className="code-banned neon-red banned-trigger"
-                    onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setOrbMode(m => m==='red'?'chakra':'red'); }}
-                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); setOrbMode(m => m==='red'?'chakra':'red'); }}}
+                    onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}
+                    onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
                     title="Toggle orb color"
                   >
                     banned
@@ -364,19 +339,15 @@ export default function BannedLogin({
                   <span className="code-var neon-glow">msg</span>{' '}
                   <span className="code-op neon-glow">=</span>{' '}
                   <span className="code-string neon-glow">
-                    "
-                    <span className="msg-box">
-                      <ConsoleTyper
-                        messages={MESSAGES}
-                        cps={cps}
-                        jitter={jitter}
-                        punctDelayMs={punctDelayMs}
-                        lineHoldMs={lineHoldMs}
-                        clearMs={clearMs}
-                        loop={loop}
-                      />
-                    </span>
-                    "
+                    "<ConsoleTyper
+                      messages={MESSAGES}
+                      cps={cps}
+                      jitter={jitter}
+                      punctDelayMs={punctDelayMs}
+                      lineHoldMs={lineHoldMs}
+                      lineBeatMs={lineBeatMs}
+                      loop={loop}
+                    />"
                   </span>
                   <span className="code-punc neon-glow">;</span>
                 </pre>

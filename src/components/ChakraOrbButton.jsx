@@ -1,12 +1,12 @@
 // src/components/ChakraOrbButton.jsx
 'use client';
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 44,
+  rpm = 44,                 // base magnitude; direction auto-flips at min density
   color = '#32ffc7',
   geomScale = 1.25,
   offsetFactor = 2.25,
@@ -21,21 +21,64 @@ export default function ChakraOrbButton({
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 200;
 
+  // Track current grid density (default 5). App should broadcast updates.
+  const [gridDensity, setGridDensity] = useState(5);
+
+  // Accept density updates from several event names/shapes for compatibility.
+  useEffect(() => {
+    const handler = (e) => {
+      const d = e?.detail;
+      const val =
+        (typeof d === 'number' && d) ??
+        (typeof d?.density === 'number' && d.density) ??
+        (typeof d?.value === 'number' && d.value) ??
+        null;
+      if (val != null) setGridDensity(Math.max(1, val | 0));
+    };
+    window.addEventListener('lb:grid-density', handler);
+    window.addEventListener('lb:zoom/grid-density', handler);
+    window.addEventListener('lb:gridDensity', handler);
+    return () => {
+      window.removeEventListener('lb:grid-density', handler);
+      window.removeEventListener('lb:zoom/grid-density', handler);
+      window.removeEventListener('lb:gridDensity', handler);
+    };
+  }, []);
+
+  const isMinDensity = gridDensity <= 1;
+
+  // Effective RPM: reverse when at min density
+  const rpmEffective = useMemo(() => {
+    const m = Math.abs(rpm);
+    return isMinDensity ? -m : m;
+  }, [rpm, isMinDensity]);
+
   const emitZoom = useCallback((step = 1, dir = 'in') => {
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
-    try { document.dispatchEvent(new CustomEvent('lb:zoom',      { detail: { step, dir } })); } catch {}
-    try { document.dispatchEvent(new CustomEvent('grid-density', { detail: { step, dir } })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step, dir } })); } catch {}
   }, []);
 
-  const onClick = () => emitZoom(1, 'in');
-  const onContextMenu = (e) => { e.preventDefault(); emitZoom(1, 'out'); };
+  // Primary click: zoom IN normally; at min density, flip to zoom OUT.
+  const onClick = () => emitZoom(1, isMinDensity ? 'out' : 'in');
+
+  // Context menu: opposite
+  const onContextMenu = (e) => { e.preventDefault(); emitZoom(1, isMinDensity ? 'in' : 'out'); };
+
+  // Keyboard
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoom(1, 'in'); }
-    else if (e.key === 'ArrowLeft')  { e.preventDefault(); emitZoom(1, 'in');  }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); emitZoom(1, 'out'); }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      emitZoom(1, isMinDensity ? 'out' : 'in');
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault(); emitZoom(1, 'in');
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault(); emitZoom(1, 'out');
+    }
   };
+
+  // Wheel mapping
   const onWheel = (e) => {
     e.preventDefault();
     const { deltaX, deltaY } = e;
@@ -45,12 +88,15 @@ export default function ChakraOrbButton({
   };
 
   const px = typeof size === 'number' ? `${size}px` : size;
+  const title = isMinDensity
+    ? 'Zoom products (Click/Enter = Out, Right-click = In, Wheel = In/Out)'
+    : 'Zoom products (Click/Enter = In, Right-click = Out, Wheel = In/Out)';
 
   return (
     <button
       type="button"
       aria-label="Zoom products"
-      title="Zoom products (Click/Enter = In, Right-click = Out, Wheel = In/Out)"
+      title={title}
       data-orb="density"
       onClick={onClick}
       onContextMenu={onContextMenu}
@@ -72,7 +118,7 @@ export default function ChakraOrbButton({
         border: '0 none',
         cursor: 'pointer',
         position: 'relative',
-        zIndex: 900,               // ⟵ above everything in the header & overlay
+        zIndex: 900,
         contain: 'layout paint style',
         ...style,
       }}
@@ -93,7 +139,7 @@ export default function ChakraOrbButton({
       />
       <BlueOrbCross3D
         height={px}
-        rpm={rpm}
+        rpm={rpmEffective}            // ← reverse at min density
         color={color}
         geomScale={geomScale}
         offsetFactor={offsetFactor}
@@ -104,7 +150,7 @@ export default function ChakraOrbButton({
         overrideAllColor={overrideAllColor}
         interactive
         respectReducedMotion={false}
-        onActivate={() => emitZoom(1, 'in')}
+        onActivate={() => onClick()}
         // wrapper div in BlueOrbCross3D is relative; Canvas is absolute inset:0 with z-index:2
       />
     </button>

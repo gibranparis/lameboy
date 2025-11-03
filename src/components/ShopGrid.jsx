@@ -8,9 +8,6 @@ import ProductOverlay from '@/components/ProductOverlay';
 
 export default function ShopGrid({ products }) {
   // Robust product source:
-  // 1) prop
-  // 2) window.__LB_PRODUCTS (if you inject from backend)
-  // 3) tiny demo list cloned if only one item exists (prevents “scroll up exits” feeling)
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null;
     // eslint-disable-next-line no-undef
@@ -29,8 +26,6 @@ export default function ShopGrid({ products }) {
 
     if (base.length >= 2) return base;
 
-    // If only one product is present, make a few virtual clones so the overlay
-    // can move up/down. These are placeholders only.
     const clones = Array.from({ length: 5 }, (_, i) => ({
       ...base[0],
       id: `${base[0].id}-v${i+1}`,
@@ -41,34 +36,96 @@ export default function ShopGrid({ products }) {
 
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
 
-  // === grid density (orb) — bounce 5↔1 with each click ===
-  const [cols, setCols] = useState(5);
-  const [down, setDown] = useState(true);
+  // === grid density (orb) ===
+  const MIN_COLS = 1;
+  const MAX_COLS = 5;
 
-  const stepCols = useCallback(() => {
+  const [cols, setCols] = useState(MAX_COLS);
+  const [down, setDown] = useState(true); // used for ping-pong when no dir provided
+
+  // Broadcast current density (for orb reverse spin, headers, etc.)
+  const broadcastDensity = useCallback((density) => {
+    const detail = { density, value: density };
+    try { document.dispatchEvent(new CustomEvent('lb:grid-density',       { detail })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom/grid-density',  { detail })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('lb:grid-density',         { detail })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('lb:zoom/grid-density',    { detail })); } catch {}
+  }, []);
+
+  // Apply cols → CSS var + broadcast
+  const applyCols = useCallback((next) => {
+    const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, next|0));
+    setCols(clamped);
+    try { document.documentElement.style.setProperty('--grid-cols', String(clamped)); } catch {}
+    broadcastDensity(clamped);
+  }, [broadcastDensity]);
+
+  // Initialize CSS var + broadcast once
+  useEffect(() => {
+    applyCols(cols);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
+  // Ping-pong behavior (legacy fallback when no dir provided)
+  const stepColsPingPong = useCallback(() => {
     setCols((prev) => {
       let next = prev;
-      if (down) next = Math.max(1, prev - 1);
-      else next = Math.min(5, prev + 1);
       let nextDown = down;
-      if (next === 1) nextDown = false;
-      if (next === 5) nextDown = true;
+      if (down) next = Math.max(MIN_COLS, prev - 1);
+      else      next = Math.min(MAX_COLS, prev + 1);
+      if (next === MIN_COLS) nextDown = false;
+      if (next === MAX_COLS) nextDown = true;
       setDown(nextDown);
-      try { document.documentElement.style.setProperty('--grid-cols', String(next)); } catch {}
+      applyCols(next);
       return next;
     });
-  }, [down]);
+  }, [down, applyCols]);
 
-  // orb → density OR overlay close
+  // Handle lb:zoom (document+window for safety)
   useEffect(() => {
-    const onZoom = () => {
-      if (overlayIdx != null) setOverlayIdx(null);
-      else stepCols();
+    /** @param {CustomEvent} e */
+    const onZoom = (e) => {
+      // If overlay is open, close it and don't change density
+      if (overlayIdx != null) { setOverlayIdx(null); return; }
+
+      const d = e?.detail || {};
+      const step = Math.max(1, Math.min(3, Number(d.step) || 1));
+      const dir = typeof d.dir === 'string' ? d.dir : null;
+
+      if (dir === 'in') {
+        setCols((prev) => {
+          const next = Math.max(MIN_COLS, prev - step);
+          applyCols(next);
+          return next;
+        });
+        return;
+      }
+
+      if (dir === 'out') {
+        setCols((prev) => {
+          const next = Math.min(MAX_COLS, prev + step);
+          applyCols(next);
+          return next;
+        });
+        return;
+      }
+
+      // No dir provided → legacy ping-pong 5↔1
+      stepColsPingPong();
     };
-    // Use document only to avoid double fires
-    document.addEventListener('lb:zoom', onZoom);
-    return () => document.removeEventListener('lb:zoom', onZoom);
-  }, [overlayIdx, stepCols]);
+
+    const names = ['lb:zoom'];
+    names.forEach((n) => {
+      document.addEventListener(n, onZoom);
+      window.addEventListener(n, onZoom);
+    });
+    return () => {
+      names.forEach((n) => {
+        document.removeEventListener(n, onZoom);
+        window.removeEventListener(n, onZoom);
+      });
+    };
+  }, [overlayIdx, stepColsPingPong, applyCols]);
 
   const open  = (i) => setOverlayIdx(i);
   const close = () => setOverlayIdx(null);
