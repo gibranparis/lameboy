@@ -278,12 +278,11 @@ export default function BannedLogin({
   /* ======= Your exact sequence: each line disappears, loops to start ======= */
   const DEFAULT_SYS = useMemo(() => ([
     'hi',
-    'welcome',
-    'to',
+    'welcome to',
     'lameboy.com',
-    'Greetings!',
-    'from',
-    'レ乃モ'
+    'Greetings! from',
+    'レ乃モ:)',
+
   ]), []);
   const MESSAGES = useMemo(
     () => (Array.isArray(sysMessages) && sysMessages.length ? sysMessages : DEFAULT_SYS),
