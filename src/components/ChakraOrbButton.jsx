@@ -4,27 +4,33 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
+const SEAFOAM = '#32ffc7';
+const RED     = '#ff001a';
+
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 44,                 // base magnitude; direction flips at min density (1 col)
-  color = '#32ffc7',
+  rpm = 44,                 // base magnitude; sign set by current zoom mode
+  color = SEAFOAM,
   geomScale = 1.25,
   offsetFactor = 2.25,
   armRatio = 0.35,
   glow = true,
   glowOpacity = 0.9,
   includeZAxis = true,
-  overrideAllColor = null,
+  overrideAllColor = null,   // not used by default; we pulse our own color
   className = '',
   style = {},
 }) {
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 200;
 
-  // track current grid density pushed by ShopGrid
+  // === Grid density + current zoom "mode" ===
+  // mode: 'in'  -> going 5→1 (CCW)
+  //       'out' -> going 1→5 (CW)
   const [gridDensity, setGridDensity] = useState(5);
+  const [mode, setMode] = useState/** @type {'in'|'out'} */('in');
 
-  // accept density events from both window & document
+  // Accept density broadcasts from ShopGrid (both window + document)
   useEffect(() => {
     const onDensity = (e) => {
       const d = e?.detail;
@@ -33,8 +39,15 @@ export default function ChakraOrbButton({
         (typeof d?.density === 'number' && d.density) ??
         (typeof d?.value === 'number' && d.value) ??
         null;
-      if (v != null) setGridDensity(Math.max(1, v | 0));
+      if (v == null) return;
+      const val = Math.max(1, v | 0);
+      setGridDensity(val);
+
+      // Flip mode at the bounds; otherwise keep current mode
+      if (val === 1) setMode('out'); // at min, next logical action is zoom OUT
+      if (val === 5) setMode('in');  // at max, next logical action is zoom IN
     };
+
     const names = ['lb:grid-density', 'lb:zoom/grid-density'];
     names.forEach((n) => {
       window.addEventListener(n, onDensity);
@@ -48,11 +61,25 @@ export default function ChakraOrbButton({
     };
   }, []);
 
-  const isMinDensity = gridDensity === 1;
-  const rpmEffective = useMemo(() => (isMinDensity ? -Math.abs(rpm) : Math.abs(rpm)), [rpm, isMinDensity]);
+  // Directional spin: CCW when mode === 'in', CW when 'out'
+  // If your visual looks flipped, just swap the signs here.
+  const rpmEffective = useMemo(
+    () => (mode === 'in' ? -Math.abs(rpm) : Math.abs(rpm)),
+    [rpm, mode]
+  );
 
-  // emit lb:zoom to BOTH targets so any listener style works
-  const emitZoom = useCallback((step = 1, dir = 'in') => {
+  // === Click pulse color (green for + / red for -) ===
+  const [pulseColor, setPulseColor] = useState/** @type {string|null} */(null);
+  const pulseTimer = useRef/** @type {ReturnType<typeof setTimeout>|null} */(null);
+  const triggerPulse = useCallback((hex) => {
+    if (pulseTimer.current) clearTimeout(pulseTimer.current);
+    setPulseColor(hex);
+    pulseTimer.current = setTimeout(() => setPulseColor(null), 320);
+  }, []);
+  useEffect(() => () => { if (pulseTimer.current) clearTimeout(pulseTimer.current); }, []);
+
+  // Emit lb:zoom to BOTH window and document (unified)
+  const emitZoom = useCallback((step = 1, dir = /** @type {'in'|'out'} */('in')) => {
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
@@ -61,25 +88,36 @@ export default function ChakraOrbButton({
     try { window.dispatchEvent(   new CustomEvent('lb:zoom', { detail })); } catch {}
   }, []);
 
-  // primary click zooms IN normally; at min density flips to OUT
-  const onClick = () => emitZoom(1, isMinDensity ? 'out' : 'in');
-  const onContextMenu = (e) => { e.preventDefault(); emitZoom(1, isMinDensity ? 'in' : 'out'); };
+  // Primary click executes current "mode"
+  const onPrimary = useCallback(() => {
+    if (mode === 'in') { triggerPulse(SEAFOAM); emitZoom(1, 'in'); }
+    else               { triggerPulse(RED);     emitZoom(1, 'out'); }
+  }, [mode, emitZoom, triggerPulse]);
+
+  const onClick = onPrimary;
+  const onContextMenu = (e) => { e.preventDefault(); // secondary = opposite mode
+    if (mode === 'in') { triggerPulse(RED);     emitZoom(1, 'out'); }
+    else               { triggerPulse(SEAFOAM); emitZoom(1, 'in');  }
+  };
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
-    else if (e.key === 'ArrowLeft')  { e.preventDefault(); emitZoom(1, 'in'); }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); emitZoom(1, 'out'); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPrimary(); }
+    else if (e.key === 'ArrowLeft')  { triggerPulse(SEAFOAM); emitZoom(1, 'in'); }
+    else if (e.key === 'ArrowRight') { triggerPulse(RED);     emitZoom(1, 'out'); }
   };
   const onWheel = (e) => {
     e.preventDefault();
     const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
-    if (ax > ay) { e.deltaX > 0 ? emitZoom(1, 'out') : emitZoom(1, 'in'); }
-    else         { e.deltaY > 0 ? emitZoom(1, 'in')  : emitZoom(1, 'out'); }
+    if (ax > ay) { e.deltaX > 0 ? (triggerPulse(RED),     emitZoom(1,'out'))
+                                : (triggerPulse(SEAFOAM), emitZoom(1,'in')); }
+    else         { e.deltaY > 0 ? (triggerPulse(SEAFOAM), emitZoom(1,'in'))
+                                : (triggerPulse(RED),     emitZoom(1,'out')); }
   };
 
   const px = typeof size === 'number' ? `${size}px` : size;
-  const title = isMinDensity
-    ? 'Zoom products (Click/Enter = Out, Right-click = In, Wheel = In/Out)'
-    : 'Zoom products (Click/Enter = In, Right-click = Out, Wheel = In/Out)';
+  const title =
+    mode === 'in'
+      ? 'Zoom products (Mode: IN — 5→1). Click/Enter = +, Right-click = −'
+      : 'Zoom products (Mode: OUT — 1→5). Click/Enter = −, Right-click = +';
 
   return (
     <button
@@ -112,7 +150,7 @@ export default function ChakraOrbButton({
         ...style,
       }}
     >
-      {/* soft halo even if WebGL fails */}
+      {/* soft halo so it's not visually empty if WebGL fails */}
       <span
         aria-hidden
         style={{
@@ -128,7 +166,7 @@ export default function ChakraOrbButton({
       />
       <BlueOrbCross3D
         height={px}
-        rpm={rpmEffective}            // ⟵ reverse only at 1-col
+        rpm={rpmEffective}                 // CCW for 'in', CW for 'out'
         color={color}
         geomScale={geomScale}
         offsetFactor={offsetFactor}
@@ -136,10 +174,12 @@ export default function ChakraOrbButton({
         glow={glow}
         glowOpacity={glowOpacity}
         includeZAxis={includeZAxis}
-        overrideAllColor={overrideAllColor}
+        // click pulse: temporarily override orb color (green for +, red for −)
+        overrideAllColor={pulseColor ?? undefined}
+        overrideGlowOpacity={pulseColor ? 1.0 : undefined}
         interactive
         respectReducedMotion={false}
-        onActivate={() => onClick()}
+        onActivate={onPrimary}
       />
     </button>
   );
