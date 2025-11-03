@@ -1,4 +1,3 @@
-// src/components/ShopGrid.jsx
 // @ts-check
 'use client';
 
@@ -7,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ProductOverlay from '@/components/ProductOverlay';
 
 export default function ShopGrid({ products }) {
-  // ---- product source (prop → window.__LB_PRODUCTS → demo) ----
+  // ---- product seed ----
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null;
     // eslint-disable-next-line no-undef
@@ -26,7 +25,6 @@ export default function ShopGrid({ products }) {
 
     if (base.length >= 2) return base;
 
-    // Clone the single item so overlay can paginate vertically.
     return Array.from({ length: 5 }, (_, i) => ({
       ...base[0],
       id: `${base[0].id}-v${i+1}`,
@@ -34,33 +32,32 @@ export default function ShopGrid({ products }) {
     }));
   }, [products]);
 
-  // ---- overlay state ----
+  // ---- overlay ----
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
   const overlayOpen = overlayIdx != null;
   const open  = (i) => setOverlayIdx(i);
   const close = () => setOverlayIdx(null);
 
-  // ---- grid density state (single source of truth) ----
+  // ---- grid density (single source of truth) ----
   const MIN = 1, MAX = 5;
   const [cols, setCols] = useState(MAX);
-  const [down, setDown] = useState(true); // ping-pong direction
+  const [down, setDown] = useState(true); // true => moving toward 1 on next ping
 
-  // Apply CSS var and broadcast once whenever cols changes
+  // Apply CSS + broadcast (density + down) whenever cols changes
   useEffect(() => {
     try { document.documentElement.style.setProperty('--grid-cols', String(cols)); } catch {}
-    const detail = { density: cols, value: cols };
+    const detail = { density: cols, value: cols, down };
     try { document.dispatchEvent(new CustomEvent('lb:grid-density', { detail })); } catch {}
     try { document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail })); } catch {}
-  }, [cols]);
+  }, [cols, down]);
 
-  // Initial broadcast so the orb knows where we start (5)
+  // Initial broadcast so the orb knows where we are at start
   useEffect(() => {
-    const detail = { density: MAX, value: MAX };
+    const detail = { density: MAX, value: MAX, down: true };
     try { document.dispatchEvent(new CustomEvent('lb:grid-density', { detail })); } catch {}
     try { document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail })); } catch {}
   }, []);
 
-  // Helpers
   const clamp = (n) => Math.max(MIN, Math.min(MAX, n|0));
 
   const shrink = useCallback((step = 1) => {
@@ -84,38 +81,35 @@ export default function ShopGrid({ products }) {
   const pingPong = useCallback((step = 1) => {
     setCols((p) => {
       let n = p;
-      if (down)  n = clamp(p - step);   // going toward 1
-      else       n = clamp(p + step);   // going toward 5
+      if (down)  n = clamp(p - step);   // toward 1
+      else       n = clamp(p + step);   // toward 5
       if (n === MIN) setDown(false);
       if (n === MAX) setDown(true);
       return n;
     });
   }, [down]);
 
-  // De-dupe repeated events in same tick (some environments fire on both window & document)
+  // De-dupe duplicate events (sometimes window+document fire together)
   const lastStampRef = useRef(0);
 
   useEffect(() => {
     /** @param {CustomEvent & {timeStamp?:number}} e */
     const onZoom = (e) => {
-      // If overlay is open, close and stop — don't change density.
-      if (overlayOpen) { setOverlayIdx(null); return; }
+      if (overlayOpen) { setOverlayIdx(null); return; } // first click closes overlay
 
-      // Deduplicate if the same event fired twice this frame
       const ts = Number(e?.timeStamp || 0);
       if (ts && ts === lastStampRef.current) return;
       lastStampRef.current = ts;
 
       const d = e?.detail || {};
-      const step = clamp(Number(d.step) || 1);
+      const step = Math.max(1, Math.min(3, Number(d.step) || 1));
       const dir = typeof d.dir === 'string' ? d.dir : null;
 
-      if (dir === 'in')  return expand(step);  // green → numbers grow 1→…→5
-      if (dir === 'out') return shrink(step);  // red   → numbers shrink 5→…→1
-      pingPong(step);                          // legacy bounce
+      if (dir === 'in')  return expand(step);  // expand (1→5) = green
+      if (dir === 'out') return shrink(step);  // shrink (5→1) = red
+      pingPong(step);                          // bounce when dir not given
     };
 
-    // Single source of truth: listen on document only
     document.addEventListener('lb:zoom', onZoom);
     return () => document.removeEventListener('lb:zoom', onZoom);
   }, [overlayOpen, expand, shrink, pingPong]);
