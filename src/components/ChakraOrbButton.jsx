@@ -6,7 +6,7 @@ import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpmBase = 9,                // slow, hypnotic
+  rpmBase = 9,                // slow + hypnotic
   color = '#32ffc7',
   geomScale = 1.25,
   offsetFactor = 2.25,
@@ -18,20 +18,22 @@ export default function ChakraOrbButton({
   style = {},
   idlePulse = true,
 }) {
-  const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 150;
+  const lastFireRef = useRef(0);
 
   const [cols, setCols] = useState(5);
-  const [spinDir, setSpinDir] = useState(-1);     // -1 = CCW (zoom-in path), +1 = CW (zoom-out path)
-  const [haloTint, setHaloTint] = useState(null); // transient outer glow tint
+  // REVERSED: spinDir = +1 when density>1 (grid growing), -1 when density===1 (zoom-out indicator)
+  const [spinDir, setSpinDir] = useState(+1);
+  const [haloTint, setHaloTint] = useState(null); // transient ring color
 
-  // Listen for grid density broadcasts from ShopGrid
+  // Receive density broadcasts
   useEffect(() => {
     const onDensity = (e) => {
       const d = e?.detail?.density ?? e?.detail?.value;
       if (typeof d === 'number') {
         setCols(d);
-        setSpinDir(d === 1 ? +1 : -1);
+        // REVERSED mapping vs previous: at 1 (zoom-out mode), spin CCW (-1); otherwise CW (+1)
+        setSpinDir(d === 1 ? -1 : +1);
       }
     };
     const names = ['lb:grid-density', 'lb:zoom/grid-density'];
@@ -39,15 +41,21 @@ export default function ChakraOrbButton({
     return () => names.forEach((n) => { window.removeEventListener(n, onDensity); document.removeEventListener(n, onDensity); });
   }, []);
 
-  // Emit zoom + flash tint
+  const flash = (hex) => {
+    setHaloTint(hex);
+    // longer so it’s visible during overlay close
+    setTimeout(() => setHaloTint(null), 520);
+  };
+
   const emitZoom = useCallback((dir) => {
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
 
-    setHaloTint(dir === 'in' ? '#39ff14' : '#ff001a'); // neon green / red
-    // keep it visible a touch longer (overlay close)
-    setTimeout(() => setHaloTint(null), 520);
+    // REVERSED meaning: we’re flipping the visual but keeping names the same for callers.
+    // 'in' => grid grows (5→…) and should glow GREEN
+    // 'out' => grid shrinks (…→1) and should glow RED
+    flash(dir === 'in' ? '#39ff14' : '#ff001a');
 
     const detail = { step: 1, dir };
     try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
@@ -56,6 +64,7 @@ export default function ChakraOrbButton({
 
   const onPrimary = () => {
     const overlayOpen = document.documentElement.hasAttribute('data-overlay-open');
+    // If overlay is open, we want “zoom-out” (shrink to 1) to close it → RED
     emitZoom(overlayOpen ? 'out' : 'in');
   };
   const onContextMenu = (e) => { e.preventDefault(); emitZoom('out'); };
@@ -86,32 +95,17 @@ export default function ChakraOrbButton({
       onWheel={onWheel}
       className={className}
       style={{
-        width: px,
-        height: px,
-        display: 'inline-grid',
-        placeItems: 'center',
-        lineHeight: 0,
-        borderRadius: '9999px',
-        overflow: 'visible',
-        padding: 0, margin: 0, background: 'transparent', border: '0 none',
-        cursor: 'pointer',
-        position: 'relative',
-        zIndex: 900,
-        contain: 'layout paint style',
-        ...style,
+        width: px, height: px, display: 'inline-grid', placeItems: 'center',
+        lineHeight: 0, borderRadius: '9999px', overflow: 'visible',
+        padding: 0, margin: 0, background: 'transparent', border: 0,
+        cursor: 'pointer', position: 'relative', zIndex: 900,
+        contain: 'layout paint style', ...style,
       }}
     >
-      {/* SUBTLE idle pulse ring (only when not flashing) */}
+      {/* idle soft pulse */}
       {idlePulse && !haloTint && (
         <>
-          <span
-            aria-hidden
-            className="lb-idle-pulse"
-            style={{
-              position: 'absolute', inset: 0, borderRadius: '9999px',
-              pointerEvents: 'none', zIndex: 1,
-            }}
-          />
+          <span aria-hidden className="lb-idle-pulse" style={{ position:'absolute', inset:0, borderRadius:'9999px', pointerEvents:'none', zIndex:1 }} />
           <style jsx>{`
             @keyframes lbIdlePulse {
               0%   { box-shadow: 0 0 0 0 rgba(50,255,199,.16), inset 0 0 0 1px rgba(255,255,255,.18); }
@@ -123,21 +117,21 @@ export default function ChakraOrbButton({
         </>
       )}
 
-      {/* transient flash ring for green/red feedback — raise zIndex above Canvas */}
+      {/* GREEN / RED transient ring above canvas */}
       {haloTint && (
         <span
           aria-hidden
           style={{
-            position: 'absolute', inset: -2, borderRadius: '9999px',
-            boxShadow: `0 0 18px ${haloTint}88, 0 0 36px ${haloTint}55, inset 0 0 0 1px ${haloTint}66`,
-            pointerEvents: 'none', zIndex: 3,
+            position:'absolute', inset:-2, borderRadius:'9999px',
+            boxShadow:`0 0 18px ${haloTint}88, 0 0 36px ${haloTint}55, inset 0 0 0 1px ${haloTint}66`,
+            pointerEvents:'none', zIndex:3,
           }}
         />
       )}
 
       <BlueOrbCross3D
         height={px}
-        rpm={rpmBase * spinDir}
+        rpm={rpmBase * spinDir}          // reversed spin mapping applied here
         color={color}
         geomScale={geomScale}
         offsetFactor={offsetFactor}
@@ -145,8 +139,7 @@ export default function ChakraOrbButton({
         glow={glow}
         glowOpacity={glowOpacity}
         includeZAxis={includeZAxis}
-        // chakra cores always visible; only the outer glow gets tinted during feedback
-        haloTintColor={haloTint}
+        haloTintColor={haloTint}         // tint outer halos only; chakra cores keep their colors
         interactive
         respectReducedMotion={false}
         onActivate={onPrimary}

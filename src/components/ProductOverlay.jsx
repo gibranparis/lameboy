@@ -42,7 +42,7 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
   );
 }
 
-function NavPill({ children, label, onClick, style, pulse=false }) {
+function NavPill({ label, rotate180=false, onClick, pulse=false }) {
   return (
     <button
       type="button"
@@ -52,11 +52,11 @@ function NavPill({ children, label, onClick, style, pulse=false }) {
       style={{
         width: 28, height: 28, padding: 0, lineHeight: 1,
         display:'grid', placeItems:'center',
-        position:'absolute',
-        ...style,
+        transform: rotate180 ? 'rotate(180deg)' : 'none'
       }}
     >
-      {children}
+      {/* Always the caret ^ ; down is rotated version */}
+      ^
       <style jsx global>{`
         @keyframes lbPulseSoft {
           0%   { box-shadow: 0 0 0 0 rgba(50,255,199,0.22); }
@@ -76,11 +76,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   useEffect(() => setImgIdx(0), [index]);
 
-  const wrapIndex = useCallback((i, len) => ((i % len) + len) % len, []);
-  const gotoProduct = useCallback((d) => {
+  const wrap = useCallback((i, n) => ((i % n) + n) % n, []);
+  const goto = useCallback((d) => {
     if (!products?.length) return;
-    onIndexChange?.(wrapIndex(index + d, products.length));
-  }, [index, products, onIndexChange, wrapIndex]);
+    onIndexChange?.(wrap(index + d, products.length));
+  }, [index, products, onIndexChange, wrap]);
 
   const nextImage = useCallback(() => setImgIdx((i) => Math.min(i + 1, imgs.length - 1)), [imgs.length]);
   const prevImage = useCallback(() => setImgIdx((i) => Math.max(i - 1, 0)), [imgs.length]);
@@ -99,14 +99,14 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       if (e.key === 'Escape') return onClose?.();
       if (e.key === 'ArrowRight') return nextImage();
       if (e.key === 'ArrowLeft')  return prevImage();
-      if (e.key === 'ArrowDown')  return gotoProduct(+1);
-      if (e.key === 'ArrowUp')    return gotoProduct(-1);
+      if (e.key === 'ArrowDown')  return goto(+1);
+      if (e.key === 'ArrowUp')    return goto(-1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [gotoProduct, nextImage, prevImage, onClose]);
+  }, [goto, nextImage, prevImage, onClose]);
 
-  // Wheel (infinite loop vertically)
+  // Wheel loop
   const lastWheel = useRef(0);
   useEffect(() => {
     const onWheel = (e) => {
@@ -115,36 +115,29 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       lastWheel.current = now;
       const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
       if (ax > ay) { e.deltaX > 0 ? nextImage() : prevImage(); }
-      else         { e.deltaY > 0 ? gotoProduct(+1) : gotoProduct(-1); }
+      else         { e.deltaY > 0 ? goto(+1) : goto(-1); }
     };
     window.addEventListener('wheel', onWheel, { passive: true });
     return () => window.removeEventListener('wheel', onWheel);
-  }, [gotoProduct, nextImage, prevImage]);
+  }, [goto, nextImage, prevImage]);
 
-  // Touch (mobile) – swipe up/down loops products, left/right images
-  const touchStart = useRef({ x:0, y:0 });
+  // Touch swipe
+  const t0 = useRef({ x:0, y:0 });
   useEffect(() => {
-    const onTouchStart = (e) => {
-      const t = e.touches?.[0]; if (!t) return;
-      touchStart.current = { x:t.clientX, y:t.clientY };
-    };
-    const onTouchEnd = (e) => {
-      const t0 = touchStart.current, tch = e.changedTouches?.[0]; if (!tch) return;
-      const dx = tch.clientX - t0.x, dy = tch.clientY - t0.y;
-      const ax = Math.abs(dx), ay = Math.abs(dy); const MIN = 28;
+    const start = (e) => { const t = e.touches?.[0]; if (t) t0.current = { x:t.clientX, y:t.clientY }; };
+    const end = (e) => {
+      const t = e.changedTouches?.[0]; if (!t) return;
+      const dx = t.clientX - t0.current.x, dy = t.clientY - t0.current.y;
+      const ax = Math.abs(dx), ay = Math.abs(dy), MIN = 28;
       if (ax < MIN && ay < MIN) return;
-      if (ay > ax) { dy > 0 ? gotoProduct(+1) : gotoProduct(-1); }
-      else { dx < 0 ? nextImage() : prevImage(); }
+      if (ay > ax) { dy > 0 ? goto(+1) : goto(-1); } else { dx < 0 ? nextImage() : prevImage(); }
     };
-    document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchend', onTouchEnd, { passive: true });
-    return () => {
-      document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchend', onTouchEnd);
-    };
-  }, [gotoProduct, nextImage, prevImage]);
+    document.addEventListener('touchstart', start, { passive: true });
+    document.addEventListener('touchend', end, { passive: true });
+    return () => { document.removeEventListener('touchstart', start); document.removeEventListener('touchend', end); };
+  }, [goto, nextImage, prevImage]);
 
-  // mark overlay open (locks page scroll via CSS)
+  // mark overlay open
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open', '1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -161,10 +154,10 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   return (
     <div className="product-hero-overlay" data-overlay>
       <div className="product-hero">
-        {/* Up/Down cluster ALWAYS visible; tight stack with soft pulse */}
-        <div style={{ position:'absolute', right:16, top:'48%', display:'grid', gap:6 }}>
-          <NavPill label="Previous product" onClick={() => gotoProduct(-1)} pulse>^</NavPill>
-          <NavPill label="Next product"     onClick={() => gotoProduct(+1)} pulse>v</NavPill>
+        {/* caret cluster centered on right edge */}
+        <div style={{ position:'absolute', right:16, top:'50%', transform:'translateY(-50%)', display:'grid', gap:6 }}>
+          <NavPill label="Previous product" onClick={() => goto(-1)} pulse />
+          <NavPill label="Next product" rotate180 onClick={() => goto(+1)} pulse />
         </div>
 
         {imgs[imgIdx] && (
