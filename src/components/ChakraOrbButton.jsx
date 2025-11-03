@@ -16,14 +16,14 @@ export default function ChakraOrbButton({
   includeZAxis = true,
   className = '',
   style = {},
-  idlePulse = true,           // NEW: faint resting pulse ring
+  idlePulse = true,
 }) {
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 150;
 
   const [cols, setCols] = useState(5);
   const [spinDir, setSpinDir] = useState(-1);     // -1 = CCW (zoom-in path), +1 = CW (zoom-out path)
-  const [haloTint, setHaloTint] = useState(null); // transient outer glow tint (green/red)
+  const [haloTint, setHaloTint] = useState(null); // transient outer glow tint
 
   // Listen for grid density broadcasts from ShopGrid
   useEffect(() => {
@@ -46,7 +46,8 @@ export default function ChakraOrbButton({
     lastFireRef.current = now;
 
     setHaloTint(dir === 'in' ? '#39ff14' : '#ff001a'); // neon green / red
-    setTimeout(() => setHaloTint(null), 340);
+    // keep it visible a touch longer (overlay close)
+    setTimeout(() => setHaloTint(null), 520);
 
     const detail = { step: 1, dir };
     try { window.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
@@ -122,14 +123,14 @@ export default function ChakraOrbButton({
         </>
       )}
 
-      {/* transient flash ring for green/red feedback */}
+      {/* transient flash ring for green/red feedback — raise zIndex above Canvas */}
       {haloTint && (
         <span
           aria-hidden
           style={{
             position: 'absolute', inset: -2, borderRadius: '9999px',
             boxShadow: `0 0 18px ${haloTint}88, 0 0 36px ${haloTint}55, inset 0 0 0 1px ${haloTint}66`,
-            pointerEvents: 'none', zIndex: 1,
+            pointerEvents: 'none', zIndex: 3,
           }}
         />
       )}
