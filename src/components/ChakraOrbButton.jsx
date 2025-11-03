@@ -4,29 +4,40 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
-const GO_GREEN = '#39ff14';   // bright neon "go"
+const GO_GREEN = '#39ff14';  // neon "go"
 const STOP_RED = '#ff001a';
 const SEAFOAM  = '#32ffc7';
 
+function overlayOpen() {
+  try { return document.documentElement.getAttribute('data-overlay-open') === '1'; }
+  catch { return false; }
+}
+
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 16,                 // slow, soothing
-  rpmBreath = 0.16,         // gentle wind modulation
+  // slow & soothing; keep this even in resting state
+  rpm = 16,
+  rpmBreath = 0.16,
   breathHz = 0.16,
+
   color = SEAFOAM,
   geomScale = 1.25,
   offsetFactor = 2.25,
   armRatio = 0.35,
+
+  // restore stronger base glow like original (but without the cyan DOM ring)
   glow = true,
-  glowOpacity = 0.70,       // lower base glow so it’s not bluish/white
+  glowOpacity = 0.9,
   includeZAxis = true,
+
   className = '',
   style = {},
 }) {
   const px = typeof size === 'number' ? `${size}px` : size;
 
+  // grid density tracking to choose spin direction
   const [density, setDensity] = useState(5);
-  const [mode, setMode] = useState/** @type {'in'|'out'} */('in');
+  const [mode, setMode] = useState/** @type {'in'|'out'} */('in'); // IN: 5→1, OUT: 1→5
 
   useEffect(() => {
     const onDensity = (e) => {
@@ -44,33 +55,41 @@ export default function ChakraOrbButton({
     return () => document.removeEventListener('lb:grid-density', onDensity);
   }, []);
 
-  // IN = CW (positive), OUT = CCW (negative)
-  const rpmEffective = useMemo(() => (mode === 'in' ?  Math.abs(rpm) : -Math.abs(rpm)), [rpm, mode]);
+  // IN = CCW, OUT = CW  ← (swap per your request)
+  const rpmEffective = useMemo(() => (mode === 'in' ? -Math.abs(rpm) : Math.abs(rpm)), [rpm, mode]);
 
-  // halo-only pulse color (cores stay chakra colors)
-  const [pulseHalo, setPulseHalo] = useState/** @type {string|null} */(null);
+  // halos-only pulse (cores keep chakra colors)
+  const [haloPulse, setHaloPulse] = useState/** @type {string|null} */(null);
   const pulseTimer = useRef/** @type {ReturnType<typeof setTimeout>|null} */(null);
   const pulse = useCallback((hex) => {
     if (pulseTimer.current) clearTimeout(pulseTimer.current);
-    setPulseHalo(hex);
-    pulseTimer.current = setTimeout(() => setPulseHalo(null), 280);
+    setHaloPulse(hex);
+    pulseTimer.current = setTimeout(() => setHaloPulse(null), 280);
   }, []);
   useEffect(() => () => { if (pulseTimer.current) clearTimeout(pulseTimer.current); }, []);
 
-  const FIRE_COOLDOWN_MS = 160;
+  // emit zoom
+  const FIRE_COOLDOWN_MS = 140;
   const lastFireRef = useRef(0);
-  const emitZoom = useCallback((dir /** 'in'|'out' */, step = 1) => {
+  const emitZoom = useCallback((dir /** 'in'|'out' or null */, step = 1) => {
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
-    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail: { step, dir } })); } catch {}
+    const detail = dir ? { step, dir } : { step };
+    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
   }, []);
 
   const clickIn  = () => { pulse(GO_GREEN); emitZoom('in');  };
   const clickOut = () => { pulse(STOP_RED);  emitZoom('out'); };
 
-  const onClick = () => (mode === 'in' ? clickIn() : clickOut());
-  const onContextMenu = (e) => { e.preventDefault(); (mode === 'in' ? clickOut() : clickIn()); };
+  const onClick = () => {
+    // If overlay is open, always act as “back to grid” and pulse RED
+    if (overlayOpen()) { pulse(STOP_RED); emitZoom(null); return; }
+    // Otherwise respect current mode
+    (mode === 'in' ? clickIn : clickOut)();
+  };
+
+  const onContextMenu = (e) => { e.preventDefault(); overlayOpen() ? (pulse(STOP_RED), emitZoom(null)) : clickOut(); };
   const onKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
     else if (e.key === 'ArrowLeft')  { clickIn(); }
@@ -105,9 +124,11 @@ export default function ChakraOrbButton({
           outline:'none', boxShadow:'none',
           ...style,
         }}
-        title={mode === 'in' ? 'Zoom (IN: 5→1) – CW' : 'Zoom (OUT: 1→5) – CCW'}
+        title={overlayOpen()
+          ? 'Close product • Back to grid'
+          : mode === 'in' ? 'Zoom IN (5→1) – CCW' : 'Zoom OUT (1→5) – CW'}
       >
-        {/* NOTE: removed DOM fallback halo to avoid cyan/white ring */}
+        {/* No DOM fallback ring (keeps the look clean) */}
         <BlueOrbCross3D
           height={px}
           rpm={rpmEffective}
@@ -118,11 +139,11 @@ export default function ChakraOrbButton({
           offsetFactor={offsetFactor}
           armRatio={armRatio}
           glow={glow}
-          glowOpacity={glowOpacity}
+          glowOpacity={glowOpacity}        // restored like original
           includeZAxis={includeZAxis}
-          // halos-only pulse; cores keep chakra colors
-          overrideHaloColor={pulseHalo ?? undefined}
-          overrideGlowOpacity={pulseHalo ? 0.9 : undefined}
+          // Resting: no override; Pulse: halos-only (cores remain chakra)
+          overrideHaloColor={haloPulse ?? undefined}
+          overrideGlowOpacity={haloPulse ? 0.95 : undefined}
           interactive
           respectReducedMotion={false}
           onActivate={onClick}
