@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProductOverlay from '@/components/ProductOverlay';
 
 export default function ShopGrid({ products }) {
-  // Robust product source:
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null;
     // eslint-disable-next-line no-undef
@@ -36,23 +35,22 @@ export default function ShopGrid({ products }) {
 
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
 
-  // === grid density (orb) ===
+  // === grid density
   const MIN_COLS = 1;
   const MAX_COLS = 5;
 
   const [cols, setCols] = useState(MAX_COLS);
-  const [down, setDown] = useState(true); // used for ping-pong when no dir provided
+  const [down, setDown] = useState(true);
 
-  // Broadcast current density (for orb reverse spin, headers, etc.)
+  // Broadcast current density (for orb reverse spin)
   const broadcastDensity = useCallback((density) => {
     const detail = { density, value: density };
-    try { document.dispatchEvent(new CustomEvent('lb:grid-density',       { detail })); } catch {}
-    try { document.dispatchEvent(new CustomEvent('lb:zoom/grid-density',  { detail })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('lb:grid-density',         { detail })); } catch {}
-    try { window.dispatchEvent(new CustomEvent('lb:zoom/grid-density',    { detail })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:grid-density',      { detail })); } catch {}
+    try { window.dispatchEvent(   new CustomEvent('lb:grid-density',      { detail })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail })); } catch {}
+    try { window.dispatchEvent(   new CustomEvent('lb:zoom/grid-density', { detail })); } catch {}
   }, []);
 
-  // Apply cols → CSS var + broadcast
   const applyCols = useCallback((next) => {
     const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, next|0));
     setCols(clamped);
@@ -60,13 +58,11 @@ export default function ShopGrid({ products }) {
     broadcastDensity(clamped);
   }, [broadcastDensity]);
 
-  // Initialize CSS var + broadcast once
   useEffect(() => {
-    applyCols(cols);
+    applyCols(cols); // initial broadcast so the orb knows starting direction
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once on mount
+  }, []);
 
-  // Ping-pong behavior (legacy fallback when no dir provided)
   const stepColsPingPong = useCallback(() => {
     setCols((prev) => {
       let next = prev;
@@ -81,48 +77,28 @@ export default function ShopGrid({ products }) {
     });
   }, [down, applyCols]);
 
-  // Handle lb:zoom (document+window for safety)
   useEffect(() => {
-    /** @param {CustomEvent} e */
     const onZoom = (e) => {
-      // If overlay is open, close it and don't change density
       if (overlayIdx != null) { setOverlayIdx(null); return; }
-
       const d = e?.detail || {};
       const step = Math.max(1, Math.min(3, Number(d.step) || 1));
       const dir = typeof d.dir === 'string' ? d.dir : null;
 
-      if (dir === 'in') {
-        setCols((prev) => {
-          const next = Math.max(MIN_COLS, prev - step);
-          applyCols(next);
-          return next;
-        });
-        return;
-      }
+      if (dir === 'in')  return setCols((p) => { const n = Math.max(MIN_COLS, p - step); applyCols(n); return n; });
+      if (dir === 'out') return setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; });
 
-      if (dir === 'out') {
-        setCols((prev) => {
-          const next = Math.min(MAX_COLS, prev + step);
-          applyCols(next);
-          return next;
-        });
-        return;
-      }
-
-      // No dir provided → legacy ping-pong 5↔1
-      stepColsPingPong();
+      stepColsPingPong(); // legacy bounce when no dir supplied
     };
 
-    const names = ['lb:zoom'];
-    names.forEach((n) => {
-      document.addEventListener(n, onZoom);
+    // Listen on BOTH window and document to match any emitter
+    ['lb:zoom'].forEach((n) => {
       window.addEventListener(n, onZoom);
+      document.addEventListener(n, onZoom);
     });
     return () => {
-      names.forEach((n) => {
-        document.removeEventListener(n, onZoom);
+      ['lb:zoom'].forEach((n) => {
         window.removeEventListener(n, onZoom);
+        document.removeEventListener(n, onZoom);
       });
     };
   }, [overlayIdx, stepColsPingPong, applyCols]);
@@ -133,7 +109,6 @@ export default function ShopGrid({ products }) {
 
   return (
     <div className="shop-wrap" style={{ padding:'28px 28px 60px' }}>
-      {/* CSS var inline is fine in React */}
       <div className="shop-grid" style={{ '--grid-cols': cols }}>
         {seed.map((p, idx) => (
           <a
