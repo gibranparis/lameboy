@@ -6,7 +6,7 @@ import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 24,                 // slow, soothing
+  rpm = 24,                 // slow + hypnotic base speed (magnitude)
   color = '#32ffc7',
   geomScale = 1.25,
   offsetFactor = 2.25,
@@ -24,17 +24,16 @@ export default function ChakraOrbButton({
   const [pulse, setPulse] = useState('none');
   const pulseTimer = useRef(null);
 
-  // decide direction based on current grid density: 5 => next is IN, 1 => next is OUT
-  const [nextDir, setNextDir] = useState('in'); // default when grid starts at 5
+  // Decide direction based on current grid density broadcast (5 => next is IN, 1 => next is OUT)
+  const [nextDir, setNextDir] = useState('in'); // grid boots at 5 → next is IN
 
-  // keep in sync with grid
   useEffect(() => {
     const onDensity = (e) => {
       const d = Number(e?.detail?.density ?? e?.detail?.value);
       if (!Number.isFinite(d)) return;
       if (d <= 1) setNextDir('out');
       else if (d >= 5) setNextDir('in');
-      // between 1..5 keep whatever we were heading toward
+      // between 1..5 we keep current nextDir
     };
     window.addEventListener('lb:grid-density', onDensity);
     document.addEventListener('lb:grid-density', onDensity);
@@ -62,8 +61,8 @@ export default function ChakraOrbButton({
   }, [triggerPulse]);
 
   // interactions
-  const onClick       = () => fireZoom(nextDir);        // left click: follow nextDir
-  const onContextMenu = (e) => { e.preventDefault(); fireZoom('out'); }; // right click = OUT
+  const onClick       = () => fireZoom(nextDir);        // left click follows nextDir
+  const onContextMenu = (e) => { e.preventDefault(); fireZoom('out'); }; // right-click = OUT
   const onKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fireZoom(nextDir); }
     else if (e.key === 'ArrowLeft')  { e.preventDefault(); fireZoom('in');  }
@@ -77,7 +76,7 @@ export default function ChakraOrbButton({
     else         { deltaY > 0 ? fireZoom('in')  : fireZoom('out'); }
   };
 
-  // reflect external zoom pulses (if any) with color only
+  // reflect external zoom events with a pulse (color only)
   useEffect(() => {
     const onExternal = (ev) => {
       const d = ev?.detail || {};
@@ -93,9 +92,12 @@ export default function ChakraOrbButton({
 
   const px = typeof size === 'number' ? `${size}px` : size;
 
-  // Outer aura colors (do NOT change the inner chakra colors)
-  const GREEN = 'rgba(0, 255, 120, .65)';
-  const RED   = 'rgba(255, 40, 40, .72)';
+  // Make the aura visible ABOVE the canvas
+  const GREEN = 'rgba(0, 255, 120, .78)';
+  const RED   = 'rgba(255, 46, 46, .82)';
+
+  // Reverse spin when the next action is OUT (i.e., grid is at 1 col)
+  const rpmValue = (nextDir === 'out' ? -1 : 1) * rpm;
 
   return (
     <button
@@ -129,7 +131,7 @@ export default function ChakraOrbButton({
         ...style,
       }}
     >
-      {/* subtle base ring */}
+      {/* base ring */}
       <span
         aria-hidden
         style={{
@@ -143,7 +145,7 @@ export default function ChakraOrbButton({
         }}
       />
 
-      {/* click aura */}
+      {/* click aura (now ABOVE the canvas) */}
       {pulse !== 'none' && (
         <span
           aria-hidden
@@ -157,15 +159,15 @@ export default function ChakraOrbButton({
                 : `0 0 28px 10px ${RED}, 0 0 60px 24px ${RED}`,
             transition: 'opacity .26s ease',
             pointerEvents: 'none',
-            zIndex: 0,
+            zIndex: 4, // ← above the R3F canvas (which uses zIndex:2)
           }}
         />
       )}
 
-      {/* Chakra orb — inner colors untouched */}
+      {/* Chakra orb — inner chakra colors stay unchanged */}
       <BlueOrbCross3D
         height={px}
-        rpm={rpm}
+        rpm={rpmValue}                 // negative => reverse spin
         color={color}
         geomScale={geomScale}
         offsetFactor={offsetFactor}
