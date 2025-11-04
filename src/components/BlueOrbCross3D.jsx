@@ -18,8 +18,8 @@ function OrbCross({
   onActivate = null,
   overrideAllColor = null,
   overrideGlowOpacity,
-  haloTintColor = null,       // NEW: tint halos only
   __interactive = false,
+  haloTint = null,               // <— NEW: tint halos only (e.g., green/red pulse)
 }) {
   const group = useRef();
 
@@ -95,21 +95,24 @@ function OrbCross({
     emissive:new THREE.Color(barColor), emissiveIntensity:barEmissive, toneMapped:true,
   }), [barColor, barEmissive]);
 
+  // When haloTint is provided, use it for bar halos
   const barHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: haloTintColor || barColor, transparent:true, opacity: glow ? haloBase * 0.5 : 0,
+    color: haloTint || barColor,
+    transparent:true, opacity: glow ? haloBase * 0.5 : 0,
     blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
-  }), [barColor, glow, haloBase, haloTintColor]);
+  }), [barColor, glow, haloBase, haloTint]);
 
+  // Chakra cores remain their own colors regardless of haloTint
   const sphereDefs = useOverride
-    ? new Array(centers.length).fill({ core: barColor, halo: barColor, haloOp: haloBase })
+    ? new Array(centers.length).fill({ core: barColor, halo: haloTint || barColor, haloOp: haloBase })
     : [
-        { core: CHAKRA.crownW,  halo: CHAKRA.crownV, haloOp: 0.9 * (coarse ? 0.55 : 1.0) },
-        { core: CHAKRA.root,    halo: CHAKRA.root,   haloOp: haloBase },
-        { core: CHAKRA.sacral,  halo: CHAKRA.sacral, haloOp: haloBase },
-        { core: CHAKRA.solar,   halo: CHAKRA.solar,  haloOp: haloBase },
-        { core: CHAKRA.heart,   halo: CHAKRA.heart,  haloOp: haloBase },
-        { core: CHAKRA.throat,  halo: CHAKRA.throat, haloOp: haloBase },
-        { core: CHAKRA.thirdEye,halo: CHAKRA.thirdEye, haloOp: haloBase },
+        { core: CHAKRA.crownW,  halo: haloTint || CHAKRA.crownV,  haloOp: 0.9 * (coarse ? 0.55 : 1.0) },
+        { core: CHAKRA.root,    halo: haloTint || CHAKRA.root,    haloOp: haloBase },
+        { core: CHAKRA.sacral,  halo: haloTint || CHAKRA.sacral,  haloOp: haloBase },
+        { core: CHAKRA.solar,   halo: haloTint || CHAKRA.solar,   haloOp: haloBase },
+        { core: CHAKRA.heart,   halo: haloTint || CHAKRA.heart,   haloOp: haloBase },
+        { core: CHAKRA.throat,  halo: haloTint || CHAKRA.throat,  haloOp: haloBase },
+        { core: CHAKRA.thirdEye,halo: haloTint || CHAKRA.thirdEye,haloOp: haloBase },
       ];
 
   const sphereCoreMats = useMemo(
@@ -118,27 +121,27 @@ function OrbCross({
       emissive:new THREE.Color(core), emissiveIntensity: coreEmissive, toneMapped:true,
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [useOverride ? barColor : JSON.stringify(sphereDefs), coreEmissive]
+    [useOverride ? barColor : JSON.stringify(sphereDefs.map(s=>s.core)), coreEmissive]
   );
 
   const sphereHaloMats = useMemo(
     () => sphereDefs.map(({ halo, haloOp }) => new THREE.MeshBasicMaterial({
-      color: haloTintColor || halo, transparent:true, opacity: glow ? haloOp : 0,
+      color: halo, transparent:true, opacity: glow ? haloOp : 0,
       blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [useOverride ? barColor : JSON.stringify(sphereDefs), glow, haloTintColor]
+    [useOverride ? (haloTint || barColor) : JSON.stringify(sphereDefs.map(s=>s.halo)), glow, haloTint, barColor]
   );
 
   const halo2Mat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: haloTintColor || barColor, transparent:true, opacity: haloBase * 0.6,
+    color: haloTint || barColor, transparent:true, opacity: haloBase * 0.6,
     blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
-  }), [barColor, haloBase, haloTintColor]);
+  }), [barColor, haloBase, haloTint]);
 
   const halo3Mat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: haloTintColor || barColor, transparent:true, opacity: haloBase * 0.32,
+    color: haloTint || barColor, transparent:true, opacity: haloBase * 0.32,
     blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
-  }), [barColor, haloBase, haloTintColor]);
+  }), [barColor, haloBase, haloTint]);
 
   useEffect(() => {
     if (!group.current) return;
@@ -210,11 +213,11 @@ export default function BlueOrbCross3D({
   onActivate = null,
   overrideAllColor = null,
   overrideGlowOpacity,
-  haloTintColor = null,
   style = {},
   className = '',
   interactive = false,
   respectReducedMotion = false,
+  haloTint = null,              // <— NEW
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
@@ -269,8 +272,8 @@ export default function BlueOrbCross3D({
           onActivate={interactive ? onActivate : null}
           overrideAllColor={overrideAllColor}
           overrideGlowOpacity={overrideGlowOpacity}
-          haloTintColor={haloTintColor}
           __interactive={interactive}
+          haloTint={haloTint}       // <— propagate
         />
       </Canvas>
     </div>
