@@ -6,7 +6,7 @@ import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 24,                 // slower, more hypnotic
+  rpm = 24,                 // slow, soothing
   color = '#32ffc7',
   geomScale = 1.25,
   offsetFactor = 2.25,
@@ -20,47 +20,64 @@ export default function ChakraOrbButton({
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 180;
 
-  // pulse: 'none' | 'in' | 'out'
+  // visual pulse: 'none' | 'in' | 'out'
   const [pulse, setPulse] = useState('none');
   const pulseTimer = useRef(null);
 
-  // show quick green/red aura without touching inner chakra colors
-  const triggerPulse = useCallback((kind /* 'in'|'out' */) => {
+  // decide direction based on current grid density: 5 => next is IN, 1 => next is OUT
+  const [nextDir, setNextDir] = useState('in'); // default when grid starts at 5
+
+  // keep in sync with grid
+  useEffect(() => {
+    const onDensity = (e) => {
+      const d = Number(e?.detail?.density ?? e?.detail?.value);
+      if (!Number.isFinite(d)) return;
+      if (d <= 1) setNextDir('out');
+      else if (d >= 5) setNextDir('in');
+      // between 1..5 keep whatever we were heading toward
+    };
+    window.addEventListener('lb:grid-density', onDensity);
+    document.addEventListener('lb:grid-density', onDensity);
+    return () => {
+      window.removeEventListener('lb:grid-density', onDensity);
+      document.removeEventListener('lb:grid-density', onDensity);
+    };
+  }, []);
+
+  const triggerPulse = useCallback((kind) => {
     setPulse(kind);
     clearTimeout(pulseTimer.current);
     pulseTimer.current = setTimeout(() => setPulse('none'), 260);
   }, []);
 
-  const emitZoom = useCallback((step = 1, dir = 'in') => {
+  const fireZoom = useCallback((dir) => {
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
 
-    // your requested mapping (SWAPPED): IN → GREEN, OUT → RED
     triggerPulse(dir === 'in' ? 'in' : 'out');
-
-    const detail = { step, dir };
+    const detail = { step: 1, dir };
     try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
-    try { document.dispatchEvent(new CustomEvent('grid-density', { detail: { step } })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1 } })); } catch {}
   }, [triggerPulse]);
 
-  // keyboard / wheel
-  const onClick = () => emitZoom(1, 'in');
-  const onContextMenu = (e) => { e.preventDefault(); emitZoom(1, 'out'); };
+  // interactions
+  const onClick       = () => fireZoom(nextDir);        // left click: follow nextDir
+  const onContextMenu = (e) => { e.preventDefault(); fireZoom('out'); }; // right click = OUT
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); emitZoom(1, 'in'); }
-    else if (e.key === 'ArrowLeft')  { e.preventDefault(); emitZoom(1, 'in'); }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); emitZoom(1, 'out'); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fireZoom(nextDir); }
+    else if (e.key === 'ArrowLeft')  { e.preventDefault(); fireZoom('in');  }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); fireZoom('out'); }
   };
   const onWheel = (e) => {
     e.preventDefault();
     const { deltaX, deltaY } = e;
     const ax = Math.abs(deltaX), ay = Math.abs(deltaY);
-    if (ax > ay) { deltaX > 0 ? emitZoom(1, 'out') : emitZoom(1, 'in'); }
-    else         { deltaY > 0 ? emitZoom(1, 'in')  : emitZoom(1, 'out'); }
+    if (ax > ay) { deltaX > 0 ? fireZoom('out') : fireZoom('in'); }
+    else         { deltaY > 0 ? fireZoom('in')  : fireZoom('out'); }
   };
 
-  // also react (visually) when something else zooms the grid
+  // reflect external zoom pulses (if any) with color only
   useEffect(() => {
     const onExternal = (ev) => {
       const d = ev?.detail || {};
@@ -76,7 +93,7 @@ export default function ChakraOrbButton({
 
   const px = typeof size === 'number' ? `${size}px` : size;
 
-  // Aura colors (do NOT change inner orb colors)
+  // Outer aura colors (do NOT change the inner chakra colors)
   const GREEN = 'rgba(0, 255, 120, .65)';
   const RED   = 'rgba(255, 40, 40, .72)';
 
@@ -84,7 +101,7 @@ export default function ChakraOrbButton({
     <button
       type="button"
       aria-label="Zoom products"
-      title="Zoom products (Click/Enter = In, Right-click = Out, Wheel = In/Out)"
+      title="Zoom products (Click = Smart IN/OUT • Right-click = OUT)"
       data-orb="density"
       onClick={onClick}
       onContextMenu={onContextMenu}
@@ -112,7 +129,7 @@ export default function ChakraOrbButton({
         ...style,
       }}
     >
-      {/* soft base ring (always on) */}
+      {/* subtle base ring */}
       <span
         aria-hidden
         style={{
@@ -126,7 +143,7 @@ export default function ChakraOrbButton({
         }}
       />
 
-      {/* transient outer aura for IN (green) / OUT (red) */}
+      {/* click aura */}
       {pulse !== 'none' && (
         <span
           aria-hidden
@@ -138,7 +155,6 @@ export default function ChakraOrbButton({
               pulse === 'in'
                 ? `0 0 28px 10px ${GREEN}, 0 0 60px 24px ${GREEN}`
                 : `0 0 28px 10px ${RED}, 0 0 60px 24px ${RED}`,
-            filter: 'saturate(1.1)',
             transition: 'opacity .26s ease',
             pointerEvents: 'none',
             zIndex: 0,
@@ -146,10 +162,10 @@ export default function ChakraOrbButton({
         />
       )}
 
-      {/* The orb itself — chakra colors untouched */}
+      {/* Chakra orb — inner colors untouched */}
       <BlueOrbCross3D
         height={px}
-        rpm={rpm}                 // slow, soothing
+        rpm={rpm}
         color={color}
         geomScale={geomScale}
         offsetFactor={offsetFactor}
@@ -157,9 +173,8 @@ export default function ChakraOrbButton({
         glow={glow}
         glowOpacity={glowOpacity}
         includeZAxis={includeZAxis}
-        // NO overrideAllColor — keep chakra colors intact
         respectReducedMotion={false}
-        onActivate={() => onClick()}
+        onActivate={onClick}
       />
     </button>
   );

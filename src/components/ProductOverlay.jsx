@@ -1,10 +1,10 @@
+// src/components/ProductOverlay.jsx
 // @ts-check
 'use client';
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 
-/** Inline + size picker */
 function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
@@ -17,6 +17,7 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
       window.dispatchEvent(new CustomEvent('cart:add',       { detail: { qty: 1 } }));
     } catch {}
     setTimeout(() => { setPicked(null); setOpen(false); }, 380);
+    onPick?.(sz);
   };
 
   return (
@@ -47,38 +48,44 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   useEffect(() => setImgIdx(0), [index]);
 
-  // Close overlay via orb zoom event
+  // Close overlay via orb zoom event (listen on both window and document; support legacy name too)
   useEffect(() => {
     const handler = () => onClose?.();
     const names = ['lb:zoom', 'lb:zoom/grid-density'];
-    names.forEach((n) => document.addEventListener(n, handler));
-    return () => names.forEach((n) => document.removeEventListener(n, handler));
+    names.forEach((n) => {
+      window.addEventListener(n, handler);
+      document.addEventListener(n, handler);
+    });
+    return () => {
+      names.forEach((n) => {
+        window.removeEventListener(n, handler);
+        document.removeEventListener(n, handler);
+      });
+    };
   }, [onClose]);
 
-  // Keyboard (wrap around infinitely)
-  const N = products.length;
-  const wrap = (i) => (i + N) % N;
-
+  // Keyboard
+  const multi = products.length > 1;
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') return onClose?.();
       if (e.key === 'ArrowRight') return setImgIdx((i) => Math.min(i + 1, imgs.length - 1));
       if (e.key === 'ArrowLeft')  return setImgIdx((i) => Math.max(i - 1, 0));
-      if (N > 1) {
-        if (e.key === 'ArrowDown') return onIndexChange?.(wrap(index + 1));
-        if (e.key === 'ArrowUp')   return onIndexChange?.(wrap(index - 1));
+      if (multi) {
+        if (e.key === 'ArrowDown') return onIndexChange?.((index + 1) % products.length);
+        if (e.key === 'ArrowUp')   return onIndexChange?.((index - 1 + products.length) % products.length);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [imgs.length, N, index, onIndexChange, onClose]);
+  }, [imgs.length, products.length, multi, index, onIndexChange, onClose]);
 
-  // Wheel: wrap infinitely; mobile scroll fix (passive true is OK here)
+  // Wheel (desktop): loop infinitely
   const lastWheel = useRef(0);
   useEffect(() => {
     const onWheel = (e) => {
       const now = performance.now();
-      if (now - lastWheel.current < 200) return;
+      if (now - lastWheel.current < 220) return;
       lastWheel.current = now;
 
       const ax = Math.abs(e.deltaX);
@@ -87,14 +94,14 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       if (ax > ay) {
         if (e.deltaX > 0) setImgIdx((i) => Math.min(i + 1, imgs.length - 1));
         else setImgIdx((i) => Math.max(i - 1, 0));
-      } else if (N > 1) {
-        if (e.deltaY > 0) onIndexChange?.(wrap(index + 1));
-        else              onIndexChange?.(wrap(index - 1));
+      } else if (multi) {
+        if (e.deltaY > 0) onIndexChange?.((index + 1) % products.length);
+        else              onIndexChange?.((index - 1 + products.length) % products.length);
       }
     };
     window.addEventListener('wheel', onWheel, { passive: true });
     return () => window.removeEventListener('wheel', onWheel);
-  }, [imgs.length, N, index, onIndexChange]);
+  }, [imgs.length, products.length, multi, index, onIndexChange]);
 
   // mark overlay open (locks page scroll via CSS)
   useEffect(() => {
@@ -112,33 +119,54 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   return (
     <div className="product-hero-overlay" data-overlay>
+      {/* right-side up/down cluster */}
+      {multi && (
+        <div
+          aria-hidden
+          style={{
+            position:'fixed',
+            right:20,
+            top:'50%',
+            transform:'translateY(-50%)',
+            display:'grid',
+            gap:10,
+            zIndex: 501,
+          }}
+        >
+          <button
+            type="button"
+            aria-label="Previous product"
+            onClick={() => onIndexChange?.((index - 1 + products.length) % products.length)}
+            style={{
+              width:28, height:28, borderRadius:9999, padding:0, margin:0,
+              display:'grid', placeItems:'center',
+              background:'#fff', boxShadow:'0 0 0 1px rgba(0,0,0,.08), 0 6px 16px rgba(0,0,0,.08)',
+              fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontWeight:700, fontSize:14, lineHeight:1, userSelect:'none'
+            }}
+          >
+            ^
+          </button>
+          <button
+            type="button"
+            aria-label="Next product"
+            onClick={() => onIndexChange?.((index + 1) % products.length)}
+            style={{
+              width:28, height:28, borderRadius:9999, padding:0, margin:0,
+              display:'grid', placeItems:'center',
+              background:'#fff', boxShadow:'0 0 0 1px rgba(0,0,0,.08), 0 6px 16px rgba(0,0,0,.08)',
+              fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontWeight:700, fontSize:14, lineHeight:1, userSelect:'none'
+            }}
+          >
+            v
+          </button>
+        </div>
+      )}
+
       <div className="product-hero">
-        {/* Up/Down controls (caret style, perfectly centered) */}
-        {N > 1 && (
-          <div style={{
-            position:'fixed', right:'24px', top:'calc(50vh - 28px)',
-            display:'grid', gap:'8px', zIndex:1000
-          }}>
-            <button
-              type="button"
-              aria-label="Prev product"
-              onClick={() => onIndexChange?.(wrap(index - 1))}
-              className="pill"
-              style={caretBtnStyle}
-            >
-              <span style={caretSymbol}>^</span>
-            </button>
-            <button
-              type="button"
-              aria-label="Next product"
-              onClick={() => onIndexChange?.(wrap(index + 1))}
-              className="pill"
-              style={caretBtnStyle}
-            >
-              <span style={caretSymbol}>v</span>
-            </button>
-          </div>
-        )}
+        {/* hidden visually by CSS but available to SRs */}
+        <button className="product-hero-close pill" onClick={onClose} aria-label="Close">×</button>
 
         {imgs[imgIdx] && (
           <Image
@@ -169,20 +197,9 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
         <div className="product-hero-title">{product.title}</div>
         <div className="product-hero-price">{priceText}</div>
-        <PlusSizesInline sizes={sizes} onPick={() => { /* dispatched above */ }} />
+
+        <PlusSizesInline sizes={sizes} onPick={() => {}} />
       </div>
     </div>
   );
 }
-
-const caretBtnStyle = {
-  width: 28, height: 28, padding: 0,
-  display: 'grid', placeItems: 'center',
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-  fontWeight: 800, fontSize: 16, lineHeight: '1',
-};
-
-const caretSymbol = {
-  display: 'grid', placeItems: 'center',
-  transform: 'translateY(-1px)', // micro-optical centering
-};
