@@ -1,4 +1,3 @@
-// src/components/ShopGrid.jsx
 // @ts-check
 'use client';
 
@@ -7,35 +6,42 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProductOverlay from '@/components/ProductOverlay';
 
 export default function ShopGrid({ products }) {
-  // ----- stable fallback catalog (5 colors) -----
-  const FALLBACK = [
-    { id: 'hood-brown', title: 'Brown', image: '/products/brown.png?v=1', price: 4000, sizes: ['S','M','L','XL'] },
-    { id: 'hood-black', title: 'Black', image: '/products/black.png?v=1', price: 4000, sizes: ['S','M','L','XL'] },
-    { id: 'hood-gray',  title: 'Gray',  image: '/products/gray.png?v=1',  price: 4000, sizes: ['S','M','L','XL'] },
-    { id: 'hood-green', title: 'Green', image: '/products/green.png?v=1', price: 4000, sizes: ['S','M','L','XL'] },
-    { id: 'hood-blue',  title: 'Blue',  image: '/products/blue.png?v=1',  price: 4000, sizes: ['S','M','L','XL'] },
-  ];
-
-  // choose source: prop (>=2) else window (>=2) else fallback (5)
+  // Build product list (prop → window → fallback clones)
   const seed = useMemo(() => {
-    const fromProp = Array.isArray(products) ? products : [];
+    const fromProp = Array.isArray(products) ? products : null;
     // eslint-disable-next-line no-undef
-    const fromWin  = (typeof window !== 'undefined' && Array.isArray(window.__LB_PRODUCTS)) ? window.__LB_PRODUCTS : [];
+    const fromWin =
+      typeof window !== 'undefined' && Array.isArray(window.__LB_PRODUCTS)
+        ? window.__LB_PRODUCTS
+        : null;
 
-    if (fromProp.length >= 2) return fromProp;
-    if (fromWin.length  >= 2) return fromWin;
+    /** @type {{id:string,title:string,price:number,image:string,thumb?:string,images?:string[],sizes?:string[]}[]} */
+    const base =
+      (fromProp && fromProp.length) ? fromProp :
+      (fromWin  && fromWin.length)  ? fromWin  :
+      [{
+        id: 'hoodie-brown-1',
+        title: 'Brown',
+        price: 4000, // cents; shows as $40 (no .00)
+        image: '/products/brown.png',   // hero (overlay)
+        thumb: '/products/brown.png',   // grid (if missing, falls back to image)
+        images: ['/products/brown.png'],
+        sizes: ['S','M','L','XL']
+      }];
 
-    // if 0 or 1 provided, prefer full fallback catalog to avoid “Brown #1..#5”
-    return FALLBACK;
+    if (base.length >= 2) return base;
+
+    // Clone to 5 so overlay can loop vertically
+    return Array.from({ length: 5 }, (_, i) => ({
+      ...base[0],
+      id: `${base[0].id}-v${i + 1}`,
+      title: i === 0 ? base[0].title : `${base[0].title} #${i + 1}`,
+    }));
   }, [products]);
 
-  // ----- overlay state -----
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
-  const open  = (i) => setOverlayIdx(i);
-  const close = () => setOverlayIdx(null);
-  const overlayOpen = overlayIdx != null;
 
-  // ----- grid density (1..5 via orb) -----
+  // ===== Grid density (1..5) controlled by orb =====
   const MIN_COLS = 1;
   const MAX_COLS = 5;
   const [cols, setCols] = useState(MAX_COLS);
@@ -47,58 +53,82 @@ export default function ShopGrid({ products }) {
   }, []);
 
   const applyCols = useCallback((next) => {
-    const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, next|0));
+    const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, next | 0));
     setCols(clamped);
     try { document.documentElement.style.setProperty('--grid-cols', String(clamped)); } catch {}
     broadcastDensity(clamped);
   }, [broadcastDensity]);
 
-  useEffect(() => { applyCols(cols); /* eslint-disable-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    applyCols(cols); // initial
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const onZoom = (e) => {
+      // If overlay is open, orb click closes overlay only (grid unchanged)
       if (overlayIdx != null) { setOverlayIdx(null); return; }
+
       const d = e?.detail || {};
       const step = Math.max(1, Math.min(3, Number(d.step) || 1));
-      const dir  = typeof d.dir === 'string' ? d.dir : null;
+      const dir = typeof d.dir === 'string' ? d.dir : null;
 
-      if (dir === 'in')  return setCols((p) => { const n = Math.max(MIN_COLS, p - step); applyCols(n); return n; });
-      if (dir === 'out') return setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; });
+      if (dir === 'in') {
+        setCols((p) => { const n = Math.max(MIN_COLS, p - step); applyCols(n); return n; });
+        return;
+      }
+      if (dir === 'out') {
+        setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; });
+        return;
+      }
 
-      return setCols((p) => {
+      // Legacy ping-pong if no dir provided
+      setCols((p) => {
         const goingIn = p > MIN_COLS;
         const n = goingIn ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1);
-        applyCols(n); return n;
+        applyCols(n);
+        return n;
       });
     };
-    document.addEventListener('lb:zoom', onZoom);
-    return () => document.removeEventListener('lb:zoom', onZoom);
+
+    ['lb:zoom'].forEach((n) => {
+      window.addEventListener(n, onZoom);
+      document.addEventListener(n, onZoom);
+    });
+    return () => {
+      ['lb:zoom'].forEach((n) => {
+        window.removeEventListener(n, onZoom);
+        document.removeEventListener(n, onZoom);
+      });
+    };
   }, [overlayIdx, applyCols]);
 
-  // make 5-up tiles a touch larger
-  const tileScale = cols === 5 ? 1.14 : 1.0;
+  const open  = (i) => setOverlayIdx(i);
+  const close = () => setOverlayIdx(null);
+  const overlayOpen = overlayIdx != null;
 
   return (
-    <div className="shop-wrap" style={{ padding:'28px 28px 60px' }}>
-      <div className="shop-grid" style={{ '--grid-cols': cols, '--tile-scale': tileScale }}>
+    <div className="shop-wrap" style={{ padding: '28px 28px 60px' }}>
+      <div className="shop-grid" style={{ '--grid-cols': cols }}>
         {seed.map((p, idx) => (
           <a
             key={p.id ?? idx}
             className="product-tile lb-tile"
             role="button"
             tabIndex={0}
-            onClick={(e)=>{ e.preventDefault(); open(idx); }}
-            onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(idx); }}}
+            onClick={(e) => { e.preventDefault(); open(idx); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(idx); }}}
           >
-            <div className="product-box" style={{ transform:'scale(var(--tile-scale,1))', transformOrigin:'top left' }}>
+            <div className="product-box">
               <Image
-                src={p.image}
+                src={p.thumb || p.image}
                 alt={p.title}
-                width={900}
-                height={900}
+                width={800}
+                height={800}
                 className="product-img"
-                priority={idx===0}
-                unoptimized
+                priority={idx === 0}
+                // Let Next optimize; send the right size for each viewport
+                sizes="(max-width: 480px) 36vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
               />
             </div>
             <div className="product-meta">{p.title}</div>
