@@ -1,8 +1,18 @@
-{
-  id: 'brown-hoodie',
-  title: 'Brown',
-  price: 4000, // ✅ $40.00
-  image: '/products/lame-hoodie-brown.png',
-  images: ['/products/lame-hoodie-brown.png'],
-  sizes: ['S','M','L','XL'],
-}
+// src/lib/products.js
+// Single source of truth for product seed
+
+/** @typedef {{ id:string, title:string, price:number, image:string, images?:string[], sizes?:string[] }} Product */
+
+/** @type {Product[]} */
+const products = [
+  {
+    id: 'brown-hoodie',
+    title: 'Brown', // ✅ renamed
+    price: 4000,    // ✅ $40.00
+    image: '/products/lame-hoodie-brown.png',
+    images: ['/products/lame-hoodie-brown.png'],
+    sizes: ['S','M','L','XL','XXL'],
+  }
+];
+
+export default products;
