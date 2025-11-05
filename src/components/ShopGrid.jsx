@@ -7,11 +7,46 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProductOverlay from '@/components/ProductOverlay';
 
 export default function ShopGrid({ products }) {
-  // Build product list:
-  // 1) use prop if provided
-  // 2) use window.__LB_PRODUCTS if present
-  // 3) fallback to our four hoodies
+  // Build product list with a strict preference order:
+  // - Use prop if it has 2+ items
+  // - Else use window.__LB_PRODUCTS if it has 2+ items
+  // - Else fall back to our four hoodies
   const seed = useMemo(() => {
+    const fallback = [
+      {
+        id: 'hoodie-brown',
+        title: 'Brown',
+        price: 4000, // $40
+        image: '/products/brown.png',
+        images: ['/products/brown.png'],
+        sizes: ['S', 'M', 'L', 'XL'],
+      },
+      {
+        id: 'hoodie-black',
+        title: 'Black',
+        price: 4000,
+        image: '/products/black.png',
+        images: ['/products/black.png'],
+        sizes: ['S', 'M', 'L', 'XL'],
+      },
+      {
+        id: 'hoodie-gray',
+        title: 'Gray',
+        price: 4000,
+        image: '/products/gray.png',
+        images: ['/products/gray.png'],
+        sizes: ['S', 'M', 'L', 'XL'],
+      },
+      {
+        id: 'hoodie-green',
+        title: 'Green',
+        price: 4000,
+        image: '/products/green.png',
+        images: ['/products/green.png'],
+        sizes: ['S', 'M', 'L', 'XL'],
+      },
+    ];
+
     const fromProp = Array.isArray(products) ? products : null;
     // eslint-disable-next-line no-undef
     const fromWin =
@@ -19,52 +54,11 @@ export default function ShopGrid({ products }) {
         ? window.__LB_PRODUCTS
         : null;
 
-    const base =
-      (fromProp && fromProp.length) ? fromProp :
-      (fromWin && fromWin.length)   ? fromWin   :
-      [
-        {
-          id: 'hoodie-brown',
-          title: 'Brown',
-          price: 4000, // $40.00
-          image: '/products/brown.png',
-          images: ['/products/brown.png'],
-          sizes: ['S', 'M', 'L', 'XL'],
-        },
-        {
-          id: 'hoodie-black',
-          title: 'Black',
-          price: 4000,
-          image: '/products/black.png',
-          images: ['/products/black.png'],
-          sizes: ['S', 'M', 'L', 'XL'],
-        },
-        {
-          id: 'hoodie-gray',
-          title: 'Gray',
-          price: 4000,
-          image: '/products/gray.png',
-          images: ['/products/gray.png'],
-          sizes: ['S', 'M', 'L', 'XL'],
-        },
-        {
-          id: 'hoodie-green',
-          title: 'Green',
-          price: 4000,
-          image: '/products/green.png',
-          images: ['/products/green.png'],
-          sizes: ['S', 'M', 'L', 'XL'],
-        },
-      ];
+    if (fromProp && fromProp.length >= 2) return fromProp;
+    if (fromWin && fromWin.length >= 2) return fromWin;
 
-    // If only one product exists (rare with our fallback), clone a few
-    if (base.length >= 2) return base;
-    const clones = Array.from({ length: 5 }, (_, i) => ({
-      ...base[0],
-      id: `${base[0].id}-v${i + 1}`,
-      title: `${base[0].title} #${i + 1}`,
-    }));
-    return clones;
+    // If an external source exists but has only 1 item, ignore it and use fallback.
+    return fallback;
   }, [products]);
 
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
@@ -154,7 +148,7 @@ export default function ShopGrid({ products }) {
                 unoptimized
               />
             </div>
-            <div className="product-meta">{p.title}</div>
+            <div className="product-meta">{p.title}{seed.length === 1 ? ` #${idx+1}` : ''}</div>
           </a>
         ))}
       </div>

@@ -5,7 +5,7 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 
-/** Inline + size picker (unchanged) */
+/** Inline + size picker */
 function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
@@ -63,7 +63,7 @@ function CaretButton({ label, active }) {
         userSelect: 'none',
       }}
     >
-      <span style={{ transform: 'translateY(-1px)' }}>{label}</span>
+      <span style={{ display:'inline-block' }}>{label}</span>
     </div>
   );
 }
@@ -170,8 +170,9 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   if (!product) return null;
 
+  // PRICE: show whole dollars (e.g., $40)
   const priceText = typeof product.price === 'number'
-    ? `$${(product.price/100).toFixed(2)}`
+    ? `$${Math.round(product.price / 100)}`
     : String(product.price ?? '');
 
   const sizes = product.sizes?.length ? product.sizes : ['OS','S','M','L','XL'];
