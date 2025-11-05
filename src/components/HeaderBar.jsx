@@ -1,4 +1,3 @@
-// src/components/HeaderBar.jsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -8,7 +7,10 @@ import CartButton from '@/components/CartButton';
 
 export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
   const [isNight, setIsNight] = useState(false);
-  const ctrlPx = useCtrlPx(56);
+
+  // Responsive control size: smaller on narrow screens so the cart
+  // is visually smaller than the hoodie tiles on mobile.
+  const ctrlPx = useResponsiveCtrlPx({ desktop: 56, mobile: 42, bp: 480 });
 
   // boot theme from storage or system
   useEffect(() => {
@@ -26,8 +28,10 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
       root.setAttribute('data-mode', 'shop');
       root.setAttribute('data-theme', isNight ? 'night' : 'day');
       localStorage.setItem('lb:theme', isNight ? 'night' : 'day');
+      // expose the chosen size so other parts (like ShopGrid) can read it if needed
+      document.documentElement.style.setProperty('--header-ctrl', `${ctrlPx}px`);
     } catch {}
-  }, [isNight, rootSelector]);
+  }, [isNight, rootSelector, ctrlPx]);
 
   return (
     <header
@@ -54,7 +58,7 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
         />
       </div>
 
-      {/* RIGHT: cart */}
+      {/* RIGHT: cart (smaller on mobile via ctrlPx) */}
       <div className="justify-self-end" style={{ lineHeight: 0 }}>
         <div style={{ height: ctrlPx, width: ctrlPx, display: 'grid', placeItems: 'center' }}>
           <CartButton size={ctrlPx} inHeader />
@@ -64,19 +68,17 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
   );
 }
 
-function useCtrlPx(defaultPx = 56) {
-  const [px, setPx] = useState(defaultPx);
+function useResponsiveCtrlPx({ desktop = 56, mobile = 42, bp = 480 } = {}) {
+  const pick = () =>
+    typeof window !== 'undefined' && window.innerWidth <= bp ? mobile : desktop;
+
+  const [px, setPx] = useState(pick);
+
   useEffect(() => {
-    const read = () => {
-      try {
-        const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
-        const n = parseInt(v, 10);
-        setPx(Number.isFinite(n) ? n : defaultPx);
-      } catch { setPx(defaultPx); }
-    };
-    read();
-    window.addEventListener('resize', read);
-    return () => window.removeEventListener('resize', read);
-  }, [defaultPx]);
+    const onResize = () => setPx(pick());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [bp, desktop, mobile]);
+
   return px;
 }
