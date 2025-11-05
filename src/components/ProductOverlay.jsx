@@ -5,6 +5,7 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 
+/** Inline + size picker */
 function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
@@ -17,7 +18,6 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
       window.dispatchEvent(new CustomEvent('cart:add',       { detail: { qty: 1 } }));
     } catch {}
     setTimeout(() => { setPicked(null); setOpen(false); }, 380);
-    onPick?.(sz);
   };
 
   return (
@@ -41,6 +41,41 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
   );
 }
 
+/** Tiny round caret button (perfectly centered glyph) */
+function CaretButton({ label, onClick, title }) {
+  const S = 28;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      style={{
+        width: S, height: S,
+        borderRadius: '50%',
+        display: 'grid',
+        placeItems: 'center',
+        lineHeight: `${S}px`,
+        fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        fontSize: 14,
+        fontWeight: 700,
+        background: 'rgba(255,255,255,.85)',
+        boxShadow: '0 2px 10px rgba(0,0,0,.08), inset 0 0 0 1px rgba(0,0,0,.08)',
+        color: '#111',
+        padding: 0,
+        margin: 0,
+      }}
+    >
+      <span style={{ transform: 'translateY(-1px)' }}>{label}</span>
+    </button>
+  );
+}
+
+/**
+ * ProductOverlay
+ * - Horizontal: image carousel
+ * - Vertical: prev/next product (wraps infinitely)
+ */
 export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
   const product = products[index];
   const imgs = product?.images?.length ? product.images : [product?.image].filter(Boolean);
@@ -48,44 +83,40 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   useEffect(() => setImgIdx(0), [index]);
 
-  // Close overlay via orb zoom event (listen on both window and document; support legacy name too)
+  // Close overlay via orb zoom (listen once on document to avoid dup fires)
   useEffect(() => {
     const handler = () => onClose?.();
-    const names = ['lb:zoom', 'lb:zoom/grid-density'];
-    names.forEach((n) => {
-      window.addEventListener(n, handler);
-      document.addEventListener(n, handler);
-    });
+    document.addEventListener('lb:zoom', handler);
+    document.addEventListener('lb:zoom/grid-density', handler);
     return () => {
-      names.forEach((n) => {
-        window.removeEventListener(n, handler);
-        document.removeEventListener(n, handler);
-      });
+      document.removeEventListener('lb:zoom', handler);
+      document.removeEventListener('lb:zoom/grid-density', handler);
     };
   }, [onClose]);
 
   // Keyboard
   const multi = products.length > 1;
+  const wrap = (i, len) => ((i % len) + len) % len;
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') return onClose?.();
       if (e.key === 'ArrowRight') return setImgIdx((i) => Math.min(i + 1, imgs.length - 1));
       if (e.key === 'ArrowLeft')  return setImgIdx((i) => Math.max(i - 1, 0));
       if (multi) {
-        if (e.key === 'ArrowDown') return onIndexChange?.((index + 1) % products.length);
-        if (e.key === 'ArrowUp')   return onIndexChange?.((index - 1 + products.length) % products.length);
+        if (e.key === 'ArrowDown') return onIndexChange?.(wrap(index + 1, products.length));
+        if (e.key === 'ArrowUp')   return onIndexChange?.(wrap(index - 1, products.length));
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [imgs.length, products.length, multi, index, onIndexChange, onClose]);
 
-  // Wheel (desktop): loop infinitely
+  // Wheel (wrap infinitely); mobile scroll naturally translates
   const lastWheel = useRef(0);
   useEffect(() => {
     const onWheel = (e) => {
       const now = performance.now();
-      if (now - lastWheel.current < 220) return;
+      if (now - lastWheel.current < 180) return;
       lastWheel.current = now;
 
       const ax = Math.abs(e.deltaX);
@@ -95,15 +126,15 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         if (e.deltaX > 0) setImgIdx((i) => Math.min(i + 1, imgs.length - 1));
         else setImgIdx((i) => Math.max(i - 1, 0));
       } else if (multi) {
-        if (e.deltaY > 0) onIndexChange?.((index + 1) % products.length);
-        else              onIndexChange?.((index - 1 + products.length) % products.length);
+        if (e.deltaY > 0) onIndexChange?.(wrap(index + 1, products.length));
+        else              onIndexChange?.(wrap(index - 1, products.length));
       }
     };
     window.addEventListener('wheel', onWheel, { passive: true });
     return () => window.removeEventListener('wheel', onWheel);
   }, [imgs.length, products.length, multi, index, onIndexChange]);
 
-  // mark overlay open (locks page scroll via CSS)
+  // mark overlay open (locks page scroll via CSS & lets the orb reverse spin)
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open', '1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -119,67 +150,37 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   return (
     <div className="product-hero-overlay" data-overlay>
-      {/* right-side up/down cluster */}
-      {multi && (
-        <div
-          aria-hidden
-          style={{
-            position:'fixed',
-            right:20,
-            top:'50%',
-            transform:'translateY(-50%)',
-            display:'grid',
-            gap:10,
-            zIndex: 501,
-          }}
-        >
-          <button
-            type="button"
-            aria-label="Previous product"
-            onClick={() => onIndexChange?.((index - 1 + products.length) % products.length)}
-            style={{
-              width:28, height:28, borderRadius:9999, padding:0, margin:0,
-              display:'grid', placeItems:'center',
-              background:'#fff', boxShadow:'0 0 0 1px rgba(0,0,0,.08), 0 6px 16px rgba(0,0,0,.08)',
-              fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
-              fontWeight:700, fontSize:14, lineHeight:1, userSelect:'none'
-            }}
-          >
-            ^
-          </button>
-          <button
-            type="button"
-            aria-label="Next product"
-            onClick={() => onIndexChange?.((index + 1) % products.length)}
-            style={{
-              width:28, height:28, borderRadius:9999, padding:0, margin:0,
-              display:'grid', placeItems:'center',
-              background:'#fff', boxShadow:'0 0 0 1px rgba(0,0,0,.08), 0 6px 16px rgba(0,0,0,.08)',
-              fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
-              fontWeight:700, fontSize:14, lineHeight:1, userSelect:'none'
-            }}
-          >
-            v
-          </button>
-        </div>
-      )}
-
       <div className="product-hero">
-        {/* hidden visually by CSS but available to SRs */}
-        <button className="product-hero-close pill" onClick={onClose} aria-label="Close">×</button>
+        {/* Up/Down control — tight stack, centered symbols */}
+        {products.length > 1 && (
+          <div style={{
+            position:'fixed',
+            right: 24,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            display:'grid',
+            gap:8,
+            zIndex: 110,
+          }}>
+            <CaretButton label="^" title="Previous product" onClick={() => onIndexChange?.(wrap(index - 1, products.length))} />
+            <CaretButton label="v" title="Next product"     onClick={() => onIndexChange?.(wrap(index + 1, products.length))} />
+          </div>
+        )}
 
+        {/* Image */}
         {imgs[imgIdx] && (
           <Image
             src={imgs[imgIdx]}
             alt={product.title}
-            width={1200}
-            height={900}
+            width={1600}
+            height={1200}
             className="product-hero-img"
             priority
             unoptimized
           />
         )}
 
+        {/* Dots */}
         {imgs.length > 1 && (
           <div className="row-nowrap" style={{ gap:8, marginTop:6 }}>
             {imgs.map((_, i) => (
@@ -198,7 +199,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         <div className="product-hero-title">{product.title}</div>
         <div className="product-hero-price">{priceText}</div>
 
-        <PlusSizesInline sizes={sizes} onPick={() => {}} />
+        <PlusSizesInline sizes={sizes} onPick={() => { /* dispatched above */ }} />
       </div>
     </div>
   );

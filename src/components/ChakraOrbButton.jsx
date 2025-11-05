@@ -6,7 +6,7 @@ import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 24,                 // hypnotic base rate
+  rpm = 24,                 // slow, hypnotic
   color = '#32ffc7',
   geomScale = 1.25,
   offsetFactor = 2.25,
@@ -20,16 +20,15 @@ export default function ChakraOrbButton({
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 180;
 
-  // pulse: none | in | out  (also drives haloTint)
+  // pulse: 'none' | 'in' | 'out'
   const [pulse, setPulse] = useState('none');
   const [haloTint, setHaloTint] = useState(null);
   const pulseTimer = useRef(null);
 
-  // nextDir inferred from current grid density (1 => next is OUT, 5 => next is IN)
-  const [nextDir, setNextDir] = useState('in');
-
-  // overlay open? reverse spin to signify “back to grid”
+  const [nextDir, setNextDir] = useState('in');     // inferred from grid density
   const [overlayOpen, setOverlayOpen] = useState(false);
+
+  // watch for overlay (reverse spin when open)
   useEffect(() => {
     const read = () => setOverlayOpen(document.documentElement.getAttribute('data-overlay-open') === '1');
     read();
@@ -38,23 +37,19 @@ export default function ChakraOrbButton({
     return () => mo.disconnect();
   }, []);
 
-  // density listener
+  // density listener (sets nextDir)
   useEffect(() => {
     const onDensity = (e) => {
       const d = Number(e?.detail?.density ?? e?.detail?.value);
       if (!Number.isFinite(d)) return;
-      if (d <= 1) setNextDir('out');
+      if (d <= 1) setNextDir('out');   // from 1 → next is OUT
       else if (d >= 5) setNextDir('in');
     };
-    window.addEventListener('lb:grid-density', onDensity);
     document.addEventListener('lb:grid-density', onDensity);
-    return () => {
-      window.removeEventListener('lb:grid-density', onDensity);
-      document.removeEventListener('lb:grid-density', onDensity);
-    };
+    return () => document.removeEventListener('lb:grid-density', onDensity);
   }, []);
 
-  // pulse helpers (visual + haloTint)
+  // strong top-layer aura + halo tint in WebGL
   const GREEN = '#00ff78';
   const RED   = '#ff2e2e';
   const triggerPulse = useCallback((kind) => {
@@ -64,19 +59,20 @@ export default function ChakraOrbButton({
     pulseTimer.current = setTimeout(() => { setPulse('none'); setHaloTint(null); }, 320);
   }, []);
 
-  // dispatch zoom
   const fireZoom = useCallback((dir) => {
     const now = performance.now();
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
     lastFireRef.current = now;
 
+    // ✅ green for IN, red for OUT
     triggerPulse(dir === 'in' ? 'in' : 'out');
+
     const detail = { step: 1, dir };
-    try { document.dispatchEvent(new CustomEvent('lb:zoom', { detail })); } catch {}
-    try { document.dispatchEvent(new CustomEvent('grid-density', { detail: { step: 1, dir } })); } catch {}
+    document.dispatchEvent(new CustomEvent('lb:zoom', { detail }));
+    // legacy alias some code still listens to:
+    document.dispatchEvent(new CustomEvent('grid-density', { detail }));
   }, [triggerPulse]);
 
-  // interactions
   const onClick       = () => fireZoom(nextDir);
   const onContextMenu = (e) => { e.preventDefault(); fireZoom('out'); };
   const onKeyDown     = (e) => {
@@ -92,24 +88,18 @@ export default function ChakraOrbButton({
     else         { deltaY > 0 ? fireZoom('in')  : fireZoom('out'); }
   };
 
-  // also react to external zoom events (for consistent pulse)
+  // also reflect external zoom events so pulse always matches the action
   useEffect(() => {
     const onExternal = (ev) => {
       const d = ev?.detail || {};
       if (d.dir === 'in' || d.dir === 'out') triggerPulse(d.dir);
     };
-    window.addEventListener('lb:zoom', onExternal);
     document.addEventListener('lb:zoom', onExternal);
-    return () => {
-      window.removeEventListener('lb:zoom', onExternal);
-      document.removeEventListener('lb:zoom', onExternal);
-    };
+    return () => document.removeEventListener('lb:zoom', onExternal);
   }, [triggerPulse]);
 
   const px = typeof size === 'number' ? `${size}px` : size;
-
-  // reverse spin if overlay is open OR if next action is OUT (grid at 1)
-  const rpmValue = ((overlayOpen || nextDir === 'out') ? -1 : 1) * rpm;
+  const rpmValue = ((overlayOpen || nextDir === 'out') ? -1 : 1) * rpm;  // reverse when overlay or next=OUT
 
   return (
     <button
@@ -143,7 +133,7 @@ export default function ChakraOrbButton({
         ...style,
       }}
     >
-      {/* subtle base ring */}
+      {/* base ring */}
       <span
         aria-hidden
         style={{
@@ -157,7 +147,7 @@ export default function ChakraOrbButton({
         }}
       />
 
-      {/* top-layer aura for obvious click feedback */}
+      {/* top aura flash (guaranteed visible) */}
       {pulse !== 'none' && (
         <span
           aria-hidden
@@ -167,8 +157,8 @@ export default function ChakraOrbButton({
             borderRadius: '9999px',
             boxShadow:
               pulse === 'in'
-                ? `0 0 28px 10px rgba(0,255,120,.85), 0 0 80px 36px rgba(0,255,120,.35)`
-                : `0 0 28px 10px rgba(255,46,46,.85), 0 0 80px 36px rgba(255,46,46,.35)`,
+                ? `0 0 28px 10px rgba(0,255,120,.9), 0 0 80px 36px rgba(0,255,120,.38)`
+                : `0 0 28px 10px rgba(255,46,46,.9), 0 0 80px 36px rgba(255,46,46,.38)`,
             transition: 'opacity .32s ease',
             pointerEvents: 'none',
             zIndex: 4,
@@ -176,7 +166,6 @@ export default function ChakraOrbButton({
         />
       )}
 
-      {/* 3D orb — chakra cores stay colorful; halos tint to pulse color */}
       <BlueOrbCross3D
         height={px}
         rpm={rpmValue}
@@ -189,7 +178,7 @@ export default function ChakraOrbButton({
         includeZAxis={includeZAxis}
         respectReducedMotion={false}
         onActivate={onClick}
-        haloTint={haloTint}   // <— drives green/red halo glow
+        haloTint={haloTint}   // tint halos only; cores stay chakra colors
       />
     </button>
   );
