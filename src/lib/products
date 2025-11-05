@@ -1,0 +1,8 @@
+{
+  id: 'brown-hoodie',
+  title: 'Brown Hoodie',
+  price: 4000, // ✅ $40.00
+  image: '/products/lame-hoodie-brown.png',
+  images: ['/products/lame-hoodie-brown.png'],
+  sizes: ['S','M','L','XL','XXL'],
+}
