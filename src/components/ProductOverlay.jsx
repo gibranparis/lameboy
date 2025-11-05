@@ -5,16 +5,15 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 
-/** Inline + size picker (single dispatch; fixes double add) */
+/** Inline + size picker (single dispatch to avoid double-add) */
 function PlusSizesInline({ sizes = ['OS','S','M','L','XL'] }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
 
-  const clickPlus = () => setOpen((v) => !v);
+  const clickPlus = () => setOpen(v => !v);
   const doPick = (sz) => {
     setPicked(sz);
     try {
-      // Emit ONE canonical event so listeners don't double-count
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail: { size: sz, count: 1 } }));
     } catch {}
     setTimeout(() => { setPicked(null); setOpen(false); }, 380);
@@ -24,7 +23,7 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'] }) {
     <div style={{ display:'grid', justifyItems:'center', gap:10 }}>
       <button
         type="button"
-        className={`pill plus-pill ${open ? 'is-active':''}`}
+        className={`pill plus-pill ${open ? 'is-active' : ''}`}
         onClick={clickPlus}
         aria-label="Add"
       >+</button>
@@ -35,7 +34,7 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'] }) {
             <button
               key={sz}
               type="button"
-              className={`pill size-pill ${picked===sz?'is-selected flash-green':''}`}
+              className={`pill size-pill ${picked===sz ? 'is-selected flash-green' : ''}`}
               onClick={() => doPick(sz)}
             >
               {sz}
@@ -47,31 +46,29 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'] }) {
   );
 }
 
-/** Round caret that can “flash-green” to match size-pill feedback */
-function CaretButton({ label, active }) {
+/** Round caret that reuses the *same* pill styles as size pills */
+function CaretPill({ label, active }) {
   const S = 28;
   return (
     <div
-      className={`caret-btn ${active ? 'flash-green' : ''}`}
+      className={`pill size-pill ${active ? 'is-selected flash-green' : ''}`}
       aria-hidden
       style={{
-        width: S, height: S,
-        borderRadius: '50%',
+        width: S,
+        height: S,
+        borderRadius: 9999,
         display: 'grid',
         placeItems: 'center',
-        background: 'rgba(255,255,255,.95)',
-        boxShadow: active
-          ? '0 0 0 4px rgba(0,255,120,.35), 0 2px 10px rgba(0,0,0,.08), inset 0 0 0 1px rgba(0,0,0,.08)'
-          : '0 2px 10px rgba(0,0,0,.08), inset 0 0 0 1px rgba(0,0,0,.08)',
-        color: '#111',
-        fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-        fontSize: 14,
-        fontWeight: 800,
         lineHeight: 1,
-        userSelect: 'none',
+        fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+        fontWeight: 800,
+        fontSize: 14,
+        // ensure the glyph is visually centered
+        transform: 'translateY(-0.5px)',
+        padding: 0,
       }}
     >
-      <span style={{ display:'inline-block', lineHeight: 1 }}>{label}</span>
+      {label}
     </div>
   );
 }
@@ -109,8 +106,8 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') return onClose?.();
-      if (e.key === 'ArrowRight') return setImgIdx((i) => Math.min(i + 1, imgs.length - 1));
-      if (e.key === 'ArrowLeft')  return setImgIdx((i) => Math.max(i - 1, 0));
+      if (e.key === 'ArrowRight') return setImgIdx(i => Math.min(i + 1, imgs.length - 1));
+      if (e.key === 'ArrowLeft')  return setImgIdx(i => Math.max(i - 1, 0));
       if (multi) {
         if (e.key === 'ArrowDown') { pulse('down'); return onIndexChange?.(wrap(index + 1, products.length)); }
         if (e.key === 'ArrowUp')   { pulse('up');   return onIndexChange?.(wrap(index - 1, products.length)); }
@@ -132,8 +129,8 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       const ay = Math.abs(e.deltaY);
 
       if (ax > ay) {
-        if (e.deltaX > 0) setImgIdx((i) => Math.min(i + 1, imgs.length - 1));
-        else setImgIdx((i) => Math.max(i - 1, 0));
+        if (e.deltaX > 0) setImgIdx(i => Math.min(i + 1, imgs.length - 1));
+        else setImgIdx(i => Math.max(i - 1, 0));
       } else if (multi) {
         if (e.deltaY > 0) { pulse('down'); onIndexChange?.(wrap(index + 1, products.length)); }
         else              { pulse('up');   onIndexChange?.(wrap(index - 1, products.length)); }
@@ -172,7 +169,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   if (!product) return null;
 
-  // PRICE: whole dollars (e.g., $40)
+  // Whole-dollar pricing
   const priceText = typeof product.price === 'number'
     ? `$${Math.round(product.price / 100)}`
     : String(product.price ?? '');
@@ -182,7 +179,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   return (
     <div className="product-hero-overlay" data-overlay>
       <div className="product-hero">
-        {/* Up/Down controls (centered, identical, green pulse on action/scroll) */}
+        {/* Up/Down controls — now actual pill turns neon-green just like size pills */}
         {products.length > 1 && (
           <div style={{
             position:'fixed',
@@ -201,7 +198,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
               title="Previous product"
               style={{ padding:0, background:'transparent', border:'none', outline:'none' }}
             >
-              <CaretButton label="^" active={flashUp} />
+              <CaretPill label="^" active={flashUp} />
             </button>
             <button
               type="button"
@@ -211,7 +208,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
               title="Next product"
               style={{ padding:0, background:'transparent', border:'none', outline:'none' }}
             >
-              <CaretButton label="v" active={flashDown} />
+              <CaretPill label="v" active={flashDown} />
             </button>
           </div>
         )}
