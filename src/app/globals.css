@@ -22,6 +22,7 @@
 
   /* header controls (orb/toggle/cart) */
   --header-ctrl:56px;
+  --header-pad-x:16px;
 
   /* product grid columns (1..5) */
   --grid-cols:5;
@@ -49,10 +50,9 @@ html[data-overlay-open]{ overflow:hidden; }
 }
 
 /* ========== Helpers ====================================================== */
-.page-center{ min-height:100dvh; display:flex; align-items:center; justify-content:center; gap:18px; padding:2rem; }
+.page-center{ min-height:100dvh; display:grid; place-items:center; gap:18px; padding:2rem; }
 .row-nowrap{ display:flex; align-items:center; gap:14px; flex-wrap:nowrap; }
 .florida-inline{ display:block!important; text-align:center!important; margin-left:auto!important; margin-right:auto!important; }
-.page-center{ display:grid!important; place-items:center!important; }
 
 /* ========== Neon card (default ON – used by banned) ===================== */
 .vscode-card{
@@ -110,12 +110,19 @@ html[data-overlay-open]{ overflow:hidden; }
   transition:background-color .35s ease, color .35s ease;
 }
 
-/* Header above overlays (actual positioning is in page.js) */
+/* Header above overlays (position + alignment) */
 :root[data-mode="shop"] header[role="banner"]{
   z-index: 500 !important;
-  background:transparent!important; box-shadow:none!important; border:0!important; padding:0 16px;
+  background:transparent!important; box-shadow:none!important; border:0!important;
+  height: var(--header-ctrl);
+  display: grid;
+  grid-template-columns: 56px 1fr 56px; /* left control • center control • right (bag) */
+  align-items: center;
+  padding: 0 var(--header-pad-x);
 }
-:root[data-mode="shop"] header[role="banner"] > *{ align-self:center!important; }
+:root[data-mode="shop"] header[role="banner"] > *:first-child  { justify-self: start;  }
+:root[data-mode="shop"] header[role="banner"] > *:nth-child(2) { justify-self: center; }
+:root[data-mode="shop"] header[role="banner"] > *:last-child   { justify-self: end;    }
 
 /* Remove stray whites */
 :root[data-mode="shop"] .shop-page,
@@ -154,10 +161,11 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
   min-width:18px; height:18px; padding:0 5px; border-radius:999px; font-size:11px; line-height:18px; text-align:center;
   color:#000; background:var(--hover-green,#0bf05f); box-shadow:0 0 0 1px rgba(0,0,0,.25); pointer-events:none;
 }
-/* header alignment */
+/* header alignment + normalized icon size */
 :root[data-mode="shop"] header[role="banner"] .cart-fab{
   position:static!important; width:auto; height:var(--header-ctrl); padding:6px 8px; display:inline-grid; place-items:center; border-radius:0!important;
 }
+:root[data-mode="shop"] header[role="banner"] .cart-fab .cart-img-wrap{ width:36px; height:36px; }
 :root[data-mode="shop"][data-theme="day"]   header[role="banner"] .cart-fab{ color:#111; }
 :root[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
 :root[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform:translateY(-1px); }
@@ -165,18 +173,25 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
 .cart-fab.cart-pulse{ animation:cartPulse .42s ease; }
 
 /* ========== Grid & tiles ================================================ */
+.shop-wrap{ padding: 18px var(--header-pad-x) 56px; }
+
 .shop-grid{
-  --gap:28px;
+  --gap: clamp(10px, 1.2vw, 18px); /* tighter spacing by default */
   display:grid;
   grid-template-columns: repeat(var(--grid-cols,5), minmax(0,1fr));
   gap:var(--gap);
 }
-@media (max-width:640px){ .shop-grid{ --gap:20px; } }
+@media (max-width:640px){
+  .shop-grid{ --gap:12px; }
+}
 
 .product-tile{ display:block; color:inherit; text-decoration:none; }
 .product-box{ aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:transparent; border:none; }
 .product-img{ width:88%; height:88%; object-fit:contain; }
-.product-meta{ padding:10px 2px 0; letter-spacing:.02em; font-weight:800; text-align:center; font-size:clamp(12px,1.7vw,18px); line-height:1.05; }
+/* when grid is 5 columns, make the hoodie art a touch larger */
+html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:auto; }
+
+.product-meta{ padding:6px 2px 0; letter-spacing:.02em; font-weight:800; text-align:center; font-size:clamp(12px,1.7vw,18px); line-height:1.05; }
 
 /* ========== Product overlay ============================================= */
 .product-hero-overlay{
@@ -208,9 +223,8 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
   box-shadow:0 4px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.6);
   transition:border-color .25s ease, background .25s ease, box-shadow .25s ease;
   -webkit-tap-highlight-color:transparent;
-  outline:2px solid rgba(74,165,255,.9); outline-offset:3px;
 }
-.lb-switch:focus-visible{ outline-color:rgba(74,165,255,1); }
+.lb-switch:focus-visible{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; }
 
 /* ========== ORB (always on top & interactive) =========================== */
 :root[data-mode="shop"] header [data-orb="density"]{
