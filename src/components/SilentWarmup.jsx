@@ -4,34 +4,41 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
+// Default assets live in /public
 const CART   = ['/cart/birkin-green.png','/cart/birkin-royal.png','/cart/birkin-sky.png'];
 const TOGGLE = ['/toggle/moon-blue.png','/toggle/moon-red.png'];
 
 export default function SilentWarmup({
-  prefetchPath = '/shop',
-  images = [...CART, ...TOGGLE],
+  enable        = true,
+  prefetchPath  = '/shop',
+  images        = [...CART, ...TOGGLE],
+  maxConcurrent = 2,          // keep network gentle
+  startDelayMs  = 300,        // wait a tick after mount
 }) {
   const started = useRef(false);
+  const stopRef = useRef(false);
   const router  = useRouter();
 
   useEffect(() => {
-    if (started.current) return;
+    if (!enable || started.current) return;
     started.current = true;
 
-    // SSR guard
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-    // Skip if we're already on the target route
     const here = window.location?.pathname || '';
-    if (here === prefetchPath) return;
+    if (here === prefetchPath) return;               // don’t prefetch the page we’re on
 
-    // Respect Data Saver when present
-    const saveData = !!navigator?.connection?.saveData;
-    // Only warm when tab is visible
+    // Environment checks
+    const conn = navigator?.connection || navigator?.mozConnection || navigator?.webkitConnection;
+    const saveData = !!conn?.saveData;
+    const slowNet = /^(slow-2g|2g)$/.test(conn?.effectiveType || '');
     const isVisible = () => document.visibilityState !== 'hidden';
 
+    // If the user asked for data savings or the net is tiny, do nothing.
+    if (saveData || slowNet) return;
+
     // requestIdleCallback polyfill
-    const rIC = (cb, timeout = 1200) => {
+    const rIC = (cb, timeout = 1500) => {
       try {
         if (typeof window.requestIdleCallback === 'function') {
           return window.requestIdleCallback(cb, { timeout });
@@ -43,71 +50,88 @@ export default function SilentWarmup({
     const cRIC = (id) => {
       try {
         if (typeof window.cancelIdleCallback === 'function') {
-          return window.cancelIdleCallback(id);
+          window.cancelIdleCallback(id);
+          return;
         }
       } catch {}
       clearTimeout(id);
     };
 
+    // --- helpers ------------------------------------------------------
     const idleIds = [];
     let rafId = 0;
+    const loaded = new Set();
 
-    // 1) After first paint, lightly prefetch the route (only if visible & not on saver)
+    const uniqueQueue = images.filter(Boolean).filter((src, i, arr) => arr.indexOf(src) === i);
+
+    const loadImage = (src) =>
+      new Promise((resolve) => {
+        if (!src || loaded.has(src) || stopRef.current) return resolve();
+        const img = new Image();
+        img.decoding = 'async';
+        img.loading = 'eager';                // we’re controlling when it starts
+        img.referrerPolicy = 'no-referrer';
+        img.onload = img.onerror = () => { loaded.add(src); resolve(); };
+        // kick on next tick so we can throttle multiple starts
+        setTimeout(() => { if (!stopRef.current) img.src = src; }, 0);
+      });
+
+    // Little concurrency controller
+    const warmQueue = async () => {
+      if (!isVisible() || stopRef.current) return;
+      const q = uniqueQueue.slice();     // copy
+      const runners = new Array(Math.max(1, Math.min(maxConcurrent, q.length)))
+        .fill(0)
+        .map(async () => {
+          while (q.length && !stopRef.current) {
+            const next = q.shift();
+            // small spacing between kicks to avoid bursts
+            // (helps on iOS and underpowered devices)
+            // eslint-disable-next-line no-await-in-loop
+            await loadImage(next);
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(r => setTimeout(r, 120));
+          }
+        });
+      await Promise.all(runners);
+    };
+
+    // --- schedule ------------------------------------------------------
+    // 1) After first paint, queue a gentle prefetch of the shop route
     rafId = requestAnimationFrame(() => {
-      if (!isVisible() || saveData) return;
-      idleIds.push(
-        rIC(() => { try { router.prefetch(prefetchPath); } catch {} }, 800)
-      );
+      if (!isVisible()) return;
+      idleIds.push(rIC(() => { if (!stopRef.current) { try { router.prefetch(prefetchPath); } catch {} } }, 900));
     });
 
-    // Helper to warm a list of images
-    const warmImages = (list) => {
-      try {
-        list.forEach((src) => {
-          if (!src) return;
-          const img = new Image();
-          img.decoding = 'async';
-          // keep it async; no fetch priority to avoid stealing bandwidth
-          img.referrerPolicy = 'no-referrer';
-          img.src = src;
-          // queue decode if supported, but don’t block or throw on fail
-          img.decode?.().catch(() => {});
-        });
-      } catch {}
-    };
+    // 2) Warm images when idle
+    idleIds.push(rIC(() => { if (!stopRef.current && isVisible()) warmQueue(); }, 1500));
 
-    // 2) Warm image cache gently (Birkin + moons) if not on saver
-    idleIds.push(
-      rIC(() => {
-        if (!isVisible() || saveData) return;
-        warmImages(images);
-      }, 1500)
-    );
-
-    // 3) Final nudge once the page fully loads
+    // 3) Final nudge once fully loaded
     const onLoad = () => {
-      if (saveData) return;
+      if (stopRef.current) return;
       try { router.prefetch(prefetchPath); } catch {}
-      warmImages(images);
+      warmQueue();
     };
-    window.addEventListener('load', onLoad, { once: true });
+    // small delay to avoid competing with critical resources
+    const loadTimer = setTimeout(() => window.addEventListener('load', onLoad, { once: true }), startDelayMs);
 
     // 4) If the tab becomes visible later, do one tiny follow-up prefetch
     const onVisible = () => {
-      if (!isVisible() || saveData) return;
+      if (!isVisible() || stopRef.current) return;
       try { router.prefetch(prefetchPath); } catch {}
       document.removeEventListener('visibilitychange', onVisible);
     };
     document.addEventListener('visibilitychange', onVisible);
 
-    // Cleanup
     return () => {
+      stopRef.current = true;
       try { cancelAnimationFrame(rafId); } catch {}
       idleIds.forEach((id) => cRIC(id));
+      clearTimeout(loadTimer);
       window.removeEventListener('load', onLoad);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [prefetchPath, images, router]);
+  }, [enable, prefetchPath, images, maxConcurrent, startDelayMs, router]);
 
-  return null; // invisible warmup helper
+  return null;
 }
