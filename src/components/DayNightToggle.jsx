@@ -1,3 +1,4 @@
+// src/components/DayNightToggle.jsx
 // Clouds (day), starry sky + LAMEBOY constellation (night)
 // Ridged sun with gradient + glow
 'use client';
@@ -226,10 +227,10 @@ export default function DayNightToggle({
         if (p >= 1) meteor.t = -1;
       }
 
-      raf = requestAnimationFrame(LOOP);
+      requestAnimationFrame(LOOP);
     };
 
-    raf = requestAnimationFrame(LOOP);
+    const raf = requestAnimationFrame(LOOP);
     return () => {
       cancelAnimationFrame(raf);
       if (ro) { try { ro.disconnect(); } catch {} }
@@ -249,10 +250,9 @@ export default function DayNightToggle({
         position:'relative',
         display:'inline-flex',
         height:dims.h, width:dims.w, borderRadius:9999, overflow:'hidden',
-        border: isNight ? '1px solid rgba(90,170,255,.45)' : '1px solid rgba(0,0,0,.10)',
-        boxShadow: isNight
-          ? '0 0 0 2px rgba(90,170,255,.55), 0 0 16px rgba(90,170,255,.45)'
-          : '0 6px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.55)',
+        // ✅ remove blue ring/glow; use neutral borders in both modes
+        border: isNight ? '1px solid rgba(255,255,255,.14)' : '1px solid rgba(0,0,0,.10)',
+        boxShadow: '0 6px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.55)',
         background: isNight ? '#0a0a12' : '#ffffff',
         cursor:'pointer',
         WebkitTapHighlightColor:'transparent',

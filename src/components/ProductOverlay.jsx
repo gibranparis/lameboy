@@ -1,34 +1,34 @@
+// src/components/ProductOverlay.jsx
 // @ts-check
 'use client';
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 
-/** Inline + size picker */
+/** Inline + size picker (single cart event) */
 function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
 
-  const clickPlus = () => setOpen((v) => !v);
+  const clickPlus = () => setOpen(v => !v);
   const doPick = (sz) => {
     setPicked(sz);
-    try {
-      window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail: { size: sz, count: 1 } }));
-      window.dispatchEvent(new CustomEvent('cart:add',       { detail: { qty: 1 } }));
-    } catch {}
+    // Fire ONE cart event to avoid double-add
+    try { window.dispatchEvent(new CustomEvent('cart:add', { detail: { size: sz, qty: 1 } })); } catch {}
+    onPick?.(sz);
     setTimeout(() => { setPicked(null); setOpen(false); }, 380);
   };
 
   return (
     <div style={{ display:'grid', justifyItems:'center', gap:10 }}>
-      <button type="button" className={`pill plus-pill ${open ? 'is-active':''}`} onClick={clickPlus} aria-label="Add">+</button>
+      <button type="button" className={`pill plus-pill ${open ? 'is-active' : ''}`} onClick={clickPlus} aria-label="Add">+</button>
       {open && (
         <div className="row-nowrap" style={{ gap:8 }}>
           {sizes.map((sz) => (
             <button
               key={sz}
               type="button"
-              className={`pill size-pill ${picked===sz?'is-selected flash-green':''}`}
+              className={`pill size-pill ${picked===sz ? 'is-selected flash-green' : ''}`}
               onClick={() => doPick(sz)}
             >
               {sz}
@@ -40,28 +40,25 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'], onPick }) {
   );
 }
 
-/** Round caret button (will flash via className you toggle) */
+/** Round caret button that actually goes green while active */
 function CaretButton({ label, active }) {
   const S = 28;
+  const base = {
+    width: S, height: S, borderRadius: '50%',
+    display: 'grid', placeItems: 'center',
+    background: 'rgba(255,255,255,.9)',
+    boxShadow: '0 2px 10px rgba(0,0,0,.08), inset 0 0 0 1px rgba(0,0,0,.08)',
+    color: '#111',
+    fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+    fontSize: 14, fontWeight: 800, lineHeight: 1, userSelect: 'none',
+    transition: 'background .12s ease, color .12s ease, transform .12s ease',
+  };
+  const activeStyle = active
+    ? { background: 'var(--hover-green, #0bf05f)', color: '#000', boxShadow: '0 0 0 1px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.65)' }
+    : null;
+
   return (
-    <div
-      className={`caret-btn ${active ? 'flash-green' : ''}`}
-      aria-hidden
-      style={{
-        width: S, height: S,
-        borderRadius: '50%',
-        display: 'grid',
-        placeItems: 'center',
-        background: 'rgba(255,255,255,.9)',
-        boxShadow: '0 2px 10px rgba(0,0,0,.08), inset 0 0 0 1px rgba(0,0,0,.08)',
-        color: '#111',
-        fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-        fontSize: 14,
-        fontWeight: 800,
-        lineHeight: 1,
-        userSelect: 'none',
-      }}
-    >
+    <div className={`caret-btn ${active ? 'flash-green' : ''}`} aria-hidden style={{ ...base, ...activeStyle }}>
       <span style={{ transform: 'translateY(-1px)' }}>{label}</span>
     </div>
   );
@@ -71,6 +68,7 @@ function CaretButton({ label, active }) {
  * ProductOverlay
  * - Horizontal: image carousel
  * - Vertical: prev/next product (wraps infinitely)
+ * - ▲/▼ turn green on click or scroll
  */
 export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
   const product = products[index];
@@ -83,19 +81,19 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [flashUp, setFlashUp] = useState(false);
   const [flashDown, setFlashDown] = useState(false);
   const setFlash = (dir) => {
-    if (dir === 'up')  { setFlashUp(true);   setTimeout(() => setFlashUp(false), 260); }
-    if (dir === 'down'){ setFlashDown(true); setTimeout(() => setFlashDown(false), 260); }
+    if (dir === 'up')   { setFlashUp(true);   setTimeout(() => setFlashUp(false), 260); }
+    if (dir === 'down') { setFlashDown(true); setTimeout(() => setFlashDown(false), 260); }
   };
 
   // Close overlay via orb zoom
   useEffect(() => {
     const handler = () => onClose?.();
-    ['lb:zoom', 'lb:zoom/grid-density'].forEach((n)=>{
+    ['lb:zoom', 'lb:zoom/grid-density'].forEach((n) => {
       window.addEventListener(n, handler);
       document.addEventListener(n, handler);
     });
     return () => {
-      ['lb:zoom', 'lb:zoom/grid-density'].forEach((n)=>{
+      ['lb:zoom', 'lb:zoom/grid-density'].forEach((n) => {
         window.removeEventListener(n, handler);
         document.removeEventListener(n, handler);
       });
@@ -108,13 +106,12 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   // Keyboard
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') return onClose?.();
-      if (e.key === 'ArrowRight') return setImgIdx((i) => Math.min(i + 1, imgs.length - 1));
-      if (e.key === 'ArrowLeft')  return setImgIdx((i) => Math.max(i - 1, 0));
-      if (multi) {
-        if (e.key === 'ArrowDown') { setFlash('down'); return onIndexChange?.(wrap(index + 1, products.length)); }
-        if (e.key === 'ArrowUp')   { setFlash('up');   return onIndexChange?.(wrap(index - 1, products.length)); }
-      }
+      if (e.key === 'Escape')       return onClose?.();
+      if (e.key === 'ArrowRight')   return setImgIdx((i) => Math.min(i + 1, imgs.length - 1));
+      if (e.key === 'ArrowLeft')    return setImgIdx((i) => Math.max(i - 1, 0));
+      if (!multi) return;
+      if (e.key === 'ArrowDown') { setFlash('down'); return onIndexChange?.(wrap(index + 1, products.length)); }
+      if (e.key === 'ArrowUp')   { setFlash('up');   return onIndexChange?.(wrap(index - 1, products.length)); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -133,7 +130,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
       if (ax > ay) {
         if (e.deltaX > 0) setImgIdx((i) => Math.min(i + 1, imgs.length - 1));
-        else setImgIdx((i) => Math.max(i - 1, 0));
+        else              setImgIdx((i) => Math.max(i - 1, 0));
       } else if (multi) {
         if (e.deltaY > 0) { setFlash('down'); onIndexChange?.(wrap(index + 1, products.length)); }
         else              { setFlash('up');   onIndexChange?.(wrap(index - 1, products.length)); }
@@ -164,7 +161,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     };
   }, [multi, index, onIndexChange, products.length]);
 
-  // mark overlay open
+  // mark overlay open (locks scroll via CSS)
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open', '1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -172,10 +169,10 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   if (!product) return null;
 
-  // Price → $40 (no .00 when even dollars)
+  // $40 (no .00) formatting
   const priceText = (() => {
-    if (typeof product.price !== 'number') return String(product.price ?? '');
-    const cents = product.price;
+    const cents = typeof product.price === 'number' ? product.price : null;
+    if (cents == null) return String(product.price ?? '');
     return cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
   })();
 
@@ -184,7 +181,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   return (
     <div className="product-hero-overlay" data-overlay>
       <div className="product-hero">
-        {/* Up/Down controls with green flash */}
+        {/* Up/Down controls that flash green */}
         {products.length > 1 && (
           <div style={{
             position:'fixed',
@@ -216,7 +213,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           </div>
         )}
 
-        {/* Image (optimized) */}
+        {/* Image */}
         {imgs[imgIdx] && (
           <Image
             src={imgs[imgIdx]}
@@ -248,7 +245,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         <div className="product-hero-title">{product.title}</div>
         <div className="product-hero-price">{priceText}</div>
 
-        <PlusSizesInline sizes={sizes} onPick={() => { /* dispatched above */ }} />
+        <PlusSizesInline sizes={sizes} onPick={() => { /* single event fired above */ }} />
       </div>
     </div>
   );

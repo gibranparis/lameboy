@@ -1,3 +1,4 @@
+// src/components/HeaderBar.jsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -7,9 +8,6 @@ import CartButton from '@/components/CartButton';
 
 export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
   const [isNight, setIsNight] = useState(false);
-
-  // Responsive control size: smaller on narrow screens so the cart
-  // is visually smaller than the hoodie tiles on mobile.
   const ctrlPx = useResponsiveCtrlPx({ desktop: 56, mobile: 42, bp: 480 });
 
   // boot theme from storage or system
@@ -21,14 +19,13 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
     } catch {}
   }, []);
 
-  // reflect mode + theme
+  // reflect mode + theme + control size
   useEffect(() => {
     try {
       const root = document.querySelector(rootSelector) || document.documentElement;
       root.setAttribute('data-mode', 'shop');
       root.setAttribute('data-theme', isNight ? 'night' : 'day');
       localStorage.setItem('lb:theme', isNight ? 'night' : 'day');
-      // expose the chosen size so other parts (like ShopGrid) can read it if needed
       document.documentElement.style.setProperty('--header-ctrl', `${ctrlPx}px`);
     } catch {}
   }, [isNight, rootSelector, ctrlPx]);
@@ -39,14 +36,14 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
       className="w-full px-4 pt-3 pb-1"
       style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}
     >
-      {/* LEFT: orb (self-handled events) */}
+      {/* LEFT: orb */}
       <div className="flex items-center select-none" style={{ lineHeight: 0 }}>
         <div style={{ height: ctrlPx, width: ctrlPx, display: 'grid', placeItems: 'center' }}>
           <ChakraOrbButton size={ctrlPx} />
         </div>
       </div>
 
-      {/* CENTER: day/night */}
+      {/* CENTER: day/night (no blue focus ring) */}
       <div className="flex justify-center" id="lb-daynight">
         <DayNightToggle
           className="select-none"
@@ -58,12 +55,17 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
         />
       </div>
 
-      {/* RIGHT: cart (smaller on mobile via ctrlPx) */}
+      {/* RIGHT: cart */}
       <div className="justify-self-end" style={{ lineHeight: 0 }}>
         <div style={{ height: ctrlPx, width: ctrlPx, display: 'grid', placeItems: 'center' }}>
           <CartButton size={ctrlPx} inHeader />
         </div>
       </div>
+
+      {/* Scoped CSS: remove the blue ring around the moon toggle */}
+      <style jsx global>{`
+        #lb-daynight .lb-switch { outline: 0 !important; }
+      `}</style>
     </header>
   );
 }
