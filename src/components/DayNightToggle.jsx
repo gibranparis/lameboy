@@ -1,4 +1,3 @@
-// src/components/DayNightToggle.jsx
 // Clouds (day), starry sky + LAMEBOY constellation (night)
 // Ridged sun with gradient + glow
 'use client';
@@ -70,6 +69,7 @@ export default function DayNightToggle({
       try {
         const stored = localStorage.getItem(THEME_KEY);
         if (stored === 'night' || stored === 'day') initial = stored;
+        else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) initial = 'night';
       } catch {}
       setInternal(/** @type {Theme} */(initial));
     }
@@ -105,7 +105,7 @@ export default function DayNightToggle({
 
   const moonSrc = Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/moon-red.png';
 
-  // ===== Night sky canvas (stars + “LAMEBOY” constellation + twinkle + meteor) ======
+  // ===== Night sky canvas (stars + constellation + meteor) =====
   const skyRef = useRef/** @type {React.RefObject<HTMLCanvasElement>} */(null);
   useEffect(() => {
     if (!isNight) return;
@@ -115,7 +115,7 @@ export default function DayNightToggle({
     if (!ctx) return;
 
     let W = 0, H = 0, DPR = 1;
-    let raf = 0;
+    let rafId = 0; // ✅ single variable; no re-declare
 
     const resizeCanvas = () => {
       try {
@@ -227,12 +227,12 @@ export default function DayNightToggle({
         if (p >= 1) meteor.t = -1;
       }
 
-      requestAnimationFrame(LOOP);
+      rafId = requestAnimationFrame(LOOP);
     };
 
-    const raf = requestAnimationFrame(LOOP);
+    rafId = requestAnimationFrame(LOOP);
     return () => {
-      cancelAnimationFrame(raf);
+      try { cancelAnimationFrame(rafId); } catch {}
       if (ro) { try { ro.disconnect(); } catch {} }
       else { window.removeEventListener('resize', resizeCanvas); }
     };
@@ -250,7 +250,6 @@ export default function DayNightToggle({
         position:'relative',
         display:'inline-flex',
         height:dims.h, width:dims.w, borderRadius:9999, overflow:'hidden',
-        // ✅ remove blue ring/glow; use neutral borders in both modes
         border: isNight ? '1px solid rgba(255,255,255,.14)' : '1px solid rgba(0,0,0,.10)',
         boxShadow: '0 6px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.55)',
         background: isNight ? '#0a0a12' : '#ffffff',
@@ -271,38 +270,12 @@ export default function DayNightToggle({
         }}
       />
 
-      {/* DAY CLOUDS */}
-      {!isNight && (
-        <span aria-hidden style={{ position:'absolute', inset:0, borderRadius:9999, overflow:'hidden' }}>
-          {[
-            { left:'12%', top:'18%', w:'34%', h:'40%', d:0   },
-            { left:'54%', top:'48%', w:'28%', h:'30%', d:120 },
-            { left:'36%', top:'10%', w:'20%', h:'24%', d:240 },
-          ].map((c, i) => (
-            <span
-              key={i}
-              style={{
-                position:'absolute',
-                left:c.left, top:c.top, width:c.w, height:c.h, borderRadius:9999,
-                background:'#fff',
-                filter:'drop-shadow(0 4px 8px rgba(0,0,0,.10))',
-                opacity:.96,
-                animation:`cloudMove 14s ${c.d}ms ease-in-out infinite alternate`,
-              }}
-            >
-              <span style={{ position:'absolute', left:'-24%', top:'10%', width:'42%', height:'58%', background:'#fff', borderRadius:9999 }} />
-              <span style={{ position:'absolute', right:'-18%', top:'22%', width:'36%', height:'46%', background:'#fff', borderRadius:9999 }} />
-            </span>
-          ))}
-        </span>
-      )}
-
       {/* NIGHT SKY (canvas) */}
       {isNight && (
         <canvas ref={skyRef} aria-hidden style={{ position:'absolute', inset:0, borderRadius:9999, pointerEvents:'none' }} />
       )}
 
-      {/* KNOB (ridged sun / moon) */}
+      {/* KNOB (ridged sun / moon image) */}
       <span
         aria-hidden
         style={{
@@ -316,7 +289,7 @@ export default function DayNightToggle({
           overflow:'visible',
         }}
       >
-        {/* Sun (ridged) */}
+        {/* Sun */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -327,7 +300,7 @@ export default function DayNightToggle({
           <SunIcon size={dims.knob}/>
         </span>
 
-        {/* Moon */}
+        {/* Moon (no blue ring) */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
