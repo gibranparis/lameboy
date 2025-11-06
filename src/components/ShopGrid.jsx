@@ -1,4 +1,3 @@
-// src/components/ShopGrid.jsx
 // @ts-check
 'use client';
 
@@ -8,7 +7,7 @@ import ProductOverlay from '@/components/ProductOverlay';
 import { PRODUCTS, logMissingAssets } from '@/lib/products';
 
 export default function ShopGrid({ products }) {
-  // Build product list: prop → window → PRODUCTS → single-product clones
+  // Build product list (prop → window → PRODUCTS → clones)
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null;
     // eslint-disable-next-line no-undef
@@ -34,7 +33,7 @@ export default function ShopGrid({ products }) {
 
     if (base.length >= 2) return base;
 
-    // Keep overlay navigation smooth if we truly have one item
+    // If we truly have only one product, clone to keep overlay navigation smooth
     return Array.from({ length: 5 }, (_, i) => ({
       ...base[0],
       id: `${base[0].id}-v${i + 1}`,
@@ -42,12 +41,7 @@ export default function ShopGrid({ products }) {
     }));
   }, [products]);
 
-  // Dev helper: log any missing local assets in console
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      try { logMissingAssets?.(); } catch {}
-    }
-  }, []);
+  useEffect(() => { if (process.env.NODE_ENV !== 'production') logMissingAssets(); }, []);
 
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
 
@@ -76,7 +70,7 @@ export default function ShopGrid({ products }) {
 
   useEffect(() => {
     const onZoom = (e) => {
-      // If overlay is open, orb click closes overlay only
+      // If overlay is open, orb click closes overlay only (grid unchanged)
       if (overlayIdx != null) { setOverlayIdx(null); return; }
 
       const d = e?.detail || {};
@@ -86,7 +80,7 @@ export default function ShopGrid({ products }) {
       if (dir === 'in')  { setCols((p) => { const n = Math.max(MIN_COLS, p - step); applyCols(n); return n; }); return; }
       if (dir === 'out') { setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; }); return; }
 
-      // Ping–pong if no dir provided
+      // Legacy ping-pong if no dir provided
       setCols((p) => {
         const goingIn = p > MIN_COLS;
         const n = goingIn ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1);
@@ -112,51 +106,43 @@ export default function ShopGrid({ products }) {
   const overlayOpen = overlayIdx != null;
 
   return (
-    <div className="shop-wrap" style={{ padding: '20px 20px 48px' }}>
-      <div className="shop-grid" style={{ ['--grid-cols']: cols }}>
-        {seed.map((p, idx) => {
-          // Prefer a small thumb if available
-          const src = p.thumb || p.image;
-
-          return (
-            <a
-              key={p.id ?? idx}
-              className="product-tile lb-tile"
-              role="button"
-              tabIndex={0}
-              onClick={(e) => { e.preventDefault(); open(idx); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(idx); }}}
-            >
-              <div className="product-box">
-                <Image
-                  src={src}
-                  alt={p.title}
-                  width={800}
-                  height={800}
-                  className="product-img"
-                  // Speed: only the first tile eager-loads; rest are lazy
-                  priority={idx === 0}
-                  loading={idx === 0 ? 'eager' : 'lazy'}
-                  // Let Next optimize + pick the right file for the viewport
-                  sizes="(max-width:480px) 42vw, (max-width:768px) 28vw, (max-width:1280px) 18vw, 14vw"
-                  onError={(e) => {
-                    // Fallback to hero, then a last-resort placeholder
-                    const img = e.currentTarget;
-                    const tried = img.getAttribute('data-fb') || '';
-                    if (tried === 'hero') {
-                      img.src = '/products/brown.png';
-                      img.setAttribute('data-fb', 'final');
-                    } else if (!tried) {
-                      img.src = p.image;
-                      img.setAttribute('data-fb', 'hero');
-                    }
-                  }}
-                />
-              </div>
-              <div className="product-meta">{p.title}</div>
-            </a>
-          );
-        })}
+    <div className="shop-wrap" style={{ padding: '28px 28px 60px' }}>
+      <div className="shop-grid" style={{ '--grid-cols': cols }}>
+        {seed.map((p, idx) => (
+          <a
+            key={p.id ?? idx}
+            className="product-tile lb-tile"
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.preventDefault(); open(idx); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(idx); }}}
+          >
+            <div className="product-box">
+              <Image
+                src={p.thumb || p.image}
+                alt={p.title}
+                width={800}
+                height={800}
+                className="product-img"
+                priority={idx === 0}
+                // ✅ Keep Next optimization ON for sharp DPR variants
+                quality={85}
+                sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (img.dataset.fallback === 'hero') {
+                    img.src = '/products/brown.png';
+                    img.dataset.fallback = 'final';
+                  } else if (!img.dataset.fallback) {
+                    img.src = p.image;
+                    img.dataset.fallback = 'hero';
+                  }
+                }}
+              />
+            </div>
+            <div className="product-meta">{p.title}</div>
+          </a>
+        ))}
       </div>
 
       {overlayOpen && (
