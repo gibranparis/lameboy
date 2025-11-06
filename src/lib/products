@@ -1,18 +1,65 @@
 // src/lib/products.js
-// Single source of truth for product seed
+// Single source of truth for the current hoodie set.
+// All image paths are in /public/products (lowercase filenames).
 
-/** @typedef {{ id:string, title:string, price:number, image:string, images?:string[], sizes?:string[] }} Product */
+/** @typedef {{ id:string, title:string, price:number, image:string, thumb?:string, images?:string[], sizes?:string[] }} Product */
 
 /** @type {Product[]} */
-const products = [
+export const PRODUCTS = [
   {
-    id: 'brown-hoodie',
-    title: 'Brown', // ✅ renamed
-    price: 4000,    // ✅ $40.00
-    image: '/products/lame-hoodie-brown.png',
-    images: ['/products/lame-hoodie-brown.png'],
-    sizes: ['S','M','L','XL','XXL'],
-  }
+    id: 'hoodie-brown',
+    title: 'Brown',
+    price: 4000,
+    image: '/products/brown.png',
+    thumb:  '/products/brown.png',
+    images: ['/products/brown.png'],
+    sizes:  ['S','M','L','XL']
+  },
+  {
+    id: 'hoodie-black',
+    title: 'Black',
+    price: 4000,
+    image: '/products/black.png',
+    thumb:  '/products/black.png',
+    images: ['/products/black.png'],
+    sizes:  ['S','M','L','XL']
+  },
+  {
+    id: 'hoodie-gray',
+    title: 'Gray',
+    price: 4000,
+    image: '/products/gray.png',
+    thumb:  '/products/gray.png',
+    images: ['/products/gray.png'],
+    sizes:  ['S','M','L','XL']
+  },
+  {
+    id: 'hoodie-green',
+    title: 'Green',
+    price: 4000,
+    image: '/products/green.png',
+    thumb:  '/products/green.png',
+    images: ['/products/green.png'],
+    sizes:  ['S','M','L','XL']
+  },
+  {
+    id: 'hoodie-blue',
+    title: 'Blue',
+    price: 4000,
+    image: '/products/blue.png',
+    thumb:  '/products/blue.png',
+    images: ['/products/blue.png'],
+    sizes:  ['S','M','L','XL']
+  },
 ];
 
-export default products;
+// Helpful in dev to surface missing assets fast.
+export function logMissingAssets() {
+  if (typeof window === 'undefined') return;
+  PRODUCTS.forEach(p => {
+    const i = new Image();
+    i.onload = () => {};
+    i.onerror = () => console.warn('[asset-missing]', p.thumb || p.image);
+    i.src = (p.thumb || p.image) + '?v=' + Date.now();
+  });
+}

@@ -4,134 +4,146 @@
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProductOverlay from '@/components/ProductOverlay';
-
-// normalize: remove "#2", "#3" suffix
-function norm(title = '') {
-  return title.replace(/\s+#\d+$/i, '').trim().toLowerCase();
-}
-
-function dedupe(list) {
-  const seen = new Set();
-  return list.filter((p) => {
-    const k = norm(p.title);
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-}
+import { PRODUCTS, logMissingAssets } from '@/lib/products';
 
 export default function ShopGrid({ products }) {
-
-  // ✅ REAL HOODIES LIST — this is now your fallback source of truth
-  const REAL = [
-    {
-      id: 'hoodie-brown',
-      title: 'Brown',
-      price: 4000,
-      image: '/products/brown.png',
-      thumb: '/products/brown.png',
-      images: ['/products/brown.png'],
-      sizes: ['S','M','L','XL']
-    },
-    {
-      id: 'hoodie-black',
-      title: 'Black',
-      price: 4000,
-      image: '/products/black.png',
-      thumb: '/products/black.png',
-      images: ['/products/black.png'],
-      sizes: ['S','M','L','XL']
-    },
-    {
-      id: 'hoodie-gray',
-      title: 'Gray',
-      price: 4000,
-      image: '/products/gray.png',
-      thumb: '/products/gray.png',
-      images: ['/products/gray.png'],
-      sizes: ['S','M','L','XL']
-    },
-    {
-      id: 'hoodie-green',
-      title: 'Green',
-      price: 4000,
-      image: '/products/green.png',
-      thumb: '/products/green.png',
-      images: ['/products/green.png'],
-      sizes: ['S','M','L','XL']
-    },
-    {
-      id: 'hoodie-blue',
-      title: 'Blue',
-      price: 4000,
-      image: '/products/blue.png',
-      thumb: '/products/blue.png',
-      images: ['/products/blue.png'],
-      sizes: ['S','M','L','XL']
-    }
-  ];
-
+  // Build product list (prop → window → PRODUCTS → clones)
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null;
     // eslint-disable-next-line no-undef
-    const fromWin = typeof window !== 'undefined' && Array.isArray(window.__LB_PRODUCTS)
-      ? window.__LB_PRODUCTS
-      : null;
+    const fromWin =
+      typeof window !== 'undefined' && Array.isArray(window.__LB_PRODUCTS)
+        ? window.__LB_PRODUCTS
+        : null;
 
-    const base = fromProp?.length ? fromProp : fromWin?.length ? fromWin : REAL;
-    return dedupe(base);
+    /** @type {typeof PRODUCTS} */
+    const base =
+      (fromProp && fromProp.length) ? fromProp :
+      (fromWin  && fromWin.length)  ? fromWin  :
+      (PRODUCTS && PRODUCTS.length) ? PRODUCTS :
+      [{
+        id: 'hoodie-brown-1',
+        title: 'Brown',
+        price: 4000,
+        image: '/products/brown.png',
+        thumb:  '/products/brown.png',
+        images: ['/products/brown.png'],
+        sizes: ['S','M','L','XL'],
+      }];
+
+    if (base.length >= 2) return base;
+
+    // If we truly have only one product, clone to keep overlay navigation smooth
+    return Array.from({ length: 5 }, (_, i) => ({
+      ...base[0],
+      id: `${base[0].id}-v${i + 1}`,
+      title: i === 0 ? base[0].title : `${base[0].title} #${i + 1}`,
+    }));
   }, [products]);
 
-  const [overlayIdx, setOverlayIdx] = useState(null);
+  useEffect(() => { if (process.env.NODE_ENV !== 'production') logMissingAssets(); }, []);
 
-  const MIN = 1, MAX = 5;
-  const [cols, setCols] = useState(MAX);
+  const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
 
-  const applyCols = useCallback((n) => {
-    const c = Math.max(MIN, Math.min(MAX, n|0));
-    setCols(c);
-    document.documentElement.style.setProperty('--grid-cols', String(c));
+  // ===== Grid density (1..5) controlled by orb =====
+  const MIN_COLS = 1;
+  const MAX_COLS = 5;
+  const [cols, setCols] = useState(MAX_COLS);
+
+  const broadcastDensity = useCallback((density) => {
+    const detail = { density, value: density };
+    try { document.dispatchEvent(new CustomEvent('lb:grid-density',      { detail })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail })); } catch {}
   }, []);
 
-  useEffect(() => applyCols(cols), []); // init
+  const applyCols = useCallback((next) => {
+    const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, next | 0));
+    setCols(clamped);
+    try { document.documentElement.style.setProperty('--grid-cols', String(clamped)); } catch {}
+    broadcastDensity(clamped);
+  }, [broadcastDensity]);
+
+  useEffect(() => {
+    applyCols(cols); // initial
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const onZoom = (e) => {
+      // If overlay is open, orb click closes overlay only (grid unchanged)
       if (overlayIdx != null) { setOverlayIdx(null); return; }
-      const step = Math.max(1, Math.min(3, Number(e?.detail?.step) || 1));
-      const dir = e?.detail?.dir;
+
+      const d = e?.detail || {};
+      const step = Math.max(1, Math.min(3, Number(d.step) || 1));
+      const dir = typeof d.dir === 'string' ? d.dir : null;
+
+      if (dir === 'in') {
+        setCols((p) => { const n = Math.max(MIN_COLS, p - step); applyCols(n); return n; });
+        return;
+      }
+      if (dir === 'out') {
+        setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; });
+        return;
+      }
+
+      // Legacy ping-pong if no dir provided
       setCols((p) => {
-        const next = dir === 'in' ? p - step : dir === 'out' ? p + step : (p > MIN ? p-1 : p+1);
-        applyCols(next);
-        return next;
+        const goingIn = p > MIN_COLS;
+        const n = goingIn ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1);
+        applyCols(n);
+        return n;
       });
     };
-    document.addEventListener('lb:zoom', onZoom);
-    return () => document.removeEventListener('lb:zoom', onZoom);
+
+    ['lb:zoom'].forEach((n) => {
+      window.addEventListener(n, onZoom);
+      document.addEventListener(n, onZoom);
+    });
+    return () => {
+      ['lb:zoom'].forEach((n) => {
+        window.removeEventListener(n, onZoom);
+        document.removeEventListener(n, onZoom);
+      });
+    };
   }, [overlayIdx, applyCols]);
 
-  const fiveUp = seed.length === 5;
+  const open  = (i) => setOverlayIdx(i);
+  const close = () => setOverlayIdx(null);
+  const overlayOpen = overlayIdx != null;
 
   return (
     <div className="shop-wrap" style={{ padding: '28px 28px 60px' }}>
-      <div className="shop-grid" style={{
-        '--grid-cols': cols,
-        '--tile-max': fiveUp ? '260px' : '220px'
-      }}>
-        {seed.map((p, i) => (
+      <div className="shop-grid" style={{ '--grid-cols': cols }}>
+        {seed.map((p, idx) => (
           <a
-            key={p.id}
+            key={p.id ?? idx}
             className="product-tile lb-tile"
-            onClick={(e)=>{ e.preventDefault(); setOverlayIdx(i); }}
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.preventDefault(); open(idx); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(idx); }}}
           >
-            <div className="product-box" style={{ maxWidth: 'var(--tile-max)' }}>
+            <div className="product-box">
               <Image
                 src={p.thumb || p.image}
                 alt={p.title}
                 width={800}
                 height={800}
                 className="product-img"
-                sizes="(max-width: 480px) 36vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
+                priority={idx === 0}
+                unoptimized
+                sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
+                onError={(e) => {
+                  // If a thumb 404s on deploy, swap to the hero image, then a last-resort placeholder
+                  const img = e.currentTarget;
+                  if (img.dataset.fallback === 'hero') {
+                    img.src = '/products/brown.png';
+                    img.dataset.fallback = 'final';
+                  } else if (!img.dataset.fallback) {
+                    img.src = p.image;
+                    img.dataset.fallback = 'hero';
+                  }
+                }}
               />
             </div>
             <div className="product-meta">{p.title}</div>
@@ -139,12 +151,12 @@ export default function ShopGrid({ products }) {
         ))}
       </div>
 
-      {overlayIdx !== null && (
+      {overlayOpen && (
         <ProductOverlay
           products={seed}
           index={overlayIdx}
-          onIndexChange={(i)=>setOverlayIdx(((i%seed.length)+seed.length)%seed.length)}
-          onClose={()=>setOverlayIdx(null)}
+          onIndexChange={(i) => setOverlayIdx(((i % seed.length) + seed.length) % seed.length)}
+          onClose={close}
         />
       )}
     </div>
