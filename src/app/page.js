@@ -1,3 +1,4 @@
+// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
@@ -99,11 +100,9 @@ export default function Page(){
             <div style={{ display:'grid', justifyContent:'start' }}>
               <ChakraOrbButton size={64} className="orb-ring" style={{ display:'grid', placeItems:'center' }} />
             </div>
-
             <div id="lb-daynight" style={{ display:'grid', placeItems:'center' }}>
               <DayNightToggle circlePx={28} trackPad={1} moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']} />
             </div>
-
             <div style={{ display:'grid', justifyContent:'end' }}>
               <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
                 <CartButton inHeader />
@@ -114,6 +113,7 @@ export default function Page(){
           <main style={{ paddingTop: HEADER_H }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
 
+            {/* Submit FAB → opens login modal */}
             <button
               type="button"
               onClick={() => setLoginOpen(true)}
@@ -127,26 +127,20 @@ export default function Page(){
               <div
                 role="dialog"
                 aria-modal="true"
-                style={{
-                  position:'fixed', inset:0, zIndex:540,
-                  display:'grid', placeItems:'center', background:'rgba(0,0,0,.55)'
-                }}
+                style={{ position:'fixed', inset:0, zIndex:540, display:'grid', placeItems:'center', background:'rgba(0,0,0,.55)' }}
                 onClick={(e)=>{ if(e.target === e.currentTarget) setLoginOpen(false); }}
               >
                 <div style={{ outline:'none' }}>
-                  <BannedLogin
-                    onProceed={() => setLoginOpen(false)}
-                    startView="login"
-                  />
+                  <BannedLogin onProceed={() => setLoginOpen(false)} startView="login" />
                 </div>
               </div>
             )}
           </main>
+
+          {/* Chakra runner ONLY in shop */}
+          <ChakraBottomRunner height={14} speedSec={12} />
         </>
       )}
-
-      {/* ✅ Bottom Chakra Runner — ALWAYS ON */}
-      <ChakraBottomRunner height={14} speedSec={12} />
 
       {veil && (
         <div
