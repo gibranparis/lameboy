@@ -57,7 +57,7 @@ html[data-overlay-open]{ overflow:hidden; }
 .row-nowrap{ display:flex; align-items:center; gap:14px; flex-wrap:nowrap; }
 .florida-inline{ display:block!important; text-align:center!important; margin-left:auto!important; margin-right:auto!important; }
 
-/* ========== Neon card (default ON – used by banned) ===================== */
+/* ========== Neon card (legacy; not used by gate now) ==================== */
 .vscode-card{
   background:var(--panel);
   border:2px solid var(--accent);
@@ -103,7 +103,7 @@ html[data-overlay-open]{ overflow:hidden; }
 .chakra-thirdeye{--c:#b300ff;background:#4B0082}
 .chakra-crown{--c:#faf5ff;background:#ff00c8}
 
-/* ========== SHOP MODE ONLY (scope the “kill-glow” overrides here) ======= */
+/* ========== SHOP MODE ONLY ============================================= */
 :root[data-mode="shop"][data-theme="day"]   { --bg:var(--shop-offwhite); --panel:var(--shop-offwhite); --text:#111; }
 :root[data-mode="shop"][data-theme="night"] { --bg:#000;               --panel:#000;               --text:#fff; }
 
@@ -179,7 +179,7 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
 .shop-wrap{ padding: 18px var(--header-pad-x) 56px; }
 
 .shop-grid{
-  --gap: clamp(10px, 1.2vw, 18px); /* tighter spacing by default */
+  --gap: clamp(10px, 1.2vw, 18px);
   display:grid;
   grid-template-columns: repeat(var(--grid-cols,5), minmax(0,1fr));
   gap:var(--gap);
@@ -229,29 +229,25 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 }
 .lb-switch:focus-visible{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; }
 
-/* ========== ORB (always on top & interactive) =========================== */
+/* ========== ORB ========================================================= */
 :root[data-mode="shop"] header [data-orb="density"]{
   padding:0!important; margin:0!important; border:0!important; background:transparent!important; line-height:0!important;
   border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
-  position:relative; z-index: 600 !important; /* above overlay(420) & header */
+  position:relative; z-index: 600 !important;
 }
 [data-orb="density"], [data-orb="density"] *{ outline:0!important; box-shadow:none!important; }
-
-/* ensure canvas is actually visible & clickable */
 :root[data-mode="shop"] header [data-orb="density"] canvas{
   display:block !important;
   opacity:1 !important;
   visibility:visible !important;
   pointer-events:auto !important;
 }
-
-/* optional ring */
 .orb-ring{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; border-radius:9999px; }
 
 /* Code weight accents */
 .code-keyword,.code-var,.code-string,.code-comment{ font-weight:800; }
 
-/* === Gate: do not stretch the banned bubble; wrap text inside =========== */
+/* Gate: constrain text wrap */
 :root[data-mode="gate"] .login-card{ max-width:min(92vw,720px)!important; }
 :root[data-mode="gate"] .login-card pre,
 :root[data-mode="gate"] .login-card code{
@@ -274,64 +270,65 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 .plus-pill.is-ready { background:var(--hover-green); color:#000; }
 
 /* ====================================================================== */
-/* ================= Day-mode legibility for console/bubble ============= */
+/* ================= Day console legibility + neon styles =============== */
 /* ====================================================================== */
-
-/* tie code classes to token vars, then flip vars in day mode */
 .code-tight{ color: var(--text); }
 .code-comment{ color: var(--comment); }
-.code-string{ color: var(--string); }
-.code-keyword{ color: var(--keyword); }
-.code-var{ color: var(--var); }
-.code-punc{ color: var(--punct); }
-.code-op{ color: var(--op); }
+.code-string{  color: var(--string); }
+.code-keyword{  color: var(--keyword); }
+.code-var{      color: var(--var); }
+.code-punc{     color: var(--punct); }
+.code-op{       color: var(--op); }
 
-/* Day overrides: black text, no mint glow */
 :root[data-theme="day"]{
   --text:#111;
-  --comment:#111;
-  --string:#111;
-  --keyword:#111;
-  --var:#111;
-  --punct:#111;
-  --op:#111;
+  --comment:#111; --string:#111; --keyword:#111; --var:#111; --punct:#111; --op:#111;
 }
 :root[data-theme="day"] .neon-glow{ text-shadow:none !important; }
 
+/* “neon black” wordmark */
+.neon-black{
+  color:#000;
+  text-shadow: 0 0 2px rgba(0,0,0,.6), 0 0 8px rgba(0,0,0,.35);
+}
+
 /* Always-on neon for the word “banned” */
 .banned-neon{
-  color: var(--banned-neon);
-  text-shadow:
-    0 0 4px  var(--banned-neon),
-    0 0 10px var(--banned-neon),
-    0 0 18px var(--banned-neon);
+  color: var(--banned-neon,#ff073a);
+  text-shadow: 0 0 4px currentColor, 0 0 10px currentColor, 0 0 18px currentColor;
   font-weight:800; letter-spacing:.04em;
 }
 
-/* ====================================================================== */
-/* ================= ❤️ HEART-ONLY SUBMIT (glow + beat) ================= */
-/* ====================================================================== */
+/* Florida link — bold + neon yellow on hover/hot */
+.florida-link{
+  font-weight:800;
+  color:#111;
+  transition: filter .15s ease, text-shadow .15s ease, color .15s ease;
+}
+.florida-link.is-hot,
+:root[data-theme="day"] .florida-link:hover{
+  color:#c9a800;
+  text-shadow: 0 0 6px rgba(255,247,0,.55), 0 0 14px rgba(255,247,0,.35), 0 0 26px rgba(255,247,0,.25);
+}
 
-/* Remove any previous heart FAB styles before this replacement */
+/* Day cascade glow boost */
+:root[data-theme="day"] .lb-band::after{ opacity:.95; filter: blur(26px); }
+
+/* ====================================================================== */
+/* ================= ❤️ HEART — bottom-left, heart only ================= */
+/* ====================================================================== */
 .heart-submit{
   position: fixed;
-  right: max(16px, env(safe-area-inset-right));
-  bottom: calc(16px + var(--runner-h, 10px)); /* sit above chakra runner */
+  left: max(16px, env(safe-area-inset-left));
+  bottom: calc(16px + var(--runner-h, 10px));
   z-index: 10010;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent;           /* NO CIRCLE/BUBBLE */
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  width: 44px; height: 44px;
+  padding: 0; border: 0; background: transparent;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
   transform: translateZ(0);
 }
 .heart-submit::before{
-  content: "";
-  position: absolute; inset: 0;
-  display: block;
-  /* heart path as mask keeps background transparent */
+  content:""; position:absolute; inset:0; display:block;
   -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M32 51c-1.2 0-2.5-.4-3.4-1.2C22.3 45.9 14 39.3 10.8 33.4 8.4 29 9 23.5 12.4 20.1c3.6-3.6 9.5-3.9 13.6-.8 1.5 1.1 2.8 2.6 4 4.5 1.2-1.9 2.5-3.4 4-4.5 4.1-3.1 10-2.8 13.6.8 3.4 3.4 4 8.9 1.6 13.3-3.2 5.9-11.5 12.5-17.8 16.4-.9.6-2.2 1.2-3.4 1.2z' fill='%23000'/%3E%3C/svg%3E") center/contain no-repeat;
           mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M32 51c-1.2 0-2.5-.4-3.4-1.2C22.3 45.9 14 39.3 10.8 33.4 8.4 29 9 23.5 12.4 20.1c3.6-3.6 9.5-3.9 13.6-.8 1.5 1.1 2.8 2.6 4 4.5 1.2-1.9 2.5-3.4 4-4.5 4.1-3.1 10-2.8 13.6.8 3.4 3.4 4 8.9 1.6 13.3-3.2 5.9-11.5 12.5-17.8 16.4-.9.6-2.2 1.2-3.4 1.2z' fill='%23000'/%3E%3C/svg%3E") center/contain no-repeat;
   background: radial-gradient(circle at 35% 30%, #ffe8ee 0%, #ff9db0 55%, var(--banned-neon) 100%);
@@ -340,7 +337,6 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 }
 .heart-submit:hover{ transform: translateY(-1px); }
 .heart-submit:active{ transform: translateY(0) scale(.98); }
-
 @keyframes lbHeartBeat{
   0%,100%{ transform: scale(1); }
   15%{ transform: scale(1.12); }
