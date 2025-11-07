@@ -1,5 +1,6 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v4.5 – emits lb:orb-mode for runner sync)
+// src/components/BannedLogin.jsx  (v4.6 – theme-synced panel, neon banned, FL hover)
+// emits lb:orb-mode for runner sync
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -317,24 +318,15 @@ export default function BannedLogin({
             </button>
           </div>
 
-          {/* Bubble */}
+          {/* Bubble (theme-synced) */}
           {!hideBubble && (
             <div
+              className="panel-card"
               style={{
                 width: 'min(90vw, 300px)',
-                background: 'rgba(18,18,22,0.92)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 14,
-                padding: '14px 16px',
-                boxShadow: '0 12px 28px rgba(0,0,0,0.45)',
-                backdropFilter: 'blur(14px)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center'
+                role: view==='login' ? 'form' : undefined,
+                tabIndex: view==='login' ? 0 : -1
               }}
-              role={view==='login' ? 'form' : undefined}
-              tabIndex={view==='login' ? 0 : -1}
             >
               {view==='banned' ? (
                 <pre className="code-tight" style={{ margin:0 }}>
@@ -342,10 +334,10 @@ export default function BannedLogin({
                   <Wordmark onClickWordmark={() => setFlyOnce(true)} lRef={lRef} yRef={yRef} />
                   {'\n'}
                   <span className="lb-seafoam code-comment neon-glow">//</span>{' '}
-                  <span className="code-banned neon-red">is </span>
+                  <span className="code-banned banned-neon">is </span>
                   <span
                     role="button" tabIndex={0}
-                    className="code-banned neon-red banned-trigger"
+                    className="code-banned banned-neon banned-trigger"
                     onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}
                     onKeyDown={(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleOrbColor(); }}}
                     title="Toggle orb color"
@@ -380,7 +372,7 @@ export default function BannedLogin({
                       ref={emailRef} className="code-input" value={email} onChange={(e)=>setEmail(e.target.value)}
                       placeholder="you@example.com" inputMode="email" autoComplete="email" autoCapitalize="none" autoCorrect="off"
                       size={Math.max(1, (email || '').length)}
-                      style={{ flex:'1 1 auto', minWidth:'12ch', background:'transparent', border:'0', outline:'0', color:'#eaeaea', fontFamily:'inherit', fontSize:'inherit' }}
+                      style={{ flex:'1 1 auto', minWidth:'12ch', background:'transparent', border:'0', outline:'0', color:'var(--text, #eaeaea)', fontFamily:'inherit', fontSize:'inherit' }}
                     />
                     <span className="nogap"><span className="code-string neon-glow">"</span><span className="code-punc neon-glow">;</span></span>
                   </div>
@@ -393,7 +385,7 @@ export default function BannedLogin({
                       className="code-input" value={phone} onChange={(e)=>setPhone(e.target.value)}
                       placeholder="+1 305 555 0123" inputMode="tel" autoComplete="tel"
                       size={Math.max(1, (phone || '').length)}
-                      style={{ flex:'1 1 auto', minWidth:'10ch', background:'transparent', border:'0', outline:'0', color:'#eaeaea', fontFamily:'inherit', fontSize:'inherit' }}
+                      style={{ flex:'1 1 auto', minWidth:'10ch', background:'transparent', border:'0', outline:'0', color:'var(--text, #eaeaea)', fontFamily:'inherit', fontSize:'inherit' }}
                     />
                     <span className="nogap"><span className="code-string neon-glow">"</span><span className="code-punc neon-glow">;</span></span>
                   </div>
@@ -427,18 +419,50 @@ export default function BannedLogin({
 
       {/* ---- Global neon + code cosmetics ---- */}
       <style jsx global>{`
+        /* ===== Theme-synced panel card ===== */
+        .panel-card{
+          background: var(--panel, rgba(18,18,22,0.92));
+          color: var(--text, #eaeaea);
+          border: 1px solid var(--panel-border, rgba(0,0,0,0.12));
+          border-radius: 14px;
+          padding: 14px 16px;
+          box-shadow: var(--panel-shadow, 0 12px 28px rgba(0,0,0,0.45));
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+
+        /* ===== Neon utilities ===== */
         .neon-glow {
           text-shadow:
             0 0 6px rgba(50,255,199,.55),
             0 0 14px rgba(50,255,199,.38),
             0 0 26px rgba(50,255,199,.22);
         }
-        .neon-red {
+        .banned-neon {
+          color: var(--banned-neon, #ff073a);
           text-shadow:
-            0 0 6px rgba(255,50,50,.55),
-            0 0 14px rgba(255,50,50,.38),
-            0 0 26px rgba(255,50,50,.22);
+            0 0 4px  var(--banned-neon, #ff073a),
+            0 0 10px var(--banned-neon, #ff073a),
+            0 0 18px var(--banned-neon, #ff073a);
+          font-weight: 800;
+          letter-spacing: .04em;
         }
+
+        /* ===== Florida link hover: neon yellow ===== */
+        .florida-link{
+          color: var(--text, #eaeaea);
+          transition: color .12s ease, text-shadow .12s ease, transform .08s ease;
+        }
+        .florida-link:hover, .florida-link.is-hot{
+          color:#ffd60a;
+          text-shadow:
+            0 0 6px rgba(255,214,10,.65),
+            0 0 14px rgba(255,214,10,.42),
+            0 0 22px rgba(255,214,10,.26);
+        }
+
+        /* ===== Pills & code ===== */
         .pill{
           display:inline-flex; align-items:center; justify-content:center;
           height:28px; min-width:28px; padding:0 10px; border-radius:999px;
@@ -449,7 +473,7 @@ export default function BannedLogin({
         }
         .pill.neon{ box-shadow: 0 0 8px rgba(50,255,199,.45), inset 0 0 0 1px rgba(50,255,199,.25); border-color:rgba(50,255,199,.55); }
 
-        .code-tight{ color:#eaeaea; font: 600 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+        .code-tight{ color:var(--text, #eaeaea); font: 600 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
         .code-comment{ color:#ccfff3; opacity:.85; }
         .code-keyword, .code-var, .code-op, .code-punc{ color:#ccfff3; }
         .code-string{ color:#ccfff3; }

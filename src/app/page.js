@@ -15,7 +15,7 @@ const DayNightToggle     = nextDynamic(() => import('@/components/DayNightToggle
 const BannedLogin        = nextDynamic(() => import('@/components/BannedLogin'),        { ssr: false });
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), { ssr: false });
 // NEW:
-const HeartSubmitFAB     = nextDynamic(() => import('@/components/HeartSubmitFAB'),     { ssr: false });
+const HeartSubmitFAB     = nextDynamic(() => import('@/components/HeartBeatButton'),     { ssr: false });
 
 const HEADER_H = 86;
 
