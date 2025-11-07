@@ -14,10 +14,11 @@ const CartButton         = nextDynamic(() => import('@/components/CartButton'), 
 const DayNightToggle     = nextDynamic(() => import('@/components/DayNightToggle'),     { ssr: false });
 const BannedLogin        = nextDynamic(() => import('@/components/BannedLogin'),        { ssr: false });
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), { ssr: false });
-// NEW:
-const HeartSubmitFAB     = nextDynamic(() => import('@/components/HeartBeatButton'),     { ssr: false });
+// Heart: bottom-right, no circle
+const HeartBeatButton    = nextDynamic(() => import('@/components/HeartBeatButton'),    { ssr: false });
 
 const HEADER_H = 86;
+const RUNNER_H = 14;
 
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
@@ -43,19 +44,22 @@ export default function Page(){
   const [veil,  setVeil]    = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
 
+  // reflect mode/theme + header size + runner height (for heart offset)
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
+    root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
+    root.style.setProperty('--runner-h', `${RUNNER_H}px`);
     if (isShop) {
       root.setAttribute('data-shop-root','');
       if (!root.style.getPropertyValue('--grid-cols')) root.style.setProperty('--grid-cols','5');
     } else {
       root.removeAttribute('data-shop-root');
     }
-    root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
+  // listen for theme-change events from the toggle
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
@@ -66,6 +70,7 @@ export default function Page(){
     };
   }, []);
 
+  // white veil when entering shop via cascade
   useEffect(() => {
     if (!isShop) return;
     try {
@@ -115,8 +120,8 @@ export default function Page(){
           <main style={{ paddingTop: HEADER_H }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
 
-            {/* NEW: Heart FAB opens the login modal */}
-            <HeartSubmitFAB onClick={() => setLoginOpen(true)} />
+            {/* Heart FAB opens the login modal (bottom-right, safe-area aware) */}
+            <HeartBeatButton onClick={() => setLoginOpen(true)} />
             {loginOpen && (
               <div
                 role="dialog"
@@ -131,7 +136,7 @@ export default function Page(){
             )}
           </main>
 
-          <ChakraBottomRunner height={14} speedSec={12} />
+          <ChakraBottomRunner height={RUNNER_H} speedSec={12} />
         </>
       )}
 
