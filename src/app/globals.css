@@ -11,7 +11,7 @@
   --accent:#1991ff; --focus-orange:#f7a02d;
   --hover-green:#0bf05f; --seafoam:#2ee6b8; --purple:#a855f7;
 
-  /* code tokens */
+  /* code tokens (night defaults) */
   --comment:var(--seafoam); --string:#ce9178; --keyword:#9cdcfe;
   --var:#dcdcaa; --punct:#ffffff; --op:#ffffff;
 
@@ -26,6 +26,9 @@
 
   /* product grid columns (1..5) */
   --grid-cols:5;
+
+  /* neon colors */
+  --banned-neon:#ff073a;
 }
 
 /* Theme hint for native form controls */
@@ -271,72 +274,78 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 .plus-pill.is-ready { background:var(--hover-green); color:#000; }
 
 /* ====================================================================== */
-/* ================= ❤️ GLOWING RED HEART SUBMIT BUTTON ================= */
+/* ================= Day-mode legibility for console/bubble ============= */
 /* ====================================================================== */
 
-.heart-submit{
-  width:70px;
-  height:70px;
-  border:none;
-  cursor:pointer;
-  background: radial-gradient(circle at 30% 30%, #ff709e, #d4004c 70%);
-  border-radius:50% 50% 45% 45% / 60% 60% 40% 40%;
-  position:relative;
-  transition:transform .25s ease, filter .25s ease;
-  box-shadow:
-    0 0 15px rgba(255,0,60,.7),
-    0 0 35px rgba(255,0,60,.5),
-    inset 0 0 12px rgba(255,255,255,.5);
+/* tie code classes to token vars, then flip vars in day mode */
+.code-tight{ color: var(--text); }
+.code-comment{ color: var(--comment); }
+.code-string{ color: var(--string); }
+.code-keyword{ color: var(--keyword); }
+.code-var{ color: var(--var); }
+.code-punc{ color: var(--punct); }
+.code-op{ color: var(--op); }
+
+/* Day overrides: black text, no mint glow */
+:root[data-theme="day"]{
+  --text:#111;
+  --comment:#111;
+  --string:#111;
+  --keyword:#111;
+  --var:#111;
+  --punct:#111;
+  --op:#111;
+}
+:root[data-theme="day"] .neon-glow{ text-shadow:none !important; }
+
+/* Always-on neon for the word “banned” */
+.banned-neon{
+  color: var(--banned-neon);
+  text-shadow:
+    0 0 4px  var(--banned-neon),
+    0 0 10px var(--banned-neon),
+    0 0 18px var(--banned-neon);
+  font-weight:800; letter-spacing:.04em;
 }
 
-/* glossy highlight */
+/* ====================================================================== */
+/* ================= ❤️ HEART-ONLY SUBMIT (glow + beat) ================= */
+/* ====================================================================== */
+
+/* Remove any previous heart FAB styles before this replacement */
+.heart-submit{
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(16px + var(--runner-h, 10px)); /* sit above chakra runner */
+  z-index: 10010;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;           /* NO CIRCLE/BUBBLE */
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateZ(0);
+}
 .heart-submit::before{
-  content:"";
-  position:absolute; top:10%; left:22%;
-  width:40%; height:22%;
-  background:rgba(255,255,255,.6);
-  filter:blur(10px);
-  border-radius:50%;
+  content: "";
+  position: absolute; inset: 0;
+  display: block;
+  /* heart path as mask keeps background transparent */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M32 51c-1.2 0-2.5-.4-3.4-1.2C22.3 45.9 14 39.3 10.8 33.4 8.4 29 9 23.5 12.4 20.1c3.6-3.6 9.5-3.9 13.6-.8 1.5 1.1 2.8 2.6 4 4.5 1.2-1.9 2.5-3.4 4-4.5 4.1-3.1 10-2.8 13.6.8 3.4 3.4 4 8.9 1.6 13.3-3.2 5.9-11.5 12.5-17.8 16.4-.9.6-2.2 1.2-3.4 1.2z' fill='%23000'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M32 51c-1.2 0-2.5-.4-3.4-1.2C22.3 45.9 14 39.3 10.8 33.4 8.4 29 9 23.5 12.4 20.1c3.6-3.6 9.5-3.9 13.6-.8 1.5 1.1 2.8 2.6 4 4.5 1.2-1.9 2.5-3.4 4-4.5 4.1-3.1 10-2.8 13.6.8 3.4 3.4 4 8.9 1.6 13.3-3.2 5.9-11.5 12.5-17.8 16.4-.9.6-2.2 1.2-3.4 1.2z' fill='%23000'/%3E%3C/svg%3E") center/contain no-repeat;
+  background: radial-gradient(circle at 35% 30%, #ffe8ee 0%, #ff9db0 55%, var(--banned-neon) 100%);
+  filter: drop-shadow(0 0 6px rgba(255,42,79,.9)) drop-shadow(0 0 14px rgba(255,42,79,.6));
+  animation: lbHeartBeat 1.15s ease-in-out infinite;
 }
+.heart-submit:hover{ transform: translateY(-1px); }
+.heart-submit:active{ transform: translateY(0) scale(.98); }
 
-/* sparkle flare */
-.heart-submit::after{
-  content:"";
-  position:absolute; right:12%; top:28%;
-  width:14px; height:14px;
-  background:rgba(255,255,255,.95);
-  border-radius:50%;
-  filter:blur(4px);
+@keyframes lbHeartBeat{
+  0%,100%{ transform: scale(1); }
+  15%{ transform: scale(1.12); }
+  30%{ transform: scale(1.03); }
+  45%{ transform: scale(1.14); }
+  60%{ transform: scale(1.02); }
+  75%{ transform: scale(1.08); }
 }
-
-/* hover glow */
-.heart-submit:hover{
-  transform:scale(1.12);
-  filter:brightness(1.25);
-  box-shadow:
-    0 0 25px rgba(255,0,60,.9),
-    0 0 55px rgba(255,0,60,.6),
-    inset 0 0 16px rgba(255,255,255,.7);
-}
-
-/* press */
-.heart-submit:active{ transform:scale(0.92); }
-
-/* --- Submit FAB (heart) --- */
-.heart-submit{
-  position:fixed; right:18px; bottom:18px; z-index:520;
-  width:52px; height:52px; border-radius:9999px; border:0;
-  background:
-    radial-gradient(circle at 35% 35%, #ff5a5a 0%, #ff1a42 60%, #b10a25 100%);
-  box-shadow:
-    0 8px 24px rgba(255, 26, 66, .28),
-    inset 0 0 0 1px rgba(255,255,255,.35);
-  cursor:pointer;
-}
-.heart-submit:after{
-  content:'❤'; color:#fff; font-weight:900; font-size:20px;
-  position:absolute; inset:0; display:grid; place-items:center;
-  filter:drop-shadow(0 0 6px rgba(255,255,255,.45));
-}
-.heart-submit:hover{ transform:translateY(-1px); }
-.heart-submit:active{ transform:translateY(0); filter:saturate(1.1); }
