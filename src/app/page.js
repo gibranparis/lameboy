@@ -6,13 +6,13 @@ import nextDynamic from 'next/dynamic';
 import React, { useEffect, useMemo, useState } from 'react';
 import products from '@/lib/products';
 
-const LandingGate     = nextDynamic(() => import('@/components/LandingGate'),     { ssr: false });
-const ShopGrid        = nextDynamic(() => import('@/components/ShopGrid'),        { ssr: false });
-const ChakraOrbButton = nextDynamic(() => import('@/components/ChakraOrbButton'), { ssr: false });
-const CartButton      = nextDynamic(() => import('@/components/CartButton'),      { ssr: false });
-const DayNightToggle  = nextDynamic(() => import('@/components/DayNightToggle'),  { ssr: false });
-const BannedLogin     = nextDynamic(() => import('@/components/BannedLogin'),     { ssr: false });
-const ChakraTickerBar = nextDynamic(() => import('@/components/ChakraTickerBar'), { ssr: false });
+const LandingGate       = nextDynamic(() => import('@/components/LandingGate'),       { ssr: false });
+const ShopGrid          = nextDynamic(() => import('@/components/ShopGrid'),          { ssr: false });
+const ChakraOrbButton   = nextDynamic(() => import('@/components/ChakraOrbButton'),   { ssr: false });
+const CartButton        = nextDynamic(() => import('@/components/CartButton'),        { ssr: false });
+const DayNightToggle    = nextDynamic(() => import('@/components/DayNightToggle'),    { ssr: false });
+const BannedLogin       = nextDynamic(() => import('@/components/BannedLogin'),       { ssr: false });
+const ChakraBottomRunner= nextDynamic(() => import('@/components/ChakraBottomRunner'),{ ssr: false });
 
 const HEADER_H = 86;
 
@@ -38,11 +38,8 @@ export default function Page(){
   const [theme, setTheme]   = useState('day');
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
-
-  // submit/login modal on shop
   const [loginOpen, setLoginOpen] = useState(false);
 
-  // reflect attributes
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -56,7 +53,6 @@ export default function Page(){
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // listen to theme-change from toggles
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
@@ -67,7 +63,6 @@ export default function Page(){
     };
   }, []);
 
-  // white veil after cascade into shop (set by landing or banned)
   useEffect(() => {
     if (!isShop) return;
     try {
@@ -101,17 +96,14 @@ export default function Page(){
       ) : (
         <>
           <header role="banner" style={headerStyle}>
-            {/* LEFT: orb */}
             <div style={{ display:'grid', justifyContent:'start' }}>
               <ChakraOrbButton size={64} className="orb-ring" style={{ display:'grid', placeItems:'center' }} />
             </div>
 
-            {/* CENTER: day/night toggle */}
             <div id="lb-daynight" style={{ display:'grid', placeItems:'center' }}>
               <DayNightToggle circlePx={28} trackPad={1} moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']} />
             </div>
 
-            {/* RIGHT: cart */}
             <div style={{ display:'grid', justifyContent:'end' }}>
               <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
                 <CartButton inHeader />
@@ -122,7 +114,6 @@ export default function Page(){
           <main style={{ paddingTop: HEADER_H }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
 
-            {/* Submit FAB → open banned login in LOGIN mode (glowing red heart) */}
             <button
               type="button"
               onClick={() => setLoginOpen(true)}
@@ -154,8 +145,8 @@ export default function Page(){
         </>
       )}
 
-      {/* Always-on bottom chakra ticker */}
-      <ChakraTickerBar height={14} speedSec={12} />
+      {/* ✅ Bottom Chakra Runner — ALWAYS ON */}
+      <ChakraBottomRunner height={14} speedSec={12} />
 
       {veil && (
         <div

@@ -4,22 +4,27 @@
 import { useMemo } from 'react';
 
 /**
- * Fixed bottom border ticker that continuously runs chakra bands from right → left.
- * - Same 7 colors as your cascade
- * - Safe-area aware
- * - Honors prefers-reduced-motion
- * - Sits above page content, below header/cart FAB
+ * Chakra bottom runner — continuous right→left ticker strip.
+ * Same 7 chakra bands, subtle glow, safe-area padding, reduced-motion safe.
  */
-export default function ChakraTickerBar({
-  height = 14,      // band height in px
+export default function ChakraBottomRunner({
+  height = 14,      // visual height
   speedSec = 12,    // lower = faster
-  zIndex = 260,     // below header(500)/overlays(420+), above grid
+  zIndex = 260,     // sits above grid, below modals/header
 } = {}) {
   const H = Math.max(8, Math.round(height));
   const S = Math.max(4, Math.round(speedSec));
-  const uid = useMemo(() => `chakraTicker_${Math.random().toString(36).slice(2)}`, []);
+  const uid = useMemo(() => `chakraRunner_${Math.random().toString(36).slice(2)}`, []);
 
-  const colors = ['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'];
+  const colors = [
+    '#ef4444', // red
+    '#f97316', // orange
+    '#facc15', // yellow
+    '#22c55e', // green
+    '#3b82f6', // blue
+    '#4f46e5', // indigo
+    '#c084fc', // violet
+  ];
 
   return (
     <div
@@ -29,63 +34,74 @@ export default function ChakraTickerBar({
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex,
         paddingBottom: 'env(safe-area-inset-bottom)',
+        zIndex,
         pointerEvents: 'none',
       }}
     >
-      <div className={`${uid} ticker-shell`}>
+      <div className={`${uid}-shell`}>
         <div className="track">
-          {/* two identical runs inside the moving track */}
           <Run colors={colors} />
           <Run colors={colors} />
         </div>
       </div>
 
       <style jsx>{`
-        .${uid}.ticker-shell{
+        .${uid}-shell {
           height: ${H}px;
           overflow: hidden;
           position: relative;
-          -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 6%, rgba(0,0,0,1) 94%, rgba(0,0,0,0) 100%);
-                  mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 6%, rgba(0,0,0,1) 94%, rgba(0,0,0,0) 100%);
+          -webkit-mask-image: linear-gradient(
+            90deg,
+            transparent 0%,
+            black 6%,
+            black 94%,
+            transparent 100%
+          );
+          mask-image: linear-gradient(
+            90deg,
+            transparent 0%,
+            black 6%,
+            black 94%,
+            transparent 100%
+          );
         }
 
-        .${uid} .track{
+        .${uid}-shell .track {
           display: grid;
           grid-auto-flow: column;
           grid-auto-columns: 100%;
-          width: 200%; /* two full runs side by side */
+          width: 200%;
           height: 100%;
-          transform: translateX(0);
           animation: ${uid}-scroll ${S}s linear infinite;
         }
         @media (prefers-reduced-motion: reduce) {
-          .${uid} .track{ animation: none; }
+          .${uid}-shell .track { animation: none; }
         }
 
-        .${uid} .run{
+        .${uid}-shell .run {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
           height: 100%;
         }
-        .${uid} .band{
-          position: relative;
+
+        .${uid}-shell .band {
           height: 100%;
+          position: relative;
         }
-        .${uid} .band::after{
+        .${uid}-shell .band::after {
           content: "";
           position: absolute;
           inset: -8px 0 -8px 0;
+          background: currentColor;
           filter: blur(10px);
           opacity: .55;
           pointer-events: none;
-          background: currentColor;
         }
 
         @keyframes ${uid}-scroll {
           0%   { transform: translateX(0%); }
-          100% { transform: translateX(-50%); } /* slide by exactly one run */
+          100% { transform: translateX(-50%); }
         }
       `}</style>
     </div>
@@ -96,7 +112,7 @@ function Run({ colors }) {
   return (
     <div className="run" aria-hidden>
       {colors.map((c, i) => (
-        <div key={i} className="band" style={{ color: c, background: c }} />
+        <div key={i} className="band" style={{ background: c, color: c }} />
       ))}
     </div>
   );
