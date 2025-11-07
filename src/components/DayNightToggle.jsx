@@ -7,7 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 /** @typedef {'day'|'night'} Theme */
 const THEME_KEY = 'lb:theme';
 
-// ---------- Ridged Sun SVG ----------
+/* ---------- Ridged Sun SVG ---------- */
 function SunIcon({ size = 28 }) {
   const id = useId();
   const spokes = 16;
@@ -46,6 +46,46 @@ function SunIcon({ size = 28 }) {
   );
 }
 
+/* ---------- Tiny cloud layer (day) ---------- */
+function Clouds() {
+  return (
+    <>
+      <span
+        aria-hidden
+        style={{
+          position:'absolute', inset:0, borderRadius:9999, overflow:'hidden', pointerEvents:'none',
+          background:
+            'linear-gradient(180deg,#bfe7ff 0%, #dff4ff 60%, #ffffff 100%)',
+        }}
+      />
+      {/* front cloud wisp */}
+      <span
+        aria-hidden
+        style={{
+          position:'absolute', top:'22%', left:'-25%', width:'60%', height:'40%',
+          background:'radial-gradient(60% 60% at 50% 50%, rgba(255,255,255,.85), rgba(255,255,255,0))',
+          filter:'blur(4px)', opacity:.8, borderRadius:9999,
+          transform:'translateX(-4%)',
+          animation:'cloudMove 12s ease-in-out infinite alternate',
+          pointerEvents:'none',
+        }}
+      />
+      {/* back cloud wisp */}
+      <span
+        aria-hidden
+        style={{
+          position:'absolute', bottom:'18%', right:'-20%', width:'55%', height:'36%',
+          background:'radial-gradient(60% 60% at 50% 50%, rgba(255,255,255,.75), rgba(255,255,255,0))',
+          filter:'blur(5px)', opacity:.7, borderRadius:9999,
+          transform:'translateX(6%)',
+          animation:'cloudMove 14s ease-in-out infinite alternate-reverse',
+          pointerEvents:'none',
+        }}
+      />
+    </>
+  );
+}
+
 export default function DayNightToggle({
   id,
   className = '',
@@ -54,6 +94,7 @@ export default function DayNightToggle({
   circlePx = 28,
   trackPad = 1,
   moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
+  onThemeChange,                 /** @type {(t: Theme) => void | undefined} */
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
 
@@ -62,7 +103,7 @@ export default function DayNightToggle({
   const theme = (isControlled ? value : internal) ?? 'day';
   const isNight = theme === 'night';
 
-  // uncontrolled boot from localStorage
+  // uncontrolled boot from localStorage / system
   useEffect(() => {
     if (!isControlled) {
       let initial = 'day';
@@ -87,10 +128,18 @@ export default function DayNightToggle({
       document.dispatchEvent(evt);
       window.dispatchEvent?.(evt);
     } catch {}
-  }, [theme, isNight]);
+    onThemeChange?.(theme);
+  }, [theme, isNight, onThemeChange]);
 
   function setTheme(next /** @type {Theme} */) { isControlled ? onChange?.(next) : setInternal(next); }
   function toggle() { setTheme(isNight ? 'day' : 'night'); }
+
+  // preload moon to avoid first-switch flash
+  useEffect(() => {
+    const src = (Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/moon-red.png');
+    const img = new Image();
+    img.src = src;
+  }, [moonImages]);
 
   // Sizing
   const dims = useMemo(() => {
@@ -115,7 +164,7 @@ export default function DayNightToggle({
     if (!ctx) return;
 
     let W = 0, H = 0, DPR = 1;
-    let rafId = 0; // ✅ single variable; no re-declare
+    let rafId = 0;
 
     const resizeCanvas = () => {
       try {
@@ -233,15 +282,23 @@ export default function DayNightToggle({
     rafId = requestAnimationFrame(LOOP);
     return () => {
       try { cancelAnimationFrame(rafId); } catch {}
-      if (ro) { try { ro.disconnect(); } catch {} }
-      else { window.removeEventListener('resize', resizeCanvas); }
+      try { ro ? ro.disconnect() : window.removeEventListener('resize', resizeCanvas); } catch {}
     };
   }, [isNight]);
+
+  // keyboard a11y
+  function onKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggle();
+    }
+  }
 
   return (
     <button
       id={id}
       onClick={toggle}
+      onKeyDown={onKeyDown}
       aria-label="Toggle day / night"
       role="switch"
       aria-checked={isNight}
@@ -259,16 +316,17 @@ export default function DayNightToggle({
         outline:'none',
       }}
     >
-      {/* DAY BACKDROP */}
+      {/* DAY BACKDROP (+ clouds) */}
       <span
         aria-hidden
         style={{
           position:'absolute', inset:0, borderRadius:9999,
-          background:'linear-gradient(180deg,#bfe7ff 0%, #dff4ff 60%, #ffffff 100%)',
           opacity: isNight ? 0 : 1,
           transition:'opacity 400ms ease',
         }}
-      />
+      >
+        {!isNight && <Clouds />}
+      </span>
 
       {/* NIGHT SKY (canvas) */}
       {isNight && (
