@@ -7,13 +7,15 @@ import nextDynamic from 'next/dynamic';
 import React, { useEffect, useMemo, useState } from 'react';
 import products from '@/lib/products';
 
-const LandingGate       = nextDynamic(() => import('@/components/LandingGate'),       { ssr: false });
-const ShopGrid          = nextDynamic(() => import('@/components/ShopGrid'),          { ssr: false });
-const ChakraOrbButton   = nextDynamic(() => import('@/components/ChakraOrbButton'),   { ssr: false });
-const CartButton        = nextDynamic(() => import('@/components/CartButton'),        { ssr: false });
-const DayNightToggle    = nextDynamic(() => import('@/components/DayNightToggle'),    { ssr: false });
-const BannedLogin       = nextDynamic(() => import('@/components/BannedLogin'),       { ssr: false });
-const ChakraBottomRunner= nextDynamic(() => import('@/components/ChakraBottomRunner'),{ ssr: false });
+const LandingGate        = nextDynamic(() => import('@/components/LandingGate'),        { ssr: false });
+const ShopGrid           = nextDynamic(() => import('@/components/ShopGrid'),           { ssr: false });
+const ChakraOrbButton    = nextDynamic(() => import('@/components/ChakraOrbButton'),    { ssr: false });
+const CartButton         = nextDynamic(() => import('@/components/CartButton'),         { ssr: false });
+const DayNightToggle     = nextDynamic(() => import('@/components/DayNightToggle'),     { ssr: false });
+const BannedLogin        = nextDynamic(() => import('@/components/BannedLogin'),        { ssr: false });
+const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), { ssr: false });
+// NEW:
+const HeartSubmitFAB     = nextDynamic(() => import('@/components/HeartSubmitFAB'),     { ssr: false });
 
 const HEADER_H = 86;
 
@@ -113,16 +115,8 @@ export default function Page(){
           <main style={{ paddingTop: HEADER_H }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
 
-            {/* Submit FAB → opens login modal */}
-            <button
-              type="button"
-              onClick={() => setLoginOpen(true)}
-              aria-label="Submit"
-              title="Submit"
-              className="heart-submit"
-              style={{ position:'fixed', right:18, bottom:18, zIndex:520 }}
-            />
-
+            {/* NEW: Heart FAB opens the login modal */}
+            <HeartSubmitFAB onClick={() => setLoginOpen(true)} />
             {loginOpen && (
               <div
                 role="dialog"
@@ -137,7 +131,6 @@ export default function Page(){
             )}
           </main>
 
-          {/* Chakra runner ONLY in shop */}
           <ChakraBottomRunner height={14} speedSec={12} />
         </>
       )}
