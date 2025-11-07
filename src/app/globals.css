@@ -269,3 +269,55 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 .flash-green{ animation:flashGreen .26s ease; }
 .plus-pill.is-active{ background:#d1d5db; color:#111; }
 .plus-pill.is-ready { background:var(--hover-green); color:#000; }
+
+/* ====================================================================== */
+/* ================= ❤️ GLOWING RED HEART SUBMIT BUTTON ================= */
+/* ====================================================================== */
+
+.heart-submit{
+  width:70px;
+  height:70px;
+  border:none;
+  cursor:pointer;
+  background: radial-gradient(circle at 30% 30%, #ff709e, #d4004c 70%);
+  border-radius:50% 50% 45% 45% / 60% 60% 40% 40%;
+  position:relative;
+  transition:transform .25s ease, filter .25s ease;
+  box-shadow:
+    0 0 15px rgba(255,0,60,.7),
+    0 0 35px rgba(255,0,60,.5),
+    inset 0 0 12px rgba(255,255,255,.5);
+}
+
+/* glossy highlight */
+.heart-submit::before{
+  content:"";
+  position:absolute; top:10%; left:22%;
+  width:40%; height:22%;
+  background:rgba(255,255,255,.6);
+  filter:blur(10px);
+  border-radius:50%;
+}
+
+/* sparkle flare */
+.heart-submit::after{
+  content:"";
+  position:absolute; right:12%; top:28%;
+  width:14px; height:14px;
+  background:rgba(255,255,255,.95);
+  border-radius:50%;
+  filter:blur(4px);
+}
+
+/* hover glow */
+.heart-submit:hover{
+  transform:scale(1.12);
+  filter:brightness(1.25);
+  box-shadow:
+    0 0 25px rgba(255,0,60,.9),
+    0 0 55px rgba(255,0,60,.6),
+    inset 0 0 16px rgba(255,255,255,.7);
+}
+
+/* press */
+.heart-submit:active{ transform:scale(0.92); }
