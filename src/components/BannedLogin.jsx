@@ -1,5 +1,5 @@
 // @ts-check
-// src/components/BannedLogin.jsx  (v4.4 – fixed-width bubble, restored neon, centered layout)
+// src/components/BannedLogin.jsx  (v4.5 – emits lb:orb-mode for runner sync)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -82,11 +82,12 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   );
 }
 
-/* --------------- ConsoleTyper: one line at a time with beat ----------- */
+/* --------------- ConsoleTyper -------------------------------------- */
+/** @param {{messages:string[], cps:number, jitter:number, punctDelayMs:number, lineHoldMs:number, lineBeatMs:number, loop:boolean}} p */
 function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBeatMs, loop }) {
   const [i, setI] = useState(0);
   const [n, setN] = useState(0);
-  const [phase, setPhase] = useState/** @type {'typing'|'hold'|'beat'} */('typing');
+  const [phase, setPhase] = useState(/** @type {'typing'|'hold'|'beat'} */('typing'));
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const line = messages[i] ?? '';
@@ -95,11 +96,7 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
   useEffect(() => {
     if (reduceMotion) return;
     if (phase !== 'typing') return;
-
-    if (n >= line.length) {
-      setPhase('hold');
-      return;
-    }
+    if (n >= line.length) { setPhase('hold'); return; }
 
     const baseMs = 1000 / Math.max(1, cps);
     const r = (Math.random() * 2 - 1) * jitter;
@@ -113,15 +110,13 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
   }, [n, line, cps, jitter, punctDelayMs, phase, reduceMotion]);
 
   useEffect(() => {
-    if (reduceMotion) return;
-    if (phase !== 'hold') return;
+    if (reduceMotion || phase !== 'hold') return;
     const id = setTimeout(() => setPhase('beat'), Math.max(0, lineHoldMs));
     return () => clearTimeout(id);
   }, [phase, lineHoldMs, reduceMotion]);
 
   useEffect(() => {
-    if (reduceMotion) return;
-    if (phase !== 'beat') return;
+    if (reduceMotion || phase !== 'beat') return;
     const id = setTimeout(() => {
       const next = i + 1;
       if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
@@ -132,12 +127,9 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
 
   const onClick = useCallback(() => {
     if (reduceMotion) return;
-    if (phase === 'typing') {
-      setN(line.length);
-      setPhase('hold');
-    } else if (phase === 'hold') {
-      setPhase('beat');
-    } else {
+    if (phase === 'typing') { setN(line.length); setPhase('hold'); }
+    else if (phase === 'hold') { setPhase('beat'); }
+    else {
       const next = i + 1;
       if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
       else if (loop) { setI(0); setN(0); setPhase('typing'); }
@@ -170,16 +162,14 @@ function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBea
 export default function BannedLogin({
   onProceed,
   sysMessages,
-  startView,            // 'login' | 'banned'
   cps = 13,
   jitter = 0.25,
   punctDelayMs = 220,
   lineHoldMs = 900,
-  lineBeatMs = 180,     // the little dramatic beat
+  lineBeatMs = 180,
   loop = true
 }) {
-  /** @type {'banned'|'login'} */
-  const [view, setView] = useState(startView === 'login' ? 'login' : 'banned');
+  /** @type {'banned'|'login'} */ const [view, setView] = useState('banned');
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
   const [whiteout, setWhiteout] = useState(false);
@@ -189,8 +179,9 @@ export default function BannedLogin({
   /** @type {'link'|'bypass'|null} */ const [activated, setActivated] = useState(null);
 
   const [email, setEmail] = useState(''); const [phone, setPhone] = useState('');
-  const emailRef = useRef/** @type {HTMLInputElement|null} */(null);
+  const emailRef = useRef(/** @type {HTMLInputElement|null} */(null));
 
+  // lock scroll during cascade/whiteout
   useEffect(() => {
     const lock = cascade || whiteout;
     const prev = document.body.style.overflow;
@@ -198,6 +189,7 @@ export default function BannedLogin({
     return () => { document.body.style.overflow = prev; };
   }, [cascade, whiteout]);
 
+  /** Run neon cascade and enter shop (single-page) */
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
@@ -221,22 +213,37 @@ export default function BannedLogin({
   const SEAFOAM = '#32ffc7'; const RED = '#ff001a';
   /** @type {'chakra'|'red'} */ const [orbMode, setOrbMode] = useState('chakra');
   const [orbGlow, setOrbGlow] = useState(0.9); const [orbVersion, setOrbVersion] = useState(0);
+
+  // ✅ broadcast helper
+  const broadcastOrbMode = useCallback((m) => {
+    try {
+      const evt = new CustomEvent('lb:orb-mode', { detail: { mode: m } });
+      window.dispatchEvent(evt);
+      document.dispatchEvent(evt);
+    } catch {}
+  }, []);
+
+  // initial broadcast: start as chakra
+  useEffect(() => { broadcastOrbMode('chakra'); }, [broadcastOrbMode]);
+
   const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
       setOrbGlow(next === 'red' ? 1.0 : 0.9);
       setOrbVersion(v => v + 1);
+      // ✅ announce to the world (ChakraBottomRunner listens)
+      broadcastOrbMode(next);
       return next;
     });
-  }, []);
+  }, [broadcastOrbMode]);
 
   // Long-press (press to cascade)
-  const pressTimer = useRef/** @type {ReturnType<typeof setTimeout> | null} */(null);
+  const pressTimer = useRef(/** @type {ReturnType<typeof setTimeout> | null} */(null));
   const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
   // Butterfly wordmark refs
-  const lRef = useRef/** @type {HTMLSpanElement|null} */(null);
-  const yRef = useRef/** @type {HTMLSpanElement|null} */(null);
+  const lRef = useRef(/** @type {HTMLSpanElement|null} */(null));
+  const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
   const [flyOnce, setFlyOnce] = useState(false);
 
   /* ======= Default computer-typed messages (no extra lines) ======= */
@@ -310,7 +317,7 @@ export default function BannedLogin({
             </button>
           </div>
 
-          {/* Bubble (fixed width; never stretches) */}
+          {/* Bubble */}
           {!hideBubble && (
             <div
               style={{
@@ -418,7 +425,7 @@ export default function BannedLogin({
         </div>
       )}
 
-      {/* ---- Global neon + code cosmetics (restored) ---- */}
+      {/* ---- Global neon + code cosmetics ---- */}
       <style jsx global>{`
         .neon-glow {
           text-shadow:

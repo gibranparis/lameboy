@@ -1,30 +1,61 @@
-// @ts-check
+// src/components/ChakraBottomRunner.jsx
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 /**
- * Chakra bottom runner — continuous right→left ticker strip.
- * Same 7 chakra bands, subtle glow, safe-area padding, reduced-motion safe.
+ * Always-on bottom ticker of 7 chakra bars moving right → left.
+ * Listens to `lb:orb-mode` events:
+ *   detail.mode: 'chakra' | 'red'
+ *
+ * Props:
+ * - height   : px height for the bar (default 14)
+ * - speedSec : seconds for one full loop (default 12)
+ * - zIndex   : stacking order (default 40, above backgrounds, under header)
  */
 export default function ChakraBottomRunner({
-  height = 14,      // visual height
-  speedSec = 12,    // lower = faster
-  zIndex = 260,     // sits above grid, below modals/header
-} = {}) {
-  const H = Math.max(8, Math.round(height));
-  const S = Math.max(4, Math.round(speedSec));
-  const uid = useMemo(() => `chakraRunner_${Math.random().toString(36).slice(2)}`, []);
+  height = 14,
+  speedSec = 12,
+  zIndex = 40,
+}) {
+  const [mode, setMode] = useState('chakra'); // 'chakra' | 'red'
 
-  const colors = [
-    '#ef4444', // red
-    '#f97316', // orange
-    '#facc15', // yellow
-    '#22c55e', // green
-    '#3b82f6', // blue
-    '#4f46e5', // indigo
-    '#c084fc', // violet
-  ];
+  // palette per mode
+  const palette = useMemo(() => {
+    if (mode === 'red') {
+      // crimson spectrum (light→deep) while preserving 7-bar rhythm
+      return ['#ffc1c1', '#ff9aa4', '#ff6b79', '#ff3a52', '#e8183a', '#bf0f2f', '#8f0a22'];
+    }
+    // chakra colors
+    return ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'];
+  }, [mode]);
+
+  useEffect(() => {
+    // initial sync (default chakra) + listen for orb mode changes
+    const onMode = (e) => {
+      const m = e?.detail?.mode;
+      setMode(m === 'red' ? 'red' : 'chakra');
+    };
+    window.addEventListener('lb:orb-mode', onMode);
+    document.addEventListener('lb:orb-mode', onMode);
+    return () => {
+      window.removeEventListener('lb:orb-mode', onMode);
+      document.removeEventListener('lb:orb-mode', onMode);
+    };
+  }, []);
+
+  // CSS vars for colors
+  const vars = {
+    '--c1': palette[0],
+    '--c2': palette[1],
+    '--c3': palette[2],
+    '--c4': palette[3],
+    '--c5': palette[4],
+    '--c6': palette[5],
+    '--c7': palette[6],
+    '--h': `${Math.max(6, Math.round(height))}px`,
+    '--dur': `${Math.max(4, Number(speedSec) || 12)}s`,
+  };
 
   return (
     <div
@@ -34,86 +65,72 @@ export default function ChakraBottomRunner({
         left: 0,
         right: 0,
         bottom: 0,
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        height: 'var(--h)',
         zIndex,
         pointerEvents: 'none',
+        overflow: 'hidden',
+        // slight backdrop for readability in day mode without being intrusive
+        background:
+          'linear-gradient(to top, rgba(0,0,0,.25), rgba(0,0,0,0))',
+        ...vars,
       }}
     >
-      <div className={`${uid}-shell`}>
-        <div className="track">
-          <Run colors={colors} />
-          <Run colors={colors} />
-        </div>
-      </div>
-
+      {/* Two identical tracks for seamless loop */}
+      <RunnerTrack />
+      <RunnerTrack mirror />
       <style jsx>{`
-        .${uid}-shell {
-          height: ${H}px;
-          overflow: hidden;
-          position: relative;
-          -webkit-mask-image: linear-gradient(
-            90deg,
-            transparent 0%,
-            black 6%,
-            black 94%,
-            transparent 100%
-          );
-          mask-image: linear-gradient(
-            90deg,
-            transparent 0%,
-            black 6%,
-            black 94%,
-            transparent 100%
-          );
-        }
-
-        .${uid}-shell .track {
-          display: grid;
-          grid-auto-flow: column;
-          grid-auto-columns: 100%;
-          width: 200%;
-          height: 100%;
-          animation: ${uid}-scroll ${S}s linear infinite;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .${uid}-shell .track { animation: none; }
-        }
-
-        .${uid}-shell .run {
-          display: grid;
-          grid-template-columns: repeat(7, 1fr);
-          height: 100%;
-        }
-
-        .${uid}-shell .band {
-          height: 100%;
-          position: relative;
-        }
-        .${uid}-shell .band::after {
-          content: "";
-          position: absolute;
-          inset: -8px 0 -8px 0;
-          background: currentColor;
-          filter: blur(10px);
-          opacity: .55;
-          pointer-events: none;
-        }
-
-        @keyframes ${uid}-scroll {
-          0%   { transform: translateX(0%); }
-          100% { transform: translateX(-50%); }
+        @keyframes lb-chakra-run {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
         }
       `}</style>
     </div>
   );
 }
 
-function Run({ colors }) {
+function RunnerTrack({ mirror = false }) {
   return (
-    <div className="run" aria-hidden>
-      {colors.map((c, i) => (
-        <div key={i} className="band" style={{ background: c, color: c }} />
-      ))}
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '200%',
+        display: 'grid',
+        gridAutoFlow: 'column',
+        gridTemplateColumns: 'repeat(14, minmax(0, 1fr))', // 7 bars * 2 sets
+        animation: 'lb-chakra-run var(--dur) linear infinite',
+        transform: mirror ? 'translateX(-50%)' : 'translateX(0%)',
+        mixBlendMode: 'normal',
+      }}
+    >
+      {/* First 7 */}
+      <Bar i={1} />
+      <Bar i={2} />
+      <Bar i={3} />
+      <Bar i={4} />
+      <Bar i={5} />
+      <Bar i={6} />
+      <Bar i={7} />
+      {/* Second 7 */}
+      <Bar i={1} />
+      <Bar i={2} />
+      <Bar i={3} />
+      <Bar i={4} />
+      <Bar i={5} />
+      <Bar i={6} />
+      <Bar i={7} />
     </div>
+  );
+}
+
+function Bar({ i }) {
+  return (
+    <div
+      style={{
+        height: 'var(--h)',
+        background: `var(--c${i})`,
+        boxShadow: '0 0 12px rgba(0,0,0,.15)',
+      }}
+    />
   );
 }
