@@ -120,21 +120,16 @@ export default function Page(){
 
           <main style={{ paddingTop: HEADER_H }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
-            {/* Submit FAB → open banned login in LOGIN mode */}
+
+            {/* Submit FAB → open banned login in LOGIN mode (glowing red heart) */}
             <button
               type="button"
               onClick={() => setLoginOpen(true)}
               aria-label="Submit"
-              style={{
-                position:'fixed', right:18, bottom:18, zIndex:520,
-                height:48, width:48, borderRadius:9999, border:'1px solid rgba(0,0,0,.14)',
-                background:'#fff', color:'#111', boxShadow:'0 6px 20px rgba(0,0,0,.20), inset 0 0 0 1px rgba(255,255,255,.55)',
-                fontWeight:900
-              }}
               title="Submit"
-            >
-              ↗
-            </button>
+              className="heart-submit"
+              style={{ position:'fixed', right:18, bottom:18, zIndex:520 }}
+            />
 
             {loginOpen && (
               <div
