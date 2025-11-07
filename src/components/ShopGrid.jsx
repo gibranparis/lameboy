@@ -7,7 +7,7 @@ import ProductOverlay from '@/components/ProductOverlay';
 import { PRODUCTS, logMissingAssets } from '@/lib/products';
 
 export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
-  // Build product list (prop → window → PRODUCTS → clones)
+  /* ---------------- Seed products ---------------- */
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null;
     const fromWin =
@@ -32,7 +32,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
     if (base.length >= 2) return base;
 
-    // If we truly have only one product, clone to keep overlay navigation smooth
+    // If there’s only one, clone so overlay nav still works smoothly
     return Array.from({ length: 5 }, (_, i) => ({
       ...base[0],
       id: `${base[0].id}-v${i + 1}`,
@@ -40,9 +40,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     }));
   }, [products]);
 
-  useEffect(() => { if (process.env.NODE_ENV !== 'production') logMissingAssets(); }, []);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') logMissingAssets();
+  }, []);
 
+  /* ---------------- Overlay state ---------------- */
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
+  const overlayOpen = overlayIdx != null;
+  const open  = (i) => setOverlayIdx(i);
+  const close = () => setOverlayIdx(null);
 
   // Auto-open first product on mount
   useEffect(() => {
@@ -52,7 +58,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     }
   }, [autoOpenFirstOnMount, seed.length]);
 
-  // ===== Grid density (1..5) controlled by orb =====
+  /* ---------------- Grid density via orb ---------------- */
   const MIN_COLS = 1;
   const MAX_COLS = 5;
   const [cols, setCols] = useState(MAX_COLS);
@@ -90,8 +96,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; });
         return;
       }
-
-      // Legacy ping-pong if no dir provided
+      // Legacy ping-pong
       setCols((p) => {
         const goingIn = p > MIN_COLS;
         const n = goingIn ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1);
@@ -112,13 +117,18 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     };
   }, [overlayIdx, applyCols]);
 
-  const open  = (i) => setOverlayIdx(i);
-  const close = () => setOverlayIdx(null);
-  const overlayOpen = overlayIdx != null;
-
+  /* ---------------- Render ---------------- */
   return (
-    <div className="shop-wrap" style={{ padding: '28px 28px 60px' }}>
-      <div className="shop-grid" style={{ '--grid-cols': cols }}>
+    <div
+      className="shop-wrap"
+      data-shop-root
+      style={{
+        padding: '28px 28px 60px',
+        // also set on the wrapper so CSS selectors that scope to .shop-grid inherit cleanly
+        ['--grid-cols']: String(cols),
+      }}
+    >
+      <div className="shop-grid">
         {seed.map((p, idx) => (
           <a
             key={p.id ?? idx}
@@ -131,7 +141,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
             <div className="product-box">
               <Image
                 src={p.thumb || p.image}
-                alt={p.title}
+                alt={p.title || 'Product'}
                 width={800}
                 height={800}
                 className="product-img"
@@ -140,6 +150,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
                 onError={(e) => {
                   const img = e.currentTarget;
+                  // swap once to hero, then to final fallback
                   if (img.dataset.fallback === 'hero') {
                     img.src = '/products/brown.png';
                     img.dataset.fallback = 'final';

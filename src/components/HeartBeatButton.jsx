@@ -3,9 +3,15 @@
 
 import React, { useRef, useEffect } from 'react';
 
+/**
+ * Bottom-right floating heart (no background circle).
+ * - Safe-area aware (right/bottom)
+ * - Pure heart SVG with neon glow + heartbeat
+ * - No dependency on global styles
+ */
 export default function HeartBeatButton({
   onClick,
-  size = 44,                // pure heart pixel size
+  size = 44,                  // pure heart pixel size
   title = 'submit',
   ariaLabel = 'submit',
   style,
@@ -15,7 +21,7 @@ export default function HeartBeatButton({
 
   useEffect(() => {
     if (!btnRef.current) return;
-    // make sure there’s never a background circle applied by parent styles
+    // ensure no parent styles add a circle or border
     btnRef.current.style.background = 'transparent';
     btnRef.current.style.border = 'none';
   }, []);
@@ -28,14 +34,17 @@ export default function HeartBeatButton({
       title={title}
       onClick={onClick}
       className={[
-        'fixed right-4 bottom-4 z-[999]',  // keep bottom-right floating FAB position
+        // fixed FAB at bottom-right
+        'fixed z-[10010]',
         'p-0 m-0 border-0 outline-none',
-        'cursor-pointer select-none',
-        'bg-transparent',
+        'cursor-pointer select-none bg-transparent',
         'active:scale-[0.97]',
         className,
       ].join(' ')}
       style={{
+        // position with safe-area + runner height buffer
+        right: `calc(16px + env(safe-area-inset-right, 0px))`,
+        bottom: `calc(16px + var(--runner-h, 10px) + env(safe-area-inset-bottom, 0px))`,
         width: size,
         height: size,
         display: 'grid',
@@ -52,6 +61,7 @@ export default function HeartBeatButton({
         height={size}
         aria-hidden="true"
         className="lb-heart"
+        style={{ display: 'block' }}
       >
         <defs>
           <linearGradient id="lbHeartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -72,15 +82,14 @@ export default function HeartBeatButton({
           filter:
             drop-shadow(0 0 6px var(--heart-neon, #ff2a4f))
             drop-shadow(0 0 14px var(--heart-neon, #ff2a4f));
-          display: block;
         }
         @keyframes lbBeat {
-          0%,100% { transform: scale(1); }
-          15%     { transform: scale(1.12); }
-          30%     { transform: scale(1.03); }
-          45%     { transform: scale(1.14); }
-          60%     { transform: scale(1.02); }
-          75%     { transform: scale(1.08); }
+          0%, 100% { transform: scale(1); }
+          15%      { transform: scale(1.12); }
+          30%      { transform: scale(1.03); }
+          45%      { transform: scale(1.14); }
+          60%      { transform: scale(1.02); }
+          75%      { transform: scale(1.08); }
         }
         @media (prefers-reduced-motion: reduce) {
           .lb-heart { animation: none; }
