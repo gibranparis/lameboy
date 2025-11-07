@@ -32,8 +32,8 @@ function useTheme() {
   return night;
 }
 
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
-function wrap(i, len) { return ((i % len) + len) % len; }
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+const wrap  = (i, len) => ((i % len) + len) % len;
 
 /* -------------------------- Inline + size picker ------------------------- */
 
@@ -105,9 +105,8 @@ function PlusSizesInline({ sizes = ['OS','S','M','L','XL'] }) {
 /* ------------------------------- Arrow Btn ------------------------------- */
 
 function ArrowBtn({ dir = 'up', night }) {
-  // SVG chevrons (up = ∧, down = ∨) in a circular button
-  const fill = night ? '#0b0c10' : '#ffffff';
-  const ring = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
+  const fill  = night ? '#0b0c10' : '#ffffff';
+  const ring  = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
   const glyph = night ? '#ffffff' : '#0f1115';
   return (
     <div
@@ -120,11 +119,10 @@ function ArrowBtn({ dir = 'up', night }) {
       }}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        {dir === 'up' ? (
-          <path d="M6 14l6-6 6 6" stroke={glyph} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-        ) : (
-          <path d="M6 10l6 6 6-6" stroke={glyph} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-        )}
+        {dir === 'up'
+          ? <path d="M6 14l6-6 6 6" stroke={glyph} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          : <path d="M6 10l6 6 6-6" stroke={glyph} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        }
       </svg>
     </div>
   );
@@ -135,11 +133,16 @@ function ArrowBtn({ dir = 'up', night }) {
 export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
   const night = useTheme();
   const product = products[index];
-  const imgs = product?.images?.length ? product.images : [product?.image].filter(Boolean);
+  const imgs = useMemo(() => {
+    const list = product?.images?.length ? product.images : [product?.image].filter(Boolean);
+    return Array.isArray(list) && list.length ? list : [];
+  }, [product]);
 
-  // Keep current image index across products; clamp to available count
   const [imgIdx, setImgIdx] = useState(0);
-  const clampedImgIdx = useMemo(() => clamp(imgIdx, 0, Math.max(0, (imgs?.length ?? 1) - 1)), [imgIdx, imgs]);
+  const clampedImgIdx = useMemo(
+    () => clamp(imgIdx, 0, Math.max(0, imgs.length - 1)),
+    [imgIdx, imgs.length]
+  );
 
   // Close overlay via orb zoom
   useEffect(() => {
@@ -160,8 +163,10 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') return onClose?.();
-      if (e.key === 'ArrowRight') return setImgIdx((i) => clamp(i + 1, 0, (imgs.length ?? 1) - 1));
-      if (e.key === 'ArrowLeft')  return setImgIdx((i) => clamp(i - 1, 0, (imgs.length ?? 1) - 1));
+      if (imgs.length) {
+        if (e.key === 'ArrowRight') return setImgIdx((i) => clamp(i + 1, 0, imgs.length - 1));
+        if (e.key === 'ArrowLeft')  return setImgIdx((i) => clamp(i - 1, 0, imgs.length - 1));
+      }
       if (products.length > 1) {
         if (e.key === 'ArrowDown') return onIndexChange?.(wrap(index + 1, products.length));
         if (e.key === 'ArrowUp')   return onIndexChange?.(wrap(index - 1, products.length));
@@ -182,7 +187,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       const ax = Math.abs(e.deltaX);
       const ay = Math.abs(e.deltaY);
 
-      if (ax > ay) {
+      if (ax > ay && imgs.length) {
         if (e.deltaX > 0) setImgIdx((i) => clamp(i + 1, 0, imgs.length - 1));
         else setImgIdx((i) => clamp(i - 1, 0, imgs.length - 1));
       } else if (products.length > 1) {
@@ -194,32 +199,34 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('wheel', onWheel);
   }, [imgs.length, products.length, index, onIndexChange]);
 
-  // Touch: continuous vertical scrolling (multiple steps per long swipe)
+  // Touch: horizontal = image, vertical = product (continuous multi-step)
   useEffect(() => {
-    if (products.length <= 1) return;
-
-    let acc = 0;
-    let active = false;
-    let lastY = 0;
-
-    const STEP = 48; // px per product change
+    let accY = 0, accX = 0, active = false, lastY = 0, lastX = 0;
+    const STEP_Y = 48; // px per product change
+    const STEP_X = 36; // px per image change
 
     const onStart = (e) => {
       const t = e.touches?.[0]; if (!t) return;
-      active = true; lastY = t.clientY; acc = 0;
+      active = true; lastY = t.clientY; lastX = t.clientX; accY = 0; accX = 0;
     };
     const onMove = (e) => {
       if (!active) return;
       const t = e.touches?.[0]; if (!t) return;
-      const dy = t.clientY - lastY;
-      lastY = t.clientY;
-      acc += dy;
+      const dy = t.clientY - lastY; lastY = t.clientY; accY += dy;
+      const dx = t.clientX - lastX; lastX = t.clientX; accX += dx;
 
-      // while loop allows continuous wrap as finger moves
-      while (acc <= -STEP) { acc += STEP; onIndexChange?.(wrap(index + 1, products.length)); }
-      while (acc >=  STEP) { acc -= STEP; onIndexChange?.(wrap(index - 1, products.length)); }
+      // images (left/right)
+      if (imgs.length) {
+        while (accX <= -STEP_X) { accX += STEP_X; setImgIdx((i)=>clamp(i+1,0,imgs.length-1)); }
+        while (accX >=  STEP_X) { accX -= STEP_X; setImgIdx((i)=>clamp(i-1,0,imgs.length-1)); }
+      }
+      // products (up/down)
+      if (products.length > 1) {
+        while (accY <= -STEP_Y) { accY += STEP_Y; onIndexChange?.(wrap(index + 1, products.length)); }
+        while (accY >=  STEP_Y) { accY -= STEP_Y; onIndexChange?.(wrap(index - 1, products.length)); }
+      }
     };
-    const onEnd = () => { active = false; acc = 0; };
+    const onEnd = () => { active = false; accY = 0; accX = 0; };
 
     window.addEventListener('touchstart', onStart, { passive: true });
     window.addEventListener('touchmove',  onMove,  { passive: true });
@@ -231,9 +238,9 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       window.removeEventListener('touchend',   onEnd);
       window.removeEventListener('touchcancel',onEnd);
     };
-  }, [products.length, index, onIndexChange]);
+  }, [imgs.length, products.length, index, onIndexChange]);
 
-  // mark overlay open
+  // mark overlay open (prevents background scrolling)
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open', '1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -249,12 +256,35 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   const sizes = product.sizes?.length ? product.sizes : ['OS','S','M','L','XL'];
 
+  // close when clicking backdrop (not inner content)
+  const overlayRef = useRef(null);
+  const onBackdrop = (e) => {
+    if (e.target === overlayRef.current) onClose?.();
+  };
+
   return (
-    <div className="product-hero-overlay" data-overlay>
+    <div
+      className="product-hero-overlay"
+      data-overlay
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${product.title} details`}
+      onMouseDown={onBackdrop}
+      ref={overlayRef}
+      style={{ padding: 'max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left))' }}
+    >
       <div className="product-hero">
-        {/* Up/Down controls — LEFT side */}
+        {/* Up/Down controls — LEFT side (safe-area aware) */}
         {products.length > 1 && (
-          <div style={{ position:'fixed', left: 24, top: '50%', transform: 'translateY(-50%)', display:'grid', gap:8, zIndex: 110 }}>
+          <div
+            style={{
+              position:'fixed',
+              left: `calc(12px + env(safe-area-inset-left, 0px))`,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              display:'grid', gap:8, zIndex: 110,
+            }}
+          >
             <button type="button" onClick={() => onIndexChange?.(wrap(index - 1, products.length))} aria-label="Previous product" title="Previous product" style={{ padding:0, background:'transparent', border:'none' }}>
               <ArrowBtn dir="up" night={night} />
             </button>
@@ -264,8 +294,8 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           </div>
         )}
 
-        {/* HERO IMAGE — DPR-aware, clamped index so it never disappears */}
-        {imgs?.length ? (
+        {/* HERO IMAGE — clamped index */}
+        {!!imgs.length && (
           <>
             <Image
               src={imgs[clampedImgIdx]}
@@ -300,7 +330,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
               </div>
             )}
           </>
-        ) : null}
+        )}
 
         <div className="product-hero-title">{product.title}</div>
         <div className="product-hero-price">{priceText}</div>
