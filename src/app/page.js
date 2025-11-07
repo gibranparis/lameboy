@@ -1,17 +1,19 @@
+// @ts-check
 'use client';
 
 export const dynamic = 'force-static';
 
 import nextDynamic from 'next/dynamic';
 import React, { useEffect, useMemo, useState } from 'react';
-import products from '@/lib/products'; // ✅ use lib products
+import products from '@/lib/products'; // products array
 
 /* Dynamic client components */
-const BannedLogin    = nextDynamic(() => import('@/components/BannedLogin'),    { ssr: false });
-const ShopGrid       = nextDynamic(() => import('@/components/ShopGrid'),       { ssr: false });
-const ChakraOrbButton= nextDynamic(() => import('@/components/ChakraOrbButton'),{ ssr: false });
-const CartButton     = nextDynamic(() => import('@/components/CartButton'),     { ssr: false });
-const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false });
+const BannedLogin      = nextDynamic(() => import('@/components/BannedLogin'),      { ssr: false });
+const ShopGrid         = nextDynamic(() => import('@/components/ShopGrid'),         { ssr: false });
+const ChakraOrbButton  = nextDynamic(() => import('@/components/ChakraOrbButton'),  { ssr: false });
+const CartButton       = nextDynamic(() => import('@/components/CartButton'),       { ssr: false });
+const DayNightToggle   = nextDynamic(() => import('@/components/DayNightToggle'),   { ssr: false });
+const ProductOverlay   = nextDynamic(() => import('@/components/ProductOverlay'),   { ssr: false });
 
 class PageErrorBoundary extends React.Component {
   constructor(p){ super(p); this.state = { hasError:false, error:null }; }
@@ -53,9 +55,10 @@ const HEADER_H = 86;
 
 export default function Page(){
   const ctrlPx = useHeaderCtrlPx();
-  const [theme, setTheme]   = useState('day');
-  const [isShop, setIsShop] = useState(false);
-  const [veil,  setVeil]    = useState(false);
+  const [theme, setTheme]     = useState('day');
+  const [isShop, setIsShop]   = useState(false);
+  const [veil,  setVeil]      = useState(false);
+  const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
 
   // Sync <html> attributes
   useEffect(() => {
@@ -93,7 +96,16 @@ export default function Page(){
     } catch {}
   }, [isShop]);
 
-  const onProceed = () => setIsShop(true);
+  // Proceed from gate → shop, then auto-open Brown overlay
+  const onProceed = () => {
+    setIsShop(true);
+    // pick "Brown" item by title/id; fallback to first
+    const idx = Math.max(
+      0,
+      products.findIndex(p => /brown/i.test(p?.title || '') || /brown/i.test(p?.id || ''))
+    );
+    setOverlayIdx(idx);
+  };
 
   const headerStyle = useMemo(() => ({
     position:'fixed',
@@ -107,6 +119,9 @@ export default function Page(){
     background:'transparent',
   }), []);
 
+  const closeOverlay = () => setOverlayIdx(null);
+  const reopenGate = () => { setOverlayIdx(null); setIsShop(false); };
+
   return (
     <PageErrorBoundary>
       <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
@@ -114,7 +129,7 @@ export default function Page(){
           <header role="banner" style={headerStyle}>
             {/* LEFT: orb */}
             <div style={{ display:'grid', justifyContent:'start' }}>
-              <ChakraOrbButton size={64} className="orb-ring" style={{ display:'grid', placeItems:'center' }} />
+              <ChakraOrbButton size={64} style={{ display:'grid', placeItems:'center' }} />
             </div>
 
             {/* CENTER: day/night toggle */}
@@ -138,11 +153,43 @@ export default function Page(){
             </div>
           ) : (
             <div style={{ paddingTop: HEADER_H }}>
-              {/* ✅ pass products so window.__LB_PRODUCTS cannot override */}
               <ShopGrid products={products} />
+
+              {/* Floating Submit (re-open banned/login) */}
+              <button
+                type="button"
+                onClick={reopenGate}
+                title="Submit"
+                aria-label="Submit"
+                className="pill"
+                style={{
+                  position:'fixed',
+                  right: 18,
+                  bottom: 18,
+                  zIndex: 520,
+                  height: 34,
+                  minWidth: 34,
+                  padding: '0 14px',
+                  fontWeight: 800,
+                }}
+              >
+                Submit
+              </button>
             </div>
           )}
         </main>
+
+        {/* Product overlay (auto-opens on Brown after cascade) */}
+        {isShop && overlayIdx != null && (
+          <ProductOverlay
+            products={products}
+            index={overlayIdx}
+            onIndexChange={(i) =>
+              setOverlayIdx(((i % products.length) + products.length) % products.length)
+            }
+            onClose={closeOverlay}
+          />
+        )}
 
         {veil && (
           <div
