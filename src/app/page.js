@@ -1,39 +1,20 @@
-// @ts-check
 'use client';
 
 export const dynamic = 'force-static';
 
 import nextDynamic from 'next/dynamic';
-import React, { useEffect, useMemo, useState } from 'react';
-import products from '@/lib/products'; // products array
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import products from '@/lib/products';
 
-/* Dynamic client components */
-const BannedLogin      = nextDynamic(() => import('@/components/BannedLogin'),      { ssr: false });
-const ShopGrid         = nextDynamic(() => import('@/components/ShopGrid'),         { ssr: false });
-const ChakraOrbButton  = nextDynamic(() => import('@/components/ChakraOrbButton'),  { ssr: false });
-const CartButton       = nextDynamic(() => import('@/components/CartButton'),       { ssr: false });
-const DayNightToggle   = nextDynamic(() => import('@/components/DayNightToggle'),   { ssr: false });
-const ProductOverlay   = nextDynamic(() => import('@/components/ProductOverlay'),   { ssr: false });
+const LandingGate     = nextDynamic(() => import('@/components/LandingGate'),     { ssr: false });
+const ShopGrid        = nextDynamic(() => import('@/components/ShopGrid'),        { ssr: false });
+const ChakraOrbButton = nextDynamic(() => import('@/components/ChakraOrbButton'), { ssr: false });
+const CartButton      = nextDynamic(() => import('@/components/CartButton'),      { ssr: false });
+const DayNightToggle  = nextDynamic(() => import('@/components/DayNightToggle'),  { ssr: false });
+const BannedLogin     = nextDynamic(() => import('@/components/BannedLogin'),     { ssr: false });
 
-class PageErrorBoundary extends React.Component {
-  constructor(p){ super(p); this.state = { hasError:false, error:null }; }
-  static getDerivedStateFromError(error){ return { hasError:true, error }; }
-  componentDidCatch(error, info){ try{ console.error('[page.js] runtime error:', error, info); } catch {} }
-  render(){
-    if (!this.state.hasError) return this.props.children;
-    return (
-      <div style={{minHeight:'100dvh',display:'grid',placeItems:'center',background:'#000',color:'#fff',padding:'24px'}}>
-        <div style={{textAlign:'center',maxWidth:640,opacity:.9}}>
-          <div style={{fontWeight:900,letterSpacing:'.06em',marginBottom:8}}>LAMEBOY</div>
-          <div style={{marginBottom:12}}>Something hiccuped while loading the UI.</div>
-          <div style={{fontSize:12,opacity:.75}}>Open the browser console for details. The app will keep trying to render.</div>
-        </div>
-      </div>
-    );
-  }
-}
+const HEADER_H = 86;
 
-/* Read --header-ctrl safely */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
@@ -51,16 +32,16 @@ function useHeaderCtrlPx(defaultPx = 56) {
   return px;
 }
 
-const HEADER_H = 86;
-
 export default function Page(){
   const ctrlPx = useHeaderCtrlPx();
-  const [theme, setTheme]     = useState('day');
-  const [isShop, setIsShop]   = useState(false);
-  const [veil,  setVeil]      = useState(false);
-  const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
+  const [theme, setTheme]   = useState('day');
+  const [isShop, setIsShop] = useState(false);
+  const [veil,  setVeil]    = useState(false);
 
-  // Sync <html> attributes
+  // submit/login modal on shop
+  const [loginOpen, setLoginOpen] = useState(false);
+
+  // reflect attributes
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -74,7 +55,7 @@ export default function Page(){
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
   }, [theme, isShop, ctrlPx]);
 
-  // Theme sync
+  // listen to theme-change from toggles
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
@@ -85,7 +66,7 @@ export default function Page(){
     };
   }, []);
 
-  // White veil after cascade
+  // white veil after cascade into shop (set by landing or banned)
   useEffect(() => {
     if (!isShop) return;
     try {
@@ -96,16 +77,7 @@ export default function Page(){
     } catch {}
   }, [isShop]);
 
-  // Proceed from gate → shop, then auto-open Brown overlay
-  const onProceed = () => {
-    setIsShop(true);
-    // pick "Brown" item by title/id; fallback to first
-    const idx = Math.max(
-      0,
-      products.findIndex(p => /brown/i.test(p?.title || '') || /brown/i.test(p?.id || ''))
-    );
-    setOverlayIdx(idx);
-  };
+  const enterShop = () => setIsShop(true);
 
   const headerStyle = useMemo(() => ({
     position:'fixed',
@@ -119,17 +91,18 @@ export default function Page(){
     background:'transparent',
   }), []);
 
-  const closeOverlay = () => setOverlayIdx(null);
-  const reopenGate = () => { setOverlayIdx(null); setIsShop(false); };
-
   return (
-    <PageErrorBoundary>
-      <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
-        {isShop && (
+    <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
+      {!isShop ? (
+        <main style={{ minHeight:'100dvh' }}>
+          <LandingGate onCascadeComplete={enterShop} />
+        </main>
+      ) : (
+        <>
           <header role="banner" style={headerStyle}>
             {/* LEFT: orb */}
             <div style={{ display:'grid', justifyContent:'start' }}>
-              <ChakraOrbButton size={64} style={{ display:'grid', placeItems:'center' }} />
+              <ChakraOrbButton size={64} className="orb-ring" style={{ display:'grid', placeItems:'center' }} />
             </div>
 
             {/* CENTER: day/night toggle */}
@@ -144,62 +117,55 @@ export default function Page(){
               </div>
             </div>
           </header>
-        )}
 
-        <main style={{ minHeight:'100dvh' }}>
-          {!isShop ? (
-            <div className="page-center">
-              <BannedLogin onProceed={onProceed} />
-            </div>
-          ) : (
-            <div style={{ paddingTop: HEADER_H }}>
-              <ShopGrid products={products} />
+          <main style={{ paddingTop: HEADER_H }}>
+            <ShopGrid products={products} autoOpenFirstOnMount />
+            {/* Submit FAB → open banned login in LOGIN mode */}
+            <button
+              type="button"
+              onClick={() => setLoginOpen(true)}
+              aria-label="Submit"
+              style={{
+                position:'fixed', right:18, bottom:18, zIndex:520,
+                height:48, width:48, borderRadius:9999, border:'1px solid rgba(0,0,0,.14)',
+                background:'#fff', color:'#111', boxShadow:'0 6px 20px rgba(0,0,0,.20), inset 0 0 0 1px rgba(255,255,255,.55)',
+                fontWeight:900
+              }}
+              title="Submit"
+            >
+              ↗
+            </button>
 
-              {/* Floating Submit (re-open banned/login) */}
-              <button
-                type="button"
-                onClick={reopenGate}
-                title="Submit"
-                aria-label="Submit"
-                className="pill"
+            {loginOpen && (
+              <div
+                role="dialog"
+                aria-modal="true"
                 style={{
-                  position:'fixed',
-                  right: 18,
-                  bottom: 18,
-                  zIndex: 520,
-                  height: 34,
-                  minWidth: 34,
-                  padding: '0 14px',
-                  fontWeight: 800,
+                  position:'fixed', inset:0, zIndex:540,
+                  display:'grid', placeItems:'center', background:'rgba(0,0,0,.55)'
                 }}
+                onClick={(e)=>{ if(e.target === e.currentTarget) setLoginOpen(false); }}
               >
-                Submit
-              </button>
-            </div>
-          )}
-        </main>
+                <div style={{ outline:'none' }}>
+                  <BannedLogin
+                    onProceed={() => setLoginOpen(false)}
+                    startView="login"
+                  />
+                </div>
+              </div>
+            )}
+          </main>
+        </>
+      )}
 
-        {/* Product overlay (auto-opens on Brown after cascade) */}
-        {isShop && overlayIdx != null && (
-          <ProductOverlay
-            products={products}
-            index={overlayIdx}
-            onIndexChange={(i) =>
-              setOverlayIdx(((i % products.length) + products.length) % products.length)
-            }
-            onClose={closeOverlay}
-          />
-        )}
-
-        {veil && (
-          <div
-            aria-hidden="true"
-            style={{ position:'fixed', inset:0, background:'#fff', opacity:1, transition:'opacity .42s ease-out', zIndex:200, pointerEvents:'none' }}
-            ref={(el)=> { if (el) requestAnimationFrame(() => { el.style.opacity = '0'; }); }}
-            onTransitionEnd={() => setVeil(false)}
-          />
-        )}
-      </div>
-    </PageErrorBoundary>
+      {veil && (
+        <div
+          aria-hidden="true"
+          style={{ position:'fixed', inset:0, background:'#fff', opacity:1, transition:'opacity .42s ease-out', zIndex:200, pointerEvents:'none' }}
+          ref={(el)=> { if (el) requestAnimationFrame(() => { el.style.opacity = '0'; }); }}
+          onTransitionEnd={() => setVeil(false)}
+        />
+      )}
+    </div>
   );
 }

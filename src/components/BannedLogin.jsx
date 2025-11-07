@@ -1,5 +1,5 @@
+// src/components/BannedLogin.jsx
 // @ts-check
-// src/components/BannedLogin.jsx  (v4.4 – fixed-width bubble, restored neon, centered layout)
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -82,66 +82,50 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   );
 }
 
-/* --------------- ConsoleTyper: one line at a time with beat ----------- */
-/** @param {{messages:string[], cps:number, jitter:number, punctDelayMs:number, lineHoldMs:number, lineBeatMs:number, loop:boolean}} p */
+/* --------------- ConsoleTyper --------------------------------------- */
 function ConsoleTyper({ messages, cps, jitter, punctDelayMs, lineHoldMs, lineBeatMs, loop }) {
-  const [i, setI] = useState(0);               // which line
-  const [n, setN] = useState(0);               // chars typed
-  const [phase, setPhase] = useState(/** @type {'typing'|'hold'|'beat'} */('typing'));
+  const [i, setI] = useState(0);
+  const [n, setN] = useState(0);
+  const [phase, setPhase] = useState('typing');
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const line = messages[i] ?? '';
   const visible = reduceMotion ? line : line.slice(0, n);
 
-  // typing cadence
   useEffect(() => {
-    if (reduceMotion) return;
-    if (phase !== 'typing') return;
-
-    if (n >= line.length) {
-      setPhase('hold');
-      return;
-    }
-
+    if (reduceMotion || phase !== 'typing') return;
+    if (n >= line.length) { setPhase('hold'); return; }
     const baseMs = 1000 / Math.max(1, cps);
-    const r = (Math.random() * 2 - 1) * jitter; // [-jitter,+jitter]
+    const r = (Math.random() * 2 - 1) * jitter;
     let delay = baseMs * (1 + r);
     const ch = line[n];
     if (/[.,;:!?]/.test(ch)) delay += punctDelayMs;
     if (ch === ' ') delay += baseMs * 0.15;
-
     const id = setTimeout(() => setN(x => x + 1), Math.max(8, delay));
     return () => clearTimeout(id);
   }, [n, line, cps, jitter, punctDelayMs, phase, reduceMotion]);
 
-  // end-of-line hold → beat → next line
   useEffect(() => {
-    if (reduceMotion) return;
-    if (phase !== 'hold') return;
+    if (reduceMotion || phase !== 'hold') return;
     const id = setTimeout(() => setPhase('beat'), Math.max(0, lineHoldMs));
     return () => clearTimeout(id);
   }, [phase, lineHoldMs, reduceMotion]);
 
   useEffect(() => {
-    if (reduceMotion) return;
-    if (phase !== 'beat') return;
+    if (reduceMotion || phase !== 'beat') return;
     const id = setTimeout(() => {
       const next = i + 1;
       if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
       else if (loop && messages.length) { setI(0); setN(0); setPhase('typing'); }
     }, Math.max(0, lineBeatMs));
     return () => clearTimeout(id);
-  }, [phase, i, messages.length, lineBeatMs, loop, reduceMotion]);
+  }, [phase, i, messages, lineBeatMs, loop, reduceMotion]);
 
-  // click to skip/advance
   const onClick = useCallback(() => {
     if (reduceMotion) return;
-    if (phase === 'typing') {
-      setN(line.length);
-      setPhase('hold');
-    } else if (phase === 'hold') {
-      setPhase('beat');
-    } else {
+    if (phase === 'typing') { setN(line.length); setPhase('hold'); }
+    else if (phase === 'hold') { setPhase('beat'); }
+    else {
       const next = i + 1;
       if (next < messages.length) { setI(next); setN(0); setPhase('typing'); }
       else if (loop) { setI(0); setN(0); setPhase('typing'); }
@@ -178,20 +162,22 @@ export default function BannedLogin({
   jitter = 0.25,
   punctDelayMs = 220,
   lineHoldMs = 900,
-  lineBeatMs = 180,  // the little dramatic beat
-  loop = true
+  lineBeatMs = 180,
+  loop = true,
+  startView = 'banned', // 'banned' | 'login'
 }) {
-  /** @type {'banned'|'login'} */ const [view, setView] = useState('banned');
+  const [view, setView] = useState(startView);
   const [cascade, setCascade] = useState(false);
   const [hideAll, setHideAll] = useState(false);
   const [whiteout, setWhiteout] = useState(false);
 
   const [hideBubble, setHideBubble] = useState(false);
   const [floridaHot, setFloridaHot] = useState(false);
-  /** @type {'link'|'bypass'|null} */ const [activated, setActivated] = useState(null);
+  const [activated, setActivated] = useState(null);
 
-  const [email, setEmail] = useState(''); const [phone, setPhone] = useState('');
-  const emailRef = useRef(/** @type {HTMLInputElement|null} */(null));
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const emailRef = useRef(null);
 
   // lock scroll during cascade/whiteout
   useEffect(() => {
@@ -201,12 +187,11 @@ export default function BannedLogin({
     return () => { document.body.style.overflow = prev; };
   }, [cascade, whiteout]);
 
-  /** Run neon cascade and enter shop (single-page) */
+  /** Run neon cascade and enter shop */
   const runCascade = useCallback((after, { washAway = false } = {}) => {
     setCascade(true); setHideAll(true); setWhiteout(false);
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
-
     const t = setTimeout(() => {
       setCascade(false);
       if (washAway) setHideBubble(true);
@@ -214,17 +199,37 @@ export default function BannedLogin({
       after && after();
       if (typeof onProceed === 'function') onProceed();
     }, CASCADE_MS);
-
     return () => clearTimeout(t);
   }, [onProceed]);
 
   const onLink = useCallback(() => { setActivated('link'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
   const onBypass = useCallback(() => { setActivated('bypass'); setTimeout(()=>setActivated(null),650); runCascade(()=>{}, { washAway:true }); }, [runCascade]);
 
+  // Submit → POST /api/lead
+  const [submitting, setSubmitting] = useState(false);
+  const [submitOk, setSubmitOk] = useState(false);
+  const submitLead = async () => {
+    if (!email && !phone) return;
+    setSubmitting(true); setSubmitOk(false);
+    try {
+      const res = await fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ email, phone, ts: Date.now() }),
+      });
+      setSubmitOk(res.ok);
+    } catch {
+      setSubmitOk(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Orb color toggle (tap word "banned")
   const SEAFOAM = '#32ffc7'; const RED = '#ff001a';
-  /** @type {'chakra'|'red'} */ const [orbMode, setOrbMode] = useState('chakra');
-  const [orbGlow, setOrbGlow] = useState(0.9); const [orbVersion, setOrbVersion] = useState(0);
+  const [orbMode, setOrbMode] = useState('chakra');
+  const [orbGlow, setOrbGlow] = useState(0.9);
+  const [orbVersion, setOrbVersion] = useState(0);
   const toggleOrbColor = useCallback(() => {
     setOrbMode(prev => {
       const next = prev === 'red' ? 'chakra' : 'red';
@@ -234,23 +239,18 @@ export default function BannedLogin({
     });
   }, []);
 
-  // Long-press (press to cascade)
-  const pressTimer = useRef(/** @type {ReturnType<typeof setTimeout> | null} */(null));
+  // Long-press to cascade
+  const pressTimer = useRef(null);
   const clearPressTimer = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
-  // Butterfly wordmark refs
-  const lRef = useRef(/** @type {HTMLSpanElement|null} */(null));
-  const yRef = useRef(/** @type {HTMLSpanElement|null} */(null));
+  // Butterfly
+  const lRef = useRef(null);
+  const yRef = useRef(null);
   const [flyOnce, setFlyOnce] = useState(false);
 
-  /* ======= Default computer-typed messages (no extra lines) ======= */
+  // default messages
   const DEFAULT_SYS = useMemo(() => ([
-    'hi',
-    'welcome to',
-    'lameboy.com',
-    'Greetings!',
-    'from',
-    'レ乃モ'
+    'hi','welcome to','lameboy.com','Greetings!','from','レ乃モ'
   ]), []);
   const MESSAGES = useMemo(
     () => (Array.isArray(sysMessages) && sysMessages.length ? sysMessages : DEFAULT_SYS),
@@ -258,19 +258,11 @@ export default function BannedLogin({
   );
 
   return (
-    <div
-      className="page-center"
-      data-test="gate-v3"
-      style={{
-        minHeight:'100dvh',
-        display:'flex',
-        flexDirection:'column',
-        alignItems:'center',
-        justifyContent:'center',
-        padding:'1.5rem',
-        position:'relative'
-      }}
-    >
+    <div className="page-center" data-test="gate-v3" style={{
+      minHeight:'100dvh',
+      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+      padding:'1.5rem', position:'relative'
+    }}>
       {flyOnce && <ButterflyChakra startEl={lRef.current} endEl={yRef.current} durationMs={1600} onDone={() => setFlyOnce(false)} />}
 
       {cascade && <CascadeOverlay durationMs={CASCADE_MS} />}
@@ -314,7 +306,7 @@ export default function BannedLogin({
             </button>
           </div>
 
-          {/* Bubble (fixed width; never stretches) */}
+          {/* Bubble (fixed width) */}
           {!hideBubble && (
             <div
               style={{
@@ -325,10 +317,7 @@ export default function BannedLogin({
                 padding: '14px 16px',
                 boxShadow: '0 12px 28px rgba(0,0,0,0.45)',
                 backdropFilter: 'blur(14px)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center'
+                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center'
               }}
               role={view==='login' ? 'form' : undefined}
               tabIndex={view==='login' ? 0 : -1}
@@ -366,7 +355,7 @@ export default function BannedLogin({
                   <span className="code-punc neon-glow">;</span>
                 </pre>
               ) : (
-                <form onSubmit={(e)=>e.preventDefault()} style={{ display:'flex',flexDirection:'column',gap:6, width:'100%' }}>
+                <form onSubmit={(e)=>{ e.preventDefault(); submitLead(); }} style={{ display:'flex',flexDirection:'column',gap:6, width:'100%' }}>
                   <div className="code-row"><span className="lb-seafoam code-comment neon-glow">// login</span></div>
 
                   <div className="code-row" style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
@@ -396,6 +385,9 @@ export default function BannedLogin({
                   </div>
 
                   <div className="row-nowrap" style={{ marginTop:8, gap:10, justifyContent:'center' }}>
+                    <button type="submit" className="pill neon" disabled={submitting} title="Submit to Lameboy">
+                      <span className="neon-glow">{submitting ? 'Submitting…' : (submitOk ? 'Saved' : 'Submit')}</span>
+                    </button>
                     <button type="button" className="pill neon" aria-label="Link" onClick={onLink} style={{ filter: activated==='link' ? 'brightness(1.25)' : undefined }}>
                       <span className="neon-glow">Link</span>
                     </button>
@@ -408,11 +400,11 @@ export default function BannedLogin({
             </div>
           )}
 
-          {/* Florida */}
+          {/* Florida toggle (kept, does NOT cascade in this component) */}
           <button
             type="button"
             className={['ghost-btn','florida-link','neon-glow', floridaHot?'is-hot':''].join(' ')}
-            onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble(false); setView(v=>v==='banned'?'login':'banned'); }}}
+            onClick={()=>{ if(!hideAll){ setFloridaHot(true); setTimeout(()=>setFloridaHot(false),700); setHideBubble((v)=>!v); setView(v=>v==='banned'?'login':'banned'); }}}
             onMouseEnter={()=>setFloridaHot(true)}
             onMouseLeave={()=>setFloridaHot(false)}
             style={{ marginTop: 10, display:'block', textAlign:'center' }}
@@ -422,7 +414,7 @@ export default function BannedLogin({
         </div>
       )}
 
-      {/* ---- Global neon + code cosmetics (restored) ---- */}
+      {/* Global neon + code cosmetics */}
       <style jsx global>{`
         .neon-glow {
           text-shadow:

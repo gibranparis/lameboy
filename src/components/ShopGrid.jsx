@@ -1,3 +1,4 @@
+// src/components/ShopGrid.jsx
 // @ts-check
 'use client';
 
@@ -6,8 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProductOverlay from '@/components/ProductOverlay';
 import { PRODUCTS, logMissingAssets } from '@/lib/products';
 
-export default function ShopGrid({ products }) {
-  // Build product list (prop → window → PRODUCTS → clones)
+export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null;
     // eslint-disable-next-line no-undef
@@ -33,7 +33,6 @@ export default function ShopGrid({ products }) {
 
     if (base.length >= 2) return base;
 
-    // If we truly have only one product, clone to keep overlay navigation smooth
     return Array.from({ length: 5 }, (_, i) => ({
       ...base[0],
       id: `${base[0].id}-v${i + 1}`,
@@ -41,9 +40,18 @@ export default function ShopGrid({ products }) {
     }));
   }, [products]);
 
-  useEffect(() => { if (process.env.NODE_ENV !== 'production') logMissingAssets(); }, []);
+  useEffect(() => { if (process.env.NODE_ENV !== 'production') logMissingAssets?.(); }, []);
 
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
+
+  // auto open #0 on mount
+  useEffect(() => {
+    if (autoOpenFirstOnMount && seed.length) {
+      // slight delay to let layout settle
+      const id = setTimeout(() => setOverlayIdx(0), 60);
+      return () => clearTimeout(id);
+    }
+  }, [autoOpenFirstOnMount, seed.length]);
 
   // ===== Grid density (1..5) controlled by orb =====
   const MIN_COLS = 1;
@@ -70,23 +78,14 @@ export default function ShopGrid({ products }) {
 
   useEffect(() => {
     const onZoom = (e) => {
-      // If overlay is open, orb click closes overlay only (grid unchanged)
       if (overlayIdx != null) { setOverlayIdx(null); return; }
-
       const d = e?.detail || {};
       const step = Math.max(1, Math.min(3, Number(d.step) || 1));
       const dir = typeof d.dir === 'string' ? d.dir : null;
 
-      if (dir === 'in')  { setCols((p) => { const n = Math.max(MIN_COLS, p - step); applyCols(n); return n; }); return; }
-      if (dir === 'out') { setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; }); return; }
-
-      // Legacy ping-pong if no dir provided
-      setCols((p) => {
-        const goingIn = p > MIN_COLS;
-        const n = goingIn ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1);
-        applyCols(n);
-        return n;
-      });
+      if (dir === 'in')      { setCols((p) => { const n = Math.max(MIN_COLS, p - step); applyCols(n); return n; }); return; }
+      if (dir === 'out')     { setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; }); return; }
+      setCols((p) => { const n = p > MIN_COLS ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1); applyCols(n); return n; });
     };
 
     ['lb:zoom'].forEach((n) => {
@@ -125,8 +124,7 @@ export default function ShopGrid({ products }) {
                 height={800}
                 className="product-img"
                 priority={idx === 0}
-                // ✅ Keep Next optimization ON for sharp DPR variants
-                quality={85}
+                unoptimized
                 sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
                 onError={(e) => {
                   const img = e.currentTarget;
