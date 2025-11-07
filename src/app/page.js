@@ -3,7 +3,7 @@
 export const dynamic = 'force-static';
 
 import nextDynamic from 'next/dynamic';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import products from '@/lib/products';
 
 const LandingGate     = nextDynamic(() => import('@/components/LandingGate'),     { ssr: false });
@@ -12,6 +12,7 @@ const ChakraOrbButton = nextDynamic(() => import('@/components/ChakraOrbButton')
 const CartButton      = nextDynamic(() => import('@/components/CartButton'),      { ssr: false });
 const DayNightToggle  = nextDynamic(() => import('@/components/DayNightToggle'),  { ssr: false });
 const BannedLogin     = nextDynamic(() => import('@/components/BannedLogin'),     { ssr: false });
+const ChakraTickerBar = nextDynamic(() => import('@/components/ChakraTickerBar'), { ssr: false });
 
 const HEADER_H = 86;
 
@@ -152,6 +153,9 @@ export default function Page(){
           </main>
         </>
       )}
+
+      {/* Always-on bottom chakra ticker */}
+      <ChakraTickerBar height={14} speedSec={12} />
 
       {veil && (
         <div
