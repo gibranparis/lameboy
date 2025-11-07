@@ -321,3 +321,22 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 
 /* press */
 .heart-submit:active{ transform:scale(0.92); }
+
+/* --- Submit FAB (heart) --- */
+.heart-submit{
+  position:fixed; right:18px; bottom:18px; z-index:520;
+  width:52px; height:52px; border-radius:9999px; border:0;
+  background:
+    radial-gradient(circle at 35% 35%, #ff5a5a 0%, #ff1a42 60%, #b10a25 100%);
+  box-shadow:
+    0 8px 24px rgba(255, 26, 66, .28),
+    inset 0 0 0 1px rgba(255,255,255,.35);
+  cursor:pointer;
+}
+.heart-submit:after{
+  content:'❤'; color:#fff; font-weight:900; font-size:20px;
+  position:absolute; inset:0; display:grid; place-items:center;
+  filter:drop-shadow(0 0 6px rgba(255,255,255,.45));
+}
+.heart-submit:hover{ transform:translateY(-1px); }
+.heart-submit:active{ transform:translateY(0); filter:saturate(1.1); }

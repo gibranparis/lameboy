@@ -171,37 +171,13 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   return (
     <div className="product-hero-overlay" data-overlay>
       <div className="product-hero">
-        {/* Up/Down controls (left side) */}
+        {/* Up/Down controls (LEFT side) */}
         {products.length > 1 && (
-          <div
-            style={{
-              position:'fixed',
-              left: 24,                    // moved to left
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display:'grid',
-              gap:8,
-              zIndex: 110,
-            }}
-          >
-            {/* Up = upside-down "v" */}
-            <button
-              type="button"
-              onClick={() => { setFlash('up'); onIndexChange?.(wrap(index - 1, products.length)); }}
-              aria-label="Previous product"
-              title="Previous product"
-              style={{ padding:0, background:'transparent', border:'none' }}
-            >
+          <div style={{ position:'fixed', left: 24, top: '50%', transform: 'translateY(-50%)', display:'grid', gap:8, zIndex: 110 }}>
+            <button type="button" onClick={() => { setFlash('up'); onIndexChange?.(wrap(index - 1, products.length)); }} aria-label="Previous product" title="Previous product" style={{ padding:0, background:'transparent', border:'none' }}>
               <CaretButton label="^" active={flashUp} />
             </button>
-            {/* Down = "v" */}
-            <button
-              type="button"
-              onClick={() => { setFlash('down'); onIndexChange?.(wrap(index + 1, products.length)); }}
-              aria-label="Next product"
-              title="Next product"
-              style={{ padding:0, background:'transparent', border:'none' }}
-            >
+            <button type="button" onClick={() => { setFlash('down'); onIndexChange?.(wrap(index + 1, products.length)); }} aria-label="Next product" title="Next product" style={{ padding:0, background:'transparent', border:'none' }}>
               <CaretButton label="v" active={flashDown} />
             </button>
           </div>

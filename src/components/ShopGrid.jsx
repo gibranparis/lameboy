@@ -1,4 +1,3 @@
-// src/components/ShopGrid.jsx
 // @ts-check
 'use client';
 
@@ -8,9 +7,9 @@ import ProductOverlay from '@/components/ProductOverlay';
 import { PRODUCTS, logMissingAssets } from '@/lib/products';
 
 export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
+  // Build product list (prop → window → PRODUCTS → clones)
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null;
-    // eslint-disable-next-line no-undef
     const fromWin =
       typeof window !== 'undefined' && Array.isArray(window.__LB_PRODUCTS)
         ? window.__LB_PRODUCTS
@@ -33,6 +32,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
     if (base.length >= 2) return base;
 
+    // If we truly have only one product, clone to keep overlay navigation smooth
     return Array.from({ length: 5 }, (_, i) => ({
       ...base[0],
       id: `${base[0].id}-v${i + 1}`,
@@ -40,16 +40,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     }));
   }, [products]);
 
-  useEffect(() => { if (process.env.NODE_ENV !== 'production') logMissingAssets?.(); }, []);
+  useEffect(() => { if (process.env.NODE_ENV !== 'production') logMissingAssets(); }, []);
 
   const [overlayIdx, setOverlayIdx] = useState/** @type {number|null} */(null);
 
-  // auto open #0 on mount
+  // Auto-open first product on mount
   useEffect(() => {
     if (autoOpenFirstOnMount && seed.length) {
-      // slight delay to let layout settle
-      const id = setTimeout(() => setOverlayIdx(0), 60);
-      return () => clearTimeout(id);
+      const t = setTimeout(() => setOverlayIdx(0), 80);
+      return () => clearTimeout(t);
     }
   }, [autoOpenFirstOnMount, seed.length]);
 
@@ -83,9 +82,22 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       const step = Math.max(1, Math.min(3, Number(d.step) || 1));
       const dir = typeof d.dir === 'string' ? d.dir : null;
 
-      if (dir === 'in')      { setCols((p) => { const n = Math.max(MIN_COLS, p - step); applyCols(n); return n; }); return; }
-      if (dir === 'out')     { setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; }); return; }
-      setCols((p) => { const n = p > MIN_COLS ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1); applyCols(n); return n; });
+      if (dir === 'in') {
+        setCols((p) => { const n = Math.max(MIN_COLS, p - step); applyCols(n); return n; });
+        return;
+      }
+      if (dir === 'out') {
+        setCols((p) => { const n = Math.min(MAX_COLS, p + step); applyCols(n); return n; });
+        return;
+      }
+
+      // Legacy ping-pong if no dir provided
+      setCols((p) => {
+        const goingIn = p > MIN_COLS;
+        const n = goingIn ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1);
+        applyCols(n);
+        return n;
+      });
     };
 
     ['lb:zoom'].forEach((n) => {
