@@ -34,6 +34,7 @@ export default function HeartBeatButton({
       title={title}
       onClick={onClick}
       className={[
+        'hb',
         // fixed FAB at bottom-right
         'fixed z-[10010]',
         'p-0 m-0 border-0 outline-none',
@@ -51,6 +52,7 @@ export default function HeartBeatButton({
         placeItems: 'center',
         WebkitTapHighlightColor: 'transparent',
         transition: 'transform .08s ease',
+        willChange: 'transform',
         ...style,
       }}
     >
@@ -61,7 +63,7 @@ export default function HeartBeatButton({
         height={size}
         aria-hidden="true"
         className="lb-heart"
-        style={{ display: 'block' }}
+        style={{ display: 'block', pointerEvents: 'none' }}
       >
         <defs>
           <linearGradient id="lbHeartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -93,6 +95,16 @@ export default function HeartBeatButton({
         }
         @media (prefers-reduced-motion: reduce) {
           .lb-heart { animation: none; }
+        }
+
+        /* focus ring for keyboard users */
+        .hb:focus-visible {
+          outline: 2px solid rgba(255, 255, 255, .85);
+          outline-offset: 4px;
+          border-radius: 12px;
+        }
+        :global(html[data-theme="day"]) .hb:focus-visible {
+          outline-color: rgba(0, 0, 0, .85);
         }
       `}</style>
     </button>
