@@ -61,7 +61,7 @@ export default function BannedLogin({ onProceed }) {
   const [orbGlow, setOrbGlow]   = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
-  useEffect(() => { try { document.documentElement.setAttribute('data-mode','gate'); } catch {} }, []);
+  // ❌ removed: do NOT set data-mode="gate" here
 
   const runCascade = useCallback(() => {
     setCascade(true);
@@ -82,7 +82,6 @@ export default function BannedLogin({ onProceed }) {
     });
   }, []);
 
-  // center column
   return (
     <div className="page-center" style={{ gap:14 }}>
       {cascade && <CascadeOverlay />}
