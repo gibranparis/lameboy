@@ -14,7 +14,6 @@ const CartButton         = nextDynamic(() => import('@/components/CartButton'), 
 const DayNightToggle     = nextDynamic(() => import('@/components/DayNightToggle'),     { ssr: false });
 const BannedLogin        = nextDynamic(() => import('@/components/BannedLogin'),        { ssr: false });
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), { ssr: false });
-// Heart: bottom-right, no circle (uses .heart-submit CSS you added)
 const HeartBeatButton    = nextDynamic(() => import('@/components/HeartBeatButton'),    { ssr: false });
 
 const RUNNER_H = 14;
@@ -83,11 +82,11 @@ export default function Page(){
 
   const enterShop = () => setIsShop(true);
 
-  // Header: follow CSS grid defined in globals; just set height to ctrlPx for layout
+  // Header: follow CSS grid defined in globals; height mirrors --header-ctrl
   const headerStyle = useMemo(() => ({
     position:'fixed',
     inset:'0 0 auto 0',
-    height: ctrlPx,                 // stays in sync with --header-ctrl
+    height: ctrlPx,
     zIndex: 500,
     display:'grid',
     gridTemplateColumns:'auto 1fr auto',
@@ -105,21 +104,34 @@ export default function Page(){
       ) : (
         <>
           <header role="banner" style={headerStyle}>
-            <div style={{ display:'grid', justifyContent:'start' }}>
+            {/* ORB — keep vertically centered within the header control lane */}
+            <div
+              style={{
+                display:'grid',
+                alignItems:'center',
+                justifyContent:'start',
+                height:'var(--header-ctrl, 56px)',
+              }}
+            >
               <ChakraOrbButton
-                size={64}
+                size={56}
                 className="orb-ring"
-                style={{ display:'grid', placeItems:'center' }}
+                style={{ display:'grid', placeItems:'center', transform:'translateY(3px)' }}
               />
             </div>
-            <div id="lb-daynight" style={{ display:'grid', placeItems:'center' }}>
+
+            <div
+              id="lb-daynight"
+              style={{ display:'grid', placeItems:'center', height:'var(--header-ctrl, 56px)' }}
+            >
               <DayNightToggle
                 circlePx={28}
                 trackPad={1}
                 moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
               />
             </div>
-            <div style={{ display:'grid', justifyContent:'end' }}>
+
+            <div style={{ display:'grid', justifyContent:'end', height:'var(--header-ctrl, 56px)' }}>
               <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
                 <CartButton inHeader />
               </div>
