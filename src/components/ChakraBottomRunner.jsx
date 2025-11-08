@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
  * Props:
  * - height   : px height for the bar (default 14)
  * - speedSec : seconds for one full loop (default 12)
- * - zIndex   : stacking order (default 40, above backgrounds, under header)
+ * - zIndex   : stacking order (default 40, above backgrounds, under header/overlays)
  */
 export default function ChakraBottomRunner({
   height = 14,
@@ -29,6 +29,13 @@ export default function ChakraBottomRunner({
     // chakra colors
     return ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'];
   }, [mode]);
+
+  // Sync runner height to CSS var so other UI (heart) can offset correctly.
+  useEffect(() => {
+    try {
+      document.documentElement.style.setProperty('--runner-h', `${Math.max(6, Math.round(height))}px`);
+    } catch {}
+  }, [height]);
 
   useEffect(() => {
     // initial sync (default chakra) + listen for orb mode changes
@@ -64,14 +71,16 @@ export default function ChakraBottomRunner({
         position: 'fixed',
         left: 0,
         right: 0,
-        bottom: 0,
+        // Respect safe-area so it never hides behind the home bar
+        bottom: 'env(safe-area-inset-bottom, 0px)',
         height: 'var(--h)',
         zIndex,
         pointerEvents: 'none',
         overflow: 'hidden',
         // slight backdrop for readability in day mode without being intrusive
-        background:
-          'linear-gradient(to top, rgba(0,0,0,.25), rgba(0,0,0,0))',
+        background: 'linear-gradient(to top, rgba(0,0,0,.25), rgba(0,0,0,0))',
+        willChange: 'transform',
+        contain: 'layout style paint',
         ...vars,
       }}
     >
@@ -82,6 +91,12 @@ export default function ChakraBottomRunner({
         @keyframes lb-chakra-run {
           from { transform: translateX(0); }
           to   { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          :global(#__next) :where(div[aria-hidden]) > div {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+          }
         }
       `}</style>
     </div>
