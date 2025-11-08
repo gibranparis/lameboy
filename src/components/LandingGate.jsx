@@ -1,3 +1,4 @@
+// src/components/LandingGate.jsx
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -7,79 +8,41 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
-const CASCADE_MS = 2400;
+const CASCADE_MS = 2400;         // colored bands duration
+const WHITE_HOLD_MS = 520;       // how long to hold the white screen with black text
 
-/* --------- Follows a target element's center (absolute to viewport) --------- */
-function FollowTitle({ targetRef, durationMs = CASCADE_MS }) {
-  const [pos, setPos] = useState({ x: 0, y: 0, ready: false });
-  const [color, setColor] = useState('#fff'); // white over color bands → then black on white
-  const rafRef = useRef(0);
-
+/* ---------- Utility: track the center of the trigger button ---------- */
+function useCenterPoint(ref) {
+  const [pt, setPt] = useState({ x: 0, y: 0, ready: false });
   const measure = useCallback(() => {
-    const el = targetRef.current;
+    const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    setPos({ x: r.left + r.width / 2, y: r.top + r.height / 2, ready: true });
-  }, [targetRef]);
+    setPt({ x: r.left + r.width / 2, y: r.top + r.height / 2, ready: true });
+  }, [ref]);
 
   useLayoutEffect(() => {
     measure();
     const onResize = () => measure();
+    const onScroll = () => measure();
     window.addEventListener('resize', onResize);
-    rafRef.current = requestAnimationFrame(measure);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    const id = requestAnimationFrame(measure);
     return () => {
+      cancelAnimationFrame(id);
       window.removeEventListener('resize', onResize);
-      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener('scroll', onScroll);
     };
   }, [measure]);
 
-  // Color schedule: white first 65% → black for the white sheet
-  useEffect(() => {
-    setColor('#fff');
-    const t = setTimeout(() => setColor('#000'), Math.round(durationMs * 0.65));
-    return () => clearTimeout(t);
-  }, [durationMs]);
-
-  if (!pos.ready) return null;
-
-  return createPortal(
-    <span
-      aria-hidden
-      style={{
-        position: 'fixed',
-        left: pos.x,
-        top: pos.y,
-        transform: 'translate(-50%, -50%)',
-        zIndex: 10001,
-        pointerEvents: 'none',
-        fontWeight: 800,
-        letterSpacing: '.08em',
-        textTransform: 'uppercase',
-        fontSize: 'clamp(11px,1.3vw,14px)',
-        color,
-        textShadow: color === '#fff'
-          ? '0 0 10px rgba(255,255,255,.55)'
-          : 'none',
-      }}
-    >
-      LAMEBOY, USA
-    </span>,
-    document.body
-  );
+  return pt;
 }
 
-/* --------- Chakra + white-sheet cascade overlay (from your globals) --------- */
+/* ---------- Bands + white sweep overlay ---------- */
 function CascadeOverlay({ durationMs = CASCADE_MS }) {
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    const id = setTimeout(() => setDone(true), durationMs);
-    return () => clearTimeout(id);
-  }, [durationMs]);
-  if (done) return null;
-
   return createPortal(
     <>
-      {/* 7 bars with glow (uses .chakra-overlay/.chakra-band from globals.css) */}
+      {/* 7 chakra bars — uses global .chakra-* glow */}
       <div className="chakra-overlay" aria-hidden="true">
         <div className="chakra-band chakra-root" />
         <div className="chakra-band chakra-sacral" />
@@ -89,13 +52,14 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
         <div className="chakra-band chakra-thirdeye" />
         <div className="chakra-band chakra-crown" />
       </div>
-      {/* white sheet sweeps in from the right (same feel as before) */}
+
+      {/* white sheet sweeps in from right */}
       <div
         aria-hidden="true"
         style={{
           position: 'fixed',
           inset: 0,
-          translate: '100% 0',            // start offscreen right
+          translate: '100% 0',
           animation: `lb-white-sweep ${durationMs}ms ease-out forwards`,
           background: '#fff',
           zIndex: 9998,
@@ -115,37 +79,85 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
   );
 }
 
+/* ---------- Floating title that follows the trigger position ---------- */
+function FloatingTitle({ x, y, color, text }) {
+  if (!x && !y) return null;
+  return createPortal(
+    <span
+      aria-hidden
+      style={{
+        position: 'fixed',
+        left: x,
+        top: y,
+        transform: 'translate(-50%, -50%)',
+        zIndex: 10001,
+        pointerEvents: 'none',
+        fontWeight: 800,
+        letterSpacing: '.08em',
+        textTransform: 'uppercase',
+        fontSize: 'clamp(11px,1.3vw,14px)',
+        color,
+        textShadow:
+          color === '#fff'
+            ? '0 0 6px rgba(255,255,255,.7), 0 0 14px rgba(255,255,255,.45), 0 0 26px rgba(255,255,255,.3)'
+            : 'none',
+      }}
+    >
+      {text}
+    </span>,
+    document.body
+  );
+}
+
+/* ---------- White hold with black title centered at same point ---------- */
+function WhiteHold({ x, y, text, ms = WHITE_HOLD_MS }) {
+  return createPortal(
+    <>
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: '#fff',
+          zIndex: 10002,
+          pointerEvents: 'none',
+        }}
+      />
+      <FloatingTitle x={x} y={y} color="#000" text={text} />
+    </>,
+    document.body
+  );
+}
+
 export default function LandingGate({ onCascadeComplete }) {
-  const [cascade, setCascade] = useState(false);
-  const [orbRed, setOrbRed] = useState(false);
-  const [hot, setHot] = useState(false);          // keeps the yellow glow locked
-  const [label, setLabel] = useState('Florida, USA'); // flips to LAMEBOY, USA
-  const pressTimer = useRef(null);
+  // Visual states
+  const [hovered, setHovered] = useState(false);       // hover flips Florida → LAMEBOY (yellow)
+  const [phase, setPhase] = useState('idle');          // 'idle' | 'cascade' | 'white' | 'done'
+  // idle: Florida white (hover shows LAMEBOY yellow)
+  // cascade: LAMEBOY white over color bands
+  // white: white screen with LAMEBOY black, then reveal
+
   const linkRef = useRef(null);
+  const { x, y, ready } = useCenterPoint(linkRef);
 
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
 
-  const runCascade = useCallback(() => {
-    if (cascade) return;
-    setCascade(true);
+  // Start the full sequence
+  const triggerCascade = useCallback(() => {
+    if (phase !== 'idle') return;
+    setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    // When cascade triggers, the sticky title will render white→black via FollowTitle.
-    const id = setTimeout(() => {
-      setCascade(false);
+    // After colored bands, hold a white screen with black title
+    setTimeout(() => setPhase('white'), CASCADE_MS);
+    // Then reveal shop
+    setTimeout(() => {
+      setPhase('done');
       onCascadeComplete?.();
-    }, CASCADE_MS);
-    return () => clearTimeout(id);
-  }, [cascade, onCascadeComplete]);
-
-  const onFloridaClick = useCallback(() => {
-    setHot(true);
-    setLabel('LAMEBOY, USA');     // flip and keep neon until cascade begins
-    // Kick the cascade after a tiny delay so the hot state paints
-    setTimeout(runCascade, 40);
-  }, [runCascade]);
+    }, CASCADE_MS + WHITE_HOLD_MS);
+  }, [phase, onCascadeComplete]);
 
   return (
     <div
@@ -158,80 +170,71 @@ export default function LandingGate({ onCascadeComplete }) {
         justifyContent: 'center',
         padding: '1.5rem',
         position: 'relative',
-        gap: 10,
+        gap: 12,
       }}
     >
-      {cascade && <CascadeOverlay />}
-      {cascade && <FollowTitle targetRef={linkRef} durationMs={CASCADE_MS} />}
-
-      {/* Centered orb */}
+      {/* ORB — 30% larger than before (≈ 94px high) */}
       <button
         type="button"
         aria-label="Orb"
-        onClick={() => setOrbRed(v => !v)}
-        onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-        onMouseUp={() => clearTimeout(pressTimer.current)}
-        onMouseLeave={() => clearTimeout(pressTimer.current)}
-        onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-        onTouchEnd={() => clearTimeout(pressTimer.current)}
-        onDoubleClick={runCascade}
+        onClick={(e) => e.preventDefault()}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         style={{ lineHeight: 0, background: 'transparent', border: 0, padding: 0, marginBottom: 12 }}
-        title="Tap: toggle color • Hold/Double-click: enter"
+        title="Hold/click label below to enter"
       >
         <BlueOrbCross3D
           rpm={44}
           color={SEAFOAM}
           geomScale={1.12}
           glow
-          glowOpacity={orbRed ? 1.0 : 0.9}
+          glowOpacity={0.95}
           includeZAxis
-          height="72px"
-          overrideAllColor={orbRed ? RED : null}
-          interactive
+          height="94px"
+          overrideAllColor={null /* stays chakra here */}
+          interactive={false}
         />
       </button>
 
-      {/* Florida ↔ LAMEBOY, USA (sticky neon behavior + exact placement for cascade) */}
+      {/* Florida ↔ LAMEBOY label */}
       <button
         ref={linkRef}
         type="button"
-        className={`lb-florida ${hot ? 'is-hot' : ''}`}
-        onClick={onFloridaClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setHovered(true)}
+        onBlur={() => setHovered(false)}
+        onClick={triggerCascade}
         title="Enter"
+        style={{
+          background: 'transparent',
+          border: 0,
+          cursor: 'pointer',
+          fontWeight: 800,
+          letterSpacing: '.02em',
+          // hide the base text while overlays are painting to avoid overlap
+          visibility: phase === 'idle' ? 'visible' : 'hidden',
+          color:
+            hovered && phase === 'idle'
+              ? '#c9a800'
+              : '#ffffff',
+          textShadow:
+            hovered && phase === 'idle'
+              ? '0 0 6px rgba(255,247,0,.55), 0 0 14px rgba(255,247,0,.35), 0 0 26px rgba(255,247,0,.25)'
+              : '0 0 8px rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.38)',
+        }}
       >
-        {label}
+        {hovered && phase === 'idle' ? 'LAMEBOY, USA' : 'Florida, USA'}
       </button>
 
-      <style jsx>{`
-        .lb-florida {
-          background: transparent;
-          border: 0;
-          cursor: pointer;
-          font-weight: 800;
-          letter-spacing: .02em;
-          color: #eaeaea; /* base */
-          text-shadow: none;
-          transition: color .15s ease, text-shadow .15s ease, filter .15s ease;
-        }
-        /* Hover neon yellow */
-        .lb-florida:hover,
-        .lb-florida:focus-visible {
-          color: #c9a800;
-          text-shadow:
-            0 0 6px rgba(255,247,0,.55),
-            0 0 14px rgba(255,247,0,.35),
-            0 0 26px rgba(255,247,0,.25);
-        }
-        /* Persist neon (after click) until cascade begins */
-        .lb-florida.is-hot {
-          color: #c9a800 !important;
-          text-shadow:
-            0 0 6px rgba(255,247,0,.55),
-            0 0 14px rgba(255,247,0,.35),
-            0 0 26px rgba(255,247,0,.25);
-        }
-      `}</style>
+      {/* Overlays according to phase */}
+      {phase === 'cascade' && (
+        <>
+          {ready && <FloatingTitle x={x} y={y} color="#fff" text="LAMEBOY, USA" />}
+          <CascadeOverlay />
+        </>
+      )}
+
+      {phase === 'white' && ready && <WhiteHold x={x} y={y} text="LAMEBOY, USA" />}
     </div>
   );
 }
