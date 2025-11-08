@@ -1,81 +1,72 @@
-// src/components/LandingGate.jsx
 'use client';
 
 import nextDynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
-import { useCallback, useRef, useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 const CASCADE_MS = 2400;
+// distance from viewport center to where the “Florida, USA” line sits (orb radius + gap)
+const BRAND_SHIFT_PX = 48; // tweak 42–56 if you want micro-alignment
 
-/* ——— Smooth GPU sweep cascade (white sheet + neon slab) ——— */
-function CascadeOverlay({ durationMs = CASCADE_MS, direction = 'rtl' }) {
-  const [p, setP] = useState(0);
+function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = BRAND_SHIFT_PX }) {
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    let start = 0, id = 0;
-    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-    const step = (t) => {
-      if (!start) start = t;
-      const k = Math.min(1, (t - start) / durationMs);
-      setP(easeOutCubic(k));
-      if (k < 1) id = requestAnimationFrame(step);
-    };
-    id = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(id);
+    const id = setTimeout(() => setDone(true), durationMs);
+    return () => clearTimeout(id);
   }, [durationMs]);
 
-  const COLOR_VW = 120;
-  const whiteTx = (1 - p) * 100;
-
-  const colorStart = direction === 'rtl' ? 100 : -100;
-  const colorEnd   = direction === 'rtl' ? -COLOR_VW : COLOR_VW;
-  const bandsTx    = colorStart + (colorEnd - colorStart) * p;
+  if (done) return null;
 
   return createPortal(
     <>
-      <div
-        aria-hidden="true"
-        style={{
-          position:'fixed', inset:0,
-          transform:`translate3d(${whiteTx}%,0,0)`,
-          background:'#fff', zIndex:10000, pointerEvents:'none',
-          willChange:'transform', backfaceVisibility:'hidden'
-        }}
-      />
-      <div
-        aria-hidden="true"
-        style={{
-          position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
-          transform:`translate3d(${bandsTx}vw,0,0)`,
-          zIndex:10001, pointerEvents:'none',
-          willChange:'transform', backfaceVisibility:'hidden'
-        }}
-      >
-        <div style={{
-          position:'absolute', inset:0, display:'grid',
-          gridTemplateColumns:'repeat(7,1fr)',
-          direction: direction === 'rtl' ? 'rtl' : 'ltr'
-        }}>
-          {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
-            <div key={i} style={{ position:'relative', background:c }}>
-              <span style={{ position:'absolute', inset:-14, background:c, filter:'blur(24px)', opacity:.95, pointerEvents:'none' }} />
-            </div>
-          ))}
-        </div>
+      {/* Chakra bands + glow (CSS in globals) */}
+      <div className="chakra-overlay" aria-hidden="true">
+        <div className="chakra-band chakra-root" />
+        <div className="chakra-band chakra-sacral" />
+        <div className="chakra-band chakra-plexus" />
+        <div className="chakra-band chakra-heart" />
+        <div className="chakra-band chakra-throat" />
+        <div className="chakra-band chakra-thirdeye" />
+        <div className="chakra-band chakra-crown" />
       </div>
+
+      {/* Title overlay — same Y as Florida, USA; auto-flips color on white veil */}
       <div
         aria-hidden="true"
-        style={{ position:'fixed', inset:0, display:'grid', placeItems:'center', zIndex:10002, pointerEvents:'none' }}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 10001,
+          pointerEvents: 'none',
+        }}
       >
-        <span style={{
-          color:'#fff', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase',
-          fontSize:'clamp(11px,1.3vw,14px)', textShadow:'0 0 10px rgba(255,255,255,.55)'
-        }}>
-          LAMEBOY, USA
-        </span>
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: `translate(-50%, calc(-50% + ${brandShiftPx}px))`,
+          }}
+        >
+          <span
+            style={{
+              // start as white; difference makes it black on white veil
+              color: '#fff',
+              mixBlendMode: 'difference',
+              fontWeight: 800,
+              letterSpacing: '.08em',
+              textTransform: 'uppercase',
+              fontSize: 'clamp(11px,1.3vw,14px)',
+              textShadow: '0 0 10px rgba(255,255,255,.55)',
+            }}
+          >
+            LAMEBOY, USA
+          </span>
+        </div>
       </div>
     </>,
     document.body
@@ -114,7 +105,7 @@ export default function LandingGate({ onCascadeComplete }) {
         position:'relative'
       }}
     >
-      {cascade && <CascadeOverlay />}
+      {cascade && <CascadeOverlay brandShiftPx={BRAND_SHIFT_PX} />}
 
       {/* Centered orb */}
       <button
@@ -128,7 +119,7 @@ export default function LandingGate({ onCascadeComplete }) {
         onTouchEnd={() => clearTimeout(pressTimer.current)}
         onDoubleClick={runCascade}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-        style={{ lineHeight: 0, background:'transparent', border:0, padding:0, marginBottom:10 }}
+        style={{ lineHeight: 0, background:'transparent', border:0, padding:0, marginBottom: 10 }}
         title="Tap: toggle color • Hold/Double-click: enter"
       >
         <BlueOrbCross3D
@@ -144,7 +135,7 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       </button>
 
-      {/* Florida, USA — hover neon yellow, click triggers cascade */}
+      {/* Florida, USA — this sits exactly where cascade title will appear */}
       <button
         type="button"
         className="florida-link"
