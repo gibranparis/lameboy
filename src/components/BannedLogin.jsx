@@ -1,4 +1,5 @@
 // @ts-check
+// src/components/BannedLogin.jsx
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -10,8 +11,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const CASCADE_MS = 2400;
 const COLOR_VW = 120;
 
-/* --- tiny center offset so orb/title sit near true middle on all screens --- */
-function useBrandShiftPx() {
+/* tiny center offset so orb/title sit near true middle */
+function useBrandShiftPx(){
   const calc = () => {
     const h = typeof window !== 'undefined' ? window.innerHeight : 800;
     return Math.round(Math.max(8, Math.min(18, h * 0.02)));
@@ -25,8 +26,8 @@ function useBrandShiftPx() {
   return px;
 }
 
-/* --- simple rAF cascade with neon glow and title that flips color correctly --- */
-function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = 12 }) {
+/* Neon cascade with rAF and title that flips white→black over veil */
+function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = 12 }){
   const [mounted, setMounted] = useState(true);
   const [p, setP] = useState(0);
 
@@ -51,7 +52,6 @@ function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = 12 }) {
 
   return createPortal(
     <>
-      {/* white veil */}
       <div
         aria-hidden
         style={{
@@ -61,7 +61,6 @@ function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = 12 }) {
           willChange:'transform', contain:'layout style paint',
         }}
       />
-      {/* chakra stack with neon bloom */}
       <div
         aria-hidden
         style={{
@@ -79,7 +78,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = 12 }) {
         </div>
       </div>
 
-      {/* title stays centered; mix-blend flips white→black over the veil */}
+      {/* Title locked near center; mix-blend handles white→black */}
       <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
         <div style={{ position:'absolute', left:'50%', top:'50%', transform:`translate(-50%, calc(-50% + ${brandShiftPx}px))` }}>
           <span
@@ -103,68 +102,60 @@ function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = 12 }) {
 }
 
 /**
- * Banned/Login modal content.
- * Props:
- *  - startView: 'banned' | 'login'
- *  - onProceed: () => void   // called to close the modal / continue
+ * OG banned modal (no email form).
+ * - Center orb (tap toggles color; hold/double-click runs cascade)
+ * - Console text with neon "is banned"
+ * - Florida, USA ↔ LAMEBOY, USA flip button beneath
  */
-export default function BannedLogin({ startView = 'banned', onProceed }) {
+export default function BannedLogin({ onProceed }){
   const brandShiftPx = useBrandShiftPx();
-
-  const [view, setView] = useState(startView);  // 'banned' | 'login'
   const [cascade, setCascade] = useState(false);
-  const [labelFlip, setLabelFlip] = useState(false);
+  const [flipBrand, setFlipBrand] = useState(false);
   const [orbRed, setOrbRed] = useState(false);
+  const pressTimer = useRef(null);
 
-  // do NOT touch data-mode here (prevents day→night flip)
-  // center orb controls
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
-  const pressTimer = useRef(null);
 
   const runCascade = useCallback(() => {
     if (cascade) return;
     setCascade(true);
-    setTimeout(() => {
-      setCascade(false);
-      onProceed?.(); // enter shop after cascade
-    }, CASCADE_MS);
+    setTimeout(() => { setCascade(false); onProceed?.(); }, CASCADE_MS);
   }, [cascade, onProceed]);
 
-  /* ---------- shared header: centered orb ---------- */
-  const Orb = (
-    <button
-      type="button"
-      aria-label="Orb"
-      onClick={() => setOrbRed(v => !v)}
-      onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-      onMouseUp={() => clearTimeout(pressTimer.current)}
-      onMouseLeave={() => clearTimeout(pressTimer.current)}
-      onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-      onTouchEnd={() => clearTimeout(pressTimer.current)}
-      onDoubleClick={runCascade}
-      className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-      style={{ lineHeight:0, background:'transparent', border:0, padding:0, marginBottom:8 }}
-      title="Tap: toggle color • Hold/Double-click: enter"
-    >
-      <BlueOrbCross3D
-        rpm={44}
-        color={SEAFOAM}
-        geomScale={1.12}
-        glow
-        glowOpacity={orbRed ? 1.0 : 0.9}
-        includeZAxis
-        height="72px"
-        overrideAllColor={orbRed ? RED : null}
-        interactive
-      />
-    </button>
-  );
+  return (
+    <div className="page-center" style={{ gap:10, transform:`translateY(${brandShiftPx}px)` }}>
+      {cascade && <CascadeOverlay brandShiftPx={brandShiftPx} />}
 
-  /* ---------- banned view ---------- */
-  const BannedView = (
-    <>
-      {Orb}
+      {/* ORB */}
+      <button
+        type="button"
+        aria-label="Orb"
+        onClick={() => setOrbRed(v => !v)}
+        onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+        onMouseUp={() => clearTimeout(pressTimer.current)}
+        onMouseLeave={() => clearTimeout(pressTimer.current)}
+        onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+        onTouchEnd={() => clearTimeout(pressTimer.current)}
+        onDoubleClick={runCascade}
+        className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+        style={{ lineHeight:0, background:'transparent', border:0, padding:0, marginBottom:8 }}
+        title="Tap: toggle color • Hold/Double-click: enter"
+      >
+        <BlueOrbCross3D
+          rpm={44}
+          color={SEAFOAM}
+          geomScale={1.12}
+          glow
+          glowOpacity={orbRed ? 1.0 : 0.9}
+          includeZAxis
+          height="72px"
+          overrideAllColor={orbRed ? RED : null}
+          interactive
+        />
+      </button>
+
+      {/* Console text */}
       <pre
         className="code-tight"
         style={{
@@ -181,99 +172,34 @@ export default function BannedLogin({ startView = 'banned', onProceed }) {
         {'\n'}
         <span className="lb-seafoam code-comment">// </span>
         <span className="banned-neon">is banned</span>{'\n'}
-        <span className="code-keyword">const</span> <span className="code-var">msg</span>{' '}
-        <span className="code-op">=</span> <span className="code-string">"welcome to"</span>
-        <span className="code-punc">;</span>
+        <span className="code-keyword">const</span> <span className="code-var">msg</span> <span className="code-op">=</span> <span className="code-string">"welcome to"</span><span className="code-punc">;</span>
       </pre>
 
-      {/* Florida ↔ LAMEBOY, USA under the orb, no overlap */}
+      {/* Florida ↔ LAMEBOY flip */}
       <button
         type="button"
-        className="lb-florida"
-        onClick={() => { setLabelFlip(true); setTimeout(()=>setLabelFlip(false), 900); }}
+        className="florida-link"
+        onClick={() => { setFlipBrand(true); setTimeout(()=>setFlipBrand(false), 900); }}
         title="Click to morph"
         style={{ fontWeight:800 }}
       >
-        {labelFlip ? 'LAMEBOY, USA' : 'Florida, USA'}
-      </button>
-
-      {/* link to login view */}
-      <button
-        type="button"
-        onClick={() => setView('login')}
-        className="pill"
-        style={{ marginTop:12 }}
-        title="Sign in"
-      >
-        Sign in
+        {flipBrand ? 'LAMEBOY, USA' : 'Florida, USA'}
       </button>
 
       <style jsx>{`
-        .lb-florida{
+        .florida-link{
           display:block; text-align:center; background:transparent; border:0; cursor:pointer;
-          letter-spacing:.02em; color:#eaeaea; transition:color .15s ease, text-shadow .15s ease;
+          letter-spacing:.02em; color:#eaeaea; transition: color .15s ease, text-shadow .15s ease;
         }
-        .lb-florida:hover, .lb-florida:focus-visible{
+        .florida-link:hover, .florida-link:focus-visible{
           color:#fff8c2;
-          text-shadow:0 0 6px rgba(250,204,21,.55), 0 0 14px rgba(250,204,21,.38), 0 0 26px rgba(250,204,21,.22);
+          text-shadow:
+            0 0 6px rgba(250,204,21,.55),
+            0 0 14px rgba(250,204,21,.38),
+            0 0 26px rgba(250,204,21,.22);
           outline:0;
         }
       `}</style>
-    </>
-  );
-
-  /* ---------- login view ---------- */
-  const LoginView = (
-    <>
-      {Orb}
-      <div
-        className="vscode-card"
-        style={{
-          width:'min(92vw,420px)',
-          padding:'14px 16px',
-          borderRadius:14,
-          textAlign:'left',
-          background:'var(--panel)',
-        }}
-      >
-        <div style={{ fontWeight:900, letterSpacing:'.04em', marginBottom:8 }}>LAMEBOY ACCOUNT</div>
-
-        <label style={{ display:'block', fontSize:12, opacity:.8, marginBottom:6 }}>Email</label>
-        <input
-          type="email"
-          inputMode="email"
-          placeholder="you@example.com"
-          style={{
-            width:'100%', height:36, borderRadius:10, padding:'0 10px',
-            border:'1px solid rgba(0,0,0,.14)', background:'#fff', color:'#111',
-            boxShadow:'inset 0 0 0 1px rgba(255,255,255,.6)',
-          }}
-        />
-
-        <div className="row-nowrap" style={{ justifyContent:'space-between', marginTop:10 }}>
-          <button type="button" className="pill" onClick={() => setView('banned')}>Back</button>
-          <button
-            type="button"
-            className="pill"
-            onClick={() => onProceed?.()}
-            style={{ background:'var(--hover-green)', color:'#000', borderColor:'rgba(0,0,0,.45)' }}
-            title="Enter"
-          >
-            Enter
-          </button>
-        </div>
-      </div>
-    </>
-  );
-
-  return (
-    <div className="page-center" style={{ gap:10 }}>
-      {cascade && <CascadeOverlay brandShiftPx={brandShiftPx} />}
-
-      {/* keep vertical alignment right near the middle */}
-      <div style={{ transform:`translateY(${brandShiftPx}px)` }}>
-        {view === 'login' ? LoginView : BannedView}
-      </div>
     </div>
   );
 }
