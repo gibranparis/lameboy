@@ -8,40 +8,35 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 const CASCADE_MS = 2400;
-const CASCADE_PAD_MS = 120;   // unmount buffer to prevent end-frame flicker
-const COLOR_VW = 120;         // width of color stack
-const BRAND_SHIFT_PX = 48;    // vertical offset from viewport center to “Florida, USA”
+const CASCADE_PAD_MS = 120;   // tiny buffer so overlay never cuts mid-frame
+const COLOR_VW = 120;         // width of the color stack
+const BRAND_SHIFT_PX = 48;    // vertical offset from center (aligns with button line)
 
+/* rAF-driven, GPU-only cascade; title uses mix-blend to flip colors correctly */
 function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = BRAND_SHIFT_PX }) {
   const [mounted, setMounted] = useState(true);
-  const [p, setP] = useState(0); // 0..1 progress
+  const [p, setP] = useState(0); // 0..1
 
   useEffect(() => {
     let start, rafId, doneId;
-    const ease = (t) => 1 - Math.pow(1 - t, 3); // cubic ease-out
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
     const step = (t) => {
       if (start == null) start = t;
       const raw = Math.min(1, (t - start) / durationMs);
-      setP(ease(raw));
-      if (raw < 1) {
-        rafId = requestAnimationFrame(step);
-      } else {
-        doneId = setTimeout(() => setMounted(false), CASCADE_PAD_MS);
-      }
+      setP(easeOut(raw));
+      if (raw < 1) rafId = requestAnimationFrame(step);
+      else doneId = setTimeout(() => setMounted(false), CASCADE_PAD_MS);
     };
 
     rafId = requestAnimationFrame(step);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      if (doneId) clearTimeout(doneId);
-    };
+    return () => { if (rafId) cancelAnimationFrame(rafId); if (doneId) clearTimeout(doneId); };
   }, [durationMs]);
 
   if (!mounted) return null;
 
-  const whiteTx = (1 - p) * 100;                       // veil 100% → 0%
-  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // offscreen → flush
+  const whiteTx = (1 - p) * 100;                         // veil slides in
+  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // colors lead slightly
 
   return createPortal(
     <>
@@ -49,59 +44,31 @@ function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = BRAND_SHIFT_PX
       <div
         aria-hidden
         style={{
-          position: 'fixed',
-          inset: 0,
-          transform: `translate3d(${whiteTx}%,0,0)`,
-          background: '#fff',
-          zIndex: 9998,
-          pointerEvents: 'none',
-          willChange: 'transform',
-          contain: 'layout style paint',
-          transformOrigin: 'left center',
+          position:'fixed', inset:0,
+          transform:`translate3d(${whiteTx}%,0,0)`,
+          background:'#fff', zIndex:9998, pointerEvents:'none',
+          willChange:'transform', contain:'layout style paint', transformOrigin:'left center',
         }}
       />
-
-      {/* COLOR STACK + glow */}
+      {/* COLOR STACK + neon bloom */}
       <div
         aria-hidden
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          height: '100vh',
-          width: `${COLOR_VW}vw`,
-          transform: `translate3d(${bandsTx}vw,0,0)`,
-          zIndex: 9999,
-          pointerEvents: 'none',
-          willChange: 'transform',
-          contain: 'layout style paint',
+          position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
+          transform:`translate3d(${bandsTx}vw,0,0)`,
+          zIndex:9999, pointerEvents:'none', willChange:'transform', contain:'layout style paint',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7,1fr)',
-          }}
-        >
+        <div style={{ position:'absolute', inset:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
           {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
             <div key={i} style={{ position:'relative', background:c }}>
-              <span
-                style={{
-                  position:'absolute',
-                  inset:-16,
-                  background:c,
-                  filter:'blur(26px)',
-                  opacity:.95,
-                }}
-              />
+              <span style={{ position:'absolute', inset:-16, background:c, filter:'blur(26px)', opacity:.95 }} />
             </div>
           ))}
         </div>
       </div>
 
-      {/* TITLE — same Y as “Florida, USA”; auto-flips color on white via difference */}
+      {/* TITLE — matches the button’s Y; mixBlendMode flips white↔black over the veil */}
       <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
         <div style={{ position:'absolute', left:'50%', top:'50%', transform:`translate(-50%, calc(-50% + ${brandShiftPx}px))` }}>
           <span
@@ -127,11 +94,14 @@ function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = BRAND_SHIFT_PX
 export default function LandingGate({ onCascadeComplete }) {
   const [cascade, setCascade] = useState(false);
   const [orbRed, setOrbRed] = useState(false);
+  const [label, setLabel] = useState('Florida, USA'); // shown under orb before cascade
+  const [hideButton, setHideButton] = useState(false);
   const pressTimer = useRef(null);
 
   const runCascade = useCallback(() => {
     if (cascade) return;
     setCascade(true);
+    setHideButton(true);                 // prevent overlap with overlay title
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
     setTimeout(() => {
@@ -140,6 +110,7 @@ export default function LandingGate({ onCascadeComplete }) {
     }, CASCADE_MS);
   }, [cascade, onCascadeComplete]);
 
+  // orb behavior: tap toggles color, hold/dblclick enters
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
 
@@ -153,7 +124,7 @@ export default function LandingGate({ onCascadeComplete }) {
         alignItems:'center',
         justifyContent:'center',
         padding:'1.5rem',
-        position:'relative'
+        position:'relative',
       }}
     >
       {cascade && <CascadeOverlay brandShiftPx={BRAND_SHIFT_PX} />}
@@ -170,7 +141,7 @@ export default function LandingGate({ onCascadeComplete }) {
         onTouchEnd={() => clearTimeout(pressTimer.current)}
         onDoubleClick={runCascade}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-        style={{ lineHeight: 0, background:'transparent', border:0, padding:0, marginBottom: 10 }}
+        style={{ lineHeight:0, background:'transparent', border:0, padding:0, marginBottom:10 }}
         title="Tap: toggle color • Hold/Double-click: enter"
       >
         <BlueOrbCross3D
@@ -186,38 +157,39 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       </button>
 
-      {/* Florida, USA — sits exactly where the cascade title appears */}
-      <button
-        type="button"
-        className="florida-link"
-        onClick={runCascade}
-        style={{
-          display:'block',
-          textAlign:'center',
-          color:'#eaeaea',
-          fontWeight:700,
-          letterSpacing:'.02em',
-          background:'transparent',
-          border:'none',
-          cursor:'pointer'
-        }}
-        title="Enter"
-      >
-        Florida, USA
-      </button>
+      {/* Label under orb — swaps to LAMEBOY, USA on click; glows yellow on hover */}
+      {!hideButton && (
+        <button
+          type="button"
+          className="lb-landing-label"
+          onClick={() => { setLabel('LAMEBOY, USA'); runCascade(); }}
+          title="Enter"
+        >
+          {label}
+        </button>
+      )}
 
+      {/* scoped styles so hover glow always works */}
       <style jsx>{`
-        .florida-link {
-          text-shadow: none;
-          transition: text-shadow .15s ease, color .15s ease;
+        .lb-landing-label {
+          display:block;
+          text-align:center;
+          font-weight:800;
+          letter-spacing:.02em;
+          background:transparent;
+          border:none;
+          cursor:pointer;
+          color:#eaeaea;
+          transition: color .15s ease, text-shadow .15s ease;
         }
-        .florida-link:hover,
-        .florida-link:focus-visible {
-          color: #fff8c2;
+        .lb-landing-label:hover,
+        .lb-landing-label:focus-visible {
+          color:#fff8c2; /* neon yellow-like */
           text-shadow:
             0 0 6px rgba(250,204,21,.55),
             0 0 14px rgba(250,204,21,.38),
             0 0 26px rgba(250,204,21,.22);
+          outline:0;
         }
       `}</style>
     </div>
