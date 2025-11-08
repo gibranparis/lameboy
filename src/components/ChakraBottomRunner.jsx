@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
  * Listens to `lb:orb-mode` {mode:'chakra'|'red'}.
  */
 export default function ChakraBottomRunner({
-  height = 14,
+  height = 7,
   speedSec = 12,
   zIndex = 40,
 }) {
