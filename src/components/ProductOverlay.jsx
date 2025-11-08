@@ -2,7 +2,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 
 /* utils */
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
@@ -11,7 +11,7 @@ const wrap  = (i,len)=>((i%len)+len)%len;
 /* arrow with green flash */
 function ArrowControl({ dir='up', night, onClick }) {
   const [flash, setFlash] = useState(false);
-  const fill  = night ? '#0b0c10' : '#ffffff';              // black in night, white in day
+  const fill  = night ? '#0b0c10' : '#ffffff';
   const ring  = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
   const glyph = night ? '#ffffff' : '#0f1115';
 
@@ -43,7 +43,7 @@ function ArrowControl({ dir='up', night, onClick }) {
   );
 }
 
-/* + / sizes (kept from your version, uses .pill + flash-green) */
+/* + / sizes */
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
@@ -82,9 +82,78 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   );
 }
 
+/* ------ FAST SWIPE ENGINE (mobile) ------ */
+/* Pointer-based so it works across touch/pen/mouse.
+   - Steps multiple items using accumulated distance
+   - Adds velocity bonus for flicks
+*/
+function useFastSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }) {
+  const state = useRef({
+    active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0,
+  });
+
+  const STEP_X = 34; // px per image step (lower → more sensitive)
+  const STEP_Y = 40; // px per product step
+  const FLICK_V_BONUS = 0.35; // add portion of velocity (px/ms) to distance
+
+  const onDown = useCallback((e) => {
+    const p = e.touches ? e.touches[0] : e;
+    state.current.active = true;
+    state.current.lastX  = p.clientX;
+    state.current.lastY  = p.clientY;
+    state.current.ax = 0; state.current.ay = 0;
+    state.current.lastT = performance.now();
+    state.current.vx = 0; state.current.vy = 0;
+  }, []);
+
+  const onMove = useCallback((e) => {
+    if (!state.current.active) return;
+    // prevent the page from stealing the scroll
+    if (e.cancelable) e.preventDefault();
+
+    const p = e.touches ? e.touches[0] : e;
+    const now = performance.now();
+    const dt  = Math.max(1, now - state.current.lastT);
+
+    const dx = p.clientX - state.current.lastX;
+    const dy = p.clientY - state.current.lastY;
+
+    state.current.vx = dx / dt;
+    state.current.vy = dy / dt;
+
+    state.current.lastX = p.clientX;
+    state.current.lastY = p.clientY;
+    state.current.lastT = now;
+
+    // velocity bonus for flick feel
+    state.current.ax += dx + state.current.vx * FLICK_V_BONUS * 100;
+    state.current.ay += dy + state.current.vy * FLICK_V_BONUS * 100;
+
+    // horizontal → images
+    if (imgsLen) {
+      while (state.current.ax <= -STEP_X) { state.current.ax += STEP_X; setImgIdx(i => clamp(i+1, 0, imgsLen-1)); }
+      while (state.current.ax >=  STEP_X) { state.current.ax -= STEP_X; setImgIdx(i => clamp(i-1, 0, imgsLen-1)); }
+    }
+    // vertical → products
+    if (prodsLen>1) {
+      while (state.current.ay <= -STEP_Y) { state.current.ay += STEP_Y; onIndexChange?.(wrap(index+1, prodsLen)); }
+      while (state.current.ay >=  STEP_Y) { state.current.ay -= STEP_Y; onIndexChange?.(wrap(index-1, prodsLen)); }
+    }
+  }, [imgsLen, prodsLen, index, setImgIdx, onIndexChange]);
+
+  const onUp = useCallback(() => {
+    state.current.active = false;
+    state.current.ax = 0; state.current.ay = 0;
+  }, []);
+
+  return { onDown, onMove, onUp };
+}
+
 export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
-  const night = document.documentElement.dataset.theme === 'night' ||
-                document.documentElement.classList.contains('dark');
+  const night =
+    typeof document !== 'undefined' &&
+    (document.documentElement.dataset.theme === 'night' ||
+     document.documentElement.classList.contains('dark'));
 
   const product = products[index];
   const imgs = useMemo(() => {
@@ -123,11 +192,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('keydown', onKey);
   }, [imgs.length, products.length, index, onIndexChange, onClose]);
 
-  /* wheel */
+  /* wheel (desktop) */
   const lastWheel = useRef(0);
   useEffect(() => {
     const onWheel = (e) => {
-      const now = performance.now(); if (now - lastWheel.current < 120) return; lastWheel.current = now;
+      const now = performance.now(); if (now - lastWheel.current < 90) return; lastWheel.current = now;
       const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
       if (ax > ay && imgs.length) setImgIdx(i=>clamp(i + (e.deltaX>0?1:-1), 0, imgs.length-1));
       else if (products.length>1) onIndexChange?.(wrap(index + (e.deltaY>0?1:-1), products.length));
@@ -136,32 +205,16 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('wheel', onWheel);
   }, [imgs.length, products.length, index, onIndexChange]);
 
-  /* touch: horizontal image, vertical product (continuous steps) */
-  useEffect(() => {
-    let accY=0, accX=0, active=false, lastY=0, lastX=0;
-    const STEP_Y=48, STEP_X=36;
-    const onStart = (e)=>{ const t=e.touches?.[0]; if(!t) return; active=true; lastY=t.clientY; lastX=t.clientX; accY=0; accX=0; };
-    const onMove  = (e)=>{ if(!active) return; const t=e.touches?.[0]; if(!t) return;
-      const dy=t.clientY-lastY; lastY=t.clientY; accY+=dy;
-      const dx=t.clientX-lastX; lastX=t.clientX; accX+=dx;
-      if (imgs.length){ while(accX<=-STEP_X){ accX+=STEP_X; setImgIdx(i=>clamp(i+1,0,imgs.length-1)); }
-                        while(accX>= STEP_X){ accX-=STEP_X; setImgIdx(i=>clamp(i-1,0,imgs.length-1)); } }
-      if (products.length>1){ while(accY<=-STEP_Y){ accY+=STEP_Y; onIndexChange?.(wrap(index+1,products.length)); }
-                              while(accY>= STEP_Y){ accY-=STEP_Y; onIndexChange?.(wrap(index-1,products.length)); } }
-    };
-    const onEnd=()=>{ active=false; accY=0; accX=0; };
-    window.addEventListener('touchstart', onStart, { passive:true });
-    window.addEventListener('touchmove',  onMove,  { passive:true });
-    window.addEventListener('touchend',   onEnd,   { passive:true });
-    window.addEventListener('touchcancel',onEnd,   { passive:true });
-    return () => {
-      window.removeEventListener('touchstart', onStart);
-      window.removeEventListener('touchmove',  onMove);
-      window.removeEventListener('touchend',   onEnd);
-      window.removeEventListener('touchcancel',onEnd);
-    };
-  }, [imgs.length, products.length, index, onIndexChange]);
+  /* fast swipe on mobile via Pointer events */
+  const swipe = useFastSwipe({
+    imgsLen: imgs.length,
+    prodsLen: products.length,
+    index,
+    setImgIdx,
+    onIndexChange,
+  });
 
+  /* overlay flag for page styles */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open','1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -177,8 +230,29 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const sizes = product.sizes?.length ? product.sizes : ['OS','S','M','L','XL'];
 
   return (
-    <div className="product-hero-overlay" data-overlay role="dialog" aria-modal="true" aria-label={`${product.title} details`}>
-      <div className="product-hero">
+    <div
+      className="product-hero-overlay"
+      data-overlay
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${product.title} details`}
+      // Keep gestures in the overlay; let us track flicks
+      style={{
+        position:'fixed', inset:0, zIndex:520,
+        display:'grid', placeItems:'center',
+        backdropFilter:'blur(0px)',
+        background:'rgba(0,0,0,.55)',
+        overscrollBehavior: 'contain',
+        touchAction: 'none',
+      }}
+      onPointerDown={swipe.onDown}
+      onPointerMove={swipe.onMove}
+      onPointerUp={swipe.onUp}
+      onPointerCancel={swipe.onUp}
+      onClick={(e)=>{ if (e.target === e.currentTarget) onClose?.(); }}
+    >
+      <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center' }}>
+        {/* left arrows (sticky) */}
         {products.length>1 && (
           <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
             <ArrowControl dir="up"   night={night} onClick={()=>onIndexChange?.(wrap(index-1, products.length))} />
@@ -186,6 +260,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           </div>
         )}
 
+        {/* main image */}
         {!!imgs.length && (
           <>
             <Image
@@ -201,13 +276,13 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
               style={{ width:'100%', height:'auto', maxHeight:'70vh', objectFit:'contain', imageRendering:'auto' }}
             />
             {imgs.length>1 && (
-              <div className="row-nowrap" style={{ gap:8, marginTop:6 }}>
+              <div className="row-nowrap" style={{ gap:8, marginTop:6, justifyContent:'center', display:'flex' }}>
                 {imgs.map((_,i)=>(
                   <button
                     key={i}
                     type="button"
                     aria-label={`Image ${i+1}`}
-                    className={`pill ${i===clampedImgIdx ? 'size-pill is-selected flash-green' : ''}`}
+                    className={`pill ${i===clampedImgIdx ? 'size-pill is-selected' : ''}`}
                     onClick={()=>setImgIdx(i)}
                     style={{ width:22, height:22, padding:0 }}
                   />
@@ -222,6 +297,45 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
         <PlusSizesInline sizes={sizes} />
       </div>
+
+      {/* Embedded minimal styles to guarantee green activation + pills */}
+      <style jsx>{`
+        .product-hero-overlay :global(.pill) {
+          min-width: 28px; height: 28px; padding: 0 10px;
+          border-radius: 999px; border: none;
+          display: inline-grid; place-items: center;
+          font-weight: 700; font-size: 13px;
+          background: #101214; color: #fff;
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+        }
+        .product-hero-overlay :global(.plus-pill) {
+          width: 36px; height: 36px; font-size: 18px; line-height: 1;
+          background: #0f1115; color: #fff;
+        }
+        .product-hero-overlay :global(.size-pill) {
+          background: #0f1115; color: #eaeaea;
+        }
+        .product-hero-overlay :global(.size-pill.is-selected) {
+          outline: 2px solid #0bf05f;
+          color: #fff;
+        }
+
+        @keyframes lb-flash-green {
+          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,0);   transform: translateZ(0) scale(1.0); }
+          15%  { box-shadow: 0 0 0 6px rgba(11,240,95,.45); transform: translateZ(0) scale(1.02); }
+          100% { box-shadow: 0 0 0 0 rgba(11,240,95,0);   transform: translateZ(0) scale(1.0); }
+        }
+        :global(.flash-green) {
+          animation: lb-flash-green .34s ease-out;
+        }
+
+        .product-hero-title { margin-top: 10px; font-weight: 800; }
+        .product-hero-price { opacity: .85; margin-top: 2px; }
+
+        @media (prefers-reduced-motion: reduce) {
+          :global(.flash-green) { animation: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
