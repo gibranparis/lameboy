@@ -14,12 +14,12 @@ const CartButton         = nextDynamic(() => import('@/components/CartButton'), 
 const DayNightToggle     = nextDynamic(() => import('@/components/DayNightToggle'),     { ssr: false });
 const BannedLogin        = nextDynamic(() => import('@/components/BannedLogin'),        { ssr: false });
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), { ssr: false });
-// Heart: bottom-right, no circle
+// Heart: bottom-right, no circle (uses .heart-submit CSS you added)
 const HeartBeatButton    = nextDynamic(() => import('@/components/HeartBeatButton'),    { ssr: false });
 
-const HEADER_H = 86;
 const RUNNER_H = 14;
 
+/* Read --header-ctrl so header height + padding-top stay in sync with CSS */
 function useHeaderCtrlPx(defaultPx = 56) {
   const [px, setPx] = useState(defaultPx);
   useEffect(() => {
@@ -83,17 +83,18 @@ export default function Page(){
 
   const enterShop = () => setIsShop(true);
 
+  // Header: follow CSS grid defined in globals; just set height to ctrlPx for layout
   const headerStyle = useMemo(() => ({
     position:'fixed',
     inset:'0 0 auto 0',
-    height:HEADER_H,
-    zIndex:500,
+    height: ctrlPx,                 // stays in sync with --header-ctrl
+    zIndex: 500,
     display:'grid',
     gridTemplateColumns:'auto 1fr auto',
     alignItems:'center',
     padding:'0 16px',
     background:'transparent',
-  }), []);
+  }), [ctrlPx]);
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
@@ -105,10 +106,18 @@ export default function Page(){
         <>
           <header role="banner" style={headerStyle}>
             <div style={{ display:'grid', justifyContent:'start' }}>
-              <ChakraOrbButton size={64} className="orb-ring" style={{ display:'grid', placeItems:'center' }} />
+              <ChakraOrbButton
+                size={64}
+                className="orb-ring"
+                style={{ display:'grid', placeItems:'center' }}
+              />
             </div>
             <div id="lb-daynight" style={{ display:'grid', placeItems:'center' }}>
-              <DayNightToggle circlePx={28} trackPad={1} moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']} />
+              <DayNightToggle
+                circlePx={28}
+                trackPad={1}
+                moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
+              />
             </div>
             <div style={{ display:'grid', justifyContent:'end' }}>
               <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
@@ -117,16 +126,28 @@ export default function Page(){
             </div>
           </header>
 
-          <main style={{ paddingTop: HEADER_H }}>
+          <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
 
             {/* Heart FAB opens the login modal (bottom-right, safe-area aware) */}
-            <HeartBeatButton onClick={() => setLoginOpen(true)} />
+            <HeartBeatButton
+              className="heart-submit"
+              aria-label="Open login"
+              onClick={() => setLoginOpen(true)}
+            />
+
             {loginOpen && (
               <div
                 role="dialog"
                 aria-modal="true"
-                style={{ position:'fixed', inset:0, zIndex:540, display:'grid', placeItems:'center', background:'rgba(0,0,0,.55)' }}
+                style={{
+                  position:'fixed',
+                  inset:0,
+                  zIndex:540,
+                  display:'grid',
+                  placeItems:'center',
+                  background:'rgba(0,0,0,.55)'
+                }}
                 onClick={(e)=>{ if(e.target === e.currentTarget) setLoginOpen(false); }}
               >
                 <div style={{ outline:'none' }}>

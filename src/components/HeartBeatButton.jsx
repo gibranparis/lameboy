@@ -4,18 +4,17 @@
 import React, { useRef, useEffect } from 'react';
 
 /**
- * Bottom-right floating heart (no background circle).
- * - Safe-area aware (right/bottom)
- * - Pure heart SVG with neon glow + heartbeat
- * - No dependency on global styles
+ * Pure heart FAB — no circle background.
+ * Positioning/z-index come from the passed className (e.g. "heart-submit").
+ * This component itself does NOT set right/bottom so it won't fight your CSS.
  */
 export default function HeartBeatButton({
   onClick,
-  size = 44,                  // pure heart pixel size
+  size = 44,                  // heart SVG size in px
   title = 'submit',
   ariaLabel = 'submit',
   style,
-  className = '',
+  className = '',             // pass "heart-submit" from caller
 }) {
   const btnRef = useRef(null);
 
@@ -35,17 +34,14 @@ export default function HeartBeatButton({
       onClick={onClick}
       className={[
         'hb',
-        // fixed FAB at bottom-right
-        'fixed z-[10010]',
+        // Do NOT force positioning here; let .heart-submit handle it.
+        // Keep interaction/visual basics only.
         'p-0 m-0 border-0 outline-none',
         'cursor-pointer select-none bg-transparent',
         'active:scale-[0.97]',
         className,
       ].join(' ')}
       style={{
-        // position with safe-area + runner height buffer
-        right: `calc(16px + env(safe-area-inset-right, 0px))`,
-        bottom: `calc(16px + var(--runner-h, 10px) + env(safe-area-inset-bottom, 0px))`,
         width: size,
         height: size,
         display: 'grid',

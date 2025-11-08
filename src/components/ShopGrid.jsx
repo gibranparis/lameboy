@@ -1,3 +1,4 @@
+// src/components/ShopGrid.jsx
 // @ts-check
 'use client';
 
@@ -50,7 +51,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   const open  = (i) => setOverlayIdx(i);
   const close = () => setOverlayIdx(null);
 
-  // Auto-open first product on mount
+  // Auto-open first product on mount (slight delay to allow layout)
   useEffect(() => {
     if (autoOpenFirstOnMount && seed.length) {
       const t = setTimeout(() => setOverlayIdx(0), 80);
@@ -123,8 +124,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       className="shop-wrap"
       data-shop-root
       style={{
-        padding: '28px 28px 60px',
-        // also set on the wrapper so CSS selectors that scope to .shop-grid inherit cleanly
+        // Let global CSS control padding; only set grid cols here.
         ['--grid-cols']: String(cols),
       }}
     >
@@ -135,8 +135,13 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
             className="product-tile lb-tile"
             role="button"
             tabIndex={0}
+            aria-label={`Open ${p.title ?? 'product'} details`}
             onClick={(e) => { e.preventDefault(); open(idx); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(idx); }}}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault(); open(idx);
+              }
+            }}
           >
             <div className="product-box">
               <Image

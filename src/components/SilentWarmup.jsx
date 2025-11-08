@@ -9,11 +9,13 @@ const CART   = ['/cart/birkin-green.png','/cart/birkin-royal.png','/cart/birkin-
 const TOGGLE = ['/toggle/moon-blue.png','/toggle/moon-red.png'];
 
 export default function SilentWarmup({
-  enable        = true,
-  prefetchPath  = '/shop',
-  images        = [...CART, ...TOGGLE],
-  maxConcurrent = 2,          // keep network gentle
-  startDelayMs  = 300,        // wait a tick after mount
+  enable            = true,
+  prefetchPath      = '/shop',
+  images            = [...CART, ...TOGGLE],
+  maxConcurrent     = 2,      // keep network gentle
+  startDelayMs      = 300,    // wait a tick after mount
+  onlyWhenGate      = true,   // don't warm if we're already in shop mode
+  prefetchOnVisible = true,   // do a one-time follow-up prefetch on visibility
 }) {
   const started = useRef(false);
   const stopRef = useRef(false);
@@ -26,7 +28,9 @@ export default function SilentWarmup({
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
     const here = window.location?.pathname || '';
-    if (here === prefetchPath) return;               // don’t prefetch the page we’re on
+    const mode = document.documentElement.getAttribute('data-mode'); // 'gate' | 'shop'
+    if (here === prefetchPath) return;                  // don’t prefetch the page we’re on
+    if (onlyWhenGate && mode === 'shop') return;        // skip if already in shop
 
     // Environment checks
     const conn = navigator?.connection || navigator?.mozConnection || navigator?.webkitConnection;
@@ -34,7 +38,7 @@ export default function SilentWarmup({
     const slowNet = /^(slow-2g|2g)$/.test(conn?.effectiveType || '');
     const isVisible = () => document.visibilityState !== 'hidden';
 
-    // If the user asked for data savings or the net is tiny, do nothing.
+    // Respect data-saver / tiny networks
     if (saveData || slowNet) return;
 
     // requestIdleCallback polyfill
@@ -60,7 +64,9 @@ export default function SilentWarmup({
     // --- helpers ------------------------------------------------------
     const idleIds = [];
     let rafId = 0;
+    const timers = new Set();
     const loaded = new Set();
+    const imgsInFlight = new Set();
 
     const uniqueQueue = images.filter(Boolean).filter((src, i, arr) => arr.indexOf(src) === i);
 
@@ -68,29 +74,37 @@ export default function SilentWarmup({
       new Promise((resolve) => {
         if (!src || loaded.has(src) || stopRef.current) return resolve();
         const img = new Image();
+        imgsInFlight.add(img);
         img.decoding = 'async';
         img.loading = 'eager';                // we’re controlling when it starts
         img.referrerPolicy = 'no-referrer';
-        img.onload = img.onerror = () => { loaded.add(src); resolve(); };
+        img.onload = img.onerror = () => {
+          loaded.add(src);
+          imgsInFlight.delete(img);
+          resolve();
+        };
         // kick on next tick so we can throttle multiple starts
-        setTimeout(() => { if (!stopRef.current) img.src = src; }, 0);
+        const t = setTimeout(() => { if (!stopRef.current) img.src = src; }, 0);
+        timers.add(t);
       });
 
     // Little concurrency controller
     const warmQueue = async () => {
-      if (!isVisible() || stopRef.current) return;
+      if (!isVisible() || stopRef.current || !uniqueQueue.length) return;
       const q = uniqueQueue.slice();     // copy
       const runners = new Array(Math.max(1, Math.min(maxConcurrent, q.length)))
         .fill(0)
         .map(async () => {
           while (q.length && !stopRef.current) {
             const next = q.shift();
-            // small spacing between kicks to avoid bursts
-            // (helps on iOS and underpowered devices)
             // eslint-disable-next-line no-await-in-loop
             await loadImage(next);
+            // small spacing between kicks to avoid bursts (helps on iOS/low power)
             // eslint-disable-next-line no-await-in-loop
-            await new Promise(r => setTimeout(r, 120));
+            await new Promise(r => {
+              const t = setTimeout(r, 120);
+              timers.add(t);
+            });
           }
         });
       await Promise.all(runners);
@@ -98,10 +112,13 @@ export default function SilentWarmup({
 
     // --- schedule ------------------------------------------------------
     // 1) After first paint, queue a gentle prefetch of the shop route
-    rafId = requestAnimationFrame(() => {
-      if (!isVisible()) return;
-      idleIds.push(rIC(() => { if (!stopRef.current) { try { router.prefetch(prefetchPath); } catch {} } }, 900));
-    });
+    try {
+      rafId = requestAnimationFrame(() => {
+        if (!isVisible() || stopRef.current) return;
+        const id = rIC(() => { if (!stopRef.current) { try { router.prefetch(prefetchPath); } catch {} } }, 900);
+        idleIds.push(id);
+      });
+    } catch {}
 
     // 2) Warm images when idle
     idleIds.push(rIC(() => { if (!stopRef.current && isVisible()) warmQueue(); }, 1500));
@@ -112,12 +129,12 @@ export default function SilentWarmup({
       try { router.prefetch(prefetchPath); } catch {}
       warmQueue();
     };
-    // small delay to avoid competing with critical resources
     const loadTimer = setTimeout(() => window.addEventListener('load', onLoad, { once: true }), startDelayMs);
+    timers.add(loadTimer);
 
     // 4) If the tab becomes visible later, do one tiny follow-up prefetch
     const onVisible = () => {
-      if (!isVisible() || stopRef.current) return;
+      if (!prefetchOnVisible || !isVisible() || stopRef.current) return;
       try { router.prefetch(prefetchPath); } catch {}
       document.removeEventListener('visibilitychange', onVisible);
     };
@@ -127,11 +144,20 @@ export default function SilentWarmup({
       stopRef.current = true;
       try { cancelAnimationFrame(rafId); } catch {}
       idleIds.forEach((id) => cRIC(id));
-      clearTimeout(loadTimer);
+      timers.forEach((t) => clearTimeout(t));
       window.removeEventListener('load', onLoad);
       document.removeEventListener('visibilitychange', onVisible);
+      // Best-effort cleanup of in-flight images
+      imgsInFlight.forEach((img) => {
+        try {
+          img.onload = img.onerror = null;
+          // Setting src to empty string hints many browsers to drop the request if still pending
+          img.src = '';
+        } catch {}
+      });
+      imgsInFlight.clear();
     };
-  }, [enable, prefetchPath, images, maxConcurrent, startDelayMs, router]);
+  }, [enable, prefetchPath, images, maxConcurrent, startDelayMs, onlyWhenGate, prefetchOnVisible, router]);
 
   return null;
 }

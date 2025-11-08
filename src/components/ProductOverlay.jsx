@@ -11,7 +11,7 @@ const wrap  = (i,len)=>((i%len)+len)%len;
 /* arrow with green flash */
 function ArrowControl({ dir='up', night, onClick }) {
   const [flash, setFlash] = useState(false);
-  const fill  = night ? '#0b0c10' : '#ffffff';
+  const fill  = night ? '#0b0c10' : '#ffffff';              // black in night, white in day
   const ring  = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
   const glyph = night ? '#ffffff' : '#0f1115';
 
@@ -83,7 +83,9 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
 }
 
 export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
-  const night = document.documentElement.dataset.theme === 'night' || document.documentElement.classList.contains('dark');
+  const night = document.documentElement.dataset.theme === 'night' ||
+                document.documentElement.classList.contains('dark');
+
   const product = products[index];
   const imgs = useMemo(() => {
     const list = product?.images?.length ? product.images : [product?.image].filter(Boolean);
@@ -134,7 +136,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('wheel', onWheel);
   }, [imgs.length, products.length, index, onIndexChange]);
 
-  /* touch: horizontal image, vertical product */
+  /* touch: horizontal image, vertical product (continuous steps) */
   useEffect(() => {
     let accY=0, accX=0, active=false, lastY=0, lastX=0;
     const STEP_Y=48, STEP_X=36;
