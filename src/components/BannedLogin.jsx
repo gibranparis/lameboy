@@ -3,7 +3,7 @@
 'use client';
 
 import nextDynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
@@ -12,37 +12,100 @@ const CASCADE_MS = 2400;
 /* ——— wordmark ——— */
 function Wordmark() {
   return (
-    <span className="lb-white neon-black" style={{ fontWeight:900 }}>
+    <span className="lb-white neon-black" style={{ fontWeight: 900 }}>
       Lamebo<span>y</span><span className="lb-seafoam">.com</span>
     </span>
   );
 }
 
-/* ——— simple neon cascade (keeps your glow) ——— */
-function CascadeOverlay({ durationMs = CASCADE_MS }) {
+/* ——— Smooth GPU sweep cascade (white sheet + neon slab) ——— */
+function CascadeOverlay({ durationMs = CASCADE_MS, direction = 'rtl' }) {
   const [p, setP] = useState(0);
+
   useEffect(() => {
-    let t0, id;
-    const step = (t) => { if (!t0) t0 = t; const k = Math.min(1, (t - t0)/durationMs); setP(k); if (k<1) id=requestAnimationFrame(step); };
+    let start = 0, id = 0;
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    const step = (t) => {
+      if (!start) start = t;
+      const k = Math.min(1, (t - start) / durationMs);
+      setP(easeOutCubic(k));
+      if (k < 1) id = requestAnimationFrame(step);
+    };
     id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
   }, [durationMs]);
 
-  const whiteTx = (1 - p) * 100;
   const COLOR_VW = 120;
-  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
+  const whiteTx = (1 - p) * 100;
+
+  const colorStart = direction === 'rtl' ? 100 : -100;
+  const colorEnd   = direction === 'rtl' ? -COLOR_VW : COLOR_VW;
+  const bandsTx    = colorStart + (colorEnd - colorStart) * p;
 
   return createPortal(
     <>
-      <div aria-hidden style={{ position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`, background:'#fff', zIndex:9998, pointerEvents:'none' }}/>
-      <div aria-hidden style={{ position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`, transform:`translate3d(${bandsTx}vw,0,0)`, zIndex:9999, pointerEvents:'none' }}>
-        <div style={{ position:'absolute', inset:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
+      {/* White sheet */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          transform: `translate3d(${whiteTx}%,0,0)`,
+          background: '#fff',
+          zIndex: 10000,
+          pointerEvents: 'none',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+        }}
+      />
+
+      {/* Neon bands slab */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          height: '100vh',
+          width: `${COLOR_VW}vw`,
+          transform: `translate3d(${bandsTx}vw,0,0)`,
+          zIndex: 10001,
+          pointerEvents: 'none',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7,1fr)',
+            direction: direction === 'rtl' ? 'rtl' : 'ltr',
+          }}
+        >
           {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
             <div key={i} style={{ position:'relative', background:c }}>
-              <span style={{ position:'absolute', inset:-14, background:c, filter:'blur(24px)', opacity:.95 }} />
+              <span style={{ position:'absolute', inset:-14, background:c, filter:'blur(24px)', opacity:.95, pointerEvents:'none' }} />
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Title while sweeping */}
+      <div
+        aria-hidden="true"
+        style={{
+          position:'fixed', inset:0, display:'grid', placeItems:'center',
+          zIndex:10002, pointerEvents:'none'
+        }}
+      >
+        <span style={{
+          color:'#fff', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase',
+          fontSize:'clamp(11px,1.3vw,14px)', textShadow:'0 0 10px rgba(255,255,255,.55)'
+        }}>
+          LAMEBOY, USA
+        </span>
       </div>
     </>,
     document.body
@@ -50,18 +113,17 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
 }
 
 export default function BannedLogin({ onProceed }) {
-  const [cascade, setCascade] = useState(false);
+  const [cascade, setCascade]   = useState(false);
   const [whiteout, setWhiteout] = useState(false);
 
-  // Florida ↔ LAMEBOY, USA flip state
   const [flipBrand, setFlipBrand] = useState(false);
 
   const SEAFOAM = '#32ffc7', RED = '#ff001a';
   const [orbMode, setOrbMode] = useState/** @type {'chakra'|'red'} */('chakra');
-  const [orbGlow, setOrbGlow]   = useState(0.9);
+  const [orbGlow, setOrbGlow] = useState(0.9);
   const [orbVersion, setOrbVersion] = useState(0);
 
-  // ❌ removed: do NOT set data-mode="gate" here
+  // Do NOT modify data-mode here (prevents theme flips)
 
   const runCascade = useCallback(() => {
     setCascade(true);
@@ -78,6 +140,8 @@ export default function BannedLogin({ onProceed }) {
       const n = m === 'red' ? 'chakra' : 'red';
       setOrbGlow(n === 'red' ? 1.0 : 0.9);
       setOrbVersion(v => v + 1);
+      try { window.dispatchEvent(new CustomEvent('lb:orb-mode', { detail:{ mode:n } })); } catch {}
+      try { document.dispatchEvent(new CustomEvent('lb:orb-mode', { detail:{ mode:n } })); } catch {}
       return n;
     });
   }, []);

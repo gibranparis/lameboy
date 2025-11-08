@@ -3,58 +3,77 @@
 
 import nextDynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 const CASCADE_MS = 2400;
 
-function CascadeOverlay({ durationMs = CASCADE_MS }) {
-  const [done, setDone] = useState(false);
+/* ——— Smooth GPU sweep cascade (white sheet + neon slab) ——— */
+function CascadeOverlay({ durationMs = CASCADE_MS, direction = 'rtl' }) {
+  const [p, setP] = useState(0);
 
   useEffect(() => {
-    const id = setTimeout(() => setDone(true), durationMs);
-    return () => clearTimeout(id);
+    let start = 0, id = 0;
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    const step = (t) => {
+      if (!start) start = t;
+      const k = Math.min(1, (t - start) / durationMs);
+      setP(easeOutCubic(k));
+      if (k < 1) id = requestAnimationFrame(step);
+    };
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
   }, [durationMs]);
 
-  if (done) return null;
+  const COLOR_VW = 120;
+  const whiteTx = (1 - p) * 100;
+
+  const colorStart = direction === 'rtl' ? 100 : -100;
+  const colorEnd   = direction === 'rtl' ? -COLOR_VW : COLOR_VW;
+  const bandsTx    = colorStart + (colorEnd - colorStart) * p;
 
   return createPortal(
     <>
-      {/* Chakra color bands (use global CSS for glow/animation) */}
-      <div className="chakra-overlay" aria-hidden="true">
-        <div className="chakra-band chakra-root" />
-        <div className="chakra-band chakra-sacral" />
-        <div className="chakra-band chakra-plexus" />
-        <div className="chakra-band chakra-heart" />
-        <div className="chakra-band chakra-throat" />
-        <div className="chakra-band chakra-thirdeye" />
-        <div className="chakra-band chakra-crown" />
-      </div>
-
-      {/* Title overlay */}
       <div
         aria-hidden="true"
         style={{
-          position: 'fixed',
-          inset: 0,
-          display: 'grid',
-          placeItems: 'center',
-          zIndex: 10001,
-          pointerEvents: 'none',
+          position:'fixed', inset:0,
+          transform:`translate3d(${whiteTx}%,0,0)`,
+          background:'#fff', zIndex:10000, pointerEvents:'none',
+          willChange:'transform', backfaceVisibility:'hidden'
+        }}
+      />
+      <div
+        aria-hidden="true"
+        style={{
+          position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
+          transform:`translate3d(${bandsTx}vw,0,0)`,
+          zIndex:10001, pointerEvents:'none',
+          willChange:'transform', backfaceVisibility:'hidden'
         }}
       >
-        <span
-          style={{
-            color: '#fff',
-            fontWeight: 800,
-            letterSpacing: '.08em',
-            textTransform: 'uppercase',
-            fontSize: 'clamp(11px,1.3vw,14px)',
-            textShadow: '0 0 10px rgba(255,255,255,.55)',
-          }}
-        >
+        <div style={{
+          position:'absolute', inset:0, display:'grid',
+          gridTemplateColumns:'repeat(7,1fr)',
+          direction: direction === 'rtl' ? 'rtl' : 'ltr'
+        }}>
+          {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
+            <div key={i} style={{ position:'relative', background:c }}>
+              <span style={{ position:'absolute', inset:-14, background:c, filter:'blur(24px)', opacity:.95, pointerEvents:'none' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div
+        aria-hidden="true"
+        style={{ position:'fixed', inset:0, display:'grid', placeItems:'center', zIndex:10002, pointerEvents:'none' }}
+      >
+        <span style={{
+          color:'#fff', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase',
+          fontSize:'clamp(11px,1.3vw,14px)', textShadow:'0 0 10px rgba(255,255,255,.55)'
+        }}>
           LAMEBOY, USA
         </span>
       </div>
@@ -68,7 +87,6 @@ export default function LandingGate({ onCascadeComplete }) {
   const [orbRed, setOrbRed] = useState(false);
   const pressTimer = useRef(null);
 
-  // run cascade and then enter shop
   const runCascade = useCallback(() => {
     if (cascade) return;
     setCascade(true);
@@ -80,7 +98,6 @@ export default function LandingGate({ onCascadeComplete }) {
     }, CASCADE_MS);
   }, [cascade, onCascadeComplete]);
 
-  // orb behavior: single click toggles red, long-press enters
   const SEAFOAM = '#32ffc7';
   const RED = '#ff001a';
 
@@ -88,13 +105,13 @@ export default function LandingGate({ onCascadeComplete }) {
     <div
       className="page-center"
       style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1.5rem',
-        position: 'relative',
+        minHeight:'100dvh',
+        display:'flex',
+        flexDirection:'column',
+        alignItems:'center',
+        justifyContent:'center',
+        padding:'1.5rem',
+        position:'relative'
       }}
     >
       {cascade && <CascadeOverlay />}
@@ -103,21 +120,15 @@ export default function LandingGate({ onCascadeComplete }) {
       <button
         type="button"
         aria-label="Orb"
-        onClick={() => setOrbRed((v) => !v)}
-        onMouseDown={() => {
-          clearTimeout(pressTimer.current);
-          pressTimer.current = setTimeout(runCascade, 650);
-        }}
+        onClick={() => setOrbRed(v => !v)}
+        onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
         onMouseUp={() => clearTimeout(pressTimer.current)}
         onMouseLeave={() => clearTimeout(pressTimer.current)}
-        onTouchStart={() => {
-          clearTimeout(pressTimer.current);
-          pressTimer.current = setTimeout(runCascade, 650);
-        }}
+        onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
         onTouchEnd={() => clearTimeout(pressTimer.current)}
         onDoubleClick={runCascade}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-        style={{ lineHeight: 0, background: 'transparent', border: 0, padding: 0, marginBottom: 10 }}
+        style={{ lineHeight: 0, background:'transparent', border:0, padding:0, marginBottom:10 }}
         title="Tap: toggle color • Hold/Double-click: enter"
       >
         <BlueOrbCross3D
@@ -139,14 +150,14 @@ export default function LandingGate({ onCascadeComplete }) {
         className="florida-link"
         onClick={runCascade}
         style={{
-          display: 'block',
-          textAlign: 'center',
-          color: '#eaeaea',
-          fontWeight: 700,
-          letterSpacing: '.02em',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
+          display:'block',
+          textAlign:'center',
+          color:'#eaeaea',
+          fontWeight:700,
+          letterSpacing:'.02em',
+          background:'transparent',
+          border:'none',
+          cursor:'pointer'
         }}
         title="Enter"
       >
@@ -156,15 +167,15 @@ export default function LandingGate({ onCascadeComplete }) {
       <style jsx>{`
         .florida-link {
           text-shadow: none;
-          transition: text-shadow 0.15s ease, color 0.15s ease;
+          transition: text-shadow .15s ease, color .15s ease;
         }
         .florida-link:hover,
         .florida-link:focus-visible {
           color: #fff8c2;
           text-shadow:
-            0 0 6px rgba(250, 204, 21, 0.55),
-            0 0 14px rgba(250, 204, 21, 0.38),
-            0 0 26px rgba(250, 204, 21, 0.22);
+            0 0 6px rgba(250,204,21,.55),
+            0 0 14px rgba(250,204,21,.38),
+            0 0 26px rgba(250,204,21,.22);
         }
       `}</style>
     </div>
