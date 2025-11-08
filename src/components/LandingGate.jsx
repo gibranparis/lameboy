@@ -8,60 +8,111 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 const CASCADE_MS = 2400;
-// distance from viewport center to where the “Florida, USA” line sits (orb radius + gap)
-const BRAND_SHIFT_PX = 48; // tweak 42–56 if you want micro-alignment
+const CASCADE_PAD_MS = 120;   // unmount buffer to prevent end-frame flicker
+const COLOR_VW = 120;         // width of color stack
+const BRAND_SHIFT_PX = 48;    // vertical offset from viewport center to “Florida, USA”
 
 function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = BRAND_SHIFT_PX }) {
-  const [done, setDone] = useState(false);
+  const [mounted, setMounted] = useState(true);
+  const [p, setP] = useState(0); // 0..1 progress
 
   useEffect(() => {
-    const id = setTimeout(() => setDone(true), durationMs);
-    return () => clearTimeout(id);
+    let start, rafId, doneId;
+    const ease = (t) => 1 - Math.pow(1 - t, 3); // cubic ease-out
+
+    const step = (t) => {
+      if (start == null) start = t;
+      const raw = Math.min(1, (t - start) / durationMs);
+      setP(ease(raw));
+      if (raw < 1) {
+        rafId = requestAnimationFrame(step);
+      } else {
+        doneId = setTimeout(() => setMounted(false), CASCADE_PAD_MS);
+      }
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (doneId) clearTimeout(doneId);
+    };
   }, [durationMs]);
 
-  if (done) return null;
+  if (!mounted) return null;
+
+  const whiteTx = (1 - p) * 100;                       // veil 100% → 0%
+  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // offscreen → flush
 
   return createPortal(
     <>
-      {/* Chakra bands + glow (CSS in globals) */}
-      <div className="chakra-overlay" aria-hidden="true">
-        <div className="chakra-band chakra-root" />
-        <div className="chakra-band chakra-sacral" />
-        <div className="chakra-band chakra-plexus" />
-        <div className="chakra-band chakra-heart" />
-        <div className="chakra-band chakra-throat" />
-        <div className="chakra-band chakra-thirdeye" />
-        <div className="chakra-band chakra-crown" />
-      </div>
-
-      {/* Title overlay — same Y as Florida, USA; auto-flips color on white veil */}
+      {/* WHITE VEIL */}
       <div
-        aria-hidden="true"
+        aria-hidden
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 10001,
+          transform: `translate3d(${whiteTx}%,0,0)`,
+          background: '#fff',
+          zIndex: 9998,
           pointerEvents: 'none',
+          willChange: 'transform',
+          contain: 'layout style paint',
+          transformOrigin: 'left center',
+        }}
+      />
+
+      {/* COLOR STACK + glow */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          height: '100vh',
+          width: `${COLOR_VW}vw`,
+          transform: `translate3d(${bandsTx}vw,0,0)`,
+          zIndex: 9999,
+          pointerEvents: 'none',
+          willChange: 'transform',
+          contain: 'layout style paint',
         }}
       >
         <div
           style={{
             position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: `translate(-50%, calc(-50% + ${brandShiftPx}px))`,
+            inset: 0,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7,1fr)',
           }}
         >
+          {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
+            <div key={i} style={{ position:'relative', background:c }}>
+              <span
+                style={{
+                  position:'absolute',
+                  inset:-16,
+                  background:c,
+                  filter:'blur(26px)',
+                  opacity:.95,
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* TITLE — same Y as “Florida, USA”; auto-flips color on white via difference */}
+      <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
+        <div style={{ position:'absolute', left:'50%', top:'50%', transform:`translate(-50%, calc(-50% + ${brandShiftPx}px))` }}>
           <span
             style={{
-              // start as white; difference makes it black on white veil
-              color: '#fff',
-              mixBlendMode: 'difference',
-              fontWeight: 800,
-              letterSpacing: '.08em',
-              textTransform: 'uppercase',
-              fontSize: 'clamp(11px,1.3vw,14px)',
-              textShadow: '0 0 10px rgba(255,255,255,.55)',
+              color:'#fff',
+              mixBlendMode:'difference',
+              fontWeight:800,
+              letterSpacing:'.08em',
+              textTransform:'uppercase',
+              fontSize:'clamp(11px,1.3vw,14px)',
+              textShadow:'0 0 10px rgba(255,255,255,.55)',
             }}
           >
             LAMEBOY, USA
@@ -135,7 +186,7 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       </button>
 
-      {/* Florida, USA — this sits exactly where cascade title will appear */}
+      {/* Florida, USA — sits exactly where the cascade title appears */}
       <button
         type="button"
         className="florida-link"

@@ -6,7 +6,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
+
 const CASCADE_MS = 2400;
+const CASCADE_PAD_MS = 120;
+const COLOR_VW = 120;
 const BRAND_SHIFT_PX = 48;
 
 function Wordmark() {
@@ -18,45 +21,64 @@ function Wordmark() {
 }
 
 function CascadeOverlay({ durationMs = CASCADE_MS, brandShiftPx = BRAND_SHIFT_PX }) {
+  const [mounted, setMounted] = useState(true);
   const [p, setP] = useState(0);
+
   useEffect(() => {
-    let t0, id;
-    const step = (t) => { if (!t0) t0 = t; const k = Math.min(1, (t - t0)/durationMs); setP(k); if (k<1) id=requestAnimationFrame(step); };
-    id = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(id);
+    let start, rafId, doneId;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+
+    const step = (t) => {
+      if (start == null) start = t;
+      const raw = Math.min(1, (t - start) / durationMs);
+      setP(ease(raw));
+      if (raw < 1) {
+        rafId = requestAnimationFrame(step);
+      } else {
+        doneId = setTimeout(() => setMounted(false), CASCADE_PAD_MS);
+      }
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (doneId) clearTimeout(doneId);
+    };
   }, [durationMs]);
 
+  if (!mounted) return null;
+
   const whiteTx = (1 - p) * 100;
-  const COLOR_VW = 120;
   const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
 
   return createPortal(
     <>
-      <div aria-hidden style={{ position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`, background:'#fff', zIndex:9998, pointerEvents:'none' }}/>
-      <div aria-hidden style={{ position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`, transform:`translate3d(${bandsTx}vw,0,0)`, zIndex:9999, pointerEvents:'none' }}>
+      <div aria-hidden style={{
+        position:'fixed', inset:0,
+        transform:`translate3d(${whiteTx}%,0,0)`,
+        background:'#fff', zIndex:9998, pointerEvents:'none',
+        willChange:'transform', contain:'layout style paint', transformOrigin:'left center',
+      }}/>
+      <div aria-hidden style={{
+        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
+        transform:`translate3d(${bandsTx}vw,0,0)`,
+        zIndex:9999, pointerEvents:'none', willChange:'transform', contain:'layout style paint',
+      }}>
         <div style={{ position:'absolute', inset:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
           {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
             <div key={i} style={{ position:'relative', background:c }}>
-              <span style={{ position:'absolute', inset:-14, background:c, filter:'blur(24px)', opacity:.95 }} />
+              <span style={{ position:'absolute', inset:-16, background:c, filter:'blur(26px)', opacity:.95 }} />
             </div>
           ))}
         </div>
       </div>
 
-      {/* Title at same Y as Florida; auto color flip */}
       <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
         <div style={{ position:'absolute', left:'50%', top:'50%', transform:`translate(-50%, calc(-50% + ${brandShiftPx}px))` }}>
-          <span
-            style={{
-              color:'#fff',
-              mixBlendMode:'difference',
-              fontWeight:800,
-              letterSpacing:'.08em',
-              textTransform:'uppercase',
-              fontSize:'clamp(11px,1.3vw,14px)',
-              textShadow:'0 0 10px rgba(255,255,255,.55)'
-            }}
-          >
+          <span style={{
+            color:'#fff', mixBlendMode:'difference', fontWeight:800, letterSpacing:'.08em',
+            textTransform:'uppercase', fontSize:'clamp(11px,1.3vw,14px)', textShadow:'0 0 10px rgba(255,255,255,.55)',
+          }}>
             LAMEBOY, USA
           </span>
         </div>
@@ -145,14 +167,7 @@ export default function BannedLogin({ onProceed }) {
         <span className="code-keyword">const</span> <span className="code-var">msg</span> <span className="code-op">=</span> <span className="code-string">"welcome to"</span><span className="code-punc">;</span>
       </pre>
 
-      {/* Florida / LAMEBOY, USA occupy the same vertical lane (handled in overlay) */}
-      <button
-        type="button"
-        className="florida-link"
-        onClick={runCascade}
-        title="Enter"
-        style={{ fontWeight:800 }}
-      >
+      <button type="button" className="florida-link" onClick={runCascade} title="Enter" style={{ fontWeight:800 }}>
         Florida, USA
       </button>
     </div>
