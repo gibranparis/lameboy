@@ -8,10 +8,10 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
-const CASCADE_MS = 2400;    // color bands + white sweep duration
-const WHITE_HOLD_MS = 520;  // white screen hold
+const CASCADE_MS    = 2400; // bands + white sweep
+const WHITE_HOLD_MS = 520;
 
-/* ---------------- helpers ---------------- */
+/* ---------------- utilities ---------------- */
 function useCenter(ref) {
   const [pt, setPt] = useState({ x: 0, y: 0 });
   const measure = useCallback(() => {
@@ -23,7 +23,7 @@ function useCenter(ref) {
   useLayoutEffect(() => {
     measure();
     const onResize = () => measure();
-    window.addEventListener('resize', onResize);
+    window.addEventListener('resize', onResize, { passive: true });
     const id = requestAnimationFrame(measure);
     return () => {
       cancelAnimationFrame(id);
@@ -33,11 +33,11 @@ function useCenter(ref) {
   return pt;
 }
 
-/* rAF-timed cascade (glow bands + white sheet) */
+/* rAF cascade: chakra bands + white sheet */
 function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
-  const [p, setP] = useState(0); // 0..1
+  const [p, setP] = useState(0);
   const raf = useRef(0);
-  const t0 = useRef(0);
+  const t0  = useRef(0);
 
   useEffect(() => {
     const step = (t) => {
@@ -50,17 +50,14 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
     return () => cancelAnimationFrame(raf.current);
   }, [durationMs]);
 
-  // white translates from +100% → 0
-  const whiteTx = (1 - p) * 100;
-
-  // color bands slide in a bit earlier than white, then fade
+  const whiteTx = (1 - p) * 100;                        // % of viewport width
   const COLOR_VW = 120;
-  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
+  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // vw
   const bandsOpacity = p < 0.85 ? 1 : Math.max(0, 1 - (p - 0.85) / 0.15);
 
   return createPortal(
     <>
-      {/* bands */}
+      {/* Chakra bands with neon bloom */}
       <div
         className="chakra-overlay"
         aria-hidden
@@ -75,7 +72,7 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
         <div className="chakra-band chakra-crown" />
       </div>
 
-      {/* white sheet */}
+      {/* White sheet pass */}
       <div
         aria-hidden
         style={{
@@ -93,25 +90,24 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
   );
 }
 
-/* floating title portal (used during overlays) */
-function FloatingTitle({ x, y, text, color, glow = false, z = 10001 }) {
+/* Floating title portal (for overlays) */
+function FloatingTitle({ x, y, text, color, neon = false, z = 10001 }) {
   return createPortal(
     <span
       aria-hidden
       style={{
         position: 'fixed',
-        left: x,
-        top: y,
-        transform: 'translate(-50%, -50%)',
-        zIndex: z,
-        pointerEvents: 'none',
-        fontWeight: 800,
-        letterSpacing: '.08em',
-        textTransform: 'uppercase',
+        left: x, top: y,
+        transform: 'translate(-50%,-50%)',
+        zIndex: z, pointerEvents: 'none',
+        fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
         fontSize: 'clamp(11px,1.3vw,14px)',
         color,
-        textShadow: glow
-          ? '0 0 6px rgba(255,255,255,.7), 0 0 14px rgba(255,255,255,.45), 0 0 26px rgba(255,255,255,.3)'
+        textShadow: neon
+          ? `
+            0 0 8px rgba(255,255,255,.95),
+            0 0 18px rgba(255,255,255,.85),
+            0 0 42px rgba(255,255,255,.75)`
           : 'none',
       }}
     >
@@ -121,15 +117,12 @@ function FloatingTitle({ x, y, text, color, glow = false, z = 10001 }) {
   );
 }
 
-/* white hold layer */
+/* White hold layer with black title */
 function WhiteHold({ x, y, text }) {
   return createPortal(
     <>
-      <div
-        aria-hidden
-        style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 10002, pointerEvents: 'none' }}
-      />
-      <FloatingTitle x={x} y={y} text={text} color="#000" glow={false} z={10003} />
+      <div aria-hidden style={{ position:'fixed', inset:0, background:'#fff', zIndex:10002, pointerEvents:'none' }} />
+      <FloatingTitle x={x} y={y} text={text} color="#000" neon={false} z={10003} />
     </>,
     document.body
   );
@@ -137,56 +130,55 @@ function WhiteHold({ x, y, text }) {
 
 /* ---------------- main ---------------- */
 export default function LandingGate({ onCascadeComplete }) {
-  // phases: idle → cascade → white → done
+  // phases: idle → cascading → white → done
   const [phase, setPhase] = useState('idle');
   const [hovered, setHovered] = useState(false);
-  const btnRef = useRef(null);
+  const [armed, setArmed]     = useState(false); // after click, lock wording to LAMEBOY, USA
   const labelRef = useRef(null);
-  const locked = useRef(false); // prevents double starts
-
   const { x, y } = useCenter(labelRef);
-
   const SEAFOAM = '#32ffc7';
+  const rootRef = useRef(null);
 
-  const start = useCallback(() => {
-    if (locked.current || phase !== 'idle') return;
-    locked.current = true;
-    setPhase('cascade');
+  // reflect phase on <html> for optional global styling hooks
+  useEffect(() => {
+    try { document.documentElement.dataset.cascade = phase === 'cascading' ? 'true' : 'false'; } catch {}
+    return () => { try { delete document.documentElement.dataset.cascade; } catch {} };
+  }, [phase]);
+
+  const startCascade = useCallback(() => {
+    if (phase !== 'idle') return;
+    setArmed(true);           // switch label to LAMEBOY, USA immediately
+    setPhase('cascading');
     try { playChakraSequenceRTL(); } catch {}
-    try { sessionStorage.setItem('fromCascade', '1'); } catch {}
+    try { sessionStorage.setItem('fromCascade','1'); } catch {}
 
-    // move to white hold, then reveal
     const t1 = setTimeout(() => setPhase('white'), CASCADE_MS);
     const t2 = setTimeout(() => {
       setPhase('done');
       onCascadeComplete?.();
     }, CASCADE_MS + WHITE_HOLD_MS);
-
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase, onCascadeComplete]);
 
   return (
     <div
+      ref={rootRef}
       className="page-center"
       style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-        padding: '1.5rem',
-        position: 'relative',
+        minHeight:'100dvh',
+        display:'flex', flexDirection:'column',
+        alignItems:'center', justifyContent:'center',
+        gap:14, padding:'1.5rem', position:'relative',
+        touchAction:'manipulation',
       }}
     >
-      {/* ORB — 30% bigger */}
+      {/* ORB — 30% larger */}
       <button
-        ref={btnRef}
         type="button"
         aria-label="Orb"
         onClick={(e) => e.preventDefault()}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-        style={{ lineHeight: 0, background: 'transparent', border: 0, padding: 0, marginBottom: 12 }}
+        style={{ lineHeight:0, background:'transparent', border:0, padding:0, marginBottom:12 }}
         title="Click the label below to enter"
       >
         <BlueOrbCross3D
@@ -194,47 +186,95 @@ export default function LandingGate({ onCascadeComplete }) {
           color={SEAFOAM}
           geomScale={1.12}
           glow
-          glowOpacity={0.95}
+          glowOpacity={0.96}
           includeZAxis
           height="94px"
           interactive={false}
         />
       </button>
 
-      {/* Base label (hidden during overlays to avoid overlaps) */}
+      {/* Base label (hidden during overlay phases) */}
       <button
         ref={labelRef}
         type="button"
+        disabled={phase !== 'idle'}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setHovered(true)}
         onBlur={() => setHovered(false)}
-        onClick={start}
+        onClick={startCascade}
         title="Enter"
+        className={`lb-landing-label ${hovered || armed ? 'is-neon' : ''}`}
         style={{
           visibility: phase === 'idle' ? 'visible' : 'hidden',
-          background: 'transparent',
-          border: 0,
-          cursor: 'pointer',
-          fontWeight: 800,
-          letterSpacing: '.02em',
-          color: hovered ? '#c9a800' : '#ffffff',
-          textShadow: hovered
-            ? '0 0 6px rgba(255,247,0,.55), 0 0 14px rgba(255,247,0,.35), 0 0 26px rgba(255,247,0,.25)'
-            : '0 0 8px rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.38)',
+          background:'transparent', border:0, cursor:'pointer',
+          fontWeight:800, letterSpacing:'.08em',
         }}
       >
-        {hovered ? 'LAMEBOY, USA' : 'Florida, USA'}
+        {hovered || armed ? 'LAMEBOY, USA' : 'Florida, USA'}
       </button>
 
       {/* Overlays */}
-      {phase === 'cascade' && (
+      {phase === 'cascading' && (
         <>
-          <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color="#fff" glow />
+          <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color="#fff" neon />
           <CascadeOverlayRAF />
         </>
       )}
       {phase === 'white' && <WhiteHold x={x} y={y} text="LAMEBOY, USA" />}
+
+      {/* Local neon styles */}
+      <style jsx>{`
+        .lb-landing-label {
+          color: #ffffff;
+          text-shadow:
+            0 0 10px rgba(255,255,255,.50),
+            0 0 22px rgba(255,255,255,.35);
+          transition: color .22s ease, text-shadow .22s ease, transform .22s ease;
+        }
+        .lb-landing-label.is-neon {
+          /* Arcade neon yellow (bright core + strong halo) */
+          color: #fffdb4;
+          text-shadow:
+            0 0 6px rgba(255, 255, 140, 0.95),
+            0 0 14px rgba(255, 255, 120, 0.85),
+            0 0 28px rgba(255, 255, 90, 1),
+            0 0 48px rgba(255, 245, 120, 0.85);
+          transform: scale(1.04);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .lb-landing-label, .lb-landing-label.is-neon { transform:none; }
+        }
+
+        /* Chakra overlay shell (neon bloom like your cascade) */
+        :global(.chakra-overlay) {
+          position: fixed;
+          top: 0; left: 0;
+          height: 100vh; width: 120vw; /* matches COLOR_VW */
+          z-index: 9999; pointer-events: none;
+          will-change: transform, opacity;
+        }
+        :global(.chakra-overlay) > :global(.chakra-band) {
+          position: absolute; top: 0; bottom: 0;
+          width: calc(120vw / 7);
+        }
+        :global(.chakra-root)    { left: calc(0  * (120vw/7)); background:#ef4444; }
+        :global(.chakra-sacral)  { left: calc(1  * (120vw/7)); background:#f97316; }
+        :global(.chakra-plexus)  { left: calc(2  * (120vw/7)); background:#facc15; }
+        :global(.chakra-heart)   { left: calc(3  * (120vw/7)); background:#22c55e; }
+        :global(.chakra-throat)  { left: calc(4  * (120vw/7)); background:#3b82f6; }
+        :global(.chakra-thirdeye){ left: calc(5  * (120vw/7)); background:#4f46e5; }
+        :global(.chakra-crown)   { left: calc(6  * (120vw/7)); background:#c084fc; }
+
+        /* Neon blur bloom for the bands */
+        :global(.chakra-overlay) > :global(.chakra-band)::after {
+          content:'';
+          position:absolute; inset:-16px;
+          filter: blur(28px);
+          background: inherit;
+          opacity: .95;
+        }
+      `}</style>
     </div>
   );
 }
