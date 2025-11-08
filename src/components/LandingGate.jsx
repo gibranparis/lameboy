@@ -8,42 +8,64 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
-const CASCADE_MS = 2400;         // colored bands duration
-const WHITE_HOLD_MS = 520;       // how long to hold the white screen with black text
+const CASCADE_MS = 2400;    // color bands + white sweep duration
+const WHITE_HOLD_MS = 520;  // white screen hold
 
-/* ---------- Utility: track the center of the trigger button ---------- */
-function useCenterPoint(ref) {
-  const [pt, setPt] = useState({ x: 0, y: 0, ready: false });
+/* ---------------- helpers ---------------- */
+function useCenter(ref) {
+  const [pt, setPt] = useState({ x: 0, y: 0 });
   const measure = useCallback(() => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    setPt({ x: r.left + r.width / 2, y: r.top + r.height / 2, ready: true });
-  }, [ref]);
-
+    setPt({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+  }, []);
   useLayoutEffect(() => {
     measure();
     const onResize = () => measure();
-    const onScroll = () => measure();
     window.addEventListener('resize', onResize);
-    window.addEventListener('scroll', onScroll, { passive: true });
     const id = requestAnimationFrame(measure);
     return () => {
       cancelAnimationFrame(id);
       window.removeEventListener('resize', onResize);
-      window.removeEventListener('scroll', onScroll);
     };
   }, [measure]);
-
   return pt;
 }
 
-/* ---------- Bands + white sweep overlay ---------- */
-function CascadeOverlay({ durationMs = CASCADE_MS }) {
+/* rAF-timed cascade (glow bands + white sheet) */
+function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
+  const [p, setP] = useState(0); // 0..1
+  const raf = useRef(0);
+  const t0 = useRef(0);
+
+  useEffect(() => {
+    const step = (t) => {
+      if (!t0.current) t0.current = t;
+      const k = Math.min(1, (t - t0.current) / durationMs);
+      setP(k);
+      if (k < 1) raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf.current);
+  }, [durationMs]);
+
+  // white translates from +100% → 0
+  const whiteTx = (1 - p) * 100;
+
+  // color bands slide in a bit earlier than white, then fade
+  const COLOR_VW = 120;
+  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
+  const bandsOpacity = p < 0.85 ? 1 : Math.max(0, 1 - (p - 0.85) / 0.15);
+
   return createPortal(
     <>
-      {/* 7 chakra bars — uses global .chakra-* glow */}
-      <div className="chakra-overlay" aria-hidden="true">
+      {/* bands */}
+      <div
+        className="chakra-overlay"
+        aria-hidden
+        style={{ transform: `translate3d(${bandsTx}vw,0,0)`, opacity: bandsOpacity }}
+      >
         <div className="chakra-band chakra-root" />
         <div className="chakra-band chakra-sacral" />
         <div className="chakra-band chakra-plexus" />
@@ -53,35 +75,26 @@ function CascadeOverlay({ durationMs = CASCADE_MS }) {
         <div className="chakra-band chakra-crown" />
       </div>
 
-      {/* white sheet sweeps in from right */}
+      {/* white sheet */}
       <div
-        aria-hidden="true"
+        aria-hidden
         style={{
           position: 'fixed',
           inset: 0,
-          translate: '100% 0',
-          animation: `lb-white-sweep ${durationMs}ms ease-out forwards`,
+          transform: `translate3d(${whiteTx}%,0,0)`,
           background: '#fff',
           zIndex: 9998,
           pointerEvents: 'none',
+          willChange: 'transform',
         }}
       />
-      <style jsx>{`
-        @keyframes lb-white-sweep {
-          0%   { transform: translateX(100%); }
-          40%  { transform: translateX(30%); }
-          70%  { transform: translateX(10%); }
-          100% { transform: translateX(0%); }
-        }
-      `}</style>
     </>,
     document.body
   );
 }
 
-/* ---------- Floating title that follows the trigger position ---------- */
-function FloatingTitle({ x, y, color, text }) {
-  if (!x && !y) return null;
+/* floating title portal (used during overlays) */
+function FloatingTitle({ x, y, text, color, glow = false, z = 10001 }) {
   return createPortal(
     <span
       aria-hidden
@@ -90,17 +103,16 @@ function FloatingTitle({ x, y, color, text }) {
         left: x,
         top: y,
         transform: 'translate(-50%, -50%)',
-        zIndex: 10001,
+        zIndex: z,
         pointerEvents: 'none',
         fontWeight: 800,
         letterSpacing: '.08em',
         textTransform: 'uppercase',
         fontSize: 'clamp(11px,1.3vw,14px)',
         color,
-        textShadow:
-          color === '#fff'
-            ? '0 0 6px rgba(255,255,255,.7), 0 0 14px rgba(255,255,255,.45), 0 0 26px rgba(255,255,255,.3)'
-            : 'none',
+        textShadow: glow
+          ? '0 0 6px rgba(255,255,255,.7), 0 0 14px rgba(255,255,255,.45), 0 0 26px rgba(255,255,255,.3)'
+          : 'none',
       }}
     >
       {text}
@@ -109,54 +121,48 @@ function FloatingTitle({ x, y, color, text }) {
   );
 }
 
-/* ---------- White hold with black title centered at same point ---------- */
-function WhiteHold({ x, y, text, ms = WHITE_HOLD_MS }) {
+/* white hold layer */
+function WhiteHold({ x, y, text }) {
   return createPortal(
     <>
       <div
         aria-hidden
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: '#fff',
-          zIndex: 10002,
-          pointerEvents: 'none',
-        }}
+        style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 10002, pointerEvents: 'none' }}
       />
-      <FloatingTitle x={x} y={y} color="#000" text={text} />
+      <FloatingTitle x={x} y={y} text={text} color="#000" glow={false} z={10003} />
     </>,
     document.body
   );
 }
 
+/* ---------------- main ---------------- */
 export default function LandingGate({ onCascadeComplete }) {
-  // Visual states
-  const [hovered, setHovered] = useState(false);       // hover flips Florida → LAMEBOY (yellow)
-  const [phase, setPhase] = useState('idle');          // 'idle' | 'cascade' | 'white' | 'done'
-  // idle: Florida white (hover shows LAMEBOY yellow)
-  // cascade: LAMEBOY white over color bands
-  // white: white screen with LAMEBOY black, then reveal
+  // phases: idle → cascade → white → done
+  const [phase, setPhase] = useState('idle');
+  const [hovered, setHovered] = useState(false);
+  const btnRef = useRef(null);
+  const labelRef = useRef(null);
+  const locked = useRef(false); // prevents double starts
 
-  const linkRef = useRef(null);
-  const { x, y, ready } = useCenterPoint(linkRef);
+  const { x, y } = useCenter(labelRef);
 
   const SEAFOAM = '#32ffc7';
-  const RED = '#ff001a';
 
-  // Start the full sequence
-  const triggerCascade = useCallback(() => {
-    if (phase !== 'idle') return;
+  const start = useCallback(() => {
+    if (locked.current || phase !== 'idle') return;
+    locked.current = true;
     setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    // After colored bands, hold a white screen with black title
-    setTimeout(() => setPhase('white'), CASCADE_MS);
-    // Then reveal shop
-    setTimeout(() => {
+    // move to white hold, then reveal
+    const t1 = setTimeout(() => setPhase('white'), CASCADE_MS);
+    const t2 = setTimeout(() => {
       setPhase('done');
       onCascadeComplete?.();
     }, CASCADE_MS + WHITE_HOLD_MS);
+
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase, onCascadeComplete]);
 
   return (
@@ -168,19 +174,20 @@ export default function LandingGate({ onCascadeComplete }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 12,
         padding: '1.5rem',
         position: 'relative',
-        gap: 12,
       }}
     >
-      {/* ORB — 30% larger than before (≈ 94px high) */}
+      {/* ORB — 30% bigger */}
       <button
+        ref={btnRef}
         type="button"
         aria-label="Orb"
         onClick={(e) => e.preventDefault()}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         style={{ lineHeight: 0, background: 'transparent', border: 0, padding: 0, marginBottom: 12 }}
-        title="Hold/click label below to enter"
+        title="Click the label below to enter"
       >
         <BlueOrbCross3D
           rpm={44}
@@ -190,51 +197,44 @@ export default function LandingGate({ onCascadeComplete }) {
           glowOpacity={0.95}
           includeZAxis
           height="94px"
-          overrideAllColor={null /* stays chakra here */}
           interactive={false}
         />
       </button>
 
-      {/* Florida ↔ LAMEBOY label */}
+      {/* Base label (hidden during overlays to avoid overlaps) */}
       <button
-        ref={linkRef}
+        ref={labelRef}
         type="button"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setHovered(true)}
         onBlur={() => setHovered(false)}
-        onClick={triggerCascade}
+        onClick={start}
         title="Enter"
         style={{
+          visibility: phase === 'idle' ? 'visible' : 'hidden',
           background: 'transparent',
           border: 0,
           cursor: 'pointer',
           fontWeight: 800,
           letterSpacing: '.02em',
-          // hide the base text while overlays are painting to avoid overlap
-          visibility: phase === 'idle' ? 'visible' : 'hidden',
-          color:
-            hovered && phase === 'idle'
-              ? '#c9a800'
-              : '#ffffff',
-          textShadow:
-            hovered && phase === 'idle'
-              ? '0 0 6px rgba(255,247,0,.55), 0 0 14px rgba(255,247,0,.35), 0 0 26px rgba(255,247,0,.25)'
-              : '0 0 8px rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.38)',
+          color: hovered ? '#c9a800' : '#ffffff',
+          textShadow: hovered
+            ? '0 0 6px rgba(255,247,0,.55), 0 0 14px rgba(255,247,0,.35), 0 0 26px rgba(255,247,0,.25)'
+            : '0 0 8px rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.38)',
         }}
       >
-        {hovered && phase === 'idle' ? 'LAMEBOY, USA' : 'Florida, USA'}
+        {hovered ? 'LAMEBOY, USA' : 'Florida, USA'}
       </button>
 
-      {/* Overlays according to phase */}
+      {/* Overlays */}
       {phase === 'cascade' && (
         <>
-          {ready && <FloatingTitle x={x} y={y} color="#fff" text="LAMEBOY, USA" />}
-          <CascadeOverlay />
+          <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color="#fff" glow />
+          <CascadeOverlayRAF />
         </>
       )}
-
-      {phase === 'white' && ready && <WhiteHold x={x} y={y} text="LAMEBOY, USA" />}
+      {phase === 'white' && <WhiteHold x={x} y={y} text="LAMEBOY, USA" />}
     </div>
   );
 }
