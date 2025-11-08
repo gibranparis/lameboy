@@ -4,41 +4,61 @@
 import { useEffect, useMemo, useState } from 'react';
 
 /**
- * Always-on bottom ticker of 7 chakra bars moving right → left.
+ * Bottom ticker of 7 bars moving right → left with a neon glow.
  * Listens to `lb:orb-mode` events:
  *   detail.mode: 'chakra' | 'red'
  *
  * Props:
  * - height   : px height for the bar (default 14)
  * - speedSec : seconds for one full loop (default 12)
- * - zIndex   : stacking order (default 40, above backgrounds, under header/overlays)
+ * - zIndex   : stacking order (default 40)
  */
 export default function ChakraBottomRunner({
   height = 14,
   speedSec = 12,
   zIndex = 40,
 }) {
-  const [mode, setMode] = useState('chakra'); // 'chakra' | 'red'
+  const [mode, setMode] = useState('chakra');  // 'chakra' | 'red'
+  const [isNight, setIsNight] = useState(() => {
+    if (typeof document === 'undefined') return false;
+    const root = document.documentElement;
+    return root.dataset.theme === 'night' || root.classList.contains('dark');
+  });
+
+  // react to theme changes so we can adjust glow strength/blend mode
+  useEffect(() => {
+    const onTheme = (e) => {
+      const t = e?.detail?.theme;
+      const night = t ? t === 'night' :
+        document.documentElement.dataset.theme === 'night' ||
+        document.documentElement.classList.contains('dark');
+      setIsNight(night);
+    };
+    window.addEventListener('theme-change', onTheme);
+    document.addEventListener('theme-change', onTheme);
+    return () => {
+      window.removeEventListener('theme-change', onTheme);
+      document.removeEventListener('theme-change', onTheme);
+    };
+  }, []);
 
   // palette per mode
   const palette = useMemo(() => {
     if (mode === 'red') {
-      // crimson spectrum (light→deep) while preserving 7-bar rhythm
       return ['#ffc1c1', '#ff9aa4', '#ff6b79', '#ff3a52', '#e8183a', '#bf0f2f', '#8f0a22'];
     }
-    // chakra colors
     return ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'];
   }, [mode]);
 
-  // Sync runner height to CSS var so other UI (heart) can offset correctly.
+  // sync runner height to CSS var so the heart offset stays correct
   useEffect(() => {
     try {
       document.documentElement.style.setProperty('--runner-h', `${Math.max(6, Math.round(height))}px`);
     } catch {}
   }, [height]);
 
+  // listen for orb mode toggle broadcasts
   useEffect(() => {
-    // initial sync (default chakra) + listen for orb mode changes
     const onMode = (e) => {
       const m = e?.detail?.mode;
       setMode(m === 'red' ? 'red' : 'chakra');
@@ -51,7 +71,7 @@ export default function ChakraBottomRunner({
     };
   }, []);
 
-  // CSS vars for colors
+  // CSS vars
   const vars = {
     '--c1': palette[0],
     '--c2': palette[1],
@@ -62,6 +82,9 @@ export default function ChakraBottomRunner({
     '--c7': palette[6],
     '--h': `${Math.max(6, Math.round(height))}px`,
     '--dur': `${Math.max(4, Number(speedSec) || 12)}s`,
+    // stronger glow at night; slightly softer in day to avoid overpowering
+    '--glow-o': isNight ? '0.95' : '0.78',
+    '--blend': isNight ? 'screen' : 'multiply',
   };
 
   return (
@@ -71,13 +94,11 @@ export default function ChakraBottomRunner({
         position: 'fixed',
         left: 0,
         right: 0,
-        // Respect safe-area so it never hides behind the home bar
         bottom: 'env(safe-area-inset-bottom, 0px)',
         height: 'var(--h)',
         zIndex,
         pointerEvents: 'none',
         overflow: 'hidden',
-        // slight backdrop for readability in day mode without being intrusive
         background: 'linear-gradient(to top, rgba(0,0,0,.25), rgba(0,0,0,0))',
         willChange: 'transform',
         contain: 'layout style paint',
@@ -85,8 +106,9 @@ export default function ChakraBottomRunner({
       }}
     >
       {/* Two identical tracks for seamless loop */}
-      <RunnerTrack />
-      <RunnerTrack mirror />
+      <RunnerTrack isNight={isNight} />
+      <RunnerTrack mirror isNight={isNight} />
+
       <style jsx>{`
         @keyframes lb-chakra-run {
           from { transform: translateX(0); }
@@ -103,7 +125,7 @@ export default function ChakraBottomRunner({
   );
 }
 
-function RunnerTrack({ mirror = false }) {
+function RunnerTrack({ mirror = false, isNight }) {
   return (
     <div
       style={{
@@ -119,33 +141,52 @@ function RunnerTrack({ mirror = false }) {
       }}
     >
       {/* First 7 */}
-      <Bar i={1} />
-      <Bar i={2} />
-      <Bar i={3} />
-      <Bar i={4} />
-      <Bar i={5} />
-      <Bar i={6} />
-      <Bar i={7} />
+      <Bar i={1} isNight={isNight} />
+      <Bar i={2} isNight={isNight} />
+      <Bar i={3} isNight={isNight} />
+      <Bar i={4} isNight={isNight} />
+      <Bar i={5} isNight={isNight} />
+      <Bar i={6} isNight={isNight} />
+      <Bar i={7} isNight={isNight} />
       {/* Second 7 */}
-      <Bar i={1} />
-      <Bar i={2} />
-      <Bar i={3} />
-      <Bar i={4} />
-      <Bar i={5} />
-      <Bar i={6} />
-      <Bar i={7} />
+      <Bar i={1} isNight={isNight} />
+      <Bar i={2} isNight={isNight} />
+      <Bar i={3} isNight={isNight} />
+      <Bar i={4} isNight={isNight} />
+      <Bar i={5} isNight={isNight} />
+      <Bar i={6} isNight={isNight} />
+      <Bar i={7} isNight={isNight} />
     </div>
   );
 }
 
-function Bar({ i }) {
+function Bar({ i, isNight }) {
+  const colorVar = `var(--c${i})`;
   return (
     <div
       style={{
+        position: 'relative',
         height: 'var(--h)',
-        background: `var(--c${i})`,
-        boxShadow: '0 0 12px rgba(0,0,0,.15)',
+        background: colorVar,
+        // tiny inner shadow to keep definition against light backgrounds
+        boxShadow: isNight ? '0 0 0 rgba(0,0,0,0)' : 'inset 0 0 0 1px rgba(0,0,0,.04)',
+        overflow: 'visible',
       }}
-    />
+    >
+      {/* Neon glow layer (like the cascade): a blurred, oversized duplicate */}
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: '-14px',
+          background: colorVar,
+          filter: 'blur(24px)',
+          opacity: 'var(--glow-o)',
+          mixBlendMode: 'var(--blend)',
+          pointerEvents: 'none',
+          willChange: 'filter, opacity',
+        }}
+      />
+    </div>
   );
 }
