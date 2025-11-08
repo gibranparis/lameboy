@@ -8,9 +8,8 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* arrow with green flash */
+/* arrow buttons */
 function ArrowControl({ dir='up', night, onClick }) {
-  const [flash, setFlash] = useState(false);
   const fill  = night ? '#0b0c10' : '#ffffff';
   const ring  = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
   const glyph = night ? '#ffffff' : '#0f1115';
@@ -18,10 +17,9 @@ function ArrowControl({ dir='up', night, onClick }) {
   return (
     <button
       type="button"
-      onClick={(e)=>{ setFlash(true); setTimeout(()=>setFlash(false), 280); onClick?.(e); }}
+      onClick={onClick}
       aria-label={dir==='up'?'Previous product':'Next product'}
       title={dir==='up'?'Previous product':'Next product'}
-      className={flash ? 'flash-green' : ''}
       style={{ padding:0, background:'transparent', border:'none' }}
     >
       <div
@@ -43,36 +41,38 @@ function ArrowControl({ dir='up', night, onClick }) {
   );
 }
 
-/* + / sizes */
+/* + / sizes (pill turns green when active/selected) */
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
+
   const pick = (sz) => {
     setPicked(sz);
     try {
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
       window.dispatchEvent(new CustomEvent('cart:add',       { detail:{ qty:1 } }));
     } catch {}
-    setTimeout(()=>setPicked(null), 340);
   };
+
   return (
     <div style={{ display:'grid', justifyItems:'center', gap:10 }}>
       <button
         type="button"
-        className={`pill plus-pill ${open ? 'is-active flash-green' : ''}`}
+        className={`pill plus-pill ${open ? 'is-active' : ''}`}
         onClick={()=>setOpen(v=>!v)}
         aria-label={open?'Close sizes':'Choose size'}
         title={open?'Close sizes':'Choose size'}
       >
         {open ? '–' : '+'}
       </button>
+
       {open && (
         <div className="row-nowrap" style={{ gap:8 }}>
           {sizes.map((sz)=>(
             <button
               key={sz}
               type="button"
-              className={`pill size-pill ${picked===sz?'is-selected flash-green':''}`}
+              className={`pill size-pill ${picked===sz?'is-selected':''}`}
               onClick={()=>pick(sz)}
             >{sz}</button>
           ))}
@@ -182,7 +182,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   /* fast swipe (mobile) */
   const swipe = useFastSwipe({ imgsLen: imgs.length, prodsLen: products.length, index, setImgIdx, onIndexChange });
 
-  /* overlay flag */
+  /* overlay flag & block header interactions */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open','1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -205,9 +205,9 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       aria-modal="true"
       aria-label={`${product.title} details`}
       style={{
-        position:'fixed', inset:0, zIndex:520,
+        position:'fixed', inset:0,
+        zIndex: 1200, /* above header/toggles */
         display:'grid', placeItems:'center',
-        backdropFilter:'blur(0px)',
         background:'rgba(0,0,0,.55)',
         overscrollBehavior: 'contain',
         touchAction: 'none',
@@ -218,7 +218,14 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       onPointerCancel={swipe.onUp}
       onClick={(e)=>{ if (e.target === e.currentTarget) onClose?.(); }}
     >
-      <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center' }}>
+      <div
+        className="product-hero"
+        style={{ pointerEvents:'auto', textAlign:'center' }}
+        onClickCapture={(e)=>e.stopPropagation()}
+        onMouseDown={(e)=>e.stopPropagation()}
+        onPointerDown={(e)=>e.stopPropagation()}
+      >
+        {/* left arrows (sticky) */}
         {products.length>1 && (
           <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
             <ArrowControl dir="up"   night={night} onClick={()=>onIndexChange?.(wrap(index-1, products.length))} />
@@ -226,6 +233,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           </div>
         )}
 
+        {/* main image */}
         {!!imgs.length && (
           <>
             <Image
@@ -263,7 +271,12 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         <PlusSizesInline sizes={sizes} />
       </div>
 
-      {/* THEME-AWARE styles (light in day, dark in night) */}
+      {/* THEME-AWARE pills + solid green states + disable header clicks while open */}
+      <style jsx global>{`
+        html[data-overlay-open="1"] header,
+        html[data-overlay-open="1"] [role="banner"] { pointer-events: none !important; }
+      `}</style>
+
       <style jsx>{`
         :root { --green: #0bf05f; }
 
@@ -275,34 +288,20 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           background: ${night ? '#0f1115' : '#ffffff'};
           color: ${night ? '#ffffff' : '#0f1115'};
           box-shadow: inset 0 0 0 1px ${night ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.10)'};
+          transition: background .14s ease, color .14s ease, outline-color .14s ease;
         }
-        .product-hero-overlay :global(.plus-pill) {
-          width: 36px; height: 36px; font-size: 18px; line-height: 1;
-          background: ${night ? '#0f1115' : '#ffffff'};
-          color: ${night ? '#ffffff' : '#0f1115'};
-        }
-        .product-hero-overlay :global(.size-pill) {
-          background: ${night ? '#0f1115' : '#ffffff'};
-          color: ${night ? '#eaeaea' : '#0f1115'};
+        .product-hero-overlay :global(.plus-pill.is-active) {
+          background: var(--green);
+          color: #07160e;
         }
         .product-hero-overlay :global(.size-pill.is-selected) {
-          outline: 2px solid var(--green);
-          color: ${night ? '#ffffff' : '#0f1115'};
+          background: var(--green);
+          color: #07160e;
+          outline: none;
         }
-
-        @keyframes lb-flash-green {
-          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,0);   transform: translateZ(0) scale(1.0); }
-          15%  { box-shadow: 0 0 0 6px rgba(11,240,95,.45); transform: translateZ(0) scale(1.02); }
-          100% { box-shadow: 0 0 0 0 rgba(11,240,95,0);   transform: translateZ(0) scale(1.0); }
-        }
-        :global(.flash-green) { animation: lb-flash-green .34s ease-out; }
 
         .product-hero-title { margin-top: 10px; font-weight: 800; }
         .product-hero-price { opacity: .85; margin-top: 2px; }
-
-        @media (prefers-reduced-motion: reduce) {
-          :global(.flash-green) { animation: none !important; }
-        }
       `}</style>
     </div>
   );
