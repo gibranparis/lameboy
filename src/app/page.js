@@ -151,7 +151,7 @@ export default function Page(){
                   zIndex:540,
                   display:'grid',
                   placeItems:'center',
-                  background:'rgba(0,0,0,.55)'
+                  background:'#fff)'
                 }}
                 onClick={(e)=>{ if(e.target === e.currentTarget) setLoginOpen(false); }}
               >

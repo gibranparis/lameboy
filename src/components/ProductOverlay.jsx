@@ -8,8 +8,9 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* arrow buttons */
+/* arrow with subtle green feedback */
 function ArrowControl({ dir='up', night, onClick }) {
+  const [active, setActive] = useState(false);
   const fill  = night ? '#0b0c10' : '#ffffff';
   const ring  = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
   const glyph = night ? '#ffffff' : '#0f1115';
@@ -17,7 +18,7 @@ function ArrowControl({ dir='up', night, onClick }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e)=>{ setActive(true); setTimeout(()=>setActive(false), 220); onClick?.(e); }}
       aria-label={dir==='up'?'Previous product':'Next product'}
       title={dir==='up'?'Previous product':'Next product'}
       style={{ padding:0, background:'transparent', border:'none' }}
@@ -28,7 +29,8 @@ function ArrowControl({ dir='up', night, onClick }) {
           width:28, height:28, borderRadius:'50%',
           display:'grid', placeItems:'center',
           background:fill,
-          boxShadow:`0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}`,
+          boxShadow:`0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}` +
+                    (active ? ', 0 0 14px rgba(11,240,95,.35)' : ''),
         }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -41,21 +43,20 @@ function ArrowControl({ dir='up', night, onClick }) {
   );
 }
 
-/* + / sizes (pill turns green when active/selected) */
+/* + / sizes (solid neon-green on active/selected) */
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
-
   const pick = (sz) => {
     setPicked(sz);
     try {
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
       window.dispatchEvent(new CustomEvent('cart:add',       { detail:{ qty:1 } }));
     } catch {}
+    setTimeout(()=>setPicked(null), 360);
   };
-
   return (
-    <div style={{ display:'grid', justifyItems:'center', gap:10 }}>
+    <div style={{ display:'grid', justifyItems:'center', gap:12 }}>
       <button
         type="button"
         className={`pill plus-pill ${open ? 'is-active' : ''}`}
@@ -65,7 +66,6 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
       >
         {open ? '–' : '+'}
       </button>
-
       {open && (
         <div className="row-nowrap" style={{ gap:8 }}>
           {sizes.map((sz)=>(
@@ -82,44 +82,65 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   );
 }
 
-/* FAST SWIPE (mobile) */
+/* ------ FAST SWIPE ENGINE (mobile) ------ */
 function useFastSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }) {
-  const st = useRef({ active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0 });
-  const STEP_X = 34, STEP_Y = 40, FLICK_V_BONUS = 0.35;
+  const state = useRef({
+    active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0,
+  });
+
+  const STEP_X = 34; // px per image step
+  const STEP_Y = 40; // px per product step
+  const FLICK_V_BONUS = 0.35;
 
   const onDown = useCallback((e) => {
     const p = e.touches ? e.touches[0] : e;
-    Object.assign(st.current, { active:true, lastX:p.clientX, lastY:p.clientY, ax:0, ay:0, lastT:performance.now(), vx:0, vy:0 });
+    state.current.active = true;
+    state.current.lastX  = p.clientX;
+    state.current.lastY  = p.clientY;
+    state.current.ax = 0; state.current.ay = 0;
+    state.current.lastT = performance.now();
+    state.current.vx = 0; state.current.vy = 0;
   }, []);
 
   const onMove = useCallback((e) => {
-    if (!st.current.active) return;
+    if (!state.current.active) return;
     if (e.cancelable) e.preventDefault();
 
     const p = e.touches ? e.touches[0] : e;
     const now = performance.now();
-    const dt  = Math.max(1, now - st.current.lastT);
+    const dt  = Math.max(1, now - state.current.lastT);
 
-    const dx = p.clientX - st.current.lastX;
-    const dy = p.clientY - st.current.lastY;
+    const dx = p.clientX - state.current.lastX;
+    const dy = p.clientY - state.current.lastY;
 
-    st.current.vx = dx/dt; st.current.vy = dy/dt;
-    st.current.lastX = p.clientX; st.current.lastY = p.clientY; st.current.lastT = now;
+    state.current.vx = dx / dt;
+    state.current.vy = dy / dt;
 
-    st.current.ax += dx + st.current.vx * FLICK_V_BONUS * 100;
-    st.current.ay += dy + st.current.vy * FLICK_V_BONUS * 100;
+    state.current.lastX = p.clientX;
+    state.current.lastY = p.clientY;
+    state.current.lastT = now;
 
+    // velocity bonus for flick feel
+    state.current.ax += dx + state.current.vx * FLICK_V_BONUS * 100;
+    state.current.ay += dy + state.current.vy * FLICK_V_BONUS * 100;
+
+    // horizontal → images
     if (imgsLen) {
-      while (st.current.ax <= -STEP_X) { st.current.ax += STEP_X; setImgIdx(i=>clamp(i+1,0,imgsLen-1)); }
-      while (st.current.ax >=  STEP_X) { st.current.ax -= STEP_X; setImgIdx(i=>clamp(i-1,0,imgsLen-1)); }
+      while (state.current.ax <= -STEP_X) { state.current.ax += STEP_X; setImgIdx(i => clamp(i+1, 0, imgsLen-1)); }
+      while (state.current.ax >=  STEP_X) { state.current.ax -= STEP_X; setImgIdx(i => clamp(i-1, 0, imgsLen-1)); }
     }
+    // vertical → products
     if (prodsLen>1) {
-      while (st.current.ay <= -STEP_Y) { st.current.ay += STEP_Y; onIndexChange?.(wrap(index+1, prodsLen)); }
-      while (st.current.ay >=  STEP_Y) { st.current.ay -= STEP_Y; onIndexChange?.(wrap(index-1, prodsLen)); }
+      while (state.current.ay <= -STEP_Y) { state.current.ay += STEP_Y; onIndexChange?.(wrap(index+1, prodsLen)); }
+      while (state.current.ay >=  STEP_Y) { state.current.ay -= STEP_Y; onIndexChange?.(wrap(index-1, prodsLen)); }
     }
   }, [imgsLen, prodsLen, index, setImgIdx, onIndexChange]);
 
-  const onUp = useCallback(() => { Object.assign(st.current, { active:false, ax:0, ay:0 }); }, []);
+  const onUp = useCallback(() => {
+    state.current.active = false;
+    state.current.ax = 0; state.current.ay = 0;
+  }, []);
+
   return { onDown, onMove, onUp };
 }
 
@@ -179,10 +200,16 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('wheel', onWheel);
   }, [imgs.length, products.length, index, onIndexChange]);
 
-  /* fast swipe (mobile) */
-  const swipe = useFastSwipe({ imgsLen: imgs.length, prodsLen: products.length, index, setImgIdx, onIndexChange });
+  /* fast swipe on mobile via Pointer events */
+  const swipe = useFastSwipe({
+    imgsLen: imgs.length,
+    prodsLen: products.length,
+    index,
+    setImgIdx,
+    onIndexChange,
+  });
 
-  /* overlay flag & block header interactions */
+  /* overlay flag for page styles */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open','1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -205,12 +232,12 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       aria-modal="true"
       aria-label={`${product.title} details`}
       style={{
-        position:'fixed', inset:0,
-        zIndex: 1200, /* above header/toggles */
+        position:'fixed', inset:0, zIndex:520,         // > header (500)
         display:'grid', placeItems:'center',
-        background:'rgba(0,0,0,.55)',
+        background:'rgba(0,0,0,.55)',                  // captures clicks; header not clickable
         overscrollBehavior: 'contain',
         touchAction: 'none',
+        cursor:'default',
       }}
       onPointerDown={swipe.onDown}
       onPointerMove={swipe.onMove}
@@ -218,13 +245,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       onPointerCancel={swipe.onUp}
       onClick={(e)=>{ if (e.target === e.currentTarget) onClose?.(); }}
     >
-      <div
-        className="product-hero"
-        style={{ pointerEvents:'auto', textAlign:'center' }}
-        onClickCapture={(e)=>e.stopPropagation()}
-        onMouseDown={(e)=>e.stopPropagation()}
-        onPointerDown={(e)=>e.stopPropagation()}
-      >
+      <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center' }}>
         {/* left arrows (sticky) */}
         {products.length>1 && (
           <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
@@ -255,7 +276,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
                     key={i}
                     type="button"
                     aria-label={`Image ${i+1}`}
-                    className={`pill ${i===clampedImgIdx ? 'size-pill is-selected' : ''}`}
+                    className={`pill dot-pill ${i===clampedImgIdx ? 'is-active' : ''}`}
                     onClick={()=>setImgIdx(i)}
                     style={{ width:22, height:22, padding:0 }}
                   />
@@ -271,33 +292,55 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         <PlusSizesInline sizes={sizes} />
       </div>
 
-      {/* THEME-AWARE pills + solid green states + disable header clicks while open */}
-      <style jsx global>{`
-        html[data-overlay-open="1"] header,
-        html[data-overlay-open="1"] [role="banner"] { pointer-events: none !important; }
-      `}</style>
-
+      {/* Styles: solid neon-green active with subtle outer glow */}
       <style jsx>{`
-        :root { --green: #0bf05f; }
+        :root { --neon: #0bf05f; --pill-bg: #0f1115; --pill-fg: #eaeaea; --pill-fg-strong: #0b0c10; }
 
         .product-hero-overlay :global(.pill) {
           min-width: 28px; height: 28px; padding: 0 10px;
           border-radius: 999px; border: none;
           display: inline-grid; place-items: center;
           font-weight: 700; font-size: 13px;
-          background: ${night ? '#0f1115' : '#ffffff'};
-          color: ${night ? '#ffffff' : '#0f1115'};
-          box-shadow: inset 0 0 0 1px ${night ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.10)'};
-          transition: background .14s ease, color .14s ease, outline-color .14s ease;
+          background: var(--pill-bg); color: var(--pill-fg);
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+          transition: background .14s ease, color .14s ease, box-shadow .14s ease, transform .06s ease;
+        }
+
+        .product-hero-overlay :global(.plus-pill) {
+          width: 36px; height: 36px; font-size: 18px; line-height: 1;
         }
         .product-hero-overlay :global(.plus-pill.is-active) {
-          background: var(--green);
-          color: #07160e;
+          background: var(--neon); color: var(--pill-fg-strong);
+          box-shadow:
+            0 0 0 2px rgba(11,240,95,.25),
+            0 0 18px rgba(11,240,95,.45),
+            0 0 36px rgba(11,240,95,.25);
         }
+
         .product-hero-overlay :global(.size-pill.is-selected) {
-          background: var(--green);
-          color: #07160e;
-          outline: none;
+          background: var(--neon); color: var(--pill-fg-strong);
+          box-shadow:
+            0 0 0 2px rgba(11,240,95,.25),
+            0 0 18px rgba(11,240,95,.45),
+            0 0 36px rgba(11,240,95,.25);
+        }
+
+        .product-hero-overlay :global(.dot-pill) {
+          border-radius: 999px; padding: 0; width: 22px; height: 22px;
+        }
+        .product-hero-overlay :global(.dot-pill.is-active) {
+          background: var(--neon); color: var(--pill-fg-strong);
+          box-shadow:
+            0 0 0 2px rgba(11,240,95,.25),
+            0 0 18px rgba(11,240,95,.45),
+            0 0 36px rgba(11,240,95,.25);
+        }
+
+        /* Hover affordance (desktop only) */
+        @media (hover:hover) {
+          .product-hero-overlay :global(.pill:hover) {
+            transform: translateZ(0) scale(1.02);
+          }
         }
 
         .product-hero-title { margin-top: 10px; font-weight: 800; }
