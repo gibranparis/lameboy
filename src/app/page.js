@@ -1,4 +1,3 @@
-// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
@@ -82,14 +81,14 @@ export default function Page(){
 
   const enterShop = () => setIsShop(true);
 
-  // Header: follow CSS grid defined in globals; height mirrors --header-ctrl
+  // Header: follow CSS grid defined in globals; just set height to ctrlPx for layout
   const headerStyle = useMemo(() => ({
     position:'fixed',
     inset:'0 0 auto 0',
     height: ctrlPx,
     zIndex: 500,
     display:'grid',
-    gridTemplateColumns:'auto 1fr auto',
+    gridTemplateColumns:'auto 1fr auto', // left • center • right
     alignItems:'center',
     padding:'0 16px',
     background:'transparent',
@@ -104,34 +103,28 @@ export default function Page(){
       ) : (
         <>
           <header role="banner" style={headerStyle}>
-            {/* ORB — keep vertically centered within the header control lane */}
-            <div
-              style={{
-                display:'grid',
-                alignItems:'center',
-                justifyContent:'start',
-                height:'var(--header-ctrl, 56px)',
-              }}
-            >
+            {/* LEFT: Day/Night Toggle (moved here) */}
+            <div style={{ display:'grid', justifyContent:'start' }}>
+              <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
+                <DayNightToggle
+                  circlePx={28}
+                  trackPad={1}
+                  moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
+                />
+              </div>
+            </div>
+
+            {/* CENTER: Chakra Orb (moved here) */}
+            <div style={{ display:'grid', placeItems:'center' }}>
               <ChakraOrbButton
-                size={56}
+                size={64}
                 className="orb-ring"
-                style={{ display:'grid', placeItems:'center', transform:'translateY(3px)' }}
+                style={{ display:'grid', placeItems:'center' }}
               />
             </div>
 
-            <div
-              id="lb-daynight"
-              style={{ display:'grid', placeItems:'center', height:'var(--header-ctrl, 56px)' }}
-            >
-              <DayNightToggle
-                circlePx={28}
-                trackPad={1}
-                moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
-              />
-            </div>
-
-            <div style={{ display:'grid', justifyContent:'end', height:'var(--header-ctrl, 56px)' }}>
+            {/* RIGHT: Cart */}
+            <div style={{ display:'grid', justifyContent:'end' }}>
               <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
                 <CartButton inHeader />
               </div>
