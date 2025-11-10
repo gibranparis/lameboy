@@ -60,12 +60,7 @@ html[data-overlay-open]{ overflow:hidden; }
 }
 
 /* ========== Helpers (viewport + bottom fill) ============================ */
-.lb-screen{
-  min-height:100svh;
-  min-height:100dvh;
-  min-height:100vh;
-  background:var(--bg);
-}
+.lb-screen{ min-height:100svh; min-height:100dvh; min-height:100vh; background:var(--bg); }
 
 /* Centered section helper */
 .page-center{ min-height:100svh; display:grid; place-items:center; gap:18px; padding:2rem; }
@@ -74,11 +69,7 @@ html[data-overlay-open]{ overflow:hidden; }
 .florida-inline{ display:block!important; text-align:center!important; margin-left:auto!important; margin-right:auto!important; }
 
 /* Pin the Chakra runner to the physical bottom */
-.lb-chakra-runner{
-  position:fixed; left:0; right:0; bottom:0;
-  z-index:50;
-  pointer-events:none;
-}
+.lb-chakra-runner{ position:fixed; left:0; right:0; bottom:0; z-index:50; pointer-events:none; }
 
 /* Paint UNDER Safari’s toolbar so no white ever shows */
 .lb-bottom-fill{
@@ -111,51 +102,54 @@ html[data-overlay-open]{ overflow:hidden; }
 .bubble-glow-blue{ animation:bubblePulseBlue .85s ease-out; }
 .lameboy-glow{ color:var(--seafoam); font-weight:900; text-shadow:0 0 10px rgba(46,230,184,.50), 0 0 20px rgba(46,230,184,.35); }
 
-/* Fixed-width ticker used in banned */
 .ticker-viewport{ display:inline-block; vertical-align:bottom; width:min(32ch,72vw); overflow:hidden; white-space:nowrap; }
 .ticker-track{ display:inline-block; padding-left:100%; will-change:transform; animation:lb-marquee 22s linear infinite; }
 @keyframes lb-marquee{ 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-100%,0,0)} }
 
-/* 3D landing logo */
 .logo-3d{ position:fixed; inset:0; z-index:8; pointer-events:none; }
 @media (prefers-reduced-motion: reduce){ .logo-3d{ display:none } }
 .login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.14ch; }
 
-/* ================== Cascade (JS-driven; no CSS keyframes) =============== */
-.lb-overlay{
+/* ================== RAF CASCADE (uses .chakra-* classes from LandingGate) */
+.chakra-overlay{
   position:fixed; inset:0;
+  z-index:10001;                 /* below FloatingTitle (10003) */
   display:grid; grid-template-columns:repeat(7,1fr);
   pointer-events:none;
-  direction:rtl;
+  direction:rtl;                 /* right-to-left sweep */
   isolation:isolate;
-  z-index:60;
+  background:transparent;        /* never tint the page */
 }
-.lb-band{
+.chakra-band{
   position:relative;
-  background: var(--c, transparent);
+  opacity:1;
+  transform:translate3d(100vw,0,0); /* start offscreen; JS drives this */
+  will-change:transform,opacity;
   backface-visibility:hidden;
-  transform: translateZ(0);
 }
-.lb-band::before{
+.chakra-band::before{
   content:"";
   position:absolute; inset:-10px;
   background:var(--c, transparent);
-  filter: blur(22px);
+  filter:blur(22px);
   opacity:.55;
   pointer-events:none;
-  will-change: transform, opacity;
 }
-/* Color map (same hues as before) */
-.lb-root    { --c:#FF0000; background:#FF0000; }
-.lb-sacral  { --c:#FF7F00; background:#FF7F00; }
-.lb-plexus  { --c:#FFFF00; background:#FFFF00; }
-.lb-heart   { --c:#00FF00; background:#00FF00; }
-.lb-throat  { --c:#0000FF; background:#0000FF; }
-.lb-thirdeye{ --c:#4B0082; background:#4B0082; }
-.lb-crown   { --c:#ff00c8; background:#ff00c8; }
 
-/* (Compatibility) If any old chakra-* blocks remain, hide them */
-.chakra-overlay{ display:none !important; }
+/* Color map */
+.chakra-root{     --c:#FF0000; background:#FF0000; }
+.chakra-sacral{   --c:#FF7F00; background:#FF7F00; }
+.chakra-plexus{   --c:#FFFF00; background:#FFFF00; }
+.chakra-heart{    --c:#00FF00; background:#00FF00; }
+.chakra-throat{   --c:#0000FF; background:#0000FF; }
+.chakra-thirdeye{ --c:#4B0082; background:#4B0082; }
+.chakra-crown{    --c:#ff00c8; background:#ff00c8; }
+
+/* Disable any legacy keyframes when JS/RAF is active */
+.chakra-overlay[data-js-cascade="raf"] .chakra-band{ animation:none!important; }
+
+/* Day cascade glow boost */
+:root[data-theme="day"] .chakra-band::before{ opacity:.95; filter:blur(26px); }
 
 /* ========== SHOP MODE ONLY ============================================= */
 :root[data-mode="shop"][data-theme="day"]   { --bg:var(--shop-offwhite); --panel:var(--shop-offwhite); --text:#111; }
@@ -253,7 +247,8 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 /* ========== Product overlay ============================================= */
 .product-hero-overlay{
   position:fixed; inset:0; z-index:420;
-  background:var(--bg); color:var(--text);
+  background:transparent;   /* keep page underneath visible, no gray fade */
+  color:var(--text);
   display:flex; align-items:center; justify-content:center; padding:20px;
 }
 .product-hero{
@@ -304,9 +299,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 /* Gate: constrain text wrap */
 :root[data-mode="gate"] .login-card{ max-width:min(92vw,720px)!important; }
 :root[data-mode="gate"] .login-card pre,
-:root[data-mode="gate"] .login-card code{
-  white-space:pre-wrap!important; word-break:break-word!important; overflow-wrap:anywhere!important;
-}
+:root[data-mode="gate"] .login-card code{ white-space:pre-wrap!important; word-break:break-word!important; overflow-wrap:anywhere!important; }
 
 /* ===== Pills (compact gray; solid green when active/selected; no outer glow) ===== */
 .pill{
@@ -317,14 +310,9 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
   transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease, border-color .14s ease;
 }
 :root[data-theme="night"] .pill{ background:#111; color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
-.size-pill.is-selected{
-  background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
-}
+.size-pill.is-selected{ background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
 .plus-pill{ width:32px; height:32px; font-size:18px; line-height:1; }
-.plus-pill.is-active,
-.plus-pill.is-ready{
-  background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
-}
+.plus-pill.is-active, .plus-pill.is-ready{ background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
 @keyframes flashGreen{ 0%{filter:saturate(1)} 50%{filter:saturate(1.4)} 100%{filter:saturate(1)} }
 .flash-green{ animation:flashGreen .22s ease; }
 
@@ -346,10 +334,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 :root[data-theme="day"] .neon-glow{ text-shadow:none !important; }
 
 /* “neon black” wordmark */
-.neon-black{
-  color:#000;
-  text-shadow: 0 0 2px rgba(0,0,0,.6), 0 0 8px rgba(0,0,0,.35);
-}
+.neon-black{ color:#000; text-shadow: 0 0 2px rgba(0,0,0,.6), 0 0 8px rgba(0,0,0,.35); }
 
 /* Always-on neon for the word “banned” */
 .banned-neon{
@@ -361,18 +346,15 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 /* Florida link — readable in both themes + true yellow on hover */
 .florida-link{
   font-weight:800;
-  color:#fff; /* night default so it’s legible on black */
+  color:#fff;
   transition: filter .15s ease, text-shadow .15s ease, color .15s ease;
 }
-:root[data-theme="day"] .florida-link{ color:#111; } /* day default on off-white */
+:root[data-theme="day"] .florida-link{ color:#111; }
 .florida-link.is-hot,
 .florida-link:hover{
-  color:#ffe600; /* true neon yellow */
+  color:#ffe600;
   text-shadow: 0 0 6px rgba(255,230,0,.85), 0 0 16px rgba(255,230,0,.55), 0 0 28px rgba(255,230,0,.35);
 }
-
-/* Day cascade glow boost (correct pseudo element) */
-:root[data-theme="day"] .lb-band::before{ opacity:.95; filter: blur(26px); }
 
 /* ====================================================================== */
 /* ================= ❤️ HEART — bottom-right, pulse ===================== */
@@ -387,11 +369,15 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
   height: 44px;
   padding: 0;
   border: 0;
-  background: transparent;
+  background: transparent !important;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transform: translateZ(0);
+  outline: 0 !important;
+  box-shadow: none !important;
+  contain: paint; /* isolate pseudo painting so nothing shows behind */
 }
+.heart-submit:focus, .heart-submit:focus-visible{ outline:0 !important; box-shadow:none !important; }
 .heart-submit::before{
   content:"";
   position:absolute; inset:0; display:block;
