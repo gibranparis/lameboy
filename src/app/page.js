@@ -81,7 +81,7 @@ export default function Page(){
 
   const enterShop = () => setIsShop(true);
 
-  // Header: follow CSS grid defined in globals; just set height to ctrlPx for layout
+  // Header
   const headerStyle = useMemo(() => ({
     position:'fixed',
     inset:'0 0 auto 0',
@@ -95,15 +95,15 @@ export default function Page(){
   }), [ctrlPx]);
 
   return (
-    <div className="min-h-[100dvh] w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
+    <div className="lb-screen w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {!isShop ? (
-        <main style={{ minHeight:'100dvh' }}>
+        <main className="lb-screen">
           <LandingGate onCascadeComplete={enterShop} />
         </main>
       ) : (
         <>
           <header role="banner" style={headerStyle}>
-            {/* LEFT: Day/Night Toggle (moved here) */}
+            {/* LEFT: Day/Night Toggle */}
             <div style={{ display:'grid', justifyContent:'start' }}>
               <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
                 <DayNightToggle
@@ -114,7 +114,7 @@ export default function Page(){
               </div>
             </div>
 
-            {/* CENTER: Chakra Orb (moved here) */}
+            {/* CENTER: Chakra Orb */}
             <div style={{ display:'grid', placeItems:'center' }}>
               <ChakraOrbButton
                 size={64}
@@ -134,7 +134,7 @@ export default function Page(){
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
 
-            {/* Heart FAB opens the login modal (bottom-right, safe-area aware) */}
+            {/* Heart FAB (offset uses --runner-h in CSS) */}
             <HeartBeatButton
               className="heart-submit"
               aria-label="Open login"
@@ -151,7 +151,7 @@ export default function Page(){
                   zIndex:540,
                   display:'grid',
                   placeItems:'center',
-                  background:'#fff)'
+                  background:'#fff' /* fixed stray ')' */
                 }}
                 onClick={(e)=>{ if(e.target === e.currentTarget) setLoginOpen(false); }}
               >
@@ -162,7 +162,10 @@ export default function Page(){
             )}
           </main>
 
-          <ChakraBottomRunner height={RUNNER_H} speedSec={12} />
+          {/* Runner pinned to the physical bottom, safe-area aware */}
+          <div className="lb-chakra-runner">
+            <ChakraBottomRunner height={RUNNER_H} speedSec={12} />
+          </div>
         </>
       )}
 
