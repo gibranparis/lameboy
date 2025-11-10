@@ -8,10 +8,10 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
-const CASCADE_MS    = 2400; // total cascade duration
-const BANDS_LEAD_MS = 200;  // white sheet starts AFTER bands lead
-const WHITE_HOLD_MS = 520;  // extra hold before curtain takes over
-const SEAFOAM       = '#32ffc7';
+const CASCADE_MS     = 2400; // total band pass
+const BANDS_LEAD_MS  = 240;  // when white *starts* (after bands already in flight)
+const WHITE_HOLD_MS  = 520;  // brief hold before we hand to the curtain
+const SEAFOAM        = '#32ffc7';
 
 /* ---------------- helpers ---------------- */
 function useCenter(ref) {
@@ -44,7 +44,7 @@ function CascadeOverlayRAF({
   bandsLeadMs = BANDS_LEAD_MS,
   onWhiteProgress,
 }) {
-  const [p, setP] = useState(0);
+  const [p, setP] = useState(0);       // 0..1 overall timeline
   const raf = useRef(0);
   const t0  = useRef(0);
   const cb  = useRef(onWhiteProgress);
@@ -61,19 +61,23 @@ function CascadeOverlayRAF({
     return () => cancelAnimationFrame(raf.current);
   }, [durationMs]);
 
-  // Staggers for 7 bands
+  // Staggers for 7 bands (even, with mild offset)
   const STAGGERS = [0.00, 0.06, 0.12, 0.18, 0.24, 0.30, 0.36];
-  const FADE_LOCAL = 0.78;
+  const FADE_LOCAL = 0.80;
 
-  // White sheet progress (starts only AFTER bandsLeadMs)
-  const whiteRaw = clamp01((p * durationMs - bandsLeadMs) / (durationMs - bandsLeadMs));
+  // White sheet progress (starts strictly AFTER bandsLeadMs)
+  const rawWhite = (p * durationMs - bandsLeadMs) / (durationMs - bandsLeadMs);
+  const whiteRaw = clamp01(rawWhite);
   const whiteP   = easeOutCubic(whiteRaw);
   const whiteTx  = (1 - whiteP) * 100; // +100% -> 0%
   useEffect(() => { cb.current?.(whiteP); }, [whiteP]);
 
+  // Hide white completely until it meaningfully exists (no subpixel flicker)
+  const whiteVisible = whiteRaw > 0.025;
+
   return createPortal(
     <>
-      {/* WHITE sheet UNDER the bands—offscreen until whiteRaw > 0 */}
+      {/* WHITE under-bands — fully hidden until it actually starts */}
       <div
         aria-hidden
         style={{
@@ -81,13 +85,13 @@ function CascadeOverlayRAF({
           inset: 0,
           transform: `translate3d(${whiteTx}%,0,0)`,
           background: '#fff',
-          zIndex: 10000,
+          zIndex: 10000,               // under bands, over page
           pointerEvents: 'none',
           willChange: 'transform',
-          visibility: whiteRaw <= 0 ? 'hidden' : 'visible', // <-- never flashes early
+          visibility: whiteVisible ? 'visible' : 'hidden',
         }}
       />
-      {/* BANDS ABOVE white */}
+      {/* BANDS above white */}
       <div
         className="chakra-overlay"
         data-js-cascade="raf"
@@ -132,8 +136,8 @@ function CascadeOverlayRAF({
   );
 }
 
-/* Floating title that sticks to the label’s center */
-function FloatingTitle({ x, y, text, color, glow = false, z = 10003 }) {
+/* Floating title that locks to label center (always above bands/white) */
+function FloatingTitle({ x, y, text, color, glow = false, z = 10002 }) {
   return createPortal(
     <span
       aria-hidden
@@ -144,7 +148,7 @@ function FloatingTitle({ x, y, text, color, glow = false, z = 10003 }) {
         transform: 'translate(-50%, -50%)',
         zIndex: z,
         pointerEvents: 'none',
-        fontWeight: 700,
+        fontWeight: 800,
         letterSpacing: '.06em',
         fontSize: 'clamp(12px,1.3vw,14px)',
         fontFamily: 'inherit',
@@ -162,26 +166,26 @@ function FloatingTitle({ x, y, text, color, glow = false, z = 10003 }) {
   );
 }
 
-/* White curtain that holds until shop is ready, then fades out */
+/* White curtain with only orb + LAMEBOY visible; fades when shop fires ready */
 function WhiteCurtain({ x, y, onDone }) {
   const [visible, setVisible] = useState(true);
-  const doneRef = useRef(false);
 
   useEffect(() => {
+    let finished = false;
     const finish = () => {
-      if (doneRef.current) return;
-      doneRef.current = true;
+      if (finished) return;
+      finished = true;
       setVisible(false);
-      setTimeout(() => onDone?.(), 280); // give fade time
+      setTimeout(() => onDone?.(), 260);
     };
 
     const onReady = () => finish();
     window.addEventListener('lb:shop-ready', onReady, { once: true });
 
-    // safety timeout in case ready never comes
-    const failSafe = setTimeout(finish, 2200);
+    // failsafe if grid never signals ready
+    const t = setTimeout(finish, 2400);
 
-    return () => { clearTimeout(failSafe); window.removeEventListener('lb:shop-ready', onReady); };
+    return () => { clearTimeout(t); window.removeEventListener('lb:shop-ready', onReady); };
   }, [onDone]);
 
   if (!visible) return null;
@@ -191,10 +195,9 @@ function WhiteCurtain({ x, y, onDone }) {
       <div
         aria-hidden
         style={{
-          position:'fixed', inset:0, background:'#fff', zIndex:10002,
-          transition:'opacity .28s ease',
-          opacity: 1,
-          pointerEvents:'none',
+          position:'fixed', inset:0, background:'#fff',
+          zIndex:10002, pointerEvents:'none', opacity:1,
+          transition:'opacity .26s ease',
         }}
       />
       <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color="#000" glow={false} z={10003} />
@@ -209,7 +212,6 @@ export default function LandingGate({ onCascadeComplete }) {
   const [phase, setPhase] = useState('idle');
   const [hovered, setHovered] = useState(false);
   const [whiteP, setWhiteP] = useState(0);
-  const [clicked, setClicked] = useState(false);
   const labelRef = useRef(null);
   const locked = useRef(false);
 
@@ -218,7 +220,6 @@ export default function LandingGate({ onCascadeComplete }) {
   const start = useCallback(() => {
     if (locked.current || phase !== 'idle') return;
     locked.current = true;
-    setClicked(true);
     setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
@@ -229,14 +230,12 @@ export default function LandingGate({ onCascadeComplete }) {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
 
-  // Title behavior
-  const idleText   = 'Florida, USA';
-  const finalText  = 'LAMEBOY, USA';
-
-  // During cascade: keep title GLOWING WHITE; flip to black only when the white sheet is well in.
-  const WHITE_FLIP_THRESHOLD = 0.68; // <-- tune: later = flips later
-  const titleColor = whiteP >= WHITE_FLIP_THRESHOLD ? '#000' : '#fff';
-  const titleGlow  = whiteP < WHITE_FLIP_THRESHOLD;    // glow only before flip
+  // Title behavior:
+  //  - During bands: ALWAYS bright/glowing white on top (no blend tricks).
+  //  - Flip to black *only after* white is basically full coverage.
+  const FLIP_AFTER_WHITE = 0.985; // 98.5% → prevents premature black
+  const titleColor = whiteP >= FLIP_AFTER_WHITE ? '#000' : '#fff';
+  const titleGlow  = whiteP < FLIP_AFTER_WHITE;
 
   return (
     <div
@@ -247,20 +246,15 @@ export default function LandingGate({ onCascadeComplete }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,                         // tight stack: orb ↔ time ↔ label
+        gap: 6, // tight stack: orb ↔ time ↔ Florida
         padding: '1.5rem',
         position: 'relative',
       }}
     >
-      {/* ORB — always visible; sits *above* white & bands */}
+      {/* ORB — always visible, above everything */}
       <div
         aria-hidden
-        style={{
-          position: 'relative',
-          zIndex: 10004, // above white + bands + title
-          lineHeight: 0,
-          marginBottom: 2,
-        }}
+        style={{ position: 'relative', zIndex: 10004, lineHeight: 0, marginBottom: 2 }}
       >
         <BlueOrbCross3D
           rpm={44}
@@ -274,7 +268,7 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       </div>
 
-      {/* Time (Naples) — centered, tighter spacing to the label */}
+      {/* Clock — landing page time (Naples, FL) */}
       <ClockNaples />
 
       {/* Clickable label under time (only visible before cascade) */}
@@ -293,7 +287,7 @@ export default function LandingGate({ onCascadeComplete }) {
           background: 'transparent',
           border: 0,
           cursor: 'pointer',
-          fontWeight: 700,
+          fontWeight: 800,
           letterSpacing: '.06em',
           fontSize: 'clamp(12px,1.3vw,14px)',
           fontFamily: 'inherit',
@@ -307,34 +301,36 @@ export default function LandingGate({ onCascadeComplete }) {
           marginTop: -2,
         }}
       >
-        {idleText}
+        Florida, USA
       </button>
 
       {/* Overlays */}
       {phase === 'cascade' && (
-        <CascadeOverlayRAF bandsLeadMs={BANDS_LEAD_MS} onWhiteProgress={setWhiteP} />
+        <CascadeOverlayRAF
+          bandsLeadMs={BANDS_LEAD_MS}
+          onWhiteProgress={setWhiteP}
+        />
       )}
 
-      {/* Floating title attached to label center during cascade/hold */}
+      {/* Floating “LAMEBOY, USA”/title during bands + brief hold — WHITE/Glow then flip */}
       {(phase === 'cascade' || phase === 'hold') && (
         <FloatingTitle
           x={x}
           y={y}
-          text={clicked ? finalText : idleText}
+          text="LAMEBOY, USA"
           color={titleColor}
           glow={titleGlow}
-          z={10003}
+          z={10003} // over bands & white
         />
       )}
 
-      {/* After the band pass, hold a pure white curtain until shop says “ready” */}
+      {/* White curtain until shop is ready */}
       {phase === 'curtain' && (
         <WhiteCurtain
           x={x}
           y={y}
           onDone={() => {
             setPhase('done');
-            // signal parent to mount the shop if needed
             try { onCascadeComplete?.(); } catch {}
           }}
         />
@@ -343,7 +339,7 @@ export default function LandingGate({ onCascadeComplete }) {
   );
 }
 
-/** Naples clock (America/New_York) — monospace like “Florida, USA” */
+/** Naples clock (America/New_York) — fixed spacing under orb */
 function ClockNaples() {
   const [now, setNow] = useState('');
   useEffect(() => {
@@ -366,6 +362,7 @@ function ClockNaples() {
       style={{
         font: '800 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
         letterSpacing: '.06em',
+        marginTop: 0, // keep orb↔time tight
       }}
     >
       {now}
