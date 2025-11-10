@@ -3,21 +3,22 @@
 
 import nextDynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 const CASCADE_MS = 2400;
 
-/* ---------------------- layout helpers ---------------------- */
+/* ---------------- helpers ---------------- */
 function useShift() {
   const calc = () => {
     const h = typeof window !== 'undefined' ? window.innerHeight : 800;
     const isPhone = h < 760;
     return {
-      vh: isPhone ? 9 : 7,                     // nudge above center
-      micro: Math.round(Math.max(2, Math.min(12, h * 0.014))),
-      gap: isPhone ? 4 : 6,                    // orb ↔ text tighter
+      // tighter vertical stack and slightly above center
+      vh: isPhone ? 6 : 5,
+      micro: Math.round(Math.max(2, Math.min(10, h * 0.014))),
+      gap: isPhone ? 4 : 6,
     };
   };
   const [s, setS] = useState(calc);
@@ -29,113 +30,93 @@ function useShift() {
   return s;
 }
 
-/* ---------------------- live clock ---------------------- */
-function DigitalClock({ className }) {
-  const fmt = useRef(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/New_York', // Naples, FL
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    })
-  );
-  const [now, setNow] = useState(() => fmt.current.format(new Date()));
+/** Naples clock (America/New_York) — monospace like “Florida, USA” */
+function ClockNaples({ className, style }) {
+  const [now, setNow] = useState('');
   useEffect(() => {
-    const id = setInterval(() => setNow(fmt.current.format(new Date())), 1000);
+    const fmt = () =>
+      setNow(
+        new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+          timeZone: 'America/New_York',
+        }).format(new Date())
+      );
+    fmt();
+    const id = setInterval(fmt, 1000);
     return () => clearInterval(id);
   }, []);
-  return <div className={className} aria-live="off">{now}</div>;
+  return (
+    <div
+      className={className}
+      style={{
+        font: '800 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+        letterSpacing: '.06em',
+        ...style,
+      }}
+    >
+      {now}
+    </div>
+  );
 }
 
-/* ---------------------- cascade overlay ---------------------- */
-/**
- * @param {{durationMs?:number, anchorRect?:DOMRect|null}} props
- */
-function CascadeOverlay({ durationMs = CASCADE_MS, anchorRect }) {
+/** Color cascade that carries a white panel + 7 bands and a label that inverts on white */
+function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
   const [mounted, setMounted] = useState(true);
-  const [p, setP] = useState(0); // 0..1
+  const [p, setP] = useState(0);
 
   useEffect(() => {
-    let t0, rafId, doneId;
-    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    let start, rafId, doneId;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
     const step = (t) => {
-      if (t0 == null) t0 = t;
-      const raw = Math.min(1, (t - t0) / durationMs);
-      setP(easeOutCubic(raw));
+      if (start == null) start = t;
+      const raw = Math.min(1, (t - start) / durationMs);
+      setP(ease(raw));
       if (raw < 1) rafId = requestAnimationFrame(step);
-      else doneId = setTimeout(() => setMounted(false), 100);
+      else doneId = setTimeout(() => setMounted(false), 120);
     };
     rafId = requestAnimationFrame(step);
-    return () => { cancelAnimationFrame(rafId); clearTimeout(doneId); };
+    return () => { if (rafId) cancelAnimationFrame(rafId); if (doneId) clearTimeout(doneId); };
   }, [durationMs]);
 
   if (!mounted) return null;
 
   const COLOR_VW = 120;
-  const whiteTx = (1 - p) * 100;                          // %
-  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;  // vw
-  const onWhite = whiteTx < 98; // if white sheet visible anywhere
-
-  // Fallback to center if we don't have the rect yet
-  const midLeft = anchorRect ? (anchorRect.left + anchorRect.right) / 2 : window.innerWidth / 2;
-  const midTop  = anchorRect ? (anchorRect.top + anchorRect.bottom) / 2 : window.innerHeight / 2;
+  const whiteTx  = (1 - p) * 100;
+  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
 
   return createPortal(
     <>
-      {/* WHITE sheet */}
-      <div
-        aria-hidden
-        style={{
-          position: 'fixed', inset: 0,
-          transform: `translate3d(${whiteTx}%,0,0)`,
-          background: '#fff',
-          zIndex: 9998,
-          pointerEvents: 'none',
-          willChange: 'transform',
-        }}
-      />
-
-      {/* COLOR bands slab */}
-      <div
-        aria-hidden
-        style={{
-          position: 'fixed', top: 0, left: 0, height: '100vh', width: `${COLOR_VW}vw`,
-          transform: `translate3d(${bandsTx}vw,0,0)`,
-          zIndex: 9999, pointerEvents: 'none', willChange: 'transform',
-        }}
-      >
-        <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
-          {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map((c, i) => (
-            <div key={i} style={{ position: 'relative', background: c }}>
-              <span style={{ position: 'absolute', inset: -18, background: c, filter: 'blur(28px)', opacity: .95 }} />
+      {/* white sheet that carries the black text at the end */}
+      <div aria-hidden style={{
+        position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
+        background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
+      }}/>
+      {/* 7 color bands */}
+      <div aria-hidden style={{
+        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
+        transform:`translate3d(${bandsTx}vw,0,0)`, zIndex:9999, pointerEvents:'none', willChange:'transform'
+      }}>
+        <div style={{ position:'absolute', inset:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
+          {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
+            <div key={i} style={{ position:'relative', background:c }}>
+              <span style={{ position:'absolute', inset:-18, background:c, filter:'blur(28px)', opacity:.95 }} />
             </div>
           ))}
         </div>
       </div>
 
-      {/* TITLE — exactly over the Florida label; WHITE by default, BLACK on white sheet */}
-      <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 10001, pointerEvents: 'none' }}>
-        <div
-          style={{
-            position: 'absolute',
-            left: `${midLeft}px`,
-            top: `${midTop}px`,
-            transform: 'translate(-50%, -50%)',
-          }}
-        >
-          <span
-            style={{
-              color: onWhite ? '#000' : '#fff',
-              fontWeight: 800,
-              letterSpacing: '.08em',
-              textTransform: 'uppercase',
-              fontSize: 'clamp(11px,1.3vw,14px)',
-              textShadow: onWhite
-                ? 'none'
-                : '0 0 6px rgba(0,0,0,.35), 0 0 14px rgba(0,0,0,.25)',
-            }}
-          >
+      {/* “LAMEBOY, USA” — white on dark/color, turns black on the white sheet via mix-blend */}
+      <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
+        <div style={{ position:'absolute', left:'50%', top:'50%', transform: labelTransform }}>
+          <span style={{
+            color:'#fff',
+            mixBlendMode:'difference', /* white → black on white panel */
+            fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase',
+            fontSize:'clamp(11px,1.3vw,14px)'
+          }}>
             LAMEBOY, USA
           </span>
         </div>
@@ -145,31 +126,13 @@ function CascadeOverlay({ durationMs = CASCADE_MS, anchorRect }) {
   );
 }
 
-/* ---------------------- component ---------------------- */
+/* ---------------- component ---------------- */
 export default function BannedLogin({ onProceed }) {
   const { vh, micro, gap } = useShift();
-
-  const [cascade, setCascade] = useState(false);
+  const [cascade, setCascade]     = useState(false);
   const [flipBrand, setFlipBrand] = useState(false);
-  const [orbRed, setOrbRed] = useState(false);
+  const [orbRed, setOrbRed]       = useState(false);
   const pressTimer = useRef(null);
-
-  const floridaRef = useRef(null);
-  const [anchorRect, setAnchorRect] = useState(null);
-
-  // Keep overlay label perfectly aligned to the Florida line
-  const measure = useCallback(() => {
-    if (!floridaRef.current) return;
-    const r = floridaRef.current.getBoundingClientRect();
-    setAnchorRect(r);
-  }, []);
-  useLayoutEffect(() => {
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (floridaRef.current) ro.observe(floridaRef.current);
-    window.addEventListener('resize', measure);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
-  }, [measure]);
 
   const SEAFOAM = '#32ffc7', RED = '#ff001a';
 
@@ -183,15 +146,14 @@ export default function BannedLogin({ onProceed }) {
     <div
       className="page-center"
       style={{
-        transform: `translateY(calc(-${vh}vh + ${micro}px))`,
+        transform:`translateY(calc(-${vh}vh + ${micro}px))`,
         gap,
-        alignItems: 'center',
+        alignItems:'center',
       }}
     >
       {cascade && (
         <CascadeOverlay
-          anchorRect={anchorRect}
-          durationMs={CASCADE_MS}
+          labelTransform={`translate(-50%, calc(-50% - ${vh}vh + ${micro}px + 28px))`}
         />
       )}
 
@@ -199,7 +161,7 @@ export default function BannedLogin({ onProceed }) {
       <button
         type="button"
         aria-label="Orb"
-        onClick={() => setOrbRed(v => !v)}
+        onClick={() => setOrbRed(v=>!v)}
         onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
         onMouseUp={() => clearTimeout(pressTimer.current)}
         onMouseLeave={() => clearTimeout(pressTimer.current)}
@@ -207,54 +169,67 @@ export default function BannedLogin({ onProceed }) {
         onTouchEnd={() => clearTimeout(pressTimer.current)}
         onDoubleClick={runCascade}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-        style={{ lineHeight: 0, background: 'transparent', border: 0, padding: 0, marginBottom: 0, position: 'relative', zIndex: 10002 }}
+        style={{ lineHeight:0, background:'transparent', border:0, padding:0, marginBottom:2 }}
         title="Tap: toggle color • Hold/Double-click: enter"
       >
         <BlueOrbCross3D
           rpm={44}
           color={SEAFOAM}
-          geomScale={1.14}
+          geomScale={1.12}
           glow
-          glowOpacity={orbRed ? 1.0 : 0.92}
+          glowOpacity={orbRed ? 1.0 : 0.9}
           includeZAxis
-          height="82px"
+          height="72px"
           overrideAllColor={orbRed ? RED : null}
           interactive
         />
       </button>
 
-      {/* CLOCK — same style as Florida */}
-      <DigitalClock className="florida-link clock" />
+      {/* CLOCK (Naples) */}
+      <ClockNaples
+        className="florida-link"
+        style={{ marginTop:2 }}
+      />
 
-      {/* Florida label */}
+      {/* Code block */}
+      <pre
+        className="code-tight"
+        style={{
+          margin:0, textAlign:'center', color:'var(--text)',
+          font:'700 14px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+        }}
+      >
+        <span className="lb-seafoam code-comment">// </span>
+        <span className="lb-white neon-black" style={{ fontWeight:900 }}>
+          Lamebo<span>y</span><span className="lb-seafoam">.com</span>
+        </span>{'\n'}
+        <span className="lb-seafoam code-comment">// </span>
+        <span className="banned-neon">is banned</span>{'\n'}
+        <span className="code-keyword">const</span> <span className="code-var">msg</span> <span className="code-op">=</span> <span className="code-string">"welcome to"</span><span className="code-punc">;</span>
+      </pre>
+
+      {/* Florida/LAMEBOY label — kept close to the code block */}
       <button
-        ref={floridaRef}
         type="button"
         className="florida-link"
-        onClick={() => { setFlipBrand(true); setTimeout(() => setFlipBrand(false), 900); }}
+        onClick={() => { setFlipBrand(true); setTimeout(()=>setFlipBrand(false), 900); }}
         title="Click to morph"
-        style={{ fontWeight: 800, marginTop: 0, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,.25)' }}
+        style={{ fontWeight:800, marginTop:2 }}
       >
         {flipBrand ? 'LAMEBOY, USA' : 'Florida, USA'}
       </button>
 
       <style jsx>{`
-        .clock{
-          margin-top: 2px;
-          opacity: .92;
-          font-weight: 800;
-        }
-        :global(:root[data-theme="day"]) .florida-link { color:#111; text-shadow:none; }
         .florida-link{
           display:block; text-align:center; background:transparent; border:0; cursor:pointer;
-          letter-spacing:.02em; transition: color .15s ease, text-shadow .15s ease;
+          letter-spacing:.02em; color:#eaeaea; transition: color .15s ease, text-shadow .15s ease;
         }
         .florida-link:hover, .florida-link:focus-visible{
-          color:#ffe600;
+          color:#fff8c2;
           text-shadow:
-            0 0 6px rgba(255,230,0,.90),
-            0 0 16px rgba(255,230,0,.60),
-            0 0 28px rgba(255,230,0,.40);
+            0 0 6px rgba(250,204,21,.55),
+            0 0 14px rgba(250,204,21,.38),
+            0 0 26px rgba(250,204,21,.22);
           outline:0;
         }
       `}</style>
