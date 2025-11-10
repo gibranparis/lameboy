@@ -8,11 +8,15 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
-const CASCADE_MS    = 2400; // total bands animation
-const WHITE_DELAY   = 200;  // when white starts sliding in (after bands begin)
-const WHITE_HOLD_MS = 520;  // time the white screen holds
+/* =================== Timings =================== */
+const CASCADE_MS    = 2400; // total cascade duration
+const WHITE_HOLD_MS = 520;  // white screen hold after sweep
 
-/* ---------------- helpers ---------------- */
+/* Vertical nudge so the orb sits where your middle text block is.
+   Increase to push the orb LOWER, decrease to raise it. */
+const ORB_SHIFT_VH = 8;
+
+/* =================== Helpers =================== */
 function useCenter(ref) {
   const [pt, setPt] = useState({ x: 0, y: 0 });
   const measure = useCallback(() => {
@@ -34,15 +38,20 @@ function useCenter(ref) {
   return pt;
 }
 
-/* easing */
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const clamp01      = (v) => Math.max(0, Math.min(1, v));
 
-/* ---------- JS-DRIVEN CASCADE (no CSS keyframes) ---------- */
-function CascadeOverlayRAF({ durationMs = CASCADE_MS, whiteDelayMs = WHITE_DELAY }) {
-  const [p, setP] = useState(0);  // master 0..1
+/* ---------- RAF cascade (bands over white) ---------- */
+function CascadeOverlayRAF({
+  durationMs = CASCADE_MS,
+  bandsLeadMs = 200,            // white begins slightly after bands start moving
+  onWhiteProgress,
+}) {
+  const [p, setP] = useState(0); // 0..1 master
   const raf = useRef(0);
   const t0  = useRef(0);
+  const cb  = useRef(onWhiteProgress);
+  useEffect(() => { cb.current = onWhiteProgress; }, [onWhiteProgress]);
 
   useEffect(() => {
     const step = (t) => {
@@ -55,20 +64,19 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS, whiteDelayMs = WHITE_DELAY
     return () => cancelAnimationFrame(raf.current);
   }, [durationMs]);
 
-  // white sheet progress (UNDER the bands)
-  const whiteRaw = clamp01((p * durationMs - whiteDelayMs) / (durationMs - whiteDelayMs));
+  // white underlay progress
+  const whiteRaw = clamp01((p * durationMs - bandsLeadMs) / (durationMs - bandsLeadMs));
   const whiteP   = easeOutCubic(whiteRaw);
   const whiteTx  = (1 - whiteP) * 100; // +100% -> 0%
+  useEffect(() => { cb.current?.(whiteP); }, [whiteP]);
 
-  // per-band stagger (root → crown)
-  const STAGGERS   = [0.00, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30];
-  const FADE_LOCAL = 0.78;
-
-  const names = ['root','sacral','plexus','heart','throat','thirdeye','crown'];
+  // band staggers (root→crown)
+  const STAGGERS = [0.00, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30];
+  const FADE_START_LOCAL = 0.78;
 
   return createPortal(
     <>
-      {/* WHITE (under) */}
+      {/* WHITE (under bands while sweeping) */}
       <div
         aria-hidden
         style={{
@@ -82,28 +90,29 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS, whiteDelayMs = WHITE_DELAY
         }}
       />
 
-      {/* BANDS (over) */}
+      {/* BANDS (above white) */}
       <div
-        className="lb-overlay"
+        className="chakra-overlay"
         aria-hidden
-        style={{ zIndex: 10001 }}
+        data-js-cascade="raf"
+        style={{ position: 'fixed', inset: 0, zIndex: 10001, pointerEvents: 'none' }}
       >
-        {names.map((name, i) => {
-          const offset = STAGGERS[i];
-          const local  = clamp01((p - offset) / (1 - offset)); // band’s own 0..1
-          const move   = easeOutCubic(local);
-          const tx     = (1 - move) * 100;                      // +100vw -> 0
-          const opacity =
-            local < FADE_LOCAL ? 1 : clamp01(1 - (local - FADE_LOCAL) / (1 - FADE_LOCAL));
+        {[
+          'chakra-root','chakra-sacral','chakra-plexus',
+          'chakra-heart','chakra-throat','chakra-thirdeye','chakra-crown',
+        ].map((cls, i) => {
+          const off   = STAGGERS[i];
+          const local = clamp01((p - off) / (1 - off));       // each band’s 0..1
+          const move  = easeOutCubic(local);
+          const tx    = (1 - move) * 100;                     // +100vw -> 0
+          const opacity = local < FADE_START_LOCAL
+            ? 1
+            : clamp01(1 - (local - FADE_START_LOCAL) / (1 - FADE_START_LOCAL));
           return (
             <div
-              key={name}
-              className={`lb-band lb-${name}`}
-              style={{
-                transform: `translate3d(${tx}vw,0,0)`,
-                opacity,
-                willChange: 'transform,opacity',
-              }}
+              key={cls}
+              className={`chakra-band ${cls}`}
+              style={{ transform: `translate3d(${tx}vw,0,0)`, opacity, willChange: 'transform,opacity' }}
             />
           );
         })}
@@ -113,79 +122,57 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS, whiteDelayMs = WHITE_DELAY
   );
 }
 
-/* -------- WHITE HOLD with ORB + BLACK-GLOW TITLE (centered) -------- */
-function WhiteHoldWithOrb() {
-  const SEAFOAM = '#32ffc7';
+/* Floating title (stays mounted through overlays) */
+function FloatingTitle({ x, y, text, color, glow = false, z = 10003 }) {
   return createPortal(
-    <div
+    <span
       aria-hidden
       style={{
         position: 'fixed',
-        inset: 0,
-        zIndex: 10002,
+        left: x,
+        top: y,
+        transform: 'translate(-50%, -50%)',
+        zIndex: z,
         pointerEvents: 'none',
-        background: '#fff',
-        display: 'grid',
-        placeItems: 'center',
+        fontWeight: 800,
+        letterSpacing: '.08em',
+        textTransform: 'uppercase',
+        fontSize: 'clamp(12px,1.6vw,16px)',
+        color,
+        textShadow: glow
+          ? `0 0 4px rgba(0,0,0,.50), 0 0 10px rgba(0,0,0,.40)`
+          : 'none',
       }}
     >
-      <div
-        aria-hidden
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 8,
-        }}
-      >
-        {/* Orb stays visible during white hold */}
-        <div style={{ lineHeight: 0 }}>
-          <BlueOrbCross3D
-            rpm={44}
-            color={SEAFOAM}
-            geomScale={1.12}
-            glow
-            glowOpacity={0.95}
-            includeZAxis
-            height="94px"
-            interactive={false}
-          />
-        </div>
-
-        {/* Title with subtle black glow */}
-        <span
-          style={{
-            fontWeight: 800,
-            letterSpacing: '.08em',
-            textTransform: 'uppercase',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            color: '#000',
-            textShadow:
-              `0 0 3px rgba(0,0,0,.35),
-               0 0 8px rgba(0,0,0,.25),
-               0 0 16px rgba(0,0,0,.18)`,
-          }}
-        >
-          LAMEBOY, USA
-        </span>
-      </div>
-    </div>,
+      {text}
+    </span>,
     document.body
   );
 }
 
-/* ---------------- main ---------------- */
+function WhiteHold() {
+  return createPortal(
+    <div
+      aria-hidden
+      style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 10002, pointerEvents: 'none' }}
+    />,
+    document.body
+  );
+}
+
+/* =================== Main =================== */
 export default function LandingGate({ onCascadeComplete }) {
   // phases: idle → cascade → white → done
-  const [phase, setPhase] = useState('idle');
+  const [phase,   setPhase]   = useState('idle');
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
+  const [whiteP,  setWhiteP]  = useState(0);
   const btnRef   = useRef(null);
   const labelRef = useRef(null);
   const locked   = useRef(false);
 
-  useCenter(labelRef); // keep measurement logic available
-  const SEAFOAM = '#32ffc7';
+  const { x, y } = useCenter(labelRef);
+  const SEAFOAM  = '#32ffc7';
 
   const start = useCallback(() => {
     if (locked.current || phase !== 'idle') return;
@@ -196,81 +183,150 @@ export default function LandingGate({ onCascadeComplete }) {
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
     const t1 = setTimeout(() => setPhase('white'), CASCADE_MS);
-    const t2 = setTimeout(() => { setPhase('done'); onCascadeComplete?.(); }, CASCADE_MS + WHITE_HOLD_MS);
+    const t2 = setTimeout(() => {
+      setPhase('done');
+      onCascadeComplete?.();
+    }, CASCADE_MS + WHITE_HOLD_MS);
+
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase, onCascadeComplete]);
 
-  const labelText = clicked ? 'LAMEBOY, USA' : 'Florida, USA';
+  const labelText  = clicked ? 'LAMEBOY, USA' : 'Florida, USA';
+  const titleColor = whiteP > 0.05 ? '#000' : '#fff';
+  const titleGlow  = whiteP > 0.05; // black glow on white hold
 
   return (
     <div
-      className="page-center"
+      className="lb-screen"
       style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        padding: '1.5rem',
-        position: 'relative',
+        display:'grid',
+        placeItems:'center',
+        position:'relative',
       }}
     >
-      {/* ORB */}
-      <button
-        ref={btnRef}
-        type="button"
-        aria-label="Orb"
-        onClick={(e) => e.preventDefault()}
-        className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-        style={{ lineHeight: 0, background: 'transparent', border: 0, padding: 0, marginBottom: 4 }}
-        title="Click the label below to enter"
-      >
-        <BlueOrbCross3D
-          rpm={44}
-          color={SEAFOAM}
-          geomScale={1.12}
-          glow
-          glowOpacity={0.95}
-          includeZAxis
-          height="94px"
-          interactive={false}
-        />
-      </button>
+      {/* Stack orb + label; orb nudged down to align with your central code block */}
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', transform:`translateY(${ORB_SHIFT_VH}vh)` }}>
+        {/* ORB */}
+        <button
+          ref={btnRef}
+          type="button"
+          aria-label="Orb"
+          onClick={(e) => e.preventDefault()}
+          className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+          style={{ lineHeight: 0, background: 'transparent', border: 0, padding: 0, marginBottom: 10 }}
+          title="Click the label below to enter"
+        >
+          <BlueOrbCross3D
+            rpm={44}
+            color={SEAFOAM}
+            geomScale={1.12}
+            glow
+            glowOpacity={0.95}
+            includeZAxis
+            height="94px"
+            interactive={false}
+          />
+        </button>
 
-      {/* Label — yellow on hover; same size both texts */}
-      <button
-        ref={labelRef}
-        type="button"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onFocus={() => setHovered(true)}
-        onBlur={() => setHovered(false)}
-        onClick={start}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && start()}
-        title="Enter"
-        style={{
-          visibility: phase === 'idle' ? 'visible' : 'hidden',
-          background: 'transparent',
-          border: 0,
-          cursor: 'pointer',
-          fontWeight: 800,
-          letterSpacing: '.02em',
-          textTransform: 'uppercase',
-          fontSize: 'clamp(12px,1.4vw,14px)',
-          color: hovered ? '#ffe600' : '#ffffff',
-          textShadow: hovered
-            ? `0 0 6px rgba(255,230,0,.9), 0 0 14px rgba(255,200,0,.65), 0 0 32px rgba(255,180,0,.45)`
-            : `0 0 8px rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.38)`,
-          marginTop: -2,
-        }}
-      >
-        {labelText}
-      </button>
+        {/* LABEL: bold, highly legible; true yellow glow on hover/active */}
+        <button
+          ref={labelRef}
+          type="button"
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          onFocus={() => setHovered(true)}
+          onBlur={() => setHovered(false)}
+          onClick={start}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && start()}
+          title="Enter"
+          style={{
+            visibility: phase === 'idle' ? 'visible' : 'hidden',
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+            fontWeight: 900,
+            letterSpacing: '.08em',
+            textTransform: 'uppercase',
+            fontSize: 'clamp(13px,1.8vw,17px)',
+            color: hovered ? '#ffff00' : '#111',               // more legible at rest on day; night gets shadow
+            textShadow: hovered
+              ? `
+                 0 0 8px rgba(255,255,0, .85),
+                 0 0 18px rgba(255,255,0, .55),
+                 0 0 34px rgba(255,255,0, .35)
+                `
+              : `
+                 0 0 8px rgba(255,255,255,.30),
+                 0 0 18px rgba(255,255,255,.18)
+                `,
+            padding:'2px 6px',
+            borderRadius: 6,
+          }}
+        >
+          {labelText}
+        </button>
+      </div>
 
       {/* Overlays */}
-      {phase === 'cascade' && <CascadeOverlayRAF whiteDelayMs={WHITE_DELAY} />}
-      {phase === 'white'   && <WhiteHoldWithOrb />}
+      {phase === 'cascade' && (
+        <>
+          {/* Keep orb visible as a loading cue ABOVE bands/white */}
+          <div
+            aria-hidden
+            style={{
+              position:'fixed', left:'50%', top:`calc(50% + ${ORB_SHIFT_VH}vh)`,
+              transform:'translate(-50%, -50%)',
+              zIndex:10004, pointerEvents:'none', lineHeight:0
+            }}
+          >
+            <BlueOrbCross3D
+              rpm={44}
+              color={SEAFOAM}
+              geomScale={1.12}
+              glow
+              glowOpacity={0.95}
+              includeZAxis
+              height="94px"
+              interactive={false}
+            />
+          </div>
+
+          <CascadeOverlayRAF onWhiteProgress={setWhiteP} />
+        </>
+      )}
+      {phase === 'white' && (
+        <>
+          {/* Keep orb visible during white hold */}
+          <div
+            aria-hidden
+            style={{
+              position:'fixed', left:'50%', top:`calc(50% + ${ORB_SHIFT_VH}vh)`,
+              transform:'translate(-50%, -50%)',
+              zIndex:10004, pointerEvents:'none', lineHeight:0
+            }}
+          >
+            <BlueOrbCross3D
+              rpm={44}
+              color={SEAFOAM}
+              geomScale={1.12}
+              glow
+              glowOpacity={0.95}
+              includeZAxis
+              height="94px"
+              interactive={false}
+            />
+          </div>
+
+          <WhiteHold />
+          {/* LAMEBOY, USA in black with a subtle black glow on white */}
+          <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color={titleColor} glow={titleGlow} z={10005} />
+        </>
+      )}
+
+      {/* During cascade (before white > 5%), we show the floating title as white. */}
+      {phase === 'cascade' && whiteP <= 0.05 && (
+        <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color="#fff" glow={false} z={10003} />
+      )}
     </div>
   );
 }
