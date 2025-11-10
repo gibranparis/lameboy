@@ -3,7 +3,7 @@
 
 import nextDynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
@@ -15,10 +15,9 @@ function useShift() {
     const h = typeof window !== 'undefined' ? window.innerHeight : 800;
     const isPhone = h < 760;
     return {
-      // stack sits a touch above center
-      vh: isPhone ? 9 : 7,
+      vh: isPhone ? 9 : 7,                     // nudge above center
       micro: Math.round(Math.max(2, Math.min(12, h * 0.014))),
-      gap: isPhone ? 4 : 6, // orb ↔ text tighter
+      gap: isPhone ? 4 : 6,                    // orb ↔ text tighter
     };
   };
   const [s, setS] = useState(calc);
@@ -30,8 +29,30 @@ function useShift() {
   return s;
 }
 
+/* ---------------------- live clock ---------------------- */
+function DigitalClock({ className }) {
+  const fmt = useRef(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', // Naples, FL
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    })
+  );
+  const [now, setNow] = useState(() => fmt.current.format(new Date()));
+  useEffect(() => {
+    const id = setInterval(() => setNow(fmt.current.format(new Date())), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <div className={className} aria-live="off">{now}</div>;
+}
+
 /* ---------------------- cascade overlay ---------------------- */
-function CascadeOverlay({ durationMs = CASCADE_MS, anchorTransform }) {
+/**
+ * @param {{durationMs?:number, anchorRect?:DOMRect|null}} props
+ */
+function CascadeOverlay({ durationMs = CASCADE_MS, anchorRect }) {
   const [mounted, setMounted] = useState(true);
   const [p, setP] = useState(0); // 0..1
 
@@ -51,13 +72,14 @@ function CascadeOverlay({ durationMs = CASCADE_MS, anchorTransform }) {
 
   if (!mounted) return null;
 
-  // white sheet + color bar sweep from right→left
   const COLOR_VW = 120;
-  const whiteTx = (1 - p) * 100;                       // %
-  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // vw
+  const whiteTx = (1 - p) * 100;                          // %
+  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;  // vw
+  const onWhite = whiteTx < 98; // if white sheet visible anywhere
 
-  // when the white sheet is present (> ~2%), show black label glow
-  const onWhite = whiteTx < 98;
+  // Fallback to center if we don't have the rect yet
+  const midLeft = anchorRect ? (anchorRect.left + anchorRect.right) / 2 : window.innerWidth / 2;
+  const midTop  = anchorRect ? (anchorRect.top + anchorRect.bottom) / 2 : window.innerHeight / 2;
 
   return createPortal(
     <>
@@ -92,21 +114,26 @@ function CascadeOverlay({ durationMs = CASCADE_MS, anchorTransform }) {
         </div>
       </div>
 
-      {/* TITLE anchored to the stack center. Mix-blend handles white/colour swap.
-          We also add a subtle black neon when the white sheet is visible. */}
+      {/* TITLE — exactly over the Florida label; WHITE by default, BLACK on white sheet */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 10001, pointerEvents: 'none' }}>
-        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: anchorTransform }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: `${midLeft}px`,
+            top: `${midTop}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
           <span
             style={{
-              color: '#fff',
-              mixBlendMode: 'difference',
+              color: onWhite ? '#000' : '#fff',
               fontWeight: 800,
               letterSpacing: '.08em',
               textTransform: 'uppercase',
               fontSize: 'clamp(11px,1.3vw,14px)',
               textShadow: onWhite
-                ? '0 0 6px rgba(0,0,0,.45), 0 0 14px rgba(0,0,0,.35), 0 0 26px rgba(0,0,0,.25)'
-                : 'none',
+                ? 'none'
+                : '0 0 6px rgba(0,0,0,.35), 0 0 14px rgba(0,0,0,.25)',
             }}
           >
             LAMEBOY, USA
@@ -127,6 +154,23 @@ export default function BannedLogin({ onProceed }) {
   const [orbRed, setOrbRed] = useState(false);
   const pressTimer = useRef(null);
 
+  const floridaRef = useRef(null);
+  const [anchorRect, setAnchorRect] = useState(null);
+
+  // Keep overlay label perfectly aligned to the Florida line
+  const measure = useCallback(() => {
+    if (!floridaRef.current) return;
+    const r = floridaRef.current.getBoundingClientRect();
+    setAnchorRect(r);
+  }, []);
+  useLayoutEffect(() => {
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (floridaRef.current) ro.observe(floridaRef.current);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [measure]);
+
   const SEAFOAM = '#32ffc7', RED = '#ff001a';
 
   const runCascade = useCallback(() => {
@@ -146,11 +190,12 @@ export default function BannedLogin({ onProceed }) {
     >
       {cascade && (
         <CascadeOverlay
-          anchorTransform={`translate(-50%, calc(-50% - ${vh}vh + ${micro}px))`}
+          anchorRect={anchorRect}
+          durationMs={CASCADE_MS}
         />
       )}
 
-      {/* ORB — sits above the white sheet so it feels attached to it */}
+      {/* ORB */}
       <button
         type="button"
         aria-label="Orb"
@@ -178,43 +223,32 @@ export default function BannedLogin({ onProceed }) {
         />
       </button>
 
-      {/* Code block — compact */}
-      <pre
-        className="code-tight"
-        style={{
-          margin: 0,
-          textAlign: 'center',
-          color: 'var(--text)',
-          font: '700 14px/1.42 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-        }}
-      >
-        <span className="lb-seafoam code-comment">// </span>
-        <span className="lb-white neon-black" style={{ fontWeight: 900 }}>
-          Lamebo<span>y</span><span className="lb-seafoam">.com</span>
-        </span>{'\n'}
-        <span className="lb-seafoam code-comment">// </span>
-        <span className="banned-neon">is banned</span>{'\n'}
-        <span className="code-keyword">const</span> <span className="code-var">msg</span> <span className="code-op">=</span> <span className="code-string">"welcome to"</span><span className="code-punc">;</span>
-      </pre>
+      {/* CLOCK — same style as Florida */}
+      <DigitalClock className="florida-link clock" />
 
-      {/* Florida / brand toggle — closer to code; true yellow glow */}
+      {/* Florida label */}
       <button
+        ref={floridaRef}
         type="button"
         className="florida-link"
         onClick={() => { setFlipBrand(true); setTimeout(() => setFlipBrand(false), 900); }}
         title="Click to morph"
-        style={{
-          fontWeight: 800,
-          marginTop: 0,
-          color: '#fff', // legible at night
-          textShadow: '0 0 6px rgba(0,0,0,.25)',
-        }}
+        style={{ fontWeight: 800, marginTop: 0, color: '#fff', textShadow: '0 0 6px rgba(0,0,0,.25)' }}
       >
         {flipBrand ? 'LAMEBOY, USA' : 'Florida, USA'}
       </button>
 
       <style jsx>{`
+        .clock{
+          margin-top: 2px;
+          opacity: .92;
+          font-weight: 800;
+        }
         :global(:root[data-theme="day"]) .florida-link { color:#111; text-shadow:none; }
+        .florida-link{
+          display:block; text-align:center; background:transparent; border:0; cursor:pointer;
+          letter-spacing:.02em; transition: color .15s ease, text-shadow .15s ease;
+        }
         .florida-link:hover, .florida-link:focus-visible{
           color:#ffe600;
           text-shadow:
