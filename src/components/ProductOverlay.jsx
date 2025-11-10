@@ -1,3 +1,4 @@
+// src/components/ProductOverlay.jsx
 'use client';
 
 import Image from 'next/image';
@@ -42,7 +43,7 @@ function ArrowControl({ dir='up', night, onClick }) {
   );
 }
 
-/* + / sizes (compact gray; solid green when active/selected; no outer glow) */
+/* + / sizes — 28px circles identical to arrow UI; solid green on active/selected; single add event */
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
@@ -50,7 +51,6 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   const pick = (sz) => {
     setPicked(sz);
     try {
-      // fire ONE event (previously double-added via two events)
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
     } catch {}
     setTimeout(()=>setPicked(null), 320);
@@ -76,6 +76,8 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
               type="button"
               className={`pill size-pill ${picked===sz?'is-selected':''}`}
               onClick={()=>pick(sz)}
+              aria-label={`Size ${sz}`}
+              title={`Size ${sz}`}
             >{sz}</button>
           ))}
         </div>
@@ -311,54 +313,64 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         </div>
       </div>
 
-      {/* pills styling (compact + solid green on active; no outer glow) */}
+      {/* pills styling — EXACT 28×28 circles to match ArrowControl */}
       <style jsx>{`
-        :root { --neon: #0bf05f; --pill-bg: #ececec; --pill-fg: #111; --pill-bg-night:#111; --pill-fg-night:#fff; }
+        :root{
+          --circle-day: var(--circle-day, #ffffff);
+          --circle-night: var(--circle-night, #0b0c10);
+          --ring-day: var(--ring-day, rgba(0,0,0,.08));
+          --ring-night: var(--ring-night, rgba(255,255,255,.12));
+          --glyph-day: var(--glyph-day, #0f1115);
+          --glyph-night: var(--glyph-night, #ffffff);
+          --neon: var(--hover-green, #0bf05f);
+        }
 
-        .product-hero-overlay :global(.pill) {
-          min-width: 26px; height: 26px; padding: 0 10px;
-          border-radius: 999px; border: none;
-          display: inline-grid; place-items: center;
-          font-weight: 800; font-size: 12px;
-          background: var(--pill-bg); color: var(--pill-fg);
-          box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
-          transition: background .14s ease, color .14s ease, transform .06s ease;
+        /* base pill as a 28px circle (matches arrows) */
+        .product-hero-overlay :global(.pill){
+          width:28px; height:28px; border-radius:9999px;
+          border:none; display:inline-grid; place-items:center;
+          font-weight:800; font-size:12px; line-height:1;
+          background: var(--circle-day); color: var(--glyph-day);
+          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
+          transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease;
+          padding:0;
         }
         :global(:root[data-theme="night"]) .product-hero-overlay :global(.pill){
-          background: var(--pill-bg-night); color: var(--pill-fg-night);
-          box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+          background: var(--circle-night); color: var(--glyph-night);
+          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
         }
 
-        .product-hero-overlay :global(.plus-pill) {
-          width: 32px; height: 32px; font-size: 16px; line-height: 1;
-        }
+        /* “+ / –” button uses same 28px circle; slightly larger glyph */
+        .product-hero-overlay :global(.plus-pill){ font-size:18px; }
         .product-hero-overlay :global(.plus-pill.is-active),
         .product-hero-overlay :global(.plus-pill.is-ready){
-          background: var(--neon); color: #000;
+          background: var(--neon); color:#000;
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
         }
 
-        .product-hero-overlay :global(.size-pill.is-selected) {
-          background: var(--neon); color: #000;
+        /* size pills — same circle; solid green when selected */
+        .product-hero-overlay :global(.size-pill.is-selected){
+          background: var(--neon); color:#000;
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
         }
 
-        .product-hero-overlay :global(.dot-pill) {
-          border-radius: 999px; padding: 0; width: 18px; height: 18px;
+        /* image dots */
+        .product-hero-overlay :global(.dot-pill){
+          border-radius:9999px; padding:0; width:18px; height:18px;
+          background:#ececec;
         }
-        .product-hero-overlay :global(.dot-pill.is-active) {
-          background: var(--neon); color: #000;
+        :global(:root[data-theme="night"]) .product-hero-overlay :global(.dot-pill){ background:#111; }
+        .product-hero-overlay :global(.dot-pill.is-active){
+          background: var(--neon); color:#000;
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
         }
 
-        @media (hover:hover) {
-          .product-hero-overlay :global(.pill:hover) {
-            transform: translateZ(0) scale(1.02);
-          }
+        @media (hover:hover){
+          .product-hero-overlay :global(.pill:hover){ transform: translateZ(0) scale(1.02); }
         }
 
-        .product-hero-title { margin-top: 10px; font-weight: 800; }
-        .product-hero-price { opacity: .85; margin-top: 2px; }
+        .product-hero-title{ margin-top:10px; font-weight:800; }
+        .product-hero-price{ opacity:.85; margin-top:2px; }
       `}</style>
     </>
   );
