@@ -1,5 +1,4 @@
 // src/components/BannedLogin.jsx
-// @ts-check
 'use client';
 
 import nextDynamic from 'next/dynamic';
@@ -16,10 +15,10 @@ function useShift() {
     const h = typeof window !== 'undefined' ? window.innerHeight : 800;
     const isPhone = h < 760;
     return {
-      // tight vertical stack and slightly above center
-      vh: isPhone ? 6 : 5,
-      micro: Math.round(Math.max(2, Math.min(10, h * 0.014))),
-      gap: isPhone ? 4 : 6,
+      // pull the stack up a touch, but keep items tightly grouped
+      vh: isPhone ? 4 : 3.5,
+      micro: Math.round(Math.max(2, Math.min(10, h * 0.012))),
+      gap: 6, // was larger—keep consistent tight grouping everywhere
     };
   };
   const [s, setS] = useState(calc);
@@ -31,7 +30,7 @@ function useShift() {
   return s;
 }
 
-/** Color cascade with label that inverts on white via mix-blend:difference */
+/** Color cascade that carries a white panel + 7 bands and a label that inverts on white */
 function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
   const [mounted, setMounted] = useState(true);
   const [p, setP] = useState(0);
@@ -58,12 +57,10 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
 
   return createPortal(
     <>
-      {/* white sheet (under) */}
       <div aria-hidden style={{
         position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
         background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
       }}/>
-      {/* 7 color bands (over) */}
       <div aria-hidden style={{
         position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
         transform:`translate3d(${bandsTx}vw,0,0)`, zIndex:9999, pointerEvents:'none', willChange:'transform'
@@ -77,11 +74,12 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
         </div>
       </div>
 
-      {/* Inverting title */}
+      {/* “LAMEBOY, USA” — white on dark/color, turns black on the white sheet via mix-blend */}
       <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
         <div style={{ position:'absolute', left:'50%', top:'50%', transform: labelTransform }}>
           <span style={{
-            color:'#fff', mixBlendMode:'difference',
+            color:'#fff',
+            mixBlendMode:'difference',
             fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase',
             fontSize:'clamp(11px,1.3vw,14px)'
           }}>
@@ -115,13 +113,12 @@ export default function BannedLogin({ onProceed }) {
       className="page-center"
       style={{
         transform:`translateY(calc(-${vh}vh + ${micro}px))`,
-        gap,
+        gap,                      // tighter cluster
         alignItems:'center',
       }}
     >
       {cascade && (
         <CascadeOverlay
-          /* keep the overlay label centered on our stack */
           labelTransform={`translate(-50%, calc(-50% - ${vh}vh + ${micro}px + 24px))`}
         />
       )}
@@ -138,7 +135,7 @@ export default function BannedLogin({ onProceed }) {
         onTouchEnd={() => clearTimeout(pressTimer.current)}
         onDoubleClick={runCascade}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-        style={{ lineHeight:0, background:'transparent', border:0, padding:0, marginBottom:2 }}
+        style={{ lineHeight:0, background:'transparent', border:0, padding:0, marginBottom:0 }}
         title="Tap: toggle color • Hold/Double-click: enter"
       >
         <BlueOrbCross3D
@@ -154,7 +151,7 @@ export default function BannedLogin({ onProceed }) {
         />
       </button>
 
-      {/* Code block */}
+      {/* Code block — pulled closer */}
       <pre
         className="code-tight"
         style={{
@@ -171,13 +168,13 @@ export default function BannedLogin({ onProceed }) {
         <span className="code-keyword">const</span> <span className="code-var">msg</span> <span className="code-op">=</span> <span className="code-string">"welcome to"</span><span className="code-punc">;</span>
       </pre>
 
-      {/* Florida / LAMEBOY toggle */}
+      {/* Florida/LAMEBOY label — very tight to code block */}
       <button
         type="button"
         className="florida-link"
         onClick={() => { setFlipBrand(true); setTimeout(()=>setFlipBrand(false), 900); }}
         title="Click to morph"
-        style={{ fontWeight:800, marginTop:2 }}
+        style={{ fontWeight:800, marginTop:-2 }}
       >
         {flipBrand ? 'LAMEBOY, USA' : 'Florida, USA'}
       </button>
