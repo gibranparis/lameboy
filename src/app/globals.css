@@ -61,7 +61,7 @@ html[data-overlay-open]{ overflow:hidden; }
   *{ animation-duration:.001ms!important; animation-iteration-count:1!important; transition-duration:.001ms!important; scroll-behavior:auto!important; }
 }
 
-/* ========== Helpers ====================================================== */
+/* ========== Helpers (viewport + bottom fill) ============================ */
 /* Full visible viewport on mobile, even with URL bar shown/hidden */
 .lb-screen{
   min-height:100svh;   /* visible viewport on iOS/Chrome mobile */
@@ -76,13 +76,22 @@ html[data-overlay-open]{ overflow:hidden; }
 .row-nowrap{ display:flex; align-items:center; gap:14px; flex-wrap:nowrap; }
 .florida-inline{ display:block!important; text-align:center!important; margin-left:auto!important; margin-right:auto!important; }
 
-/* Pin the Chakra runner to the physical bottom, above the home bar */
+/* Pin the Chakra runner to the physical bottom */
 .lb-chakra-runner{
   position:fixed; left:0; right:0; bottom:0;
-  padding-bottom: var(--safe-bottom);
   z-index:50;
   pointer-events:none;
 }
+
+/* Paint UNDER Safari’s toolbar so no white ever shows */
+.lb-bottom-fill{
+  position:fixed; left:0; right:0; bottom:0;
+  height: var(--safe-bottom);          /* just the safe-area strip */
+  background: var(--bg);               /* match page bg (black) */
+  z-index: 1;                          /* behind everything */
+  pointer-events: none;
+}
+
 .lb-chakra-runner > *{ pointer-events:auto; }
 
 /* ========== Neon card (legacy; not used by gate now) ==================== */
@@ -116,7 +125,7 @@ html[data-overlay-open]{ overflow:hidden; }
 @media (prefers-reduced-motion: reduce){ .logo-3d{ display:none } }
 .login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.14ch; }
 
-/* Chakra cascade */
+/* ================== Chakra cascade (CSS preset) ========================= */
 .chakra-overlay{ position:fixed; inset:0; z-index:60; display:grid; grid-template-columns:repeat(7,1fr); pointer-events:none; direction:rtl; }
 .chakra-band{ position:relative; opacity:0; transform:translateX(2%); animation:chakraBlink 1.2s ease-out forwards; }
 .chakra-band::before{ content:""; position:absolute; inset:-10px; background:var(--c); filter:blur(22px); opacity:.55; pointer-events:none; }
@@ -130,6 +139,12 @@ html[data-overlay-open]{ overflow:hidden; }
 .chakra-throat{--c:#164bfb;background:#0000FF}
 .chakra-thirdeye{--c:#b300ff;background:#4B0082}
 .chakra-crown{--c:#faf5ff;background:#ff00c8}
+
+/* Disable the CSS animation when the JS/RAF cascade is active */
+.chakra-overlay[data-js-cascade="raf"] .chakra-band{
+  animation: none !important;
+  opacity: 1; /* let JS drive opacity */
+}
 
 /* ========== SHOP MODE ONLY ============================================= */
 :root[data-mode="shop"][data-theme="day"]   { --bg:var(--shop-offwhite); --panel:var(--shop-offwhite); --text:#111; }
