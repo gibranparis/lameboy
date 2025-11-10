@@ -93,7 +93,7 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
   );
 }
 
-/* floating title portal (used during overlays) */
+/* floating title (now reused across phases so there's never a gap) */
 function FloatingTitle({ x, y, text, color, glow = false, z = 10001 }) {
   return createPortal(
     <span
@@ -105,10 +105,14 @@ function FloatingTitle({ x, y, text, color, glow = false, z = 10001 }) {
         transform: 'translate(-50%, -50%)',
         zIndex: z,
         pointerEvents: 'none',
+
+        // --- unified typography (matches base label) ---
         fontWeight: 800,
         letterSpacing: '.08em',
         textTransform: 'uppercase',
-        fontSize: 'clamp(11px,1.3vw,14px)',
+        fontSize: 'clamp(12px,1.3vw,14px)',
+        fontFamily: 'inherit',
+
         color,
         textShadow: glow
           ? `
@@ -125,16 +129,13 @@ function FloatingTitle({ x, y, text, color, glow = false, z = 10001 }) {
   );
 }
 
-/* white hold layer */
-function WhiteHold({ x, y, text }) {
+/* white hold layer (background only; title stays mounted separately) */
+function WhiteHold() {
   return createPortal(
-    <>
-      <div
-        aria-hidden
-        style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 10002, pointerEvents: 'none' }}
-      />
-      <FloatingTitle x={x} y={y} text={text} color="#000" glow={false} z={10003} />
-    </>,
+    <div
+      aria-hidden
+      style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 10002, pointerEvents: 'none' }}
+    />,
     document.body
   );
 }
@@ -144,24 +145,22 @@ export default function LandingGate({ onCascadeComplete }) {
   // phases: idle → cascade → white → done
   const [phase, setPhase] = useState('idle');
   const [hovered, setHovered] = useState(false);
-  const [clicked, setClicked] = useState(false); // <- NEW: one-way swap of label
+  const [clicked, setClicked] = useState(false);
   const btnRef = useRef(null);
   const labelRef = useRef(null);
-  const locked = useRef(false); // prevents double starts
+  const locked = useRef(false);
 
   const { x, y } = useCenter(labelRef);
-
   const SEAFOAM = '#32ffc7';
 
   const start = useCallback(() => {
     if (locked.current || phase !== 'idle') return;
     locked.current = true;
-    setClicked(true);            // <- switch text to “LAMEBOY, USA”
+    setClicked(true);            // swap to LAMEBOY, USA
     setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    // move to white hold, then reveal
     const t1 = setTimeout(() => setPhase('white'), CASCADE_MS);
     const t2 = setTimeout(() => {
       setPhase('done');
@@ -225,9 +224,15 @@ export default function LandingGate({ onCascadeComplete }) {
           background: 'transparent',
           border: 0,
           cursor: 'pointer',
+
+          // --- unified typography (matches overlay) ---
           fontWeight: 800,
-          letterSpacing: '.02em',
-          // Hover only affects color/glow (text stays “Florida, USA” until clicked)
+          letterSpacing: '.08em',
+          textTransform: 'uppercase',
+          fontSize: 'clamp(12px,1.3vw,14px)',
+          fontFamily: 'inherit',
+
+          // Hover = neon yellow; otherwise white
           color: hovered ? '#ffe600' : '#ffffff',
           textShadow: hovered
             ? `
@@ -246,13 +251,20 @@ export default function LandingGate({ onCascadeComplete }) {
       </button>
 
       {/* Overlays */}
-      {phase === 'cascade' && (
-        <>
-          <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color="#fff" glow />
-          <CascadeOverlayRAF />
-        </>
+      {phase === 'cascade' && <CascadeOverlayRAF />}
+      {phase === 'white' && <WhiteHold />}
+
+      {/* Sticky title lives above everything through both phases (no flash) */}
+      {phase !== 'idle' && (
+        <FloatingTitle
+          x={x}
+          y={y}
+          text="LAMEBOY, USA"
+          color={phase === 'white' ? '#000' : '#fff'}
+          glow={phase !== 'white'}
+          z={10003} // above the sweeping/hold layers
+        />
       )}
-      {phase === 'white' && <WhiteHold x={x} y={y} text="LAMEBOY, USA" />}
     </div>
   );
 }
