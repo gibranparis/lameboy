@@ -12,7 +12,40 @@ const CASCADE_MS    = 2400; // total cascade duration
 const WHITE_HOLD_MS = 520;  // white screen hold
 const SEAFOAM       = '#32ffc7';
 
-/* ---------------- helpers ---------------- */
+/* ---------------- tiny clock (Naples / America/New_York) ---------------- */
+function ClockNaples({ color = '#fff' }) {
+  const [now, setNow] = useState('');
+  useEffect(() => {
+    const fmt = () =>
+      setNow(
+        new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+          timeZone: 'America/New_York',
+        }).format(new Date())
+      );
+    fmt();
+    const id = setInterval(fmt, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div
+      style={{
+        font: '800 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+        letterSpacing: '.06em',
+        color,
+        textShadow: '0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)',
+        userSelect: 'none',
+      }}
+    >
+      {now}
+    </div>
+  );
+}
+
+/* ---------------- geometry helpers ---------------- */
 function useCenter(ref) {
   const [pt, setPt] = useState({ x: 0, y: 0 });
   const measure = useCallback(() => {
@@ -37,43 +70,6 @@ function useCenter(ref) {
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
-/* --------- Naples clock (America/New_York), same styling as “Florida, USA” --------- */
-function ClockNaples({ color = '#fff', z = 10004 }) {
-  const [now, setNow] = useState('');
-  useEffect(() => {
-    const fmt = () =>
-      setNow(
-        new Intl.DateTimeFormat('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-          timeZone: 'America/New_York',
-        }).format(new Date())
-      );
-    fmt();
-    const id = setInterval(fmt, 1000);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <span
-      aria-live="polite"
-      style={{
-        zIndex: z,
-        font: '800 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-        letterSpacing: '.06em',
-        color,
-        textShadow:
-          color === '#fff'
-            ? `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`
-            : 'none',
-      }}
-    >
-      {now}
-    </span>
-  );
-}
-
 /* ---------- RAF-driven CASCADE (white under, bands over) ---------- */
 function CascadeOverlayRAF({
   durationMs = CASCADE_MS,
@@ -97,6 +93,7 @@ function CascadeOverlayRAF({
     return () => cancelAnimationFrame(raf.current);
   }, [durationMs]);
 
+  // even 7 bands; staggered starts so it looks balanced
   const STAGGERS = [0.00, 0.06, 0.12, 0.18, 0.24, 0.30, 0.36];
   const FADE_LOCAL = 0.78;
 
@@ -166,7 +163,7 @@ function CascadeOverlayRAF({
   );
 }
 
-/* Floating title that sticks to the label’s center */
+/* Floating title that sticks to the label’s center during cascade/white */
 function FloatingTitle({ x, y, text, color, glow = false, z = 10003 }) {
   return createPortal(
     <span
@@ -235,12 +232,12 @@ export default function LandingGate({ onCascadeComplete }) {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase, onCascadeComplete]);
 
+  // Titles/colors
   const idleText   = 'Florida, USA';
   const finalText  = 'LAMEBOY, USA';
-
-  // colors that auto-invert while the white sheet passes
+  const showWhiteTitle = phase !== 'idle';
   const titleColor = whiteP > 0.05 ? '#000' : '#fff';
-  const titleGlow  = whiteP <= 0.05;
+  const titleGlow  = whiteP <= 0.05; // glow only over color
 
   return (
     <div
@@ -251,17 +248,17 @@ export default function LandingGate({ onCascadeComplete }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,                    // tighter stack
+        gap: 10,
         padding: '1.5rem',
         position: 'relative',
       }}
     >
-      {/* ORB — above everything */}
+      {/* ORB — always visible; sits *above* white & bands */}
       <div
         aria-hidden
         style={{
           position: 'relative',
-          zIndex: 10004,
+          zIndex: 10004, // above white + bands + title
           lineHeight: 0,
         }}
       >
@@ -277,10 +274,12 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       </div>
 
-      {/* Naples clock — ALWAYS visible on gate, between orb and label */}
-      <div style={{ position:'relative', zIndex:10004, marginTop:-2 }}>
-        <ClockNaples color={titleColor} />
-      </div>
+      {/* CLOCK (idle only) — tighten space above to match space below */}
+      {phase === 'idle' && (
+        <div style={{ position:'relative', zIndex:10004, marginTop:-6, marginBottom:-2 }}>
+          <ClockNaples color="#fff" />
+        </div>
+      )}
 
       {/* Clickable label under orb (only visible before cascade) */}
       <button
@@ -321,8 +320,9 @@ export default function LandingGate({ onCascadeComplete }) {
       )}
       {phase === 'white' && <WhiteHold />}
 
-      {/* Title that rides with the label during cascade/white */}
-      {phase !== 'idle' && (
+      {/* Floating title attached to label center during cascade/white.
+          Starts white (over color) and automatically turns black over the white sheet. */}
+      {showWhiteTitle && (
         <FloatingTitle
           x={x}
           y={y}
@@ -333,6 +333,7 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       )}
 
+      {/* Scoped gate styles */}
       <style jsx>{`
         :global(:root[data-mode="gate"]) .chakra-band { min-height: 100%; }
       `}</style>
