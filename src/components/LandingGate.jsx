@@ -144,6 +144,7 @@ export default function LandingGate({ onCascadeComplete }) {
   // phases: idle → cascade → white → done
   const [phase, setPhase] = useState('idle');
   const [hovered, setHovered] = useState(false);
+  const [clicked, setClicked] = useState(false); // <- NEW: one-way swap of label
   const btnRef = useRef(null);
   const labelRef = useRef(null);
   const locked = useRef(false); // prevents double starts
@@ -155,6 +156,7 @@ export default function LandingGate({ onCascadeComplete }) {
   const start = useCallback(() => {
     if (locked.current || phase !== 'idle') return;
     locked.current = true;
+    setClicked(true);            // <- switch text to “LAMEBOY, USA”
     setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
@@ -168,6 +170,8 @@ export default function LandingGate({ onCascadeComplete }) {
 
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase, onCascadeComplete]);
+
+  const labelText = clicked ? 'LAMEBOY, USA' : 'Florida, USA';
 
   return (
     <div
@@ -214,6 +218,7 @@ export default function LandingGate({ onCascadeComplete }) {
         onFocus={() => setHovered(true)}
         onBlur={() => setHovered(false)}
         onClick={start}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && start()}
         title="Enter"
         style={{
           visibility: phase === 'idle' ? 'visible' : 'hidden',
@@ -222,7 +227,7 @@ export default function LandingGate({ onCascadeComplete }) {
           cursor: 'pointer',
           fontWeight: 800,
           letterSpacing: '.02em',
-          // Arcade-neon yellow when hovered
+          // Hover only affects color/glow (text stays “Florida, USA” until clicked)
           color: hovered ? '#ffe600' : '#ffffff',
           textShadow: hovered
             ? `
@@ -237,7 +242,7 @@ export default function LandingGate({ onCascadeComplete }) {
             `,
         }}
       >
-        {hovered ? 'LAMEBOY, USA' : 'Florida, USA'}
+        {labelText}
       </button>
 
       {/* Overlays */}

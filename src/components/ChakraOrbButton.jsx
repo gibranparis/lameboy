@@ -6,7 +6,7 @@ import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 24,                 // slow, hypnotic
+  rpm = 44,                 // default: fast (match BANNED / shop)
   color = '#32ffc7',
   geomScale = 1.25,
   offsetFactor = 2.25,
@@ -30,7 +30,10 @@ export default function ChakraOrbButton({
 
   // watch overlay flag (reverse spin there)
   useEffect(() => {
-    const read = () => setOverlayOpen(document.documentElement.getAttribute('data-overlay-open') === '1');
+    const read = () =>
+      setOverlayOpen(
+        document.documentElement.getAttribute('data-overlay-open') === '1'
+      );
     read();
     const mo = new MutationObserver(read);
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-overlay-open'] });
@@ -49,7 +52,7 @@ export default function ChakraOrbButton({
     return () => document.removeEventListener('lb:grid-density', onDensity);
   }, []);
 
-  // ✅ vivid colors
+  // vivid colors
   const GREEN = '#00ff2a';    // neon “GO”
   const RED   = '#ff1a1a';    // blood “STOP”
 
@@ -69,7 +72,9 @@ export default function ChakraOrbButton({
     triggerPulse(dir === 'in' ? 'in' : 'out');
 
     const detail = { step: 1, dir };
+    // Canonical + compat events
     document.dispatchEvent(new CustomEvent('lb:zoom', { detail }));
+    document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }));
     document.dispatchEvent(new CustomEvent('grid-density', { detail })); // legacy
   }, [triggerPulse]);
 
