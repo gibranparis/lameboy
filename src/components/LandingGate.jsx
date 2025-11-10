@@ -8,7 +8,7 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
-const CASCADE_MS = 2400;    // color bands + white sweep duration
+const CASCADE_MS = 2400;    // total cascade duration
 const WHITE_HOLD_MS = 520;  // white screen hold
 
 /* ---------------- helpers ---------------- */
@@ -33,11 +33,22 @@ function useCenter(ref) {
   return pt;
 }
 
+/* Easing helpers */
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeOutQuad  = (t) => 1 - (1 - t) * (1 - t);
+
 /* rAF-timed cascade (glow bands + white sheet) */
-function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
-  const [p, setP] = useState(0); // 0..1
+function CascadeOverlayRAF({
+  durationMs = CASCADE_MS,
+  bandsLeadMs = 180,             // white starts slightly after bands
+  fadeOutStart = 0.85,           // when bands begin to fade
+  onWhiteProgress,               // reports 0..1 progress of the white sheet
+}) {
+  const [p, setP] = useState(0); // 0..1 master progress
   const raf = useRef(0);
   const t0 = useRef(0);
+  const cbRef = useRef(onWhiteProgress);
+  useEffect(() => { cbRef.current = onWhiteProgress; }, [onWhiteProgress]);
 
   useEffect(() => {
     const step = (t) => {
@@ -50,21 +61,34 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
     return () => cancelAnimationFrame(raf.current);
   }, [durationMs]);
 
-  // white translates from +100% → 0
-  const whiteTx = (1 - p) * 100;
+  // Bands progress (+100vw -> 0vw)
+  const pb = easeOutCubic(Math.min(1, (p * durationMs) / (durationMs - bandsLeadMs)));
+  const bandsTx = (1 - pb) * 100;
+  const bandsOpacity = p < fadeOutStart ? 1 : Math.max(0, 1 - (p - fadeOutStart) / (1 - fadeOutStart));
 
-  // color bands slide in a bit earlier than white, then fade
-  const COLOR_VW = 120;
-  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
-  const bandsOpacity = p < 0.85 ? 1 : Math.max(0, 1 - (p - 0.85) / 0.15);
+  // White sheet progress (+100% -> 0%)
+  const pwRaw = Math.max(0, (p * durationMs - bandsLeadMs) / (durationMs - bandsLeadMs));
+  const pw = easeOutQuad(Math.min(1, pwRaw));
+  const whiteTx = (1 - pw) * 100;
+
+  // notify parent to flip title color early
+  useEffect(() => { cbRef.current?.(pw); }, [pw]);
 
   return createPortal(
     <>
-      {/* bands */}
+      {/* bands ABOVE white during sweep */}
       <div
         className="chakra-overlay"
         aria-hidden
-        style={{ transform: `translate3d(${bandsTx}vw,0,0)`, opacity: bandsOpacity }}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          transform: `translate3d(${bandsTx}vw,0,0)`,
+          opacity: bandsOpacity,
+          zIndex: 10001,              // bands on top during sweep
+          pointerEvents: 'none',
+          willChange: 'transform,opacity',
+        }}
       >
         <div className="chakra-band chakra-root" />
         <div className="chakra-band chakra-sacral" />
@@ -75,7 +99,7 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
         <div className="chakra-band chakra-crown" />
       </div>
 
-      {/* white sheet */}
+      {/* white UNDER bands during sweep */}
       <div
         aria-hidden
         style={{
@@ -83,7 +107,7 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
           inset: 0,
           transform: `translate3d(${whiteTx}%,0,0)`,
           background: '#fff',
-          zIndex: 9998,
+          zIndex: 10000,              // under bands here
           pointerEvents: 'none',
           willChange: 'transform',
         }}
@@ -93,8 +117,8 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS }) {
   );
 }
 
-/* floating title (now reused across phases so there's never a gap) */
-function FloatingTitle({ x, y, text, color, glow = false, z = 10001 }) {
+/* floating title (stays mounted) */
+function FloatingTitle({ x, y, text, color, glow = false, z = 10003 }) {
   return createPortal(
     <span
       aria-hidden
@@ -105,21 +129,16 @@ function FloatingTitle({ x, y, text, color, glow = false, z = 10001 }) {
         transform: 'translate(-50%, -50%)',
         zIndex: z,
         pointerEvents: 'none',
-
-        // --- unified typography (matches base label) ---
         fontWeight: 800,
         letterSpacing: '.08em',
         textTransform: 'uppercase',
         fontSize: 'clamp(12px,1.3vw,14px)',
         fontFamily: 'inherit',
-
         color,
         textShadow: glow
-          ? `
-            0 0 6px   rgba(255,255,255,0.80),
-            0 0 14px  rgba(255,255,255,0.55),
-            0 0 26px  rgba(255,255,255,0.35)
-          `
+          ? `0 0 6px rgba(255,255,255,.8),
+             0 0 14px rgba(255,255,255,.55),
+             0 0 26px rgba(255,255,255,.35)`
           : 'none',
       }}
     >
@@ -129,7 +148,7 @@ function FloatingTitle({ x, y, text, color, glow = false, z = 10001 }) {
   );
 }
 
-/* white hold layer (background only; title stays mounted separately) */
+/* white hold above everything except title */
 function WhiteHold() {
   return createPortal(
     <div
@@ -146,6 +165,7 @@ export default function LandingGate({ onCascadeComplete }) {
   const [phase, setPhase] = useState('idle');
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
+  const [whiteP, setWhiteP] = useState(0);        // 0..1 white-sheet progress
   const btnRef = useRef(null);
   const labelRef = useRef(null);
   const locked = useRef(false);
@@ -156,7 +176,7 @@ export default function LandingGate({ onCascadeComplete }) {
   const start = useCallback(() => {
     if (locked.current || phase !== 'idle') return;
     locked.current = true;
-    setClicked(true);            // swap to LAMEBOY, USA
+    setClicked(true);
     setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
@@ -171,6 +191,10 @@ export default function LandingGate({ onCascadeComplete }) {
   }, [phase, onCascadeComplete]);
 
   const labelText = clicked ? 'LAMEBOY, USA' : 'Florida, USA';
+
+  // flip to black as soon as white is ~5% into frame
+  const titleColor = whiteP > 0.05 ? '#000' : '#fff';
+  const titleGlow  = whiteP <= 0.05; // glow only while still mostly dark
 
   return (
     <div
@@ -208,7 +232,7 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       </button>
 
-      {/* Base label (hidden during overlays to avoid overlaps) */}
+      {/* Base label */}
       <button
         ref={labelRef}
         type="button"
@@ -224,45 +248,42 @@ export default function LandingGate({ onCascadeComplete }) {
           background: 'transparent',
           border: 0,
           cursor: 'pointer',
-
-          // --- unified typography (matches overlay) ---
           fontWeight: 800,
           letterSpacing: '.08em',
           textTransform: 'uppercase',
           fontSize: 'clamp(12px,1.3vw,14px)',
           fontFamily: 'inherit',
-
-          // Hover = neon yellow; otherwise white
           color: hovered ? '#ffe600' : '#ffffff',
           textShadow: hovered
-            ? `
-              0 0 6px   rgba(255,230,0,0.90),
-              0 0 14px  rgba(255,200,0,0.65),
-              0 0 32px  rgba(255,180,0,0.45),
-              0 0 52px  rgba(255,170,0,0.30)
-            `
-            : `
-              0 0 8px rgba(255,255,255,.55),
-              0 0 18px rgba(255,255,255,.38)
-            `,
+            ? `0 0 6px rgba(255,230,0,.9),
+               0 0 14px rgba(255,200,0,.65),
+               0 0 32px rgba(255,180,0,.45),
+               0 0 52px rgba(255,170,0,.30)`
+            : `0 0 8px rgba(255,255,255,.55),
+               0 0 18px rgba(255,255,255,.38)`,
         }}
       >
         {labelText}
       </button>
 
       {/* Overlays */}
-      {phase === 'cascade' && <CascadeOverlayRAF />}
+      {phase === 'cascade' && (
+        <CascadeOverlayRAF
+          onWhiteProgress={setWhiteP}   // report white progress to flip title early
+          bandsLeadMs={200}             // small head start for bands (tweak 180–260 if needed)
+        />
+      )}
       {phase === 'white' && <WhiteHold />}
 
-      {/* Sticky title lives above everything through both phases (no flash) */}
+      {/* Title stays above both layers; flips to black as soon as white appears */}
       {phase !== 'idle' && (
         <FloatingTitle
           x={x}
           y={y}
           text="LAMEBOY, USA"
-          color={phase === 'white' ? '#000' : '#fff'}
-          glow={phase !== 'white'}
-          z={10003} // above the sweeping/hold layers
+          color={titleColor}
+          glow={titleGlow}
+          z={10003}
         />
       )}
     </div>
