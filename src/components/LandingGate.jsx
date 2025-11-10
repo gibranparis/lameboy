@@ -38,7 +38,7 @@ function useCenter(ref) {
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
-/* ---------- STAGGERED CASCADE OVERLAY (bands above, white below) ---------- */
+/* ---------- JS-DRIVEN CASCADE (no CSS keyframes) ---------- */
 function CascadeOverlayRAF({ durationMs = CASCADE_MS, whiteDelayMs = WHITE_DELAY }) {
   const [p, setP] = useState(0);  // master 0..1
   const raf = useRef(0);
@@ -55,14 +55,16 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS, whiteDelayMs = WHITE_DELAY
     return () => cancelAnimationFrame(raf.current);
   }, [durationMs]);
 
-  // white sheet progress
+  // white sheet progress (UNDER the bands)
   const whiteRaw = clamp01((p * durationMs - whiteDelayMs) / (durationMs - whiteDelayMs));
   const whiteP   = easeOutCubic(whiteRaw);
   const whiteTx  = (1 - whiteP) * 100; // +100% -> 0%
 
   // per-band stagger (root → crown)
-  const STAGGERS = [0.00, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30];
+  const STAGGERS   = [0.00, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30];
   const FADE_LOCAL = 0.78;
+
+  const names = ['root','sacral','plexus','heart','throat','thirdeye','crown'];
 
   return createPortal(
     <>
@@ -82,19 +84,11 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS, whiteDelayMs = WHITE_DELAY
 
       {/* BANDS (over) */}
       <div
-        className="chakra-overlay"
+        className="lb-overlay"
         aria-hidden
-        style={{ position: 'fixed', inset: 0, zIndex: 10001, pointerEvents: 'none' }}
+        style={{ zIndex: 10001 }}
       >
-        {[
-          'chakra-root',
-          'chakra-sacral',
-          'chakra-plexus',
-          'chakra-heart',
-          'chakra-throat',
-          'chakra-thirdeye',
-          'chakra-crown',
-        ].map((cls, i) => {
+        {names.map((name, i) => {
           const offset = STAGGERS[i];
           const local  = clamp01((p - offset) / (1 - offset)); // band’s own 0..1
           const move   = easeOutCubic(local);
@@ -103,9 +97,13 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS, whiteDelayMs = WHITE_DELAY
             local < FADE_LOCAL ? 1 : clamp01(1 - (local - FADE_LOCAL) / (1 - FADE_LOCAL));
           return (
             <div
-              key={cls}
-              className={`chakra-band ${cls}`}
-              style={{ transform: `translate3d(${tx}vw,0,0)`, opacity, willChange: 'transform,opacity' }}
+              key={name}
+              className={`lb-band lb-${name}`}
+              style={{
+                transform: `translate3d(${tx}vw,0,0)`,
+                opacity,
+                willChange: 'transform,opacity',
+              }}
             />
           );
         })}
@@ -115,33 +113,63 @@ function CascadeOverlayRAF({ durationMs = CASCADE_MS, whiteDelayMs = WHITE_DELAY
   );
 }
 
-/* Title shown ONLY during white hold */
-function WhiteHold({ x, y, text }) {
+/* -------- WHITE HOLD with ORB + BLACK-GLOW TITLE (centered) -------- */
+function WhiteHoldWithOrb() {
+  const SEAFOAM = '#32ffc7';
   return createPortal(
-    <>
+    <div
+      aria-hidden
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 10002,
+        pointerEvents: 'none',
+        background: '#fff',
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
       <div
         aria-hidden
-        style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 10002, pointerEvents: 'none' }}
-      />
-      <span
-        aria-hidden
         style={{
-          position: 'fixed',
-          left: x,
-          top: y,
-          transform: 'translate(-50%, -50%)',
-          zIndex: 10003,
-          pointerEvents: 'none',
-          fontWeight: 800,
-          letterSpacing: '.08em',
-          textTransform: 'uppercase',
-          fontSize: 'clamp(12px,1.3vw,14px)',
-          color: '#000',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8,
         }}
       >
-        {text}
-      </span>
-    </>,
+        {/* Orb stays visible during white hold */}
+        <div style={{ lineHeight: 0 }}>
+          <BlueOrbCross3D
+            rpm={44}
+            color={SEAFOAM}
+            geomScale={1.12}
+            glow
+            glowOpacity={0.95}
+            includeZAxis
+            height="94px"
+            interactive={false}
+          />
+        </div>
+
+        {/* Title with subtle black glow */}
+        <span
+          style={{
+            fontWeight: 800,
+            letterSpacing: '.08em',
+            textTransform: 'uppercase',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            color: '#000',
+            textShadow:
+              `0 0 3px rgba(0,0,0,.35),
+               0 0 8px rgba(0,0,0,.25),
+               0 0 16px rgba(0,0,0,.18)`,
+          }}
+        >
+          LAMEBOY, USA
+        </span>
+      </div>
+    </div>,
     document.body
   );
 }
@@ -156,13 +184,13 @@ export default function LandingGate({ onCascadeComplete }) {
   const labelRef = useRef(null);
   const locked   = useRef(false);
 
-  const { x, y } = useCenter(labelRef);
+  useCenter(labelRef); // keep measurement logic available
   const SEAFOAM = '#32ffc7';
 
   const start = useCallback(() => {
     if (locked.current || phase !== 'idle') return;
     locked.current = true;
-    setClicked(true);               // briefly flip text before we hide label
+    setClicked(true);
     setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
@@ -183,7 +211,7 @@ export default function LandingGate({ onCascadeComplete }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8, // closer to orb
+        gap: 8,
         padding: '1.5rem',
         position: 'relative',
       }}
@@ -242,7 +270,7 @@ export default function LandingGate({ onCascadeComplete }) {
 
       {/* Overlays */}
       {phase === 'cascade' && <CascadeOverlayRAF whiteDelayMs={WHITE_DELAY} />}
-      {phase === 'white' && <WhiteHold x={x} y={y} text="LAMEBOY, USA" />}
+      {phase === 'white'   && <WhiteHoldWithOrb />}
     </div>
   );
 }
