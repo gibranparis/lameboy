@@ -8,42 +8,42 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* arrow with subtle green feedback */
+/* arrow with pill look + neon feedback */
 function ArrowControl({ dir='up', night, onClick }) {
-  const [active, setActive] = useState(false);
-  const fill  = night ? '#0b0c10' : '#ffffff';
-  const ring  = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
-  const glyph = night ? '#ffffff' : '#0f1115';
-
   return (
     <button
       type="button"
-      onClick={(e)=>{ setActive(true); setTimeout(()=>setActive(false), 220); onClick?.(e); }}
+      onClick={onClick}
       aria-label={dir==='up'?'Previous product':'Next product'}
       title={dir==='up'?'Previous product':'Next product'}
-      style={{ padding:0, background:'transparent', border:'none' }}
+      className="arrow-pill"
     >
-      <div
-        aria-hidden
-        style={{
-          width:28, height:28, borderRadius:'50%',
-          display:'grid', placeItems:'center',
-          background:fill,
-          boxShadow:`0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}` +
-                    (active ? ', 0 0 14px rgba(11,240,95,.35)' : ''),
-        }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          {dir==='up'
-            ? <path d="M6 14l6-6 6 6" stroke={glyph} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-            : <path d="M6 10l6 6 6-6" stroke={glyph} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>}
-        </svg>
-      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+        {dir==='up'
+          ? <path d="M6 14l6-6 6 6" stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          : <path d="M6 10l6 6 6-6" stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>}
+      </svg>
+      <style jsx>{`
+        .arrow-pill{
+          width:28px; height:28px; padding:0; border:0; border-radius:999px;
+          display:grid; place-items:center; cursor:pointer;
+          background:${night ? '#0f1115' : '#fff'};
+          color:${night ? '#fff' : '#0f1115'};
+          box-shadow:
+            inset 0 0 0 1px ${night ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.10)'},
+            0 2px 10px rgba(0,0,0,.12);
+          transition: transform .08s ease, box-shadow .2s ease;
+        }
+        .arrow-pill:active{
+          transform: translateY(.5px);
+          box-shadow: 0 0 0 2px rgba(11,240,95,.32), 0 0 16px rgba(11,240,95,.35);
+        }
+      `}</style>
     </button>
   );
 }
 
-/* + / sizes (solid neon-green on active/selected) */
+/* size chooser — smaller plus button (28px) */
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
@@ -53,16 +53,17 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
       window.dispatchEvent(new CustomEvent('cart:add',       { detail:{ qty:1 } }));
     } catch {}
-    setTimeout(()=>setPicked(null), 360);
+    setTimeout(()=>setPicked(null), 280);
   };
   return (
-    <div style={{ display:'grid', justifyItems:'center', gap:12 }}>
+    <div style={{ display:'grid', justifyItems:'center', gap:10 }}>
       <button
         type="button"
         className={`pill plus-pill ${open ? 'is-active' : ''}`}
         onClick={()=>setOpen(v=>!v)}
         aria-label={open?'Close sizes':'Choose size'}
         title={open?'Close sizes':'Choose size'}
+        style={{ width:28, height:28, fontSize:16, lineHeight:1 }}
       >
         {open ? '–' : '+'}
       </button>
@@ -82,23 +83,19 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   );
 }
 
-/* ------ DISCRETE SWIPE (slower, intentional) ------ */
-/* one product step per deliberate swipe + cooldown */
-function useDiscreteSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }) {
+/* ------- tempered swipe (multiple steps allowed, but never lightning-fast) ------- */
+function useTemperedSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }) {
   const st = useRef({
-    active:false, startX:0, startY:0, startT:0,
-    lastX:0, lastY:0, ay:0, ax:0,
-    lastProdStepT:0, lastImgStepT:0
+    active:false, startX:0, startY:0, lastX:0, lastY:0, startT:0,
+    ax:0, ay:0, wheelX:0, wheelY:0, lastProdStep:0, lastImgStep:0
   });
 
-  // Tune these for feel
-  const TOUCH_MIN_TRAVEL_Y = 64;   // px finger travel to count as product swipe
-  const TOUCH_MIN_TRAVEL_X = 46;   // px travel for image swipe
-  const MAX_GESTURE_MS     = 560;  // must finish within this time
-  const STEP_COOLDOWN_MS   = 420;  // block repeated triggers
-  const WHEEL_THRESHOLD    = 110;  // accumulated wheel delta to step
-
-  const accum = useRef({ x:0, y:0 });
+  // Feel tuning: let multiple steps through, but throttle
+  const STEP_Y_PX       = 56;  // distance per product step
+  const STEP_X_PX       = 42;  // distance per image step
+  const PROD_MIN_MS     = 180; // min time between product steps
+  const IMG_MIN_MS      = 140; // min time between image steps
+  const WHEEL_THRESH    = 120;
 
   const onDown = useCallback((e) => {
     const p = e.touches ? e.touches[0] : e;
@@ -112,13 +109,11 @@ function useDiscreteSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }
   const onMove = useCallback((e) => {
     if (!st.current.active) return;
 
-    // if user is moving primarily in Y, prevent page scroll
+    // prevent page scroll if the gesture is vertical-dominant
     if (e.cancelable) {
-      const p0x = st.current.startX, p0y = st.current.startY;
-      const p   = e.touches ? e.touches[0] : e;
-      const dx  = p.clientX - p0x;
-      const dy  = p.clientY - p0y;
-      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) e.preventDefault();
+      const dx0 = (e.touches?.[0]?.clientX ?? st.current.lastX) - st.current.startX;
+      const dy0 = (e.touches?.[0]?.clientY ?? st.current.lastY) - st.current.startY;
+      if (Math.abs(dy0) > Math.abs(dx0) && Math.abs(dy0) > 8) e.preventDefault();
     }
 
     const p = e.touches ? e.touches[0] : e;
@@ -131,56 +126,47 @@ function useDiscreteSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }
 
     const now = performance.now();
 
-    // Horizontal: images (discrete, at most one step per 320ms)
+    // Horizontal: images
     if (imgsLen > 1) {
-      const enoughX = Math.abs(st.current.ax) >= TOUCH_MIN_TRAVEL_X;
-      const cooledX = now - st.current.lastImgStepT >= 320;
-      if (enoughX && cooledX) {
-        setImgIdx(i => clamp(i + (st.current.ax < 0 ? 1 : -1), 0, imgsLen-1));
-        st.current.lastImgStepT = now;
-        st.current.ax = 0; // reset so we don't chain
+      while (Math.abs(st.current.ax) >= STEP_X_PX && now - st.current.lastImgStep >= IMG_MIN_MS) {
+        const dir = st.current.ax < 0 ? 1 : -1;
+        setImgIdx(i => clamp(i + dir, 0, imgsLen - 1));
+        st.current.lastImgStep = now;
+        st.current.ax += dir * STEP_X_PX; // reduce accumulator
       }
     }
 
-    // Vertical: products (discrete + slower)
+    // Vertical: products
     if (prodsLen > 1) {
-      const travel   = st.current.ay;
-      const dt       = now - st.current.startT;
-      const enoughY  = Math.abs(travel) >= TOUCH_MIN_TRAVEL_Y && dt <= MAX_GESTURE_MS;
-      const cooledY  = now - st.current.lastProdStepT >= STEP_COOLDOWN_MS;
-
-      if (enoughY && cooledY) {
-        onIndexChange?.(wrap(index + (travel < 0 ? 1 : -1), prodsLen));
-        st.current.lastProdStepT = now;
-        st.current.ay = 0;
+      while (Math.abs(st.current.ay) >= STEP_Y_PX && now - st.current.lastProdStep >= PROD_MIN_MS) {
+        const dir = st.current.ay < 0 ? 1 : -1; // swipe up -> next
+        onIndexChange?.(wrap(index + dir, prodsLen));
+        st.current.lastProdStep = now;
+        st.current.ay += dir * STEP_Y_PX;
       }
     }
   }, [imgsLen, prodsLen, index, onIndexChange, setImgIdx]);
 
-  const onUp = useCallback(() => {
-    st.current.active = false;
-    st.current.ax = 0; st.current.ay = 0;
-  }, []);
+  const onUp = useCallback(() => { st.current.active = false; }, []);
 
-  // Wheel (desktop / trackpad) — deliberate only
+  // Wheel/trackpad
   useEffect(() => {
     const onWheel = (e) => {
       const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
+      const now = performance.now();
       if (ax > ay && imgsLen > 1) {
-        accum.current.x += Math.sign(e.deltaX) * Math.min(Math.abs(e.deltaX), 40);
-        if (Math.abs(accum.current.x) >= WHEEL_THRESHOLD) {
-          setImgIdx(i => clamp(i + (accum.current.x > 0 ? 1 : -1), 0, imgsLen-1));
-          accum.current.x = 0;
+        st.current.wheelX += Math.sign(e.deltaX) * Math.min(Math.abs(e.deltaX), 40);
+        if (Math.abs(st.current.wheelX) >= WHEEL_THRESH && now - st.current.lastImgStep >= IMG_MIN_MS) {
+          setImgIdx(i => clamp(i + (st.current.wheelX > 0 ? 1 : -1), 0, imgsLen-1));
+          st.current.wheelX = 0; st.current.lastImgStep = now;
         }
       } else if (prodsLen > 1) {
-        accum.current.y += Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 40);
-        if (Math.abs(accum.current.y) >= WHEEL_THRESHOLD && performance.now() - st.current.lastProdStepT >= 280) {
-          onIndexChange?.(wrap(index + (accum.current.y > 0 ? 1 : -1), prodsLen));
-          st.current.lastProdStepT = performance.now();
-          accum.current.y = 0;
+        st.current.wheelY += Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 40);
+        if (Math.abs(st.current.wheelY) >= WHEEL_THRESH && now - st.current.lastProdStep >= PROD_MIN_MS) {
+          onIndexChange?.(wrap(index + (st.current.wheelY > 0 ? 1 : -1), prodsLen));
+          st.current.wheelY = 0; st.current.lastProdStep = now;
         }
       }
-      // keep overlay from zipping the page
       if (e.cancelable) e.preventDefault();
     };
     window.addEventListener('wheel', onWheel, { passive:false });
@@ -233,8 +219,8 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('keydown', onKey);
   }, [imgs.length, products.length, index, onIndexChange, onClose]);
 
-  /* discrete swipe on mobile via Pointer events */
-  const swipe = useDiscreteSwipe({
+  /* tempered swipe */
+  const swipe = useTemperedSwipe({
     imgsLen: imgs.length,
     prodsLen: products.length,
     index,
@@ -267,23 +253,22 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       style={{
         position:'fixed',
         inset:0,
-        zIndex:480,                              // ↓ LOWER than header(500) so header stays clickable
+        zIndex:480,                           // keep header clickable
         display:'grid',
         placeItems:'center',
-        background:'rgba(0,0,0,.55)',           // dim backdrop
-        overscrollBehavior: 'contain',
-        touchAction: 'none',
+        background:'rgba(0,0,0,.55)',
+        overscrollBehavior:'contain',
+        touchAction:'none',
         cursor:'default',
       }}
       onPointerDown={swipe.onDown}
       onPointerMove={swipe.onMove}
       onPointerUp={swipe.onUp}
       onPointerCancel={swipe.onUp}
-      // Backdrop click closes; header is above overlay so won't trigger this.
       onClick={(e)=>{ if (e.target === e.currentTarget) onClose?.(); }}
     >
       <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center' }}>
-        {/* left arrows (sticky) */}
+        {/* left arrows */}
         {products.length>1 && (
           <div style={{
             position:'fixed',
@@ -292,7 +277,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
             transform:'translateY(-50%)',
             display:'grid',
             gap:8,
-            zIndex:520   // above backdrop & image
+            zIndex:520
           }}>
             <ArrowControl dir="up"   night={night} onClick={()=>onIndexChange?.(wrap(index-1, products.length))} />
             <ArrowControl dir="down" night={night} onClick={()=>onIndexChange?.(wrap(index+1, products.length))} />
@@ -324,7 +309,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
                     aria-label={`Image ${i+1}`}
                     className={`pill dot-pill ${i===clampedImgIdx ? 'is-active' : ''}`}
                     onClick={()=>setImgIdx(i)}
-                    style={{ width:22, height:22, padding:0 }}
+                    style={{ width:20, height:20, padding:0 }}
                   />
                 ))}
               </div>
@@ -338,7 +323,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         <PlusSizesInline sizes={sizes} />
       </div>
 
-      {/* Styles: solid neon-green active with subtle outer glow */}
+      {/* pills + neon behaviors kept consistent */}
       <style jsx>{`
         :root { --neon: #0bf05f; --pill-bg: #0f1115; --pill-fg: #eaeaea; --pill-fg-strong: #0b0c10; }
 
@@ -351,46 +336,13 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
           transition: background .14s ease, color .14s ease, box-shadow .14s ease, transform .06s ease;
         }
-
-        .product-hero-overlay :global(.plus-pill) {
-          width: 36px; height: 36px; font-size: 18px; line-height: 1;
-        }
-        .product-hero-overlay :global(.plus-pill.is-active) {
-          background: var(--neon); color: var(--pill-fg-strong);
-          box-shadow:
-            0 0 0 2px rgba(11,240,95,.25),
-            0 0 18px rgba(11,240,95,.45),
-            0 0 36px rgba(11,240,95,.25);
-        }
-
-        .product-hero-overlay :global(.size-pill.is-selected) {
-          background: var(--neon); color: var(--pill-fg-strong);
-          box-shadow:
-            0 0 0 2px rgba(11,240,95,.25),
-            0 0 18px rgba(11,240,95,.45),
-            0 0 36px rgba(11,240,95,.25);
-        }
-
-        .product-hero-overlay :global(.dot-pill) {
-          border-radius: 999px; padding: 0; width: 22px; height: 22px;
-        }
+        .product-hero-overlay :global(.size-pill.is-selected),
+        .product-hero-overlay :global(.plus-pill.is-active),
         .product-hero-overlay :global(.dot-pill.is-active) {
           background: var(--neon); color: var(--pill-fg-strong);
-          box-shadow:
-            0 0 0 2px rgba(11,240,95,.25),
-            0 0 18px rgba(11,240,95,.45),
-            0 0 36px rgba(11,240,95,.25);
+          box-shadow: 0 0 0 2px rgba(11,240,95,.25), 0 0 18px rgba(11,240,95,.40);
         }
-
-        /* Hover affordance (desktop only) */
-        @media (hover:hover) {
-          .product-hero-overlay :global(.pill:hover) {
-            transform: translateZ(0) scale(1.02);
-          }
-        }
-
-        .product-hero-title { margin-top: 10px; font-weight: 800; }
-        .product-hero-price { opacity: .85; margin-top: 2px; }
+        .product-hero-overlay :global(.dot-pill){ border-radius:999px; padding:0; }
       `}</style>
     </div>
   );
