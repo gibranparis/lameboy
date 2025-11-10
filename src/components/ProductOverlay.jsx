@@ -82,64 +82,110 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   );
 }
 
-/* ------ FAST SWIPE ENGINE (mobile) ------ */
-function useFastSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }) {
-  const state = useRef({
-    active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0,
+/* ------ DISCRETE SWIPE (slower, intentional) ------ */
+/* one product step per deliberate swipe + cooldown */
+function useDiscreteSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }) {
+  const st = useRef({
+    active:false, startX:0, startY:0, startT:0,
+    lastX:0, lastY:0, ay:0, ax:0,
+    lastProdStepT:0, lastImgStepT:0
   });
 
-  const STEP_X = 34; // px per image step
-  const STEP_Y = 40; // px per product step
-  const FLICK_V_BONUS = 0.35;
+  // Tune these for feel
+  const TOUCH_MIN_TRAVEL_Y = 64;   // px finger travel to count as product swipe
+  const TOUCH_MIN_TRAVEL_X = 46;   // px travel for image swipe
+  const MAX_GESTURE_MS     = 560;  // must finish within this time
+  const STEP_COOLDOWN_MS   = 420;  // block repeated triggers
+  const WHEEL_THRESHOLD    = 110;  // accumulated wheel delta to step
+
+  const accum = useRef({ x:0, y:0 });
 
   const onDown = useCallback((e) => {
     const p = e.touches ? e.touches[0] : e;
-    state.current.active = true;
-    state.current.lastX  = p.clientX;
-    state.current.lastY  = p.clientY;
-    state.current.ax = 0; state.current.ay = 0;
-    state.current.lastT = performance.now();
-    state.current.vx = 0; state.current.vy = 0;
+    st.current.active = true;
+    st.current.startX = st.current.lastX = p.clientX;
+    st.current.startY = st.current.lastY = p.clientY;
+    st.current.startT = performance.now();
+    st.current.ax = st.current.ay = 0;
   }, []);
 
   const onMove = useCallback((e) => {
-    if (!state.current.active) return;
-    if (e.cancelable) e.preventDefault();
+    if (!st.current.active) return;
+
+    // if user is moving primarily in Y, prevent page scroll
+    if (e.cancelable) {
+      const p0x = st.current.startX, p0y = st.current.startY;
+      const p   = e.touches ? e.touches[0] : e;
+      const dx  = p.clientX - p0x;
+      const dy  = p.clientY - p0y;
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) e.preventDefault();
+    }
 
     const p = e.touches ? e.touches[0] : e;
+    const dx = p.clientX - st.current.lastX;
+    const dy = p.clientY - st.current.lastY;
+    st.current.ax += dx;
+    st.current.ay += dy;
+    st.current.lastX = p.clientX;
+    st.current.lastY = p.clientY;
+
     const now = performance.now();
-    const dt  = Math.max(1, now - state.current.lastT);
 
-    const dx = p.clientX - state.current.lastX;
-    const dy = p.clientY - state.current.lastY;
-
-    state.current.vx = dx / dt;
-    state.current.vy = dy / dt;
-
-    state.current.lastX = p.clientX;
-    state.current.lastY = p.clientY;
-    state.current.lastT = now;
-
-    // velocity bonus for flick feel
-    state.current.ax += dx + state.current.vx * FLICK_V_BONUS * 100;
-    state.current.ay += dy + state.current.vy * FLICK_V_BONUS * 100;
-
-    // horizontal → images
-    if (imgsLen) {
-      while (state.current.ax <= -STEP_X) { state.current.ax += STEP_X; setImgIdx(i => clamp(i+1, 0, imgsLen-1)); }
-      while (state.current.ax >=  STEP_X) { state.current.ax -= STEP_X; setImgIdx(i => clamp(i-1, 0, imgsLen-1)); }
+    // Horizontal: images (discrete, at most one step per 320ms)
+    if (imgsLen > 1) {
+      const enoughX = Math.abs(st.current.ax) >= TOUCH_MIN_TRAVEL_X;
+      const cooledX = now - st.current.lastImgStepT >= 320;
+      if (enoughX && cooledX) {
+        setImgIdx(i => clamp(i + (st.current.ax < 0 ? 1 : -1), 0, imgsLen-1));
+        st.current.lastImgStepT = now;
+        st.current.ax = 0; // reset so we don't chain
+      }
     }
-    // vertical → products
-    if (prodsLen>1) {
-      while (state.current.ay <= -STEP_Y) { state.current.ay += STEP_Y; onIndexChange?.(wrap(index+1, prodsLen)); }
-      while (state.current.ay >=  STEP_Y) { state.current.ay -= STEP_Y; onIndexChange?.(wrap(index-1, prodsLen)); }
+
+    // Vertical: products (discrete + slower)
+    if (prodsLen > 1) {
+      const travel   = st.current.ay;
+      const dt       = now - st.current.startT;
+      const enoughY  = Math.abs(travel) >= TOUCH_MIN_TRAVEL_Y && dt <= MAX_GESTURE_MS;
+      const cooledY  = now - st.current.lastProdStepT >= STEP_COOLDOWN_MS;
+
+      if (enoughY && cooledY) {
+        onIndexChange?.(wrap(index + (travel < 0 ? 1 : -1), prodsLen));
+        st.current.lastProdStepT = now;
+        st.current.ay = 0;
+      }
     }
-  }, [imgsLen, prodsLen, index, setImgIdx, onIndexChange]);
+  }, [imgsLen, prodsLen, index, onIndexChange, setImgIdx]);
 
   const onUp = useCallback(() => {
-    state.current.active = false;
-    state.current.ax = 0; state.current.ay = 0;
+    st.current.active = false;
+    st.current.ax = 0; st.current.ay = 0;
   }, []);
+
+  // Wheel (desktop / trackpad) — deliberate only
+  useEffect(() => {
+    const onWheel = (e) => {
+      const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
+      if (ax > ay && imgsLen > 1) {
+        accum.current.x += Math.sign(e.deltaX) * Math.min(Math.abs(e.deltaX), 40);
+        if (Math.abs(accum.current.x) >= WHEEL_THRESHOLD) {
+          setImgIdx(i => clamp(i + (accum.current.x > 0 ? 1 : -1), 0, imgsLen-1));
+          accum.current.x = 0;
+        }
+      } else if (prodsLen > 1) {
+        accum.current.y += Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 40);
+        if (Math.abs(accum.current.y) >= WHEEL_THRESHOLD && performance.now() - st.current.lastProdStepT >= 280) {
+          onIndexChange?.(wrap(index + (accum.current.y > 0 ? 1 : -1), prodsLen));
+          st.current.lastProdStepT = performance.now();
+          accum.current.y = 0;
+        }
+      }
+      // keep overlay from zipping the page
+      if (e.cancelable) e.preventDefault();
+    };
+    window.addEventListener('wheel', onWheel, { passive:false });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, [imgsLen, prodsLen, index, onIndexChange, setImgIdx]);
 
   return { onDown, onMove, onUp };
 }
@@ -187,21 +233,8 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('keydown', onKey);
   }, [imgs.length, products.length, index, onIndexChange, onClose]);
 
-  /* wheel (desktop) */
-  const lastWheel = useRef(0);
-  useEffect(() => {
-    const onWheel = (e) => {
-      const now = performance.now(); if (now - lastWheel.current < 90) return; lastWheel.current = now;
-      const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
-      if (ax > ay && imgs.length) setImgIdx(i=>clamp(i + (e.deltaX>0?1:-1), 0, imgs.length-1));
-      else if (products.length>1) onIndexChange?.(wrap(index + (e.deltaY>0?1:-1), products.length));
-    };
-    window.addEventListener('wheel', onWheel, { passive:true });
-    return () => window.removeEventListener('wheel', onWheel);
-  }, [imgs.length, products.length, index, onIndexChange]);
-
-  /* fast swipe on mobile via Pointer events */
-  const swipe = useFastSwipe({
+  /* discrete swipe on mobile via Pointer events */
+  const swipe = useDiscreteSwipe({
     imgsLen: imgs.length,
     prodsLen: products.length,
     index,
@@ -232,9 +265,12 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       aria-modal="true"
       aria-label={`${product.title} details`}
       style={{
-        position:'fixed', inset:0, zIndex:520,         // > header (500)
-        display:'grid', placeItems:'center',
-        background:'rgba(0,0,0,.55)',                  // captures clicks; header not clickable
+        position:'fixed',
+        inset:0,
+        zIndex:480,                              // ↓ LOWER than header(500) so header stays clickable
+        display:'grid',
+        placeItems:'center',
+        background:'rgba(0,0,0,.55)',           // dim backdrop
         overscrollBehavior: 'contain',
         touchAction: 'none',
         cursor:'default',
@@ -243,12 +279,21 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       onPointerMove={swipe.onMove}
       onPointerUp={swipe.onUp}
       onPointerCancel={swipe.onUp}
+      // Backdrop click closes; header is above overlay so won't trigger this.
       onClick={(e)=>{ if (e.target === e.currentTarget) onClose?.(); }}
     >
       <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center' }}>
         {/* left arrows (sticky) */}
         {products.length>1 && (
-          <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
+          <div style={{
+            position:'fixed',
+            left:`calc(12px + env(safe-area-inset-left,0px))`,
+            top:'50%',
+            transform:'translateY(-50%)',
+            display:'grid',
+            gap:8,
+            zIndex:520   // above backdrop & image
+          }}>
             <ArrowControl dir="up"   night={night} onClick={()=>onIndexChange?.(wrap(index-1, products.length))} />
             <ArrowControl dir="down" night={night} onClick={()=>onIndexChange?.(wrap(index+1, products.length))} />
           </div>
@@ -268,6 +313,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
               quality={95}
               sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
               style={{ width:'100%', height:'auto', maxHeight:'70vh', objectFit:'contain', imageRendering:'auto' }}
+              draggable={false}
             />
             {imgs.length>1 && (
               <div className="row-nowrap" style={{ gap:8, marginTop:6, justifyContent:'center', display:'flex' }}>
