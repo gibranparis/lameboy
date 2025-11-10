@@ -3,7 +3,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ProductOverlay from '@/components/ProductOverlay';
 import { PRODUCTS, logMissingAssets } from '@/lib/products';
 
@@ -118,13 +118,43 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     };
   }, [overlayIdx, applyCols]);
 
+  /* ---------------- Signal “shop ready” for Gate curtain ---------------- */
+  const readySent = useRef(false);
+  const sendReady = useCallback(() => {
+    if (readySent.current) return;
+    readySent.current = true;
+    try { window.dispatchEvent(new Event('lb:shop-ready')); } catch {}
+  }, []);
+
+  // Fire after first two RAFs + small timeout (layout stable)
+  useEffect(() => {
+    let id1 = 0, id2 = 0, to = 0;
+    id1 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => {
+        to = window.setTimeout(sendReady, 60);
+      });
+    });
+    return () => { cancelAnimationFrame(id1); cancelAnimationFrame(id2); clearTimeout(to); };
+  }, [sendReady]);
+
+  // Also fire once the first hero image finishes decoding (faster path)
+  const onFirstThumbRef = useRef(false);
+  const handleFirstDecode = useCallback((imgEl) => {
+    if (!imgEl || onFirstThumbRef.current) return;
+    onFirstThumbRef.current = true;
+    try {
+      // If browser supports decode(), use it; otherwise, rely on load event
+      const run = () => sendReady();
+      imgEl.decode ? imgEl.decode().then(run).catch(run) : run();
+    } catch { sendReady(); }
+  }, [sendReady]);
+
   /* ---------------- Render ---------------- */
   return (
     <div
       className="shop-wrap"
       data-shop-root
       style={{
-        // Let global CSS control padding; only set grid cols here.
         ['--grid-cols']: String(cols),
       }}
     >
@@ -153,6 +183,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 priority={idx === 0}
                 unoptimized
                 sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
+                ref={(el)=>{ if (idx===0 && el?.complete) handleFirstDecode(el); }}
+                onLoad={(e)=>{ if (idx===0) handleFirstDecode(e.currentTarget); }}
                 onError={(e) => {
                   const img = e.currentTarget;
                   // swap once to hero, then to final fallback

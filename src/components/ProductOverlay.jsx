@@ -325,7 +325,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           --neon: var(--hover-green, #0bf05f);
         }
 
-        /* base pill as a 28px circle (matches arrows) */
         .product-hero-overlay :global(.pill){
           width:28px; height:28px; border-radius:9999px;
           border:none; display:inline-grid; place-items:center;
@@ -340,7 +339,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
         }
 
-        /* “+ / –” button uses same 28px circle; slightly larger glyph */
         .product-hero-overlay :global(.plus-pill){ font-size:18px; }
         .product-hero-overlay :global(.plus-pill.is-active),
         .product-hero-overlay :global(.plus-pill.is-ready){
@@ -348,13 +346,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
         }
 
-        /* size pills — same circle; solid green when selected */
         .product-hero-overlay :global(.size-pill.is-selected){
           background: var(--neon); color:#000;
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
         }
 
-        /* image dots */
         .product-hero-overlay :global(.dot-pill){
           border-radius:9999px; padding:0; width:18px; height:18px;
           background:#ececec;
