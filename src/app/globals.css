@@ -35,6 +35,14 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+
+  /* circle UI colors to match arrow buttons */
+  --circle-day:#ffffff;
+  --circle-night:#0b0c10;
+  --ring-day:rgba(0,0,0,.08);
+  --ring-night:rgba(255,255,255,.12);
+  --glyph-day:#0f1115;
+  --glyph-night:#ffffff;
 }
 
 /* Theme hint for native form controls */
@@ -110,20 +118,20 @@ html[data-overlay-open]{ overflow:hidden; }
 @media (prefers-reduced-motion: reduce){ .logo-3d{ display:none } }
 .login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.14ch; }
 
-/* ================== RAF CASCADE (uses .chakra-* classes from LandingGate) */
+/* ================== RAF CASCADE ======================================== */
 .chakra-overlay{
   position:fixed; inset:0;
-  z-index:10001;                 /* below FloatingTitle (10003) */
+  z-index:10001;
   display:grid; grid-template-columns:repeat(7,1fr);
   pointer-events:none;
-  direction:rtl;                 /* right-to-left sweep */
+  direction:rtl;
   isolation:isolate;
-  background:transparent;        /* never tint the page */
+  background:transparent;
 }
 .chakra-band{
   position:relative;
   opacity:1;
-  transform:translate3d(100vw,0,0); /* start offscreen; JS drives this */
+  transform:translate3d(100vw,0,0);
   will-change:transform,opacity;
   backface-visibility:hidden;
 }
@@ -145,10 +153,7 @@ html[data-overlay-open]{ overflow:hidden; }
 .chakra-thirdeye{ --c:#4B0082; background:#4B0082; }
 .chakra-crown{    --c:#ff00c8; background:#ff00c8; }
 
-/* Disable any legacy keyframes when JS/RAF is active */
 .chakra-overlay[data-js-cascade="raf"] .chakra-band{ animation:none!important; }
-
-/* Day cascade glow boost */
 :root[data-theme="day"] .chakra-band::before{ opacity:.95; filter:blur(26px); }
 
 /* ========== SHOP MODE ONLY ============================================= */
@@ -161,7 +166,7 @@ html[data-overlay-open]{ overflow:hidden; }
   transition:background-color .35s ease, color .35s ease;
 }
 
-/* Header above overlays (position + alignment) */
+/* Header above overlays */
 :root[data-mode="shop"] header[role="banner"]{
   z-index: 500 !important;
   background:transparent!important; box-shadow:none!important; border:0!important;
@@ -186,18 +191,13 @@ html[data-overlay-open]{ overflow:hidden; }
 :root[data-mode="shop"] [class*="page"],
 :root[data-mode="shop"] [class*="container"]{ background:transparent!important; color:inherit; }
 
-/* Product titles follow theme */
 :root[data-mode="shop"] .product-meta{ color:var(--text); }
-
-/* Hide landing logo only while the shop is mounted */
 html:has([data-shop-root]) .logo-3d{ display:none!important; }
-
-/* Shop-scoped: turn OFF the neon bubble so shop is clean */
 :root[data-mode="shop"] .vscode-card{ box-shadow:none!important; border-color:rgba(255,255,255,.12)!important; }
 :root[data-mode="shop"] .bubble-button:hover{ box-shadow:none!important; }
 :root[data-mode="shop"] .bubble-glow-blue{ animation:none!important; }
 
-/* ========== Cart (Birkin) =============================================== */
+/* ========== Cart ======================================================== */
 .cart-fab{
   position:relative; display:inline-flex; align-items:center; justify-content:center;
   width:48px; height:48px; padding:0; border:0; background:transparent; cursor:pointer;
@@ -212,7 +212,6 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
   min-width:18px; height:18px; padding:0 5px; border-radius:999px; font-size:11px; line-height:18px; text-align:center;
   color:#000; background:var(--hover-green,#0bf05f); box-shadow:0 0 0 1px rgba(0,0,0,.25); pointer-events:none;
 }
-/* header alignment + normalized icon size */
 :root[data-mode="shop"] header[role="banner"] .cart-fab{
   position:static!important; width:auto; height:var(--header-ctrl); padding:6px 8px; display:inline-grid; place-items:center; border-radius:0!important;
 }
@@ -239,7 +238,6 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
 .product-tile{ display:block; color:inherit; text-decoration:none; }
 .product-box{ aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:transparent; border:none; }
 .product-img{ width:88%; height:88%; object-fit:contain; }
-/* when grid is 5 columns, make the hoodie art a touch larger */
 html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:auto; }
 
 .product-meta{ padding:6px 2px 0; letter-spacing:.02em; font-weight:800; text-align:center; font-size:clamp(12px,1.7vw,18px); line-height:1.05; }
@@ -247,7 +245,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 /* ========== Product overlay ============================================= */
 .product-hero-overlay{
   position:fixed; inset:0; z-index:420;
-  background:transparent;   /* keep page underneath visible, no gray fade */
+  background:transparent;          /* no gray fade */
   color:var(--text);
   display:flex; align-items:center; justify-content:center; padding:20px;
 }
@@ -296,23 +294,51 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 /* Code weight accents */
 .code-keyword,.code-var,.code-string,.code-comment{ font-weight:800; }
 
-/* Gate: constrain text wrap */
+/* Gate wrap */
 :root[data-mode="gate"] .login-card{ max-width:min(92vw,720px)!important; }
 :root[data-mode="gate"] .login-card pre,
 :root[data-mode="gate"] .login-card code{ white-space:pre-wrap!important; word-break:break-word!important; overflow-wrap:anywhere!important; }
 
-/* ===== Pills (compact gray; solid green when active/selected; no outer glow) ===== */
+/* ===== Pills – circle match to arrow buttons ============================ */
 .pill{
   display:inline-grid; place-items:center;
-  height:26px; padding:0 10px; border-radius:9999px; font-weight:800; font-size:12px;
-  border: none; background:#ececec; color:#111;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
-  transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease, border-color .14s ease;
+  border:none; font-weight:800;
+  transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease;
 }
-:root[data-theme="night"] .pill{ background:#111; color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
-.size-pill.is-selected{ background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
-.plus-pill{ width:32px; height:32px; font-size:18px; line-height:1; }
-.plus-pill.is-active, .plus-pill.is-ready{ background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
+
+/* + open/close (28x28 circle) */
+.plus-pill{
+  width:28px; height:28px; border-radius:9999px; line-height:1; font-size:18px;
+  background:var(--circle-day); color:var(--glyph-day);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
+}
+:root[data-theme="night"] .plus-pill{
+  background:var(--circle-night); color:var(--glyph-night);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
+}
+.plus-pill.is-active, .plus-pill.is-ready{
+  background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+}
+
+/* size pills (28x28 circle, same ring/press) */
+.size-pill{
+  width:28px; height:28px; border-radius:9999px; font-size:12px;
+  background:var(--circle-day); color:var(--glyph-day);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
+}
+:root[data-theme="night"] .size-pill{
+  background:var(--circle-night); color:var(--glyph-night);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
+}
+.size-pill.is-selected{
+  background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+}
+
+/* image dots */
+.dot-pill{ border-radius:9999px; padding:0; width:18px; height:18px; background:#ececec; }
+:root[data-theme="night"] .dot-pill{ background:#111; }
+.dot-pill.is-active{ background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
+
 @keyframes flashGreen{ 0%{filter:saturate(1)} 50%{filter:saturate(1.4)} 100%{filter:saturate(1)} }
 .flash-green{ animation:flashGreen .22s ease; }
 
@@ -336,14 +362,14 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 /* “neon black” wordmark */
 .neon-black{ color:#000; text-shadow: 0 0 2px rgba(0,0,0,.6), 0 0 8px rgba(0,0,0,.35); }
 
-/* Always-on neon for the word “banned” */
+/* Always-on neon for “banned” */
 .banned-neon{
   color: var(--banned-neon,#ff073a);
   text-shadow: 0 0 4px currentColor, 0 0 10px currentColor, 0 0 18px currentColor;
   font-weight:800; letter-spacing:.04em;
 }
 
-/* Florida link — readable in both themes + true yellow on hover */
+/* Florida link (true yellow on hover) */
 .florida-link{
   font-weight:800;
   color:#fff;
@@ -357,27 +383,20 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 }
 
 /* ====================================================================== */
-/* ================= ❤️ HEART — bottom-right, pulse ===================== */
+/* ================= ❤️ HEART ========================================== */
 /* ====================================================================== */
 .heart-submit{
   position: fixed;
   right: max(var(--header-pad-x), env(safe-area-inset-right));
   bottom: calc(var(--header-pad-x) + var(--runner-h, 10px));
-  left: auto;
   z-index: 10010;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent !important;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  width: 44px; height: 44px;
+  padding: 0; border: 0; background: transparent !important;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
   transform: translateZ(0);
-  outline: 0 !important;
-  box-shadow: none !important;
-  contain: paint; /* isolate pseudo painting so nothing shows behind */
+  outline: 0 !important; box-shadow: none !important;
+  contain: paint;
 }
-.heart-submit:focus, .heart-submit:focus-visible{ outline:0 !important; box-shadow:none !important; }
 .heart-submit::before{
   content:"";
   position:absolute; inset:0; display:block;
@@ -387,8 +406,6 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
   filter: drop-shadow(0 0 6px rgba(255,42,79,.9)) drop-shadow(0 0 14px rgba(255,42,79,.6));
   animation: lbHeartBeat 1.15s ease-in-out infinite;
 }
-.heart-submit:hover{ transform: translateY(-1px); }
-.heart-submit:active{ transform: translateY(0) scale(.98); }
 @keyframes lbHeartBeat{
   0%,100%{ transform: scale(1); }
   15%{ transform: scale(1.12); }

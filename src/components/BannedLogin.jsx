@@ -1,3 +1,4 @@
+// src/components/BannedLogin.jsx
 // @ts-check
 'use client';
 
@@ -15,7 +16,7 @@ function useShift() {
     const h = typeof window !== 'undefined' ? window.innerHeight : 800;
     const isPhone = h < 760;
     return {
-      // tighter vertical stack and slightly above center
+      // tight vertical stack and slightly above center
       vh: isPhone ? 6 : 5,
       micro: Math.round(Math.max(2, Math.min(10, h * 0.014))),
       gap: isPhone ? 4 : 6,
@@ -30,39 +31,7 @@ function useShift() {
   return s;
 }
 
-/** Naples clock (America/New_York) — monospace like “Florida, USA” */
-function ClockNaples({ className, style }) {
-  const [now, setNow] = useState('');
-  useEffect(() => {
-    const fmt = () =>
-      setNow(
-        new Intl.DateTimeFormat('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-          timeZone: 'America/New_York',
-        }).format(new Date())
-      );
-    fmt();
-    const id = setInterval(fmt, 1000);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <div
-      className={className}
-      style={{
-        font: '800 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-        letterSpacing: '.06em',
-        ...style,
-      }}
-    >
-      {now}
-    </div>
-  );
-}
-
-/** Color cascade that carries a white panel + 7 bands and a label that inverts on white */
+/** Color cascade with label that inverts on white via mix-blend:difference */
 function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
   const [mounted, setMounted] = useState(true);
   const [p, setP] = useState(0);
@@ -89,12 +58,12 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
 
   return createPortal(
     <>
-      {/* white sheet that carries the black text at the end */}
+      {/* white sheet (under) */}
       <div aria-hidden style={{
         position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
         background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
       }}/>
-      {/* 7 color bands */}
+      {/* 7 color bands (over) */}
       <div aria-hidden style={{
         position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
         transform:`translate3d(${bandsTx}vw,0,0)`, zIndex:9999, pointerEvents:'none', willChange:'transform'
@@ -108,12 +77,11 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
         </div>
       </div>
 
-      {/* “LAMEBOY, USA” — white on dark/color, turns black on the white sheet via mix-blend */}
+      {/* Inverting title */}
       <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
         <div style={{ position:'absolute', left:'50%', top:'50%', transform: labelTransform }}>
           <span style={{
-            color:'#fff',
-            mixBlendMode:'difference', /* white → black on white panel */
+            color:'#fff', mixBlendMode:'difference',
             fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase',
             fontSize:'clamp(11px,1.3vw,14px)'
           }}>
@@ -153,7 +121,8 @@ export default function BannedLogin({ onProceed }) {
     >
       {cascade && (
         <CascadeOverlay
-          labelTransform={`translate(-50%, calc(-50% - ${vh}vh + ${micro}px + 28px))`}
+          /* keep the overlay label centered on our stack */
+          labelTransform={`translate(-50%, calc(-50% - ${vh}vh + ${micro}px + 24px))`}
         />
       )}
 
@@ -185,12 +154,6 @@ export default function BannedLogin({ onProceed }) {
         />
       </button>
 
-      {/* CLOCK (Naples) */}
-      <ClockNaples
-        className="florida-link"
-        style={{ marginTop:2 }}
-      />
-
       {/* Code block */}
       <pre
         className="code-tight"
@@ -208,7 +171,7 @@ export default function BannedLogin({ onProceed }) {
         <span className="code-keyword">const</span> <span className="code-var">msg</span> <span className="code-op">=</span> <span className="code-string">"welcome to"</span><span className="code-punc">;</span>
       </pre>
 
-      {/* Florida/LAMEBOY label — kept close to the code block */}
+      {/* Florida / LAMEBOY toggle */}
       <button
         type="button"
         className="florida-link"
