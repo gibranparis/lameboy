@@ -60,11 +60,10 @@ html[data-overlay-open]{ overflow:hidden; }
 }
 
 /* ========== Helpers (viewport + bottom fill) ============================ */
-/* Full visible viewport on mobile, even with URL bar shown/hidden */
 .lb-screen{
-  min-height:100svh;   /* visible viewport on iOS/Chrome mobile */
-  min-height:100dvh;   /* modern fallback */
-  min-height:100vh;    /* legacy fallback */
+  min-height:100svh;
+  min-height:100dvh;
+  min-height:100vh;
   background:var(--bg);
 }
 
@@ -174,7 +173,7 @@ html[data-overlay-open]{ overflow:hidden; }
   background:transparent!important; box-shadow:none!important; border:0!important;
   height: var(--header-ctrl);
   display: grid;
-  grid-template-columns: 56px 1fr 56px; /* left control • center control • right (bag) */
+  grid-template-columns: 56px 1fr 56px;
   align-items: center;
   padding: 0 var(--header-pad-x);
 }
@@ -253,7 +252,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 
 /* ========== Product overlay ============================================= */
 .product-hero-overlay{
-  position:fixed; inset:0; z-index:420;  /* BELOW header(500), ABOVE grid */
+  position:fixed; inset:0; z-index:420;
   background:var(--bg); color:var(--text);
   display:flex; align-items:center; justify-content:center; padding:20px;
 }
@@ -309,20 +308,25 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
   white-space:pre-wrap!important; word-break:break-word!important; overflow-wrap:anywhere!important;
 }
 
-/* ===== Pills ============================================================= */
+/* ===== Pills (compact gray; solid green when active/selected; no outer glow) ===== */
 .pill{
   display:inline-grid; place-items:center;
-  height:28px; padding:0 10px; border-radius:9999px; font-weight:800; font-size:13px;
-  border:1px solid rgba(0,0,0,.14); background:#fff; color:#111;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.6);
-  transition: background .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  height:26px; padding:0 10px; border-radius:9999px; font-weight:800; font-size:12px;
+  border: none; background:#ececec; color:#111;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+  transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease, border-color .14s ease;
 }
-:root[data-theme="night"] .pill{ border-color:rgba(255,255,255,.18); background:#111; color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06); }
-.size-pill.is-selected{ background:var(--hover-green); color:#000; border-color:rgba(0,0,0,.45); }
-@keyframes flashGreen{ 0%{filter:saturate(1)} 50%{filter:saturate(1.6)} 100%{filter:saturate(1)} }
-.flash-green{ animation:flashGreen .26s ease; }
-.plus-pill.is-active{ background:#d1d5db; color:#111; }
-.plus-pill.is-ready { background:var(--hover-green); color:#000; }
+:root[data-theme="night"] .pill{ background:#111; color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
+.size-pill.is-selected{
+  background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+}
+.plus-pill{ width:32px; height:32px; font-size:18px; line-height:1; }
+.plus-pill.is-active,
+.plus-pill.is-ready{
+  background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+}
+@keyframes flashGreen{ 0%{filter:saturate(1)} 50%{filter:saturate(1.4)} 100%{filter:saturate(1)} }
+.flash-green{ animation:flashGreen .22s ease; }
 
 /* ====================================================================== */
 /* ================= Day console legibility + neon styles =============== */
@@ -354,20 +358,21 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
   font-weight:800; letter-spacing:.04em;
 }
 
-/* Florida link — bold + neon yellow on hover/hot */
+/* Florida link — readable in both themes + true yellow on hover */
 .florida-link{
   font-weight:800;
-  color:#111;
+  color:#fff; /* night default so it’s legible on black */
   transition: filter .15s ease, text-shadow .15s ease, color .15s ease;
 }
+:root[data-theme="day"] .florida-link{ color:#111; } /* day default on off-white */
 .florida-link.is-hot,
-:root[data-theme="day"] .florida-link:hover{
-  color:#c9a800;
-  text-shadow: 0 0 6px rgba(255,247,0,.55), 0 0 14px rgba(255,247,0,.35), 0 0 26px rgba(255,247,0,.25);
+.florida-link:hover{
+  color:#ffe600; /* true neon yellow */
+  text-shadow: 0 0 6px rgba(255,230,0,.85), 0 0 16px rgba(255,230,0,.55), 0 0 28px rgba(255,230,0,.35);
 }
 
-/* Day cascade glow boost */
-:root[data-theme="day"] .lb-band::after{ opacity:.95; filter: blur(26px); }
+/* Day cascade glow boost (correct pseudo element) */
+:root[data-theme="day"] .lb-band::before{ opacity:.95; filter: blur(26px); }
 
 /* ====================================================================== */
 /* ================= ❤️ HEART — bottom-right, pulse ===================== */
