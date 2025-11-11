@@ -57,14 +57,17 @@ function finishCascadeToDayShop(){
 
 /* ====================== BannedLogin-style CASCADE ======================= */
 /**
- * Cascade carries:
- * - WHITE sheet (slides from right → left)
- * - 7 COLOR bands (last = violet)
- * - “LAMEBOY, USA” using mix-blend:difference (stays WHITE until the violet fully exits)
- * - Early Black Stack (ORB/TIME/LABEL) that fades in ONLY when the violet has fully cleared.
+ * We switch from WHITE label (mix-blend:difference) → BLACK stack (orb/time/label)
+ * exactly when the moving WHITE sheet covers the screen center (50vw) AND
+ * the COLOR pack’s right edge has already passed that same 50vw line.
  *
- * Key: we compute the COLOR pack’s right edge (in vw). When rightEdge <= 0, violet has exited.
- * We then crossfade white label → black stack over a very short ramp.
+ * Math (in vw / %):
+ *  - WHITE sheet: full-screen div with translateX(whiteTx%), where whiteTx% = (1-p)*100 (100 → 0).
+ *    The sheet’s left edge is at whiteTx vw. The center (50vw) is WHITE when whiteTx <= 50.
+ *  - COLOR pack: width = COLOR_VW; translateX(bandsTx vw) where bandsTx = (1-p)*(100+COLOR_VW) - COLOR_VW.
+ *    The pack’s right edge is rightEdge = bandsTx + COLOR_VW. The center is CLEAR of color when rightEdge <= 50.
+ *
+ * We open a tiny ramp (rampVW) right at that center line so the trade is crisp but not harsh.
  */
 function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
   const [mounted, setMounted] = useState(true);
@@ -87,31 +90,45 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
   if (!mounted) return null;
 
   // Geometry
-  const COLOR_VW = 120;             // width of color pack container (vw)
-  const whiteTx  = (1 - p) * 100;   // %  : 100% → 0% (sheet moves in)
-  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // vw: starts at +100, ends at -COLOR_VW
+  const COLOR_VW = 120;                // width of color pack container (vw)
+  const whiteTx  = (1 - p) * 100;      // %/vw: white sheet translate (left edge at whiteTx vw)
+  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // vw: color pack translate
+  const rightEdge = bandsTx + COLOR_VW; // vw: color pack right edge
+  const CENTER = 50;                   // vw: screen center where orb/text sit
+  const rampVW = 1.6;                  // smoothing ramp around the exact center handoff (tight)
 
-  // Right edge of the color pack relative to viewport (vw). When <= 0, the violet (last strip) has fully exited.
-  const rightEdge = bandsTx + COLOR_VW; // vw
+  // Coverage tests at the CENTER line
+  const whiteCoversCenter   = whiteTx <= CENTER;     // white has reached center
+  const colorClearedCenter  = rightEdge <= CENTER;   // color has moved past center
 
-  // Crossfade window: tiny 2vw ramp after violet clears. Crisp but not harsh.
-  const rampVW = 2;
-  const q = Math.max(0, Math.min(1, (-rightEdge) / rampVW)); // 0 → 1 as rightEdge goes 0 → -2
-  const blackAlpha  = q;        // Early Black Stack opacity
-  const whiteAlpha  = 1 - q;    // mix-blend label opacity (white feel) holds until the exact trade-off
+  // Progress toward crossfade at center:
+  // sWhite grows as whiteTx moves left past CENTER; sColor grows as rightEdge moves left past CENTER.
+  const sWhite = Math.max(0, Math.min(1, (CENTER - whiteTx) / rampVW));
+  const sColor = Math.max(0, Math.min(1, (CENTER - rightEdge) / rampVW));
+
+  // We only commit the trade when BOTH are true; take the min to ensure the handoff happens
+  // exactly as white reveals the center AND color has washed past it.
+  const s = Math.min(whiteCoversCenter ? sWhite : 0, colorClearedCenter ? sColor : 0); // 0 → 1
+  const blackAlpha = s;
+  const whiteAlpha = 1 - s;
+
+  // Translate values for visuals
+  const COLOR_VW_CONTAINER = 120;
+  const whiteTxPct  = whiteTx; // same units
+  const bandsTxVW   = bandsTx;
 
   return createPortal(
     <>
-      {/* WHITE underlay (slides in) */}
+      {/* WHITE underlay (slides in from right) */}
       <div aria-hidden style={{
-        position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
+        position:'fixed', inset:0, transform:`translate3d(${whiteTxPct}%,0,0)`,
         background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
       }}/>
 
       {/* COLOR band pack */}
       <div aria-hidden style={{
-        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
-        transform:`translate3d(${bandsTx}vw,0,0)`, zIndex:9999, pointerEvents:'none', willChange:'transform'
+        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW_CONTAINER}vw`,
+        transform:`translate3d(${bandsTxVW}vw,0,0)`, zIndex:9999, pointerEvents:'none', willChange:'transform'
       }}>
         <div style={{ position:'absolute', inset:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
           {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
@@ -122,7 +139,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
         </div>
       </div>
 
-      {/* “LAMEBOY, USA” — stays *visually white* via difference until the violet has exited (whiteAlpha→0 then) */}
+      {/* White label (difference) holds visually white until the center trade */}
       <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10000, pointerEvents:'none', opacity:whiteAlpha, transition:'opacity .06s linear' }}>
         <div style={{ position:'absolute', left:'50%', top:'50%', transform: labelTransform }}>
           <span style={{
@@ -136,7 +153,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
         </div>
       </div>
 
-      {/* Early Black Stack (appears ONLY once violet has fully cleared; crossfades over ~2vw) */}
+      {/* Early Black Stack appears exactly as the center is revealed WHITE and color has washed past */}
       <div
         aria-hidden
         style={{
@@ -198,8 +215,6 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
 }
 
 /* ============================ White curtain ============================= */
-/* Solid white + black ORB + black clock + black LAMEBOY, USA.
-   Fades out on lb:shop-ready or after failsafe. */
 function WhiteCurtain({ onDone }) {
   const [visible, setVisible] = useState(true);
 
@@ -236,9 +251,7 @@ function WhiteCurtain({ onDone }) {
         placeItems: 'center',
       }}
     >
-      {/* Centered stack */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'none' }}>
-        {/* ORB — black override */}
         <div style={{ lineHeight: 0 }}>
           <BlueOrbCross3D
             rpm={44}
@@ -252,8 +265,6 @@ function WhiteCurtain({ onDone }) {
             overrideAllColor="#000000"
           />
         </div>
-
-        {/* TIME — black */}
         <span
           style={{
             color: '#000',
@@ -266,8 +277,6 @@ function WhiteCurtain({ onDone }) {
         >
           <ClockNaples />
         </span>
-
-        {/* LAMEBOY, USA — black */}
         <span
           style={{
             color: '#000',
@@ -296,7 +305,7 @@ export default function LandingGate({ onCascadeComplete }) {
   const pressTimer = useRef(null);
   const { vh, micro } = useShift();
 
-  // HARD GATE: hide shop UI to prevent grid flash until we're fully done.
+  // HARD GATE: hide shop UI to prevent grid/header flash until we're fully done.
   useEffect(() => {
     const r = document.documentElement;
     r.setAttribute('data-mode', 'gate');
@@ -317,13 +326,13 @@ export default function LandingGate({ onCascadeComplete }) {
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    // Flip chrome to day/shop right at cascade end; Early Black Stack already aligned to violet exit.
+    // After cascade, flip chrome to day/shop; curtain then manages fade into shop
     const t1 = setTimeout(() => {
       finishCascadeToDayShop();
       setPhase('curtain');
     }, CASCADE_MS);
 
-    const t2 = setTimeout(() => { /* curtain will listen for lb:shop-ready or auto-timeout */ }, CASCADE_MS + WHITE_HOLD_MS);
+    const t2 = setTimeout(() => { /* curtain listens to lb:shop-ready or auto-timeouts */ }, CASCADE_MS + WHITE_HOLD_MS);
 
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
@@ -344,7 +353,7 @@ export default function LandingGate({ onCascadeComplete }) {
         visibility: phase === 'idle' ? 'visible' : 'hidden',
       }}
     >
-      {/* CASCADE overlay (with violet-exit-locked trade-off) */}
+      {/* CASCADE overlay (center-locked handoff) */}
       {phase === 'cascade' && (
         <CascadeOverlay
           durationMs={CASCADE_MS}
@@ -358,13 +367,13 @@ export default function LandingGate({ onCascadeComplete }) {
           onDone={() => {
             setPhase('done');
             try { onCascadeComplete?.(); } catch {}
-            // Release hardblock only when we’re truly done.
+            // Release hardblock only when truly done
             try { document.documentElement.removeAttribute('data-gate-hardblock'); } catch {}
           }}
         />
       )}
 
-      {/* ORB — enter (click, long-press, double-click) */}
+      {/* ORB — enter */}
       {phase === 'idle' && (
         <>
           <button
@@ -449,7 +458,7 @@ export default function LandingGate({ onCascadeComplete }) {
       {/* Safety styles */}
       <style jsx>{`
         :global(:root[data-mode="gate"]) .chakra-band { min-height: 100%; }
-        /* Hard-block shop UI while in gate to prevent grid flash */
+        /* Hard-block shop UI while in gate to prevent grid/header flash */
         :global(:root[data-gate-hardblock]) [data-shop-root] { visibility: hidden !important; }
         :global(:root[data-gate-hardblock]) header[role="banner"] { visibility: hidden !important; }
       `}</style>
