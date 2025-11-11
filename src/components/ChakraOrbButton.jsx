@@ -19,9 +19,10 @@ export default function ChakraOrbButton({
   tightHitbox = true,       // keeps click radius tight to the visible orb
 }) {
   const lastFireRef = useRef(0);
+  const clearPulseRef = useRef(null);
   const FIRE_COOLDOWN_MS = 150;
 
-  // press state like BANNED: we momentarily override the core color itself
+  // press state like BANNED: briefly override the core color itself
   const [pressColor, setPressColor] = useState(null); // null | '#11ff4f' | '#ff001a'
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [nextDir, setNextDir] = useState('in');
@@ -54,9 +55,9 @@ export default function ChakraOrbButton({
 
   // “BANNED-style pulse”: change core color briefly & max the glow
   const pulse = useCallback((c) => {
+    if (clearPulseRef.current) clearTimeout(clearPulseRef.current);
     setPressColor(c);
-    const t = setTimeout(() => setPressColor(null), 420);
-    return () => clearTimeout(t);
+    clearPulseRef.current = setTimeout(() => setPressColor(null), 480);
   }, []);
 
   const fireZoom = useCallback((dir) => {
@@ -68,6 +69,7 @@ export default function ChakraOrbButton({
     pulse(dir === 'in' ? GREEN : RED);
 
     const detail = { step: 1, dir };
+    // app-wide hooks (both new + legacy names)
     document.dispatchEvent(new CustomEvent('lb:zoom', { detail }));
     document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }));
     document.dispatchEvent(new CustomEvent('grid-density', { detail })); // legacy
@@ -115,7 +117,7 @@ export default function ChakraOrbButton({
         position: 'relative',
         display: 'inline-block',
         borderRadius: '9999px',
-        overflow: 'visible',             // let WebGL glow breathe (BlueOrb handles bloom)
+        overflow: 'visible', // let WebGL glow breathe
         boxShadow: 'none',
         ...style,
       }}
@@ -147,6 +149,7 @@ export default function ChakraOrbButton({
           clipPath: 'circle(50% at 50% 50%)',
           WebkitTapHighlightColor: 'transparent',
           outline: 0,
+          pointerEvents: 'auto',
         }}
       >
         <BlueOrbCross3D
@@ -157,14 +160,12 @@ export default function ChakraOrbButton({
           offsetFactor={offsetFactor}
           armRatio={armRatio}
           glow={glow}
-          // max glow while pressed like BANNED; otherwise your default
-          glowOpacity={pressColor ? 1.0 : glowOpacity}
+          glowOpacity={pressColor ? 1.0 : glowOpacity}  // max while pressed
           includeZAxis={includeZAxis}
           respectReducedMotion={false}
           onActivate={onClick}
-          // key line: override the ENTIRE core color briefly (BANNED behavior)
-          overrideAllColor={pressColor || null}
-          __interactive
+          overrideAllColor={pressColor || null}         // override core color briefly
+          interactive                                    // <- FIX: public prop, not __interactive
         />
       </button>
     </div>

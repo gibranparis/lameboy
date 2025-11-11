@@ -7,26 +7,15 @@ const ChakraOrbButton = nextDynamic(() => import('@/components/ChakraOrbButton')
 const DayNightToggle  = nextDynamic(() => import('@/components/DayNightToggle'),  { ssr: false });
 const CartButton      = nextDynamic(() => import('@/components/CartButton'),      { ssr: false });
 
-/**
- * RULES
- * - Orb should read biggest object in header (72/56)
- * - Day/Night toggle should be small and snug (22/20)
- * - Cart icon should be compact (28/26) and right-aligned
- * - Header control rails are fixed at 44px so the orb sits larger than the rails
- */
 export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
-  // Layout rails
-  const railPx = useResponsive({ desktop: 44, mobile: 44, bp: 480 });
+  // fixed rails so orb can be bigger than header height
+  const railPx    = useResponsive({ desktop: 44, mobile: 44 });
+  const orbPx     = useResponsive({ desktop: 80, mobile: 60 });
+  const togglePx  = useResponsive({ desktop: 22, mobile: 20 });
+  const cartImgPx = useResponsive({ desktop: 28, mobile: 26 });
 
-  // Visual element sizes (independent of rail size)
-  const orbPx     = useResponsive({ desktop: 72, mobile: 56, bp: 480 });
-  const togglePx  = useResponsive({ desktop: 22, mobile: 20, bp: 480 });
-  const cartImgPx = useResponsive({ desktop: 28, mobile: 26, bp: 480 });
-
-  // Theme
   const [isNight, setIsNight] = useState(false);
 
-  // boot theme from storage or system
   useEffect(() => {
     try {
       const saved = localStorage.getItem('lb:theme');
@@ -35,17 +24,15 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
     } catch {}
   }, []);
 
-  // reflect mode + theme + header rail height
   useEffect(() => {
     try {
       const root = document.querySelector(rootSelector) || document.documentElement;
       root.setAttribute('data-mode', 'shop');
       root.setAttribute('data-theme', isNight ? 'night' : 'day');
       localStorage.setItem('lb:theme', isNight ? 'night' : 'day');
-      // rails (not orb size) — lets the orb be visually larger than the rail
       document.documentElement.style.setProperty('--header-ctrl', `${railPx}px`);
     } catch {}
-  }, [isNight, rootSelector, railPx]);
+  }, [isNight, railPx, rootSelector]);
 
   const headerStyle = useMemo(() => ({
     position: 'fixed',
@@ -56,51 +43,47 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
     gridTemplateColumns: `${railPx}px 1fr ${railPx}px`,
     alignItems: 'center',
     padding: '0 var(--header-pad-x)',
-    background: 'transparent',
+    background: 'transparent'
   }), [railPx]);
 
   return (
     <header role="banner" style={headerStyle}>
-      {/* LEFT: tiny day/night toggle */}
-      <div style={{ display: 'grid', placeItems: 'center', height: railPx, width: railPx, lineHeight: 0 }}>
+      {/* LEFT — tiny toggle */}
+      <div style={{ display:'grid', placeItems:'center', height:railPx, width:railPx, lineHeight:0 }}>
         <DayNightToggle
           className="select-none"
           circlePx={togglePx}
           trackPad={6}
           value={isNight ? 'night' : 'day'}
           onChange={(t) => setIsNight(t === 'night')}
-          moonImages={['/toggle/moon-red.png', '/toggle/moon-blue.png']}
+          moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
         />
       </div>
 
-      {/* CENTER: big orb */}
-      <div style={{ display: 'grid', placeItems: 'center', lineHeight: 0 }}>
+      {/* CENTER — big orb */}
+      <div style={{ display:'grid', placeItems:'center', lineHeight:0 }}>
         <ChakraOrbButton
-          size={orbPx}                 // <- makes the orb much larger than the rails
+          size={orbPx}
           className="orb-ring"
-          style={{ display: 'grid', placeItems: 'center' }}
+          style={{ width: orbPx, height: orbPx, display:'grid', placeItems:'center' }}
         />
       </div>
 
-      {/* RIGHT: compact cart, cleanly aligned */}
-      <div style={{ display: 'grid', placeItems: 'center', height: railPx, width: railPx, lineHeight: 0 }}>
+      {/* RIGHT — compact cart */}
+      <div style={{ display:'grid', placeItems:'center', height:railPx, width:railPx, lineHeight:0 }}>
         <CartButton size={cartImgPx} inHeader />
       </div>
     </header>
   );
 }
 
-/* ------------------------ utils ------------------------ */
 function useResponsive({ desktop, mobile, bp = 480 }) {
-  const calc = () =>
-    (typeof window !== 'undefined' && window.innerWidth <= bp) ? mobile : desktop;
-
+  const calc = () => (typeof window !== 'undefined' && window.innerWidth <= bp) ? mobile : desktop;
   const [val, setVal] = useState(calc);
   useEffect(() => {
     const onR = () => setVal(calc());
     window.addEventListener('resize', onR);
     return () => window.removeEventListener('resize', onR);
   }, [desktop, mobile, bp]);
-
   return val;
 }
