@@ -6,7 +6,7 @@ import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
   size = 64,
-  rpm = 44,                 // default: fast (match BANNED / shop)
+  rpm = 44,
   color = '#32ffc7',
   geomScale = 1.25,
   offsetFactor = 2.25,
@@ -16,6 +16,8 @@ export default function ChakraOrbButton({
   includeZAxis = true,
   className = '',
   style = {},
+  /** shrink the interactive radius to feel exactly like the orb (no outer dead rim) */
+  tightHitbox = true,
 }) {
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 160;
@@ -25,7 +27,7 @@ export default function ChakraOrbButton({
   const [haloTint, setHaloTint] = useState(null);
   const pulseTimer = useRef(null);
 
-  const [nextDir, setNextDir] = useState('in');     // inferred from grid density
+  const [nextDir, setNextDir] = useState('in'); // inferred from grid density
   const [overlayOpen, setOverlayOpen] = useState(false);
 
   // watch overlay flag (reverse spin there)
@@ -36,7 +38,10 @@ export default function ChakraOrbButton({
       );
     read();
     const mo = new MutationObserver(read);
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-overlay-open'] });
+    mo.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-overlay-open'],
+    });
     return () => mo.disconnect();
   }, []);
 
@@ -52,45 +57,62 @@ export default function ChakraOrbButton({
     return () => document.removeEventListener('lb:grid-density', onDensity);
   }, []);
 
-  // vivid colors
-  const GREEN = '#00ff2a';    // neon “GO”
-  const RED   = '#ff1a1a';    // blood “STOP”
+  const GREEN = '#00ff2a';
+  const RED = '#ff1a1a';
 
   const triggerPulse = useCallback((kind) => {
     clearTimeout(pulseTimer.current);
     setPulse(kind);
     setHaloTint(kind === 'in' ? GREEN : kind === 'out' ? RED : null);
-    pulseTimer.current = setTimeout(() => { setPulse('none'); setHaloTint(null); }, 320);
+    pulseTimer.current = setTimeout(() => {
+      setPulse('none');
+      setHaloTint(null);
+    }, 320);
   }, []);
 
-  const fireZoom = useCallback((dir) => {
-    const now = performance.now();
-    if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
-    lastFireRef.current = now;
+  const fireZoom = useCallback(
+    (dir) => {
+      const now = performance.now();
+      if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
+      lastFireRef.current = now;
 
-    // green for IN, red for OUT
-    triggerPulse(dir === 'in' ? 'in' : 'out');
+      triggerPulse(dir === 'in' ? 'in' : 'out');
 
-    const detail = { step: 1, dir };
-    // Canonical + compat events
-    document.dispatchEvent(new CustomEvent('lb:zoom', { detail }));
-    document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }));
-    document.dispatchEvent(new CustomEvent('grid-density', { detail })); // legacy
-  }, [triggerPulse]);
+      const detail = { step: 1, dir };
+      document.dispatchEvent(new CustomEvent('lb:zoom', { detail }));
+      document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }));
+      document.dispatchEvent(new CustomEvent('grid-density', { detail })); // legacy
+    },
+    [triggerPulse]
+  );
 
-  const onClick       = () => fireZoom(nextDir);
-  const onContextMenu = (e) => { e.preventDefault(); fireZoom('out'); };
-  const onKeyDown     = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fireZoom(nextDir); }
-    else if (e.key === 'ArrowLeft')  { e.preventDefault(); fireZoom('in');  }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); fireZoom('out'); }
+  const onClick = () => fireZoom(nextDir);
+  const onContextMenu = (e) => {
+    e.preventDefault();
+    fireZoom('out');
+  };
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fireZoom(nextDir);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      fireZoom('in');
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      fireZoom('out');
+    }
   };
   const onWheel = (e) => {
     e.preventDefault();
     const { deltaX, deltaY } = e;
-    const ax = Math.abs(deltaX), ay = Math.abs(deltaY);
-    if (ax > ay) { deltaX > 0 ? fireZoom('out') : fireZoom('in'); }
-    else         { deltaY > 0 ? fireZoom('in')  : fireZoom('out'); }
+    const ax = Math.abs(deltaX),
+      ay = Math.abs(deltaY);
+    if (ax > ay) {
+      deltaX > 0 ? fireZoom('out') : fireZoom('in');
+    } else {
+      deltaY > 0 ? fireZoom('in') : fireZoom('out');
+    }
   };
 
   // reflect external zoom pulses too
@@ -104,87 +126,92 @@ export default function ChakraOrbButton({
   }, [triggerPulse]);
 
   const px = typeof size === 'number' ? `${size}px` : size;
-  const rpmValue = ((overlayOpen || nextDir === 'out') ? -1 : 1) * rpm;  // reverse when overlay or next=OUT
+  const rpmValue = ((overlayOpen || nextDir === 'out') ? -1 : 1) * rpm;
+
+  // shrink the actual clickable area slightly so it feels exactly like the visible orb
+  // (keeps visual size unchanged; only hit-test tightens)
+  const HIT_INSET = tightHitbox ? 4 : 0; // px
+  const innerPx = `calc(${px} - ${HIT_INSET * 2}px)`;
 
   return (
-    <button
-      type="button"
-      aria-label="Zoom products"
-      title="Zoom products (Click = Smart IN/OUT • Right-click = OUT)"
-      data-orb="density"
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      onKeyDown={onKeyDown}
-      onWheel={onWheel}
+    <div
       className={className}
       style={{
         width: px,
         height: px,
-        display: 'inline-grid',
-        placeItems: 'center',
-        lineHeight: 0,
-        borderRadius: '9999px',
-        overflow: 'visible',
-        clipPath: 'circle(50% at 50% 50%)',
-        padding: 0,
-        margin: 0,
-        background: 'transparent',
-        border: '0 none',
-        cursor: 'pointer',
         position: 'relative',
-        zIndex: 900,
-        contain: 'layout paint style',
-        WebkitTapHighlightColor: 'transparent',
+        display: 'inline-block',
+        // clip anything that would extend beyond the circular visual (pulse glow)
+        borderRadius: '9999px',
+        overflow: 'hidden', // prevents aura from making it "feel bigger"
+        // remove any accidental layout/paint inflation
+        boxShadow: 'none',
         ...style,
       }}
     >
-      {/* base subtle ring */}
-      <span
-        aria-hidden
+      {/* real hit target (optionally tightened) */}
+      <button
+        type="button"
+        aria-label="Zoom products"
+        title="Zoom products (Click = Smart IN/OUT • Right-click = OUT)"
+        data-orb="density"
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        onKeyDown={onKeyDown}
+        onWheel={onWheel}
         style={{
           position: 'absolute',
-          inset: 0,
+          left: HIT_INSET,
+          top: HIT_INSET,
+          width: innerPx,
+          height: innerPx,
+          display: 'grid',
+          placeItems: 'center',
+          padding: 0,
+          margin: 0,
+          lineHeight: 0,
+          background: 'transparent',
+          border: 0,
           borderRadius: '9999px',
-          background: 'radial-gradient(closest-side, rgba(120,255,230,.14), rgba(120,255,230,.05) 62%, transparent 74%)',
-          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.22)',
-          pointerEvents: 'none',
-          zIndex: 1,
+          cursor: 'pointer',
+          // ensure pointer area equals visual circle
+          clipPath: 'circle(50% at 50% 50%)',
+          WebkitTapHighlightColor: 'transparent',
         }}
-      />
+      >
+        {/* pulse aura — now clipped inside the circle by the overflow above */}
+        {pulse !== 'none' && (
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: 0, // fill the circle; no negative inset overflow
+              borderRadius: '9999px',
+              boxShadow:
+                pulse === 'in'
+                  ? `0 0 22px 8px rgba(0,255,42,.85), 0 0 70px 28px rgba(0,255,42,.35)`
+                  : `0 0 22px 8px rgba(255,26,26,.85), 0 0 70px 28px rgba(255,26,26,.35)`,
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          />
+        )}
 
-      {/* top aura flash (VERY green/red) */}
-      {pulse !== 'none' && (
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: '-8px',
-            borderRadius: '9999px',
-            boxShadow:
-              pulse === 'in'
-                ? `0 0 26px 10px rgba(0,255,42,.95), 0 0 90px 40px rgba(0,255,42,.42)`
-                : `0 0 26px 10px rgba(255,26,26,.95), 0 0 90px 40px rgba(255,26,26,.42)`,
-            transition: 'opacity .32s ease',
-            pointerEvents: 'none',
-            zIndex: 4,
-          }}
+        <BlueOrbCross3D
+          height={innerPx}
+          rpm={rpmValue}
+          color={color}
+          geomScale={geomScale}
+          offsetFactor={offsetFactor}
+          armRatio={armRatio}
+          glow={glow}
+          glowOpacity={glowOpacity}
+          includeZAxis={includeZAxis}
+          respectReducedMotion={false}
+          onActivate={onClick}
+          haloTint={haloTint}
         />
-      )}
-
-      <BlueOrbCross3D
-        height={px}
-        rpm={rpmValue}
-        color={color}
-        geomScale={geomScale}
-        offsetFactor={offsetFactor}
-        armRatio={armRatio}
-        glow={glow}
-        glowOpacity={glowOpacity}
-        includeZAxis={includeZAxis}
-        respectReducedMotion={false}
-        onActivate={onClick}
-        haloTint={haloTint}   // tint halos only; cores remain 7-chakra
-      />
-    </button>
+      </button>
+    </div>
   );
 }
