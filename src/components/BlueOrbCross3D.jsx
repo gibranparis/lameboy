@@ -20,46 +20,46 @@ function OrbCross({
   overrideGlowOpacity,
   interactive = false,
   haloTint = null,
-
-  // NEW: click responsiveness
-  clickPulseMs = 130,
-  clickGlowOpacity = 0.16,
+  /** NEW: how long the click flash should persist (ms) */
+  flashDecayMs = 210,
 }) {
   const group = useRef();
-  const [pressed, setPressed] = useState(false);
 
   const coarse =
     typeof window !== 'undefined' &&
     window.matchMedia &&
     window.matchMedia('(pointer:coarse)').matches;
 
-  useEffect(() => {
-    const kill = () => setPressed(false);
-    window.addEventListener('lb:zoom', kill);
-    window.addEventListener('lb:zoom/grid-density', kill);
-    document.addEventListener('lb:zoom', kill);
-    document.addEventListener('lb:zoom/grid-density', kill);
-    return () => {
-      window.removeEventListener('lb:zoom', kill);
-      window.removeEventListener('lb:zoom/grid-density', kill);
-      document.removeEventListener('lb:zoom', kill);
-      document.removeEventListener('lb:zoom/grid-density', kill);
-    };
-  }, []);
-
   useFrame((state, dt) => {
     if (!group.current) return;
     group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt;
 
-    // pulse halo materials when enabled
     const u = group.current.userData;
+    if (!u) return;
+
+    const now = performance.now();
+    const flashing = u.flashUntil && now < u.flashUntil;
+
     if (glow && u?.pulse) {
+      // Normal idle pulse speed
+      let pulseSpeed = 3.6;
+      // During flash window, make it feel snappy (double speed)
+      if (flashing) pulseSpeed = 7.2;
+
       const t = state.clock.getElapsedTime();
-      const pulse = 0.85 + Math.sin(t * 3.6) * 0.15;
-      const base = pressed
-        ? (overrideGlowOpacity ?? clickGlowOpacity)
-        : (overrideGlowOpacity ?? (Math.min(1, glowOpacity * 1.35) * (coarse ? 0.55 : 1.0)));
-      const b = base * (pressed ? 1 : (0.55 + pulse * 0.45));
+      const pulse = 0.85 + Math.sin(t * pulseSpeed) * 0.15;
+
+      // Base halo level
+      let b = u.base * pulse;
+
+      // During flash: emphasize the first ~half of the window, then
+      // quickly settle so it never "lingers" looking laggy
+      if (flashing) {
+        const remain = Math.max(0, u.flashUntil - now);
+        const k = Math.min(1, remain / flashDecayMs); // 1→0 over the window
+        // Quick rise, quick fall: slightly clamp + ease
+        b = Math.min(1, b * (0.85 + 0.3 * k));
+      }
 
       u.barHalo.opacity = b * 0.55;
       u.sphereHalos.forEach((m) => (m.opacity = b));
@@ -170,34 +170,36 @@ function OrbCross({
     group.current.userData = {
       pulse:true, base:haloBase,
       barHalo:barHaloMat, sphereHalos:sphereHaloMats,
-      halo2:halo2Mat, halo3:halo3Mat
+      halo2:halo2Mat, halo3:halo3Mat,
+      flashUntil: 0,
+      flashDecayMs,
     };
-  }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
+  }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat, flashDecayMs]);
+
+  const triggerFlash = () => {
+    if (!group.current?.userData) return;
+    const u = group.current.userData;
+    u.flashUntil = performance.now() + (u.flashDecayMs || flashDecayMs);
+  };
 
   const handlePointerDown = interactive ? (e) => {
     e.stopPropagation();
-    setPressed(true);
-    const t = setTimeout(() => setPressed(false), Math.max(60, clickPulseMs));
-    e.target.__lb_p = t;
+    triggerFlash();
     onActivate && onActivate();
   } : undefined;
 
-  const handlePointerUp = interactive ? (e) => {
-    e.stopPropagation();
-    setPressed(false);
-    if (e.target.__lb_p) { clearTimeout(e.target.__lb_p); e.target.__lb_p = null; }
-  } : undefined;
-
   const handleKeyDown = interactive ? (e) => {
-    if (e.key==='Enter'||e.key===' ') { e.preventDefault(); setPressed(true); setTimeout(() => setPressed(false), Math.max(60, clickPulseMs)); onActivate && onActivate(); }
+    if (e.key==='Enter'||e.key===' ') {
+      e.preventDefault();
+      triggerFlash();
+      onActivate && onActivate();
+    }
   } : undefined;
 
   return (
     <group
       ref={group}
       onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
       onKeyDown={handleKeyDown}
       tabIndex={interactive ? 0 : -1}
     >
@@ -238,30 +240,28 @@ function OrbCross({
   );
 }
 
-export default function BlueOrbCross3D(props) {
-  const {
-    height = '28px',
-    rpm = 14.4,
-    color = '#32ffc7',
-    geomScale = 1,
-    offsetFactor = 2.05,
-    armRatio = 0.33,
-    glow = true,
-    glowOpacity = 0.7,
-    glowScale = 1.35,
-    includeZAxis = true,
-    onActivate = null,
-    overrideAllColor = null,
-    overrideGlowOpacity,
-    style = {},
-    className = '',
-    interactive = false,
-    respectReducedMotion = false,
-    haloTint = null,
-    clickPulseMs,
-    clickGlowOpacity,
-  } = props;
-
+export default function BlueOrbCross3D({
+  height = '28px',
+  rpm = 14.4,
+  color = '#32ffc7',
+  geomScale = 1,
+  offsetFactor = 2.05,
+  armRatio = 0.33,
+  glow = true,
+  glowOpacity = 0.7,
+  glowScale = 1.35,
+  includeZAxis = true,
+  onActivate = null,
+  overrideAllColor = null,
+  overrideGlowOpacity,
+  style = {},
+  className = '',
+  interactive = false,
+  respectReducedMotion = false,
+  haloTint = null,
+  /** NEW: forward flash duration control */
+  flashDecayMs = 210,
+}) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
 
@@ -317,8 +317,7 @@ export default function BlueOrbCross3D(props) {
           overrideGlowOpacity={overrideGlowOpacity}
           interactive={interactive}
           haloTint={haloTint}
-          clickPulseMs={clickPulseMs}
-          clickGlowOpacity={clickGlowOpacity}
+          flashDecayMs={flashDecayMs}
         />
       </Canvas>
     </div>
