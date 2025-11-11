@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* small helper: one–shot “flash” class toggler (for arrows) */
+/* one–shot “flash” class toggler (for arrows) */
 function flash(el, klass='is-hot', ms=220){
   if (!el) return;
   el.classList.remove(klass);
@@ -56,52 +56,58 @@ function ArrowControl({ dir='up', night, onClick, dataUi }) {
 }
 
 /* -------------------------- Sizes + (+/–) toggle ------------------------- */
-/* Sequence:
-   1) Tap "+" → sizes open (icon "–")
-   2) Tap size → that size pill flashes green (~420ms)
-   3) Sizes collapse
-   4) The "+" button text becomes **"Added"** with the **same color & font size as the price**
-   5) After ~900ms, text fades and "+" returns
-*/
+/**
+ * UX sequence (unchanged footprint):
+ * 1) Tap "+" → sizes open (icon "–")
+ * 2) Tap size → that size pill flashes green (~420ms) AND the + pill flashes green (~220ms) to match arrows
+ * 3) Sizes collapse
+ * 4) The "+" visually disappears and an "Added" label (same style as price) is centered in its place
+ * 5) After ~900ms, "Added" fades and the "+" reappears
+ */
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
-
-  // short flash on the tapped size
   const [hotSize, setHotSize] = useState(null);
 
-  // replace "+" with "Added" (styled like price)
+  // “Added” replaces the + (we hide the + pill’s glyph but keep its circle footprint)
   const [showAdded, setShowAdded] = useState(false);
+
+  // green flash on the + pill to mirror arrow flash visuals
+  const [plusHot, setPlusHot] = useState(false);
+  const plusRef = useRef(null);
 
   const timers = useRef({});
 
   const onToggle = () => {
-    // do not toggle while "Added" message is active, so the feedback reads clearly
-    if (showAdded) return;
+    if (showAdded) return; // don't interrupt the “Added” moment
     setOpen(v => !v);
   };
 
   const pick = (sz) => {
     setPicked(sz);
+
     try {
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
     } catch {}
 
-    // 1) flash the selected pill
+    // 1) flash the tapped size pill (longer)
     setHotSize(sz);
 
-    // 2) after short flash, close + show "Added"
+    // 1b) flash the + pill (short, same as arrow)
+    setPlusHot(true);
+    clearTimeout(timers.current.plusHot);
+    timers.current.plusHot = setTimeout(()=>setPlusHot(false), 220);
+
+    // 2) after the size flash completes, collapse + show “Added”
     clearTimeout(timers.current.flashClose);
     timers.current.flashClose = setTimeout(() => {
       setOpen(false);
       setHotSize(null);
       setShowAdded(true);
 
-      // hide "Added" later and restore "+"
+      // 3) hide “Added” later and restore “+”
       clearTimeout(timers.current.addedHide);
-      timers.current.addedHide = setTimeout(() => {
-        setShowAdded(false);
-      }, 900);
+      timers.current.addedHide = setTimeout(() => setShowAdded(false), 900);
     }, 420);
   };
 
@@ -109,32 +115,56 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
     return () => Object.values(timers.current).forEach(t => clearTimeout(t));
   }, []);
 
-  const glyph = open ? '–' : (showAdded ? 'Added' : '+');
+  const glyph = open ? '–' : '+';
 
-  // Inline style to match price when showing "Added"
-  const asPriceStyle = showAdded ? {
+  // Price-matched style for “Added”
+  const addedStyle = {
     color: priceStyle?.color || 'inherit',
     fontSize: priceStyle?.fontSize || 'inherit',
     fontWeight: priceStyle?.fontWeight || 800,
     letterSpacing: priceStyle?.letterSpacing || '.06em',
-  } : null;
+    lineHeight: 1.05,
+  };
 
   return (
     <div style={{ display:'grid', justifyItems:'center', gap:12, position:'relative' }}>
-      {/* +/- button (or "Added") */}
+      {/* +/- pill — footprint NEVER changes (28x28 circle) */}
       <button
+        ref={plusRef}
         type="button"
         data-ui="size-toggle"
-        className={`pill plus-pill ${open ? 'is-ready' : ''} ${showAdded ? 'is-added' : ''}`}
+        className={[
+          'pill',
+          'plus-pill',
+          open ? 'is-ready' : '',
+          plusHot ? 'is-hot' : '',
+          showAdded ? 'is-hidden-glyph' : ''
+        ].join(' ').trim()}
         onClick={onToggle}
-        aria-label={open?'Close sizes':(showAdded?'Added':'Choose size')}
-        title={open?'Close sizes':(showAdded?'Added':'Choose size')}
-        style={asPriceStyle || undefined}
+        aria-label={open ? 'Close sizes' : (showAdded ? 'Added' : 'Choose size')}
+        title={open ? 'Close sizes' : (showAdded ? 'Added' : 'Choose size')}
       >
-        {glyph}
+        {/* The glyph hides while “Added” shows, but the circle remains */}
+        <span aria-hidden style={{ opacity: showAdded ? 0 : 1 }}>{glyph}</span>
       </button>
 
-      {/* Size panel (kept in DOM for smooth height anim) */}
+      {/* “Added” label — sits EXACTLY over the + pill, price-matched */}
+      {showAdded && (
+        <span
+          aria-live="polite"
+          className="added-label"
+          style={{
+            position:'absolute',
+            inset:'auto auto 0 auto',
+            transform:'translateY(2px)',
+            ...addedStyle,
+          }}
+        >
+          Added
+        </span>
+      )}
+
+      {/* Size panel (in DOM for smooth height; hidden when closed) */}
       <div
         className={`row-nowrap size-panel ${open ? 'is-open' : ''}`}
         data-ui="size-panel"
@@ -145,7 +175,12 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
           <button
             key={sz}
             type="button"
-            className={`pill size-pill ${picked===sz?'is-selected':''} ${hotSize===sz?'is-hot':''}`}
+            className={[
+              'pill',
+              'size-pill',
+              picked===sz ? 'is-selected' : '',
+              hotSize===sz ? 'is-hot' : ''
+            ].join(' ').trim()}
             data-size={sz}
             onClick={()=>pick(sz)}
             aria-label={`Size ${sz}`}
@@ -157,39 +192,72 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
       <style jsx>{`
         :root{
           --neon: var(--hover-green, #0bf05f);
-          --pill-bg: var(--panel, #1e1e1e);
-          --pill-fg: var(--text, #ffffff);
-          --pill-ring: rgba(255,255,255,.12);
+          --circle-day:#ffffff; --circle-night:#0b0c10;
+          --ring-day:rgba(0,0,0,.08); --ring-night:rgba(255,255,255,.12);
+          --glyph-day:#0f1115; --glyph-night:#ffffff;
         }
 
-        /* --- pills --- */
+        /* Pills baseline: keep visuals identical to your globals */
         .pill{
-          font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
-          letter-spacing:.2px;
-          padding:10px 14px;
-          border-radius:999px;
-          border:none;
-          cursor:pointer;
-          transition: transform .18s ease, box-shadow .18s ease, color .2s ease, background .2s ease, opacity .25s ease;
-          user-select:none;
-          outline:none;
+          display:inline-grid; place-items:center; border:none; font-weight:800;
+          transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease, opacity .18s ease;
+          user-select:none; outline:none;
         }
 
+        /* + / – circle (28x28) — FOOTPRINT NEVER CHANGES */
         .plus-pill{
-          min-width:42px; height:42px; display:grid; place-items:center;
-          background: var(--pill-bg);
-          color: var(--pill-fg);
-          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--pill-ring);
+          width:28px; height:28px; border-radius:9999px; line-height:1; font-size:18px;
+          background:var(--circle-day); color:var(--glyph-day);
+          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
+        }
+        :root[data-theme="night"] .plus-pill{
+          background:var(--circle-night); color:var(--glyph-night);
+          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
         }
         .plus-pill.is-ready{
-          transform: scale(1.02);
-          box-shadow: 0 4px 16px rgba(0,0,0,.18), inset 0 0 0 1px var(--pill-ring);
+          /* grey state when sizes are open; never turns green here */
+          background:var(--circle-day); color:var(--glyph-day);
+          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
         }
-        /* When showing "Added", let text breathe like a label rather than a tiny icon */
-        .plus-pill.is-added{
-          min-width:auto; height:auto;
-          padding: 8px 12px;
-          background: var(--pill-bg);
+        :root[data-theme="night"] .plus-pill.is-ready{
+          background:var(--circle-night); color:var(--glyph-night);
+          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
+        }
+
+        /* EXACT same green flash language as arrow pills */
+        .plus-pill.is-hot{
+          background: var(--neon) !important;
+          color:#000 !important;
+          box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12) !important;
+        }
+
+        /* hide only the glyph during "Added" phase; keep the circle */
+        .plus-pill.is-hidden-glyph > span{ opacity:0; }
+
+        /* size pills (28x28) — identical to your globals */
+        .size-pill{
+          width:28px; height:28px; border-radius:9999px; font-size:12px;
+          background:var(--circle-day); color:var(--glyph-day);
+          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
+        }
+        :root[data-theme="night"] .size-pill{
+          background:var(--circle-night); color:var(--glyph-night);
+          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
+        }
+        .size-pill.is-selected{
+          background:var(--neon); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+        }
+        .size-pill.is-hot{
+          transform: scale(1.06);
+          box-shadow:
+            0 0 0 0 rgba(11,240,95,.42),
+            inset 0 0 0 1px rgba(11,240,95,.55);
+          animation: lbPulseShort 420ms ease;
+        }
+        @keyframes lbPulseShort{
+          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
+          70%  { box-shadow: 0 0 0 8px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
+          100% { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
         }
 
         .size-panel{
@@ -202,40 +270,24 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
         }
         .size-panel.is-open{ max-height:68px; }
 
-        .size-pill{
-          background: var(--pill-bg);
-          color: var(--pill-fg);
-          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--pill-ring);
-          min-width:42px;
+        /* The in-place “Added” label */
+        .added-label{
+          pointer-events:none;
+          animation: addedFade .9s ease forwards;
+          white-space:nowrap;
+          text-transform:none;
         }
-        .size-pill:hover{ transform: translateY(-1px); }
-        .size-pill.is-selected{
-          /* persists as a hint when panel re-opens later */
-          color: var(--neon);
-          box-shadow: 0 0 0 0 rgba(11,240,95,.12), inset 0 0 0 1px rgba(11,240,95,.5);
-        }
-        /* short "flash" like the arrows, before close */
-        .size-pill.is-hot{
-          color: var(--neon);
-          transform: scale(1.06);
-          box-shadow:
-            0 0 0 0 rgba(11,240,95,.42),
-            inset 0 0 0 1px rgba(11,240,95,.55);
-          animation: lbPulseShort 420ms ease;
-        }
-
-        /* Pulses */
-        @keyframes lbPulseShort{
-          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
-          70%  { box-shadow: 0 0 0 8px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
-          100% { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
+        @keyframes addedFade{
+          0%{ opacity:1; transform:translateY(2px) scale(0.98); }
+          60%{ opacity:1; transform:translateY(2px) scale(1); }
+          100%{ opacity:0; transform:translateY(2px) scale(1); }
         }
       `}</style>
     </div>
   );
 }
 
-/* ------ SWIPE ENGINE (mobile) : slower + more deliberate ------ */
+/* ------ SWIPE ENGINE (mobile & desktop parity) ------ */
 function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash }) {
   const state = useRef({
     active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0,
@@ -389,7 +441,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   const sizes = product.sizes?.length ? product.sizes : ['OS','S','M','L','XL'];
 
-  // capture the live computed styles of the price node so "Added" matches exactly
+  // capture computed styles of the price so "Added" matches exactly
   const priceRef = useRef(null);
   const [priceStyle, setPriceStyle] = useState(null);
   useEffect(() => {
@@ -425,7 +477,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         onPointerUp={swipe.onUp}
         onPointerCancel={swipe.onUp}
       >
-        {/* transparent click-catcher (no visual dim) */}
+        {/* transparent click-catcher (no dim) */}
         <div
           onClick={(e)=>{ e.stopPropagation(); onClose?.(); }}
           style={{
@@ -487,7 +539,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         </div>
       </div>
 
-      {/* local styles for pills/arrow flash */}
+      {/* local styles for arrow flash + dots (unchanged) */}
       <style jsx>{`
         :root{
           --neon: var(--hover-green, #0bf05f);
@@ -498,30 +550,15 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
         .arrow-pill.is-hot > div{
           background: var(--neon) !important;
-          box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12);
-        }
-
-        .pill{
-          font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
-          letter-spacing:.2px;
-          padding:10px 14px;
-          border-radius:999px;
-          border:none;
-          cursor:pointer;
-          transition: transform .18s ease, box-shadow .18s ease, color .2s ease, background .2s ease, opacity .25s ease;
-          user-select:none;
-          outline:none;
+          color:#000 !important;
+          box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12) !important;
         }
 
         .dot-pill{
-          border-radius:50%;
-          background: var(--pill-bg);
-          box-shadow: inset 0 0 0 1px var(--pill-ring);
+          border-radius:9999px; padding:0; width:18px; height:18px; background:#ececec;
         }
-        .dot-pill.is-active{
-          background: var(--neon);
-          box-shadow: inset 0 0 0 0 rgba(0,0,0,0);
-        }
+        :root[data-theme="night"] .dot-pill{ background:#111; }
+        .dot-pill.is-active{ background:var(--neon); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
       `}</style>
     </>
   );
