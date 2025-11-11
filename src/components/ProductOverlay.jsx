@@ -4,21 +4,26 @@
 import Image from 'next/image';
 import React, { useEffect, useRef, useState, useMemo, useCallback, forwardRef } from 'react';
 
-/* -------------------------------- utils -------------------------------- */
+/* ------------------------------- utils --------------------------------- */
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-function flashReady(el){
+/* Force the (+) pill to show the green state briefly */
+function forceGreen(el){
   if (!el) return;
-  el.classList.remove('is-ready');
-  // reflow to re-trigger
+  el.classList.add('is-ready');   // your green style hook
+  el.classList.add('is-active');  // ensure solid green even if closed
+  // reflow to guarantee a fresh animation frame
   // eslint-disable-next-line no-unused-expressions
   el.offsetHeight;
-  el.classList.add('is-ready');
-  setTimeout(()=>el && el.classList.remove('is-ready'), 260);
+  setTimeout(()=>{
+    // keep is-active if user actually opened sizes (shows “–”)
+    if (el.textContent.trim() === '+') el.classList.remove('is-active');
+    el.classList.remove('is-ready');
+  }, 260);
 }
 
-/* ----------------------------- ArrowControl ---------------------------- */
+/* ---------------------------- ArrowControl ----------------------------- */
 function ArrowControl({ dir='up', night, onClick, onPulse }) {
   const [active, setActive] = useState(false);
   const baseBg = night ? '#0b0c10' : '#ffffff';
@@ -27,9 +32,9 @@ function ArrowControl({ dir='up', night, onClick, onPulse }) {
 
   const fire = (e)=>{
     setActive(true);
-    setTimeout(()=>setActive(false), 160);
-    onPulse?.();           // make (+) flash
+    onPulse?.();
     onClick?.(e);
+    setTimeout(()=>setActive(false), 160);
   };
 
   return (
@@ -50,27 +55,26 @@ function ArrowControl({ dir='up', night, onClick, onPulse }) {
   );
 }
 
-/* ---------------------------- Plus / Sizes UI -------------------------- */
-/* Forward a ref to the (+) pill so we can flash it from wheel/swipe */
+/* ---------------------------- Plus / Sizes UI --------------------------- */
 const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }, plusRef){
-  const [open, setOpen]   = useState(false);
+  const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
 
   const toggle = ()=>{
     setOpen(v=>{
+      const next = !v;
       const el = plusRef?.current;
       if (el){
-        if (!v) el.classList.add('is-active'); else el.classList.remove('is-active');
-        flashReady(el); // also flash on toggle
+        if (next) el.classList.add('is-active'); else el.classList.remove('is-active');
+        forceGreen(el); // also flash when toggled
       }
-      return !v;
+      return next;
     });
   };
 
   const pick = (sz)=>{
     setPicked(sz);
     try { window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }})); } catch {}
-    flashReady(plusRef?.current);
     setTimeout(()=>setPicked(null), 320);
   };
 
@@ -93,7 +97,7 @@ const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M
             <button
               key={sz}
               type="button"
-              className={`pill size-pill ${picked===sz?'is-selected':''}`}
+              className={`pill size-pill ${picked===sz ? 'is-selected' : ''}`}
               onClick={()=>pick(sz)}
               aria-label={`Size ${sz}`}
               title={`Size ${sz}`}
@@ -105,10 +109,10 @@ const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M
   );
 });
 
-/* -------------------------- Swipe Engine (mobile) ---------------------- */
-/* Exactly ONE vertical step per gesture; sideways swipes change image.   */
+/* -------------------------- Swipe Engine (mobile) ----------------------- */
+/* Exactly one vertical product step per gesture; sideways -> images.      */
 function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce, onPulse }) {
-  const s = useRef({ down:false, x:0, y:0, t:0, steppedY:false });
+  const s = useRef({ down:false, x:0, y:0, stepped:false });
 
   const coarse =
     typeof window !== 'undefined' &&
@@ -120,7 +124,7 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce, onPuls
 
   const onDown = useCallback((e)=>{
     const p = e.touches ? e.touches[0] : e;
-    s.current = { down:true, x:p.clientX, y:p.clientY, t:performance.now(), steppedY:false };
+    s.current = { down:true, x:p.clientX, y:p.clientY, stepped:false };
   }, []);
 
   const onMove = useCallback((e)=>{
@@ -130,16 +134,15 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce, onPuls
     const dx = p.clientX - s.current.x;
     const dy = p.clientY - s.current.y;
 
-    // horizontal -> image paging (multi allowed)
+    // horizontal: page images (multi allowed)
     if (imgsLen){
       while (dx <= -STEP_X) { s.current.x -= STEP_X; setImgIdx(i=>clamp(i+1,0,imgsLen-1)); onPulse?.(); }
       while (dx >=  STEP_X) { s.current.x += STEP_X; setImgIdx(i=>clamp(i-1,0,imgsLen-1)); onPulse?.(); }
     }
-
-    // vertical -> product index (ONE step only)
-    if (!s.current.steppedY && prodsLen>1){
-      if (dy <= -STEP_Y) { s.current.steppedY = true; stepProductOnce(+1); onPulse?.(); }
-      if (dy >=  STEP_Y) { s.current.steppedY = true; stepProductOnce(-1); onPulse?.(); }
+    // vertical: ONE product step per gesture
+    if (!s.current.stepped && prodsLen>1){
+      if (dy <= -STEP_Y) { s.current.stepped = true; stepProductOnce(+1); onPulse?.(); }
+      if (dy >=  STEP_Y) { s.current.stepped = true; stepProductOnce(-1); onPulse?.(); }
     }
   }, [imgsLen, prodsLen, setImgIdx, stepProductOnce, onPulse]);
 
@@ -163,11 +166,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   const clampedImgIdx = useMemo(()=>clamp(imgIdx, 0, Math.max(0, imgs.length-1)), [imgIdx, imgs.length]);
 
-  // ref to the (+) pill to flash it
+  // (+) pill ref to force green
   const plusRef = useRef(null);
-  const pulsePlus = useCallback(()=>flashReady(plusRef.current), []);
+  const pulsePlus = useCallback(()=>forceGreen(plusRef.current), []);
 
-  // close overlay if orb zooms (heart/orb interactions)
+  /* Close overlay when orb zooms (heart/orb interactions) */
   useEffect(() => {
     const h = () => onClose?.();
     ['lb:zoom','lb:zoom/grid-density'].forEach(n=>{
@@ -178,7 +181,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     });
   }, [onClose]);
 
-  // keyboard support
+  /* Keyboard */
   useEffect(() => {
     const onKey = (e) => {
       if (e.key==='Escape') return onClose?.();
@@ -187,52 +190,45 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         if (e.key==='ArrowLeft')  { setImgIdx(i=>clamp(i-1,0,imgs.length-1)); pulsePlus(); return; }
       }
       if (products.length>1) {
-        if (e.key==='ArrowDown') { stepProduct(+1); return; }
-        if (e.key==='ArrowUp')   { stepProduct(-1); return; }
+        if (e.key==='ArrowDown') { onIndexChange?.(wrap(index+1, products.length)); pulsePlus(); return; }
+        if (e.key==='ArrowUp')   { onIndexChange?.(wrap(index-1, products.length)); pulsePlus(); return; }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [imgs.length, products.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [imgs.length, products.length, index, onIndexChange, pulsePlus, onClose]);
 
-  // step helpers (emit event + cooldowns)
-  const emitStep = (dir)=> {
-    const detail = { dir: dir>0 ? 'next' : 'prev' };
-    try { document.dispatchEvent(new CustomEvent('lb:product-step', { detail })); } catch {}
-  };
-  const stepProduct = (dir)=>{ onIndexChange?.(wrap(index + (dir>0?1:-1), products.length)); emitStep(dir); pulsePlus(); };
-
-  // wheel – one step per ~420ms and flash (+)
-  const wheelLock = useRef(false);
+  /* Wheel – one action every ~380ms to avoid turbo scroll; always pulse (+) */
+  const lastWheel = useRef(0);
   useEffect(() => {
     const onWheel = (e) => {
-      if (wheelLock.current) return;
+      const now = performance.now();
+      if (now - lastWheel.current < 380) return;
+      lastWheel.current = now;
+
       const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
-      wheelLock.current = true;
-      if (ax > ay && imgs.length){
+      if (ax > ay && imgs.length) {
         setImgIdx(i=>clamp(i + (e.deltaX>0?1:-1), 0, imgs.length-1));
-      } else if (products.length>1){
-        stepProduct(e.deltaY>0 ? +1 : -1);
+      } else if (products.length>1) {
+        onIndexChange?.(wrap(index + (e.deltaY>0?1:-1), products.length));
       }
       pulsePlus();
-      setTimeout(()=>{ wheelLock.current = false; }, 420);
     };
     window.addEventListener('wheel', onWheel, { passive:true });
     return () => window.removeEventListener('wheel', onWheel);
-  }, [imgs.length, products.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [imgs.length, products.length, index, onIndexChange, pulsePlus]);
 
-  // swipe – exactly one vertical step per gesture
-  const stepProductOnce = useCallback((dir)=>stepProduct(dir), []); // reuse cooldown via wheelLock timing not needed here
+  /* Swipe – one product step per gesture */
   const swipe = useSwipe({
     imgsLen: imgs.length,
     prodsLen: products.length,
     index,
     setImgIdx,
-    stepProductOnce,
+    stepProductOnce: (dir)=>{ onIndexChange?.(wrap(index + (dir>0?1:-1), products.length)); },
     onPulse: pulsePlus,
   });
 
-  // overlay flag for page styles
+  /* Overlay flag for page styles */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open','1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -281,15 +277,15 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         />
 
         <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center', zIndex:521 }}>
-          {/* left arrows */}
+          {/* arrows */}
           {products.length>1 && (
             <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
-              <ArrowControl dir="up"   night={night} onClick={()=>stepProduct(-1)} onPulse={pulsePlus} />
-              <ArrowControl dir="down" night={night} onClick={()=>stepProduct(+1)} onPulse={pulsePlus} />
+              <ArrowControl dir="up"   night={night} onPulse={pulsePlus} onClick={()=>onIndexChange?.(wrap(index-1, products.length))} />
+              <ArrowControl dir="down" night={night} onPulse={pulsePlus} onClick={()=>onIndexChange?.(wrap(index+1, products.length))} />
             </div>
           )}
 
-          {/* image */}
+          {/* image + dots */}
           {!!imgs.length && (
             <>
               <Image
@@ -302,7 +298,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
                 fetchPriority="high"
                 quality={95}
                 sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
-                style={{ width:'100%', height:'auto', maxHeight:'70vh', objectFit:'contain', imageRendering:'auto' }}
+                style={{ width:'100%', height:'auto', maxHeight:'70vh', objectFit:'contain' }}
               />
               {imgs.length>1 && (
                 <div className="row-nowrap" style={{ gap:8, marginTop:6, justifyContent:'center', display:'flex' }}>
@@ -328,7 +324,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         </div>
       </div>
 
-      {/* inline style hooks for the pills */}
+      {/* inline pill styles (scoped + uses your global tokens) */}
       <style jsx>{`
         :root{
           --circle-day: var(--circle-day, #ffffff);
@@ -374,6 +370,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           background: var(--neon); color:#000;
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
         }
+
         @media (hover:hover){
           .product-hero-overlay :global(.pill:hover){ transform: translateZ(0) scale(1.02); }
         }
