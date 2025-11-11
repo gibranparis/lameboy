@@ -7,50 +7,30 @@ import React, { useEffect, useRef, useState, useMemo, useCallback, forwardRef } 
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* Force (+) pill to solid green briefly regardless of CSS cascade */
-function pulsePlusEl(el){
-  if (!el) return;
-  // inline styles beat any stylesheet collisions
-  const on = ()=> {
-    el.classList.add('pulse-green','is-ready');
-    el.style.background = 'var(--hover-green)';
-    el.style.color = '#000';
-    el.style.boxShadow = 'inset 0 0 0 1px rgba(0,0,0,.18)';
-  };
-  const off = ()=>{
-    el.classList.remove('is-ready');
-    if (el.textContent.trim() === '+') el.classList.remove('is-active');
-    el.classList.remove('pulse-green');
-    el.style.background = '';
-    el.style.color = '';
-    el.style.boxShadow = '';
-  };
-  on();
-  setTimeout(off, 260);
-}
-
 /* ---------------------------- ArrowControl ----------------------------- */
-function ArrowControl({ dir='up', night, onClick, onPulse }) {
-  const [active, setActive] = useState(false);
+function ArrowControl({ dir='up', night, onClick, active=false }) {
   const baseBg = night ? '#0b0c10' : '#ffffff';
   const ring   = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
   const glyph  = night ? '#ffffff' : '#0f1115';
 
-  const fire = (e)=>{
-    setActive(true);
-    onPulse?.();
-    onClick?.(e);
-    setTimeout(()=>setActive(false), 160);
-  };
-
   return (
-    <button type="button" onClick={fire} aria-label={dir==='up'?'Previous product':'Next product'} title={dir==='up'?'Previous product':'Next product'} style={{ padding:0, background:'transparent', border:'none' }}>
-      <div aria-hidden style={{
-        width:28, height:28, borderRadius:'50%', display:'grid', placeItems:'center',
-        background: active ? 'var(--hover-green,#0bf05f)' : baseBg,
-        boxShadow:`0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}`,
-        transition:'background .12s ease',
-      }}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={dir==='up'?'Previous product':'Next product'}
+      title={dir==='up'?'Previous product':'Next product'}
+      style={{ padding:0, background:'transparent', border:'none' }}
+    >
+      <div
+        aria-hidden
+        style={{
+          width:28, height:28, borderRadius:'50%',
+          display:'grid', placeItems:'center',
+          background: active ? 'var(--hover-green,#0bf05f)' : baseBg,
+          boxShadow:`0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}`,
+          transition:'background .12s ease',
+        }}
+      >
         <svg width="14" height="14" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
           {dir==='up'
             ? <path d="M6 14l6-6 6 6" stroke={glyph} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
@@ -66,22 +46,19 @@ const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
 
-  const toggle = ()=>{
-    setOpen(v=>{
-      const next = !v;
-      const el = plusRef?.current;
-      if (el){
-        if (next) el.classList.add('is-active'); else el.classList.remove('is-active');
-        pulsePlusEl(el); // pulse on toggle, too
-      }
-      return next;
-    });
-  };
+  const toggle = ()=> setOpen(v=>{
+    const next = !v;
+    // maintain .is-active for styling the “–” state (grey), no green flash
+    if (plusRef?.current){
+      plusRef.current.classList.toggle('is-active', next);
+      plusRef.current.classList.toggle('is-ready',  next);
+    }
+    return next;
+  });
 
   const pick = (sz)=>{
     setPicked(sz);
     try { window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }})); } catch {}
-    setTimeout(()=>setPicked(null), 320);
   };
 
   return (
@@ -89,7 +66,7 @@ const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M
       <button
         ref={plusRef}
         type="button"
-        className={`pill plus-pill ${open ? 'is-active' : ''}`}
+        className={`pill plus-pill ${open ? 'is-active is-ready' : ''}`}
         onClick={toggle}
         aria-label={open?'Close sizes':'Choose size'}
         title={open?'Close sizes':'Choose size'}
@@ -116,7 +93,8 @@ const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M
 });
 
 /* -------------------------- Swipe Engine (mobile) ----------------------- */
-function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce, onPulse }) {
+/* One product step per gesture (prevents ultra-fast scroll on mobile) */
+function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce }) {
   const s = useRef({ down:false, x:0, y:0, stepped:false });
   const coarse =
     typeof window !== 'undefined' &&
@@ -139,14 +117,14 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce, onPuls
     const dy = p.clientY - s.current.y;
 
     if (imgsLen){
-      while (dx <= -STEP_X) { s.current.x -= STEP_X; setImgIdx(i=>clamp(i+1,0,imgsLen-1)); onPulse?.(); }
-      while (dx >=  STEP_X) { s.current.x += STEP_X; setImgIdx(i=>clamp(i-1,0,imgsLen-1)); onPulse?.(); }
+      while (dx <= -STEP_X) { s.current.x -= STEP_X; setImgIdx(i=>clamp(i+1,0,imgsLen-1)); }
+      while (dx >=  STEP_X) { s.current.x += STEP_X; setImgIdx(i=>clamp(i-1,0,imgsLen-1)); }
     }
     if (!s.current.stepped && prodsLen>1){
-      if (dy <= -STEP_Y) { s.current.stepped = true; stepProductOnce(+1); onPulse?.(); }
-      if (dy >=  STEP_Y) { s.current.stepped = true; stepProductOnce(-1); onPulse?.(); }
+      if (dy <= -STEP_Y) { s.current.stepped = true; stepProductOnce(+1); }
+      if (dy >=  STEP_Y) { s.current.stepped = true; stepProductOnce(-1); }
     }
-  }, [imgsLen, prodsLen, setImgIdx, stepProductOnce, onPulse]);
+  }, [imgsLen, prodsLen, setImgIdx, stepProductOnce]);
 
   const onUp = useCallback(()=>{ s.current.down=false; }, []);
   return { onDown, onMove, onUp };
@@ -168,8 +146,13 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   const clampedImgIdx = useMemo(()=>clamp(imgIdx, 0, Math.max(0, imgs.length-1)), [imgIdx, imgs.length]);
 
+  // arrow tick states
+  const [upTick, setUpTick] = useState(false);
+  const [dnTick, setDnTick] = useState(false);
+  const tickUp = useCallback(()=>{ setUpTick(true);  setTimeout(()=>setUpTick(false), 160); }, []);
+  const tickDn = useCallback(()=>{ setDnTick(true);  setTimeout(()=>setDnTick(false), 160); }, []);
+
   const plusRef = useRef(null);
-  const pulsePlus = useCallback(()=>pulsePlusEl(plusRef.current), []);
 
   /* Close overlay when orb zooms */
   useEffect(() => {
@@ -187,19 +170,19 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     const onKey = (e) => {
       if (e.key==='Escape') return onClose?.();
       if (imgs.length) {
-        if (e.key==='ArrowRight') { setImgIdx(i=>clamp(i+1,0,imgs.length-1)); pulsePlus(); return; }
-        if (e.key==='ArrowLeft')  { setImgIdx(i=>clamp(i-1,0,imgs.length-1)); pulsePlus(); return; }
+        if (e.key==='ArrowRight') return setImgIdx(i=>clamp(i+1,0,imgs.length-1));
+        if (e.key==='ArrowLeft')  return setImgIdx(i=>clamp(i-1,0,imgs.length-1));
       }
       if (products.length>1) {
-        if (e.key==='ArrowDown') { onIndexChange?.(wrap(index+1, products.length)); pulsePlus(); return; }
-        if (e.key==='ArrowUp')   { onIndexChange?.(wrap(index-1, products.length)); pulsePlus(); return; }
+        if (e.key==='ArrowDown'){ onIndexChange?.(wrap(index+1, products.length)); tickDn(); return; }
+        if (e.key==='ArrowUp')  { onIndexChange?.(wrap(index-1, products.length)); tickUp(); return; }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [imgs.length, products.length, index, onIndexChange, pulsePlus, onClose]);
+  }, [imgs.length, products.length, index, onIndexChange, onClose, tickUp, tickDn]);
 
-  /* Wheel – pulse on every product/image step */
+  /* Wheel – tick arrow for every product step */
   const lastDirRef = useRef(0);
   const lastTimeRef = useRef(0);
   useEffect(() => {
@@ -210,30 +193,28 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         const dir = e.deltaX>0?1:-1;
         if (now - lastTimeRef.current > 120 || dir !== lastDirRef.current){
           setImgIdx(i=>clamp(i + dir, 0, imgs.length-1));
-          pulsePlus();
           lastTimeRef.current = now; lastDirRef.current = dir;
         }
       } else if (products.length>1) {
-        const dir = e.deltaY>0?1:-1;
+        const dir = e.deltaY>0?1:-1;                 // down = next
         if (now - lastTimeRef.current > 120 || dir !== lastDirRef.current){
           onIndexChange?.(wrap(index + dir, products.length));
-          pulsePlus();
+          if (dir>0) tickDn(); else tickUp();
           lastTimeRef.current = now; lastDirRef.current = dir;
         }
       }
     };
     window.addEventListener('wheel', onWheel, { passive:true });
     return () => window.removeEventListener('wheel', onWheel);
-  }, [imgs.length, products.length, index, onIndexChange, pulsePlus]);
+  }, [imgs.length, products.length, index, onIndexChange, tickUp, tickDn]);
 
-  /* Swipe – one product step per gesture */
+  /* Swipe – one product step per gesture + tick */
   const swipe = useSwipe({
     imgsLen: imgs.length,
     prodsLen: products.length,
     index,
     setImgIdx,
-    stepProductOnce: (dir)=>{ onIndexChange?.(wrap(index + (dir>0?1:-1), products.length)); },
-    onPulse: pulsePlus,
+    stepProductOnce: (dir)=>{ onIndexChange?.(wrap(index + (dir>0?1:-1), products.length)); if (dir>0) tickDn(); else tickUp(); },
   });
 
   /* Overlay flag for page styles */
@@ -241,12 +222,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     document.documentElement.setAttribute('data-overlay-open','1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
   }, []);
-
-  /* SAFETY NET: pulse any time index prop actually changes */
-  const prevIndex = useRef(index);
-  useEffect(()=>{
-    if (prevIndex.current !== index){ pulsePlus(); prevIndex.current = index; }
-  }, [index, pulsePlus]);
 
   if (!product) return null;
 
@@ -288,8 +263,18 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center', zIndex:521 }}>
           {products.length>1 && (
             <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
-              <ArrowControl dir="up"   night={night} onPulse={pulsePlus} onClick={()=>onIndexChange?.(wrap(index-1, products.length))} />
-              <ArrowControl dir="down" night={night} onPulse={pulsePlus} onClick={()=>onIndexChange?.(wrap(index+1, products.length))} />
+              <ArrowControl
+                dir="up"
+                night={night}
+                active={upTick}
+                onClick={()=>{ onIndexChange?.(wrap(index-1, products.length)); tickUp(); }}
+              />
+              <ArrowControl
+                dir="down"
+                night={night}
+                active={dnTick}
+                onClick={()=>{ onIndexChange?.(wrap(index+1, products.length)); tickDn(); }}
+              />
             </div>
           )}
 
@@ -315,7 +300,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
                       type="button"
                       aria-label={`Image ${i+1}`}
                       className={`pill dot-pill ${i===clampedImgIdx ? 'is-active' : ''}`}
-                      onClick={()=>{ setImgIdx(i); pulsePlus(); }}
+                      onClick={()=>setImgIdx(i)}
                       style={{ width:18, height:18, padding:0 }}
                     />
                   ))}
