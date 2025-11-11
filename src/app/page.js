@@ -1,3 +1,4 @@
+// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
@@ -8,55 +9,46 @@ import products from '@/lib/products';
 
 const LandingGate        = nextDynamic(() => import('@/components/LandingGate'),        { ssr: false });
 const ShopGrid           = nextDynamic(() => import('@/components/ShopGrid'),           { ssr: false });
-const ChakraOrbButton    = nextDynamic(() => import('@/components/ChakraOrbButton'),    { ssr: false });
-const CartButton         = nextDynamic(() => import('@/components/CartButton'),         { ssr: false });
-const DayNightToggle     = nextDynamic(() => import('@/components/DayNightToggle'),     { ssr: false });
-const BannedLogin        = nextDynamic(() => import('@/components/BannedLogin'),        { ssr: false });
+const HeaderBar          = nextDynamic(() => import('@/components/HeaderBar'),          { ssr: false });
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), { ssr: false });
 const HeartBeatButton    = nextDynamic(() => import('@/components/HeartBeatButton'),    { ssr: false });
+const BannedLogin        = nextDynamic(() => import('@/components/BannedLogin'),        { ssr: false });
 
 const RUNNER_H = 14;
 
-/* Read --header-ctrl so header height + padding-top stay in sync with CSS */
-function useHeaderCtrlPx(defaultPx = 56) {
-  const [px, setPx] = useState(defaultPx);
+function useCssNumberVar(name, fallback = 56) {
+  const [n, setN] = useState(fallback);
   useEffect(() => {
     const read = () => {
       try {
-        const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
-        const n = parseInt(String(v).trim().replace('px',''), 10);
-        setPx(Number.isFinite(n) ? n : defaultPx);
-      } catch { setPx(defaultPx); }
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name) || `${fallback}px`;
+        const p = parseInt(String(v).trim().replace('px',''), 10);
+        setN(Number.isFinite(p) ? p : fallback);
+      } catch { setN(fallback); }
     };
     read();
     window.addEventListener('resize', read);
     return () => window.removeEventListener('resize', read);
-  }, [defaultPx]);
-  return px;
+  }, [name, fallback]);
+  return n;
 }
 
 export default function Page(){
-  const ctrlPx = useHeaderCtrlPx();
+  const ctrlPx = useCssNumberVar('--header-ctrl', 56);
+
   const [theme, setTheme]   = useState('day');
   const [isShop, setIsShop] = useState(false);
+  const [veil,  setVeil]    = useState(false);
+  const [veilColor, setVeilColor] = useState('#000');
   const [loginOpen, setLoginOpen] = useState(false);
 
-  // reflect mode/theme + header size + runner height (for heart offset)
+  // reflect runner height CSS var
   useEffect(() => {
     const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
-    root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
-    root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
     root.style.setProperty('--runner-h', `${RUNNER_H}px`);
-    if (isShop) {
-      root.setAttribute('data-shop-root','');
-      if (!root.style.getPropertyValue('--grid-cols')) root.style.setProperty('--grid-cols','5');
-    } else {
-      root.removeAttribute('data-shop-root');
-    }
-  }, [theme, isShop, ctrlPx]);
+  }, []);
 
-  // listen for theme-change events from the toggle
+  // theme-sync listener (from DayNightToggle)
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
@@ -67,66 +59,38 @@ export default function Page(){
     };
   }, []);
 
-  // Enter shop only AFTER cascade completes (LandingGate will call this)
+  // entering shop from cascade: fade the CURRENT background, not white
+  useEffect(() => {
+    if (!isShop) return;
+    try {
+      if (sessionStorage.getItem('fromCascade') === '1') {
+        // read computed background so we don't flash white
+        const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg')?.trim() || '#000';
+        setVeilColor(bg);
+        setVeil(true);
+        sessionStorage.removeItem('fromCascade');
+      }
+    } catch {}
+  }, [isShop]);
+
   const enterShop = () => setIsShop(true);
 
-  // Header layout
-  const headerStyle = useMemo(() => ({
-    position:'fixed',
-    inset:'0 0 auto 0',
-    height: ctrlPx,
-    zIndex: 500,
-    display:'grid',
-    gridTemplateColumns:'auto 1fr auto', // left • center • right
-    alignItems:'center',
-    padding:'0 16px',
-    background:'transparent',
-  }), [ctrlPx]);
+  const mainStyle = useMemo(() => ({ paddingTop: ctrlPx }), [ctrlPx]);
 
   return (
     <div className="lb-screen w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {!isShop ? (
         <main className="lb-screen">
-          {/* Gate keeps bg = black; LandingGate triggers enterShop when cascade finishes */}
           <LandingGate onCascadeComplete={enterShop} />
         </main>
       ) : (
         <>
-          {/* HEADER */}
-          <header role="banner" style={headerStyle}>
-            {/* LEFT: Day/Night (compact 24px) */}
-            <div style={{ display:'grid', justifyContent:'start' }}>
-              <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
-                <DayNightToggle
-                  className="select-none"
-                  circlePx={24}
-                  trackPad={6}
-                  moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
-                />
-              </div>
-            </div>
+          <HeaderBar />
 
-            {/* CENTER: Chakra Orb (hero 44px) */}
-            <div style={{ display:'grid', placeItems:'center' }}>
-              <ChakraOrbButton
-                size={44}
-                className="orb-ring"
-                style={{ display:'grid', placeItems:'center' }}
-              />
-            </div>
-
-            {/* RIGHT: Cart (tight 28px) */}
-            <div style={{ display:'grid', justifyContent:'end' }}>
-              <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
-                <CartButton inHeader size={28} />
-              </div>
-            </div>
-          </header>
-
-          <main style={{ paddingTop: ctrlPx }}>
+          <main style={mainStyle}>
             <ShopGrid products={products} autoOpenFirstOnMount />
 
-            {/* Heart FAB (offset uses --runner-h in CSS) */}
+            {/* Heart FAB */}
             <HeartBeatButton
               className="heart-submit"
               aria-label="Open login"
@@ -143,7 +107,7 @@ export default function Page(){
                   zIndex:540,
                   display:'grid',
                   placeItems:'center',
-                  background:'#fff'
+                  background:'transparent',
                 }}
                 onClick={(e)=>{ if(e.target === e.currentTarget) setLoginOpen(false); }}
               >
@@ -159,6 +123,23 @@ export default function Page(){
             <ChakraBottomRunner height={RUNNER_H} speedSec={12} />
           </div>
         </>
+      )}
+
+      {veil && (
+        <div
+          aria-hidden="true"
+          style={{
+            position:'fixed',
+            inset:0,
+            background: veilColor,  // ← match current theme bg
+            opacity:1,
+            transition:'opacity .42s ease-out',
+            zIndex:200,
+            pointerEvents:'none'
+          }}
+          ref={(el)=> { if (el) requestAnimationFrame(() => { el.style.opacity = '0'; }); }}
+          onTransitionEnd={() => setVeil(false)}
+        />
       )}
     </div>
   );

@@ -1,21 +1,18 @@
+// src/components/HeaderBar.jsx
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import nextDynamic from 'next/dynamic';
-
-const ChakraOrbButton = nextDynamic(() => import('@/components/ChakraOrbButton'), { ssr: false });
-const DayNightToggle  = nextDynamic(() => import('@/components/DayNightToggle'),  { ssr: false });
-const CartButton      = nextDynamic(() => import('@/components/CartButton'),      { ssr: false });
+import ChakraOrbButton from '@/components/ChakraOrbButton';
+import DayNightToggle from '@/components/DayNightToggle';
+import CartButton from '@/components/CartButton';
 
 export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
-  // fixed rails so orb can be bigger than header height
-  const railPx    = useResponsive({ desktop: 44, mobile: 44 });
-  const orbPx     = useResponsive({ desktop: 80, mobile: 60 });
-  const togglePx  = useResponsive({ desktop: 22, mobile: 20 });
-  const cartImgPx = useResponsive({ desktop: 28, mobile: 26 });
+  // Compact control size so the orb can dominate visually
+  const ctrlPx = useResponsiveCtrlPx({ desktop: 36, mobile: 32, bp: 520 });
 
   const [isNight, setIsNight] = useState(false);
 
+  // boot theme from storage or system
   useEffect(() => {
     try {
       const saved = localStorage.getItem('lb:theme');
@@ -24,66 +21,85 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
     } catch {}
   }, []);
 
+  // reflect mode + theme + control size
   useEffect(() => {
     try {
       const root = document.querySelector(rootSelector) || document.documentElement;
       root.setAttribute('data-mode', 'shop');
       root.setAttribute('data-theme', isNight ? 'night' : 'day');
       localStorage.setItem('lb:theme', isNight ? 'night' : 'day');
-      document.documentElement.style.setProperty('--header-ctrl', `${railPx}px`);
+      document.documentElement.style.setProperty('--header-ctrl', `${ctrlPx}px`);
+      // mark the shop root so globals.css can hide the big 3D logo
+      document.documentElement.setAttribute('data-shop-root', '');
     } catch {}
-  }, [isNight, railPx, rootSelector]);
+  }, [isNight, rootSelector, ctrlPx]);
 
-  const headerStyle = useMemo(() => ({
-    position: 'fixed',
-    inset: '0 0 auto 0',
-    zIndex: 500,
-    height: railPx,
-    display: 'grid',
-    gridTemplateColumns: `${railPx}px 1fr ${railPx}px`,
-    alignItems: 'center',
-    padding: '0 var(--header-pad-x)',
-    background: 'transparent'
-  }), [railPx]);
+  // sizes
+  const sizes = useMemo(() => {
+    return {
+      box: ctrlPx,          // container square for the side controls
+      toggleDot: 22,        // toggle “sun/moon” circle size
+      cartImg: 28,          // purse image actual size (CSS also enforces)
+      orb: Math.round(ctrlPx * 1.9), // make orb clearly larger than everything
+    };
+  }, [ctrlPx]);
 
   return (
-    <header role="banner" style={headerStyle}>
-      {/* LEFT — tiny toggle */}
-      <div style={{ display:'grid', placeItems:'center', height:railPx, width:railPx, lineHeight:0 }}>
-        <DayNightToggle
-          className="select-none"
-          circlePx={togglePx}
-          trackPad={6}
-          value={isNight ? 'night' : 'day'}
-          onChange={(t) => setIsNight(t === 'night')}
-          moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
-        />
+    <header
+      role="banner"
+      className="w-full"
+      style={{
+        position: 'fixed',
+        inset: '0 0 auto 0',
+        zIndex: 500,
+        height: `var(--header-ctrl)`,
+        display: 'grid',
+        gridTemplateColumns: '1fr auto 1fr',
+        alignItems: 'center',
+        padding: '0 var(--header-pad-x)',
+        background: 'transparent',
+      }}
+    >
+      {/* LEFT: day/night toggle */}
+      <div className="flex items-center" style={{ lineHeight: 0 }}>
+        <div style={{ height: sizes.box, width: sizes.box, display: 'grid', placeItems: 'center' }}>
+          <DayNightToggle
+            className="select-none"
+            circlePx={sizes.toggleDot}
+            trackPad={1}
+            value={isNight ? 'night' : 'day'}
+            onChange={(t) => setIsNight(t === 'night')}
+            moonImages={['/toggle/moon-red.png', '/toggle/moon-blue.png']}
+          />
+        </div>
       </div>
 
-      {/* CENTER — big orb */}
-      <div style={{ display:'grid', placeItems:'center', lineHeight:0 }}>
-        <ChakraOrbButton
-          size={orbPx}
-          className="orb-ring"
-          style={{ width: orbPx, height: orbPx, display:'grid', placeItems:'center' }}
-        />
+      {/* CENTER: ORB — larger than everything else */}
+      <div className="flex items-center justify-center" style={{ lineHeight: 0 }}>
+        <ChakraOrbButton size={sizes.orb} />
       </div>
 
-      {/* RIGHT — compact cart */}
-      <div style={{ display:'grid', placeItems:'center', height:railPx, width:railPx, lineHeight:0 }}>
-        <CartButton size={cartImgPx} inHeader />
+      {/* RIGHT: cart */}
+      <div className="flex items-center justify-end" style={{ lineHeight: 0 }}>
+        <div style={{ height: sizes.box, width: sizes.box, display: 'grid', placeItems: 'center' }}>
+          <CartButton size={sizes.cartImg} inHeader />
+        </div>
       </div>
     </header>
   );
 }
 
-function useResponsive({ desktop, mobile, bp = 480 }) {
-  const calc = () => (typeof window !== 'undefined' && window.innerWidth <= bp) ? mobile : desktop;
-  const [val, setVal] = useState(calc);
+function useResponsiveCtrlPx({ desktop = 36, mobile = 32, bp = 520 } = {}) {
+  const pick = () =>
+    typeof window !== 'undefined' && window.innerWidth <= bp ? mobile : desktop;
+
+  const [px, setPx] = useState(pick);
+
   useEffect(() => {
-    const onR = () => setVal(calc());
-    window.addEventListener('resize', onR);
-    return () => window.removeEventListener('resize', onR);
-  }, [desktop, mobile, bp]);
-  return val;
+    const onResize = () => setPx(pick());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [bp, desktop, mobile]);
+
+  return px;
 }
