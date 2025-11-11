@@ -1,4 +1,3 @@
-// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
@@ -9,46 +8,62 @@ import products from '@/lib/products';
 
 const LandingGate        = nextDynamic(() => import('@/components/LandingGate'),        { ssr: false });
 const ShopGrid           = nextDynamic(() => import('@/components/ShopGrid'),           { ssr: false });
-const HeaderBar          = nextDynamic(() => import('@/components/HeaderBar'),          { ssr: false });
+const ChakraOrbButton    = nextDynamic(() => import('@/components/ChakraOrbButton'),    { ssr: false });
+const CartButton         = nextDynamic(() => import('@/components/CartButton'),         { ssr: false });
+const DayNightToggle     = nextDynamic(() => import('@/components/DayNightToggle'),     { ssr: false });
+const BannedLogin        = nextDynamic(() => import('@/components/BannedLogin'),        { ssr: false });
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), { ssr: false });
 const HeartBeatButton    = nextDynamic(() => import('@/components/HeartBeatButton'),    { ssr: false });
-const BannedLogin        = nextDynamic(() => import('@/components/BannedLogin'),        { ssr: false });
 
 const RUNNER_H = 14;
 
-function useCssNumberVar(name, fallback = 56) {
-  const [n, setN] = useState(fallback);
+function useHeaderCtrlPx(defaultPx = 56) {
+  const [px, setPx] = useState(defaultPx);
   useEffect(() => {
     const read = () => {
       try {
-        const v = getComputedStyle(document.documentElement).getPropertyValue(name) || `${fallback}px`;
-        const p = parseInt(String(v).trim().replace('px',''), 10);
-        setN(Number.isFinite(p) ? p : fallback);
-      } catch { setN(fallback); }
+        const v = getComputedStyle(document.documentElement).getPropertyValue('--header-ctrl') || `${defaultPx}px`;
+        const n = parseInt(String(v).trim().replace('px',''), 10);
+        setPx(Number.isFinite(n) ? n : defaultPx);
+      } catch { setPx(defaultPx); }
     };
     read();
     window.addEventListener('resize', read);
     return () => window.removeEventListener('resize', read);
-  }, [name, fallback]);
-  return n;
+  }, [defaultPx]);
+  return px;
 }
 
 export default function Page(){
-  const ctrlPx = useCssNumberVar('--header-ctrl', 56);
-
+  const ctrlPx = useHeaderCtrlPx();
   const [theme, setTheme]   = useState('day');
   const [isShop, setIsShop] = useState(false);
   const [veil,  setVeil]    = useState(false);
-  const [veilColor, setVeilColor] = useState('#000');
   const [loginOpen, setLoginOpen] = useState(false);
 
-  // reflect runner height CSS var
+  // reflect mode/theme + header size + runner height (for heart offset)
   useEffect(() => {
     const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
+    root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
     root.style.setProperty('--runner-h', `${RUNNER_H}px`);
-  }, []);
+    if (isShop) {
+      root.setAttribute('data-shop-root','');
+      if (!root.style.getPropertyValue('--grid-cols')) root.style.setProperty('--grid-cols','5');
+    } else {
+      root.removeAttribute('data-shop-root');
+    }
+  }, [theme, isShop, ctrlPx]);
 
-  // theme-sync listener (from DayNightToggle)
+  // overlay flag to CSS (locks scroll + styles)
+  useEffect(() => {
+    const root = document.documentElement;
+    if (loginOpen) root.setAttribute('data-overlay-open', '1');
+    else root.removeAttribute('data-overlay-open');
+  }, [loginOpen]);
+
+  // listen for theme-change events from the toggle
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day');
     window.addEventListener('theme-change', onTheme);
@@ -59,14 +74,11 @@ export default function Page(){
     };
   }, []);
 
-  // entering shop from cascade: fade the CURRENT background, not white
+  // black veil when entering shop via cascade (no white)
   useEffect(() => {
     if (!isShop) return;
     try {
       if (sessionStorage.getItem('fromCascade') === '1') {
-        // read computed background so we don't flash white
-        const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg')?.trim() || '#000';
-        setVeilColor(bg);
         setVeil(true);
         sessionStorage.removeItem('fromCascade');
       }
@@ -75,7 +87,21 @@ export default function Page(){
 
   const enterShop = () => setIsShop(true);
 
-  const mainStyle = useMemo(() => ({ paddingTop: ctrlPx }), [ctrlPx]);
+  const headerStyle = useMemo(() => ({
+    position:'fixed',
+    inset:'0 0 auto 0',
+    height: ctrlPx,
+    zIndex: 500,
+    display:'grid',
+    gridTemplateColumns:'var(--header-ctrl) 1fr var(--header-ctrl)', // left • center • right
+    alignItems:'center',
+    padding:'0 var(--header-pad-x)',
+    background:'transparent',
+    overflow:'visible',
+  }), [ctrlPx]);
+
+  // Heart toggles BANNED overlay open/close
+  const onHeart = () => setLoginOpen(v => !v);
 
   return (
     <div className="lb-screen w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
@@ -85,16 +111,39 @@ export default function Page(){
         </main>
       ) : (
         <>
-          <HeaderBar />
+          <header role="banner" style={headerStyle}>
+            {/* LEFT: Day/Night Toggle (28px glyph inside 56px cell) */}
+            <div style={{ height: ctrlPx, width: 'var(--header-ctrl)', display:'grid', placeItems:'center' }}>
+              <DayNightToggle
+                circlePx={28}
+                trackPad={1}
+                moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
+              />
+            </div>
 
-          <main style={mainStyle}>
+            {/* CENTER: Chakra Orb (universal 72px) */}
+            <div style={{ display:'grid', placeItems:'center', pointerEvents:'auto' }}>
+              <ChakraOrbButton
+                size={72}
+                className="orb-ring"
+                style={{ display:'grid', placeItems:'center' }}
+              />
+            </div>
+
+            {/* RIGHT: Cart (anchored to far right, 28px glyph) */}
+            <div style={{ height: ctrlPx, width: 'var(--header-ctrl)', display:'grid', placeItems:'center' }}>
+              <CartButton size={28} inHeader />
+            </div>
+          </header>
+
+          <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
 
             {/* Heart FAB */}
             <HeartBeatButton
               className="heart-submit"
-              aria-label="Open login"
-              onClick={() => setLoginOpen(true)}
+              aria-label={loginOpen ? 'Close login' : 'Open login'}
+              onClick={onHeart}
             />
 
             {loginOpen && (
@@ -102,12 +151,10 @@ export default function Page(){
                 role="dialog"
                 aria-modal="true"
                 style={{
-                  position:'fixed',
-                  inset:0,
-                  zIndex:540,
-                  display:'grid',
-                  placeItems:'center',
-                  background:'transparent',
+                  position:'fixed', inset:0, zIndex:540,
+                  display:'grid', placeItems:'center',
+                  /* KEY: opaque black — no transparency on mobile */
+                  background:'#000'
                 }}
                 onClick={(e)=>{ if(e.target === e.currentTarget) setLoginOpen(false); }}
               >
@@ -118,25 +165,18 @@ export default function Page(){
             )}
           </main>
 
-          {/* Runner pinned to the physical bottom, safe-area aware */}
+          {/* Runner pinned */}
           <div className="lb-chakra-runner">
             <ChakraBottomRunner height={RUNNER_H} speedSec={12} />
           </div>
         </>
       )}
 
+      {/* Black veil (not white) after cascade */}
       {veil && (
         <div
           aria-hidden="true"
-          style={{
-            position:'fixed',
-            inset:0,
-            background: veilColor,  // ← match current theme bg
-            opacity:1,
-            transition:'opacity .42s ease-out',
-            zIndex:200,
-            pointerEvents:'none'
-          }}
+          style={{ position:'fixed', inset:0, background:'#000', opacity:1, transition:'opacity .42s ease-out', zIndex:200, pointerEvents:'none' }}
           ref={(el)=> { if (el) requestAnimationFrame(() => { el.style.opacity = '0'; }); }}
           onTransitionEnd={() => setVeil(false)}
         />

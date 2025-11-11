@@ -1,4 +1,3 @@
-/* src/app/globals.css */
 @import "tailwindcss";
 
 /* ========== Tokens ======================================================= */
@@ -21,9 +20,12 @@
   /* shop palette */
   --shop-offwhite:#F7F7F2;
 
-  /* header controls (orb/toggle/cart) */
+  /* header controls (toggle/cart) */
   --header-ctrl:56px;
   --header-pad-x:16px;
+
+  /* universal orb size (matches BANNED) */
+  --orb-px:72px;
 
   /* product grid columns (1..5) */
   --grid-cols:5;
@@ -65,9 +67,7 @@ html,body{
   --bg:#000; --text:#fff;
   background:#000 !important;
 }
-:root[data-mode="gate"] *{
-  transition-property: none !important;
-}
+:root[data-mode="gate"] *{ transition-property:none !important; }
 
 /* Prevent background scroll while a product overlay is open */
 html[data-overlay-open]{ overflow:hidden; }
@@ -80,16 +80,13 @@ html[data-overlay-open]{ overflow:hidden; }
 /* ========== Helpers (viewport + bottom fill) ============================ */
 .lb-screen{ min-height:100svh; min-height:100dvh; min-height:100vh; background:var(--bg); }
 
-/* Centered section helper */
 .page-center{ min-height:100svh; display:grid; place-items:center; gap:18px; padding:2rem; }
 
 .row-nowrap{ display:flex; align-items:center; gap:14px; flex-wrap:nowrap; }
 .florida-inline{ display:block!important; text-align:center!important; margin-left:auto!important; margin-right:auto!important; }
 
-/* Pin the Chakra runner to the physical bottom */
+/* Runner pinned to bottom */
 .lb-chakra-runner{ position:fixed; left:0; right:0; bottom:0; z-index:50; pointer-events:none; }
-
-/* Paint UNDER Safari’s toolbar so no white ever shows */
 .lb-bottom-fill{
   position:fixed; left:0; right:0; bottom:0;
   height: var(--safe-bottom);
@@ -99,7 +96,7 @@ html[data-overlay-open]{ overflow:hidden; }
 }
 .lb-chakra-runner > *{ pointer-events:auto; }
 
-/* ========== Neon card (legacy; not used by gate now) ==================== */
+/* ========== Neon card (legacy) ========================================= */
 .vscode-card{
   background:var(--panel);
   border:2px solid var(--accent);
@@ -130,13 +127,12 @@ html[data-overlay-open]{ overflow:hidden; }
 
 /* ================== RAF CASCADE ======================================== */
 .chakra-overlay{
-  position:fixed; inset:0;
-  z-index:10001;
+  position:fixed; inset:0; z-index:10001;
   display:grid; grid-template-columns:repeat(7,1fr);
   pointer-events:none;
-  direction:rtl;
-  isolation:isolate;
-  background:transparent;
+  direction:rtl; isolation:isolate;
+  /* KEY: solid black backing kills any white flash */
+  background:#000;
 }
 .chakra-band{
   position:relative;
@@ -171,8 +167,7 @@ html[data-overlay-open]{ overflow:hidden; }
 :root[data-mode="shop"][data-theme="night"] { --bg:#000;               --panel:#000;               --text:#fff; }
 
 :root[data-mode="shop"]{
-  background:var(--bg);
-  color:var(--text);
+  background:var(--bg); color:var(--text);
   transition:background-color .35s ease, color .35s ease;
 }
 
@@ -181,14 +176,15 @@ html[data-overlay-open]{ overflow:hidden; }
   z-index: 500 !important;
   background:transparent!important; box-shadow:none!important; border:0!important;
   height: var(--header-ctrl);
-  display: grid;
-  grid-template-columns: 56px 1fr 56px;
-  align-items: center;
+  display:grid;
+  grid-template-columns: var(--header-ctrl) 1fr var(--header-ctrl);
+  align-items:center;
   padding: 0 var(--header-pad-x);
+  overflow:visible;   /* orb can be larger than header height */
 }
-:root[data-mode="shop"] header[role="banner"] > *:first-child  { justify-self: start;  }
-:root[data-mode="shop"] header[role="banner"] > *:nth-child(2) { justify-self: center; }
-:root[data-mode="shop"] header[role="banner"] > *:last-child   { justify-self: end;    }
+:root[data-mode="shop"] header[role="banner"] > *:first-child  { justify-self:start;  }
+:root[data-mode="shop"] header[role="banner"] > *:nth-child(2) { justify-self:center; }
+:root[data-mode="shop"] header[role="banner"] > *:last-child   { justify-self:end;    }
 
 /* Remove stray whites */
 :root[data-mode="shop"] .shop-page,
@@ -207,7 +203,7 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
 :root[data-mode="shop"] .bubble-button:hover{ box-shadow:none!important; }
 :root[data-mode="shop"] .bubble-glow-blue{ animation:none!important; }
 
-/* ========== Cart ======================================================== */
+/* ========== Cart (header) ============================================== */
 .cart-fab{
   position:relative; display:inline-flex; align-items:center; justify-content:center;
   width:48px; height:48px; padding:0; border:0; background:transparent; cursor:pointer;
@@ -223,7 +219,8 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
   color:#000; background:var(--hover-green,#0bf05f); box-shadow:0 0 0 1px rgba(0,0,0,.25); pointer-events:none;
 }
 :root[data-mode="shop"] header[role="banner"] .cart-fab{
-  position:static!important; width:auto; height:var(--header-ctrl); padding:6px 8px; display:inline-grid; place-items:center; border-radius:0!important;
+  position:static!important; width:auto; height:var(--header-ctrl);
+  padding:0; display:inline-grid; place-items:center; border-radius:0!important;
 }
 :root[data-mode="shop"] header[role="banner"] .cart-fab .cart-img-wrap{ width:28px !important; height:28px !important; }
 :root[data-mode="shop"][data-theme="day"]   header[role="banner"] .cart-fab{ color:#111; }
@@ -241,9 +238,7 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
   grid-template-columns: repeat(var(--grid-cols,5), minmax(0,1fr));
   gap:var(--gap);
 }
-@media (max-width:640px){
-  .shop-grid{ --gap:12px; }
-}
+@media (max-width:640px){ .shop-grid{ --gap:12px; } }
 
 .product-tile{ display:block; color:inherit; text-decoration:none; }
 .product-box{ aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:transparent; border:none; }
@@ -255,8 +250,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 /* ========== Product overlay ============================================= */
 .product-hero-overlay{
   position:fixed; inset:0; z-index:420;
-  background:transparent;
-  color:var(--text);
+  background:transparent; color:var(--text);
   display:flex; align-items:center; justify-content:center; padding:20px;
 }
 .product-hero{
@@ -291,7 +285,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 :root[data-mode="shop"] header [data-orb="density"]{
   padding:0!important; margin:0!important; border:0!important; background:transparent!important; line-height:0!important;
   border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
-  position:relative; z-index: 600 !important;
+  position:relative; z-index:600 !important;
 }
 [data-orb="density"], [data-orb="density"] *{ outline:0!important; box-shadow:none!important; }
 :root[data-mode="shop"] header [data-orb="density"]:focus,
@@ -299,10 +293,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 [data-orb="density"]:focus,
 [data-orb="density"]:focus-visible{ outline:0!important; box-shadow:none!important; }
 :root[data-mode="shop"] header [data-orb="density"] canvas{
-  display:block !important;
-  opacity:1 !important;
-  visibility:visible !important;
-  pointer-events:auto !important;
+  display:block !important; opacity:1 !important; visibility:visible !important; pointer-events:auto !important;
 }
 
 /* Code weight accents */
@@ -314,11 +305,8 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 :root[data-mode="gate"] .login-card code{ white-space:pre-wrap!important; word-break:break-word!important; overflow-wrap:anywhere!important; }
 
 /* ===== Pills – circle match to arrow buttons ============================ */
-.pill{
-  display:inline-grid; place-items:center;
-  border:none; font-weight:800;
-  transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease;
-}
+.pill{ display:inline-grid; place-items:center; border:none; font-weight:800;
+  transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease; }
 
 /* + open/close (28x28 circle) */
 .plus-pill{
@@ -334,7 +322,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
   background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
 }
 
-/* size pills (28x28 circle, same ring/press) */
+/* size pills (28x28) */
 .size-pill{
   width:28px; height:28px; border-radius:9999px; font-size:12px;
   background:var(--circle-day); color:var(--glyph-day);
@@ -385,8 +373,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 
 /* Florida link (true yellow on hover) */
 .florida-link{
-  font-weight:800;
-  color:#fff;
+  font-weight:800; color:#fff;
   transition: filter .15s ease, text-shadow .15s ease, color .15s ease;
 }
 :root[data-theme="day"] .florida-link{ color:#111; }
@@ -398,8 +385,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 
 /* TIME link — white glow on hover/click */
 .time-link{
-  font-weight:800;
-  color:inherit;
+  font-weight:800; color:inherit;
   transition: color .15s ease, text-shadow .15s ease, filter .15s ease;
 }
 .time-link:hover,
