@@ -72,7 +72,7 @@ function CascadeOverlayRAF({
   useEffect(() => { cb.current?.(whiteP); }, [whiteP]);
 
   // Absolutely hide white until it meaningfully exists
-  const whiteVisible = whiteRaw > 0.06; // buffer to kill pre-flicker
+  const whiteVisible = whiteRaw > 0.06;
 
   return createPortal(
     <>
@@ -210,10 +210,11 @@ export default function LandingGate({ onCascadeComplete }) {
   // phases: idle → cascade → hold → curtain → done
   const [phase, setPhase] = useState('idle');
   const [hovered, setHovered] = useState(false);
-  const [whiteP, setWhiteP] = useState(0);
+  const [whiteP, setWhiteP] = useState(0); // reserved if you want to key behaviors off sheet progress later
   const labelRef = useRef(null);
   const locked = useRef(false);
 
+  // Measure label center once; pass the SAME x,y everywhere (no hooks inside render)
   const { x, y } = useCenter(labelRef);
 
   const start = useCallback(() => {
@@ -235,7 +236,7 @@ export default function LandingGate({ onCascadeComplete }) {
   const titleColor = (phase === 'curtain' || phase === 'done') ? '#000' : '#fff';
   const titleGlow  = !(phase === 'curtain' || phase === 'done');
 
-  // Spacing: make (orb ↔ time) equal to (time ↔ Florida)
+  // Spacing: (orb ↔ time) == (time ↔ Florida)
   const STACK_GAP = 6; // px
 
   return (
@@ -344,22 +345,14 @@ export default function LandingGate({ onCascadeComplete }) {
 
       {/* Floating “LAMEBOY, USA” — stays glowing white until curtain */}
       {(phase === 'cascade' || phase === 'hold' || phase === 'curtain') && (
-        <FloatingTitle
-          x={labelRef.current ? undefined : 0}
-          y={labelRef.current ? undefined : 0}
-          // If ref is not measured yet, fallback to center via CSS trick below
-          text="LAMEBOY, USA"
-          color={titleColor}
-          glow={titleGlow}
-          z={10003}
-        />
+        <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color={titleColor} glow={titleGlow} z={10003} />
       )}
 
       {/* White curtain (only orb + LAMEBOY; clock hidden) */}
       {phase === 'curtain' && (
         <WhiteCurtain
-          x={useCenter(labelRef).x}
-          y={useCenter(labelRef).y}
+          x={x}
+          y={y}
           onDone={() => {
             setPhase('done');
             try { onCascadeComplete?.(); } catch {}
