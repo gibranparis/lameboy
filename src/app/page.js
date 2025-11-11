@@ -1,4 +1,3 @@
-// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
@@ -40,14 +39,13 @@ export default function Page(){
   const ctrlPx = useHeaderCtrlPx();
   const [theme, setTheme]   = useState('day');
   const [isShop, setIsShop] = useState(false);
-  const [veil,  setVeil]    = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
 
   // reflect mode/theme + header size + runner height (for heart offset)
   useEffect(() => {
     const root = document.documentElement;
-    root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
     root.setAttribute('data-theme', theme);
+    root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
     root.style.setProperty('--runner-h', `${RUNNER_H}px`);
     if (isShop) {
@@ -69,20 +67,10 @@ export default function Page(){
     };
   }, []);
 
-  // white veil when entering shop via cascade
-  useEffect(() => {
-    if (!isShop) return;
-    try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
-        setVeil(true);
-        sessionStorage.removeItem('fromCascade');
-      }
-    } catch {}
-  }, [isShop]);
-
+  // Enter shop only AFTER cascade completes (LandingGate will call this)
   const enterShop = () => setIsShop(true);
 
-  // Header
+  // Header layout
   const headerStyle = useMemo(() => ({
     position:'fixed',
     inset:'0 0 auto 0',
@@ -95,48 +83,48 @@ export default function Page(){
     background:'transparent',
   }), [ctrlPx]);
 
-  // Sizing: make orb dominant, cart smaller
-  const ORB_DESKTOP = 80;
-  const ORB_MOBILE  = 60;
-  const orbPx = typeof window !== 'undefined' && window.innerWidth <= 480 ? ORB_MOBILE : ORB_DESKTOP;
-
   return (
     <div className="lb-screen w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {!isShop ? (
         <main className="lb-screen">
+          {/* Gate keeps bg = black; LandingGate triggers enterShop when cascade finishes */}
           <LandingGate onCascadeComplete={enterShop} />
         </main>
       ) : (
         <>
+          {/* HEADER */}
           <header role="banner" style={headerStyle}>
-            {/* LEFT: Day/Night Toggle (compact) */}
+            {/* LEFT: Day/Night (compact 24px) */}
             <div style={{ display:'grid', justifyContent:'start' }}>
-              <DayNightToggle
-                className="select-none"
-                circlePx={36}
-                trackPad={6}
-                moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
-              />
+              <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
+                <DayNightToggle
+                  className="select-none"
+                  circlePx={24}
+                  trackPad={6}
+                  moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
+                />
+              </div>
             </div>
 
-            {/* CENTER: Chakra Orb (dominant) */}
+            {/* CENTER: Chakra Orb (hero 44px) */}
             <div style={{ display:'grid', placeItems:'center' }}>
               <ChakraOrbButton
-                size={orbPx}
-                tightHitbox
+                size={44}
+                className="orb-ring"
+                style={{ display:'grid', placeItems:'center' }}
               />
             </div>
 
-            {/* RIGHT: Cart (smaller than orb) */}
+            {/* RIGHT: Cart (tight 28px) */}
             <div style={{ display:'grid', justifyContent:'end' }}>
-              <div style={{ height: 44, width: 44, display:'grid', placeItems:'center' }}>
-                <CartButton inHeader />
+              <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
+                <CartButton inHeader size={28} />
               </div>
             </div>
           </header>
 
           <main style={{ paddingTop: ctrlPx }}>
-            <ShopGrid products={products} />
+            <ShopGrid products={products} autoOpenFirstOnMount />
 
             {/* Heart FAB (offset uses --runner-h in CSS) */}
             <HeartBeatButton
@@ -171,15 +159,6 @@ export default function Page(){
             <ChakraBottomRunner height={RUNNER_H} speedSec={12} />
           </div>
         </>
-      )}
-
-      {veil && (
-        <div
-          aria-hidden="true"
-          style={{ position:'fixed', inset:0, background:'#fff', opacity:1, transition:'opacity .42s ease-out', zIndex:200, pointerEvents:'none' }}
-          ref={(el)=> { if (el) requestAnimationFrame(() => { el.style.opacity = '0'; }); }}
-          onTransitionEnd={() => setVeil(false)}
-        />
       )}
     </div>
   );
