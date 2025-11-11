@@ -57,19 +57,19 @@ function ArrowControl({ dir='up', night, onClick, dataUi }) {
 
 /* -------------------------- Sizes + (+/–) toggle ------------------------- */
 /**
- * UX sequence (unchanged footprint):
+ * UX sequence:
  * 1) Tap "+" → sizes open (icon "–")
- * 2) Tap size → that size pill flashes green (~420ms) AND the + pill flashes green (~220ms) to match arrows
+ * 2) Tap size → that size pill flashes green (~420ms) AND the + pill flashes green (~220ms)
  * 3) Sizes collapse
- * 4) The "+" visually disappears and an "Added" label (same style as price) is centered in its place
- * 5) After ~900ms, "Added" fades and the "+" reappears
+ * 4) "Added" (price-styled) shows in place of "+"
+ * 5) After ~900ms, "+" returns
  */
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
   const [hotSize, setHotSize] = useState(null);
 
-  // “Added” replaces the + (we hide the + pill’s glyph but keep its circle footprint)
+  // “Added” replaces the + (glyph hides, circle stays)
   const [showAdded, setShowAdded] = useState(false);
 
   // green flash on the + pill to mirror arrow flash visuals
