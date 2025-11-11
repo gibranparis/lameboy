@@ -4,23 +4,29 @@
 import Image from 'next/image';
 import React, { useEffect, useRef, useState, useMemo, useCallback, forwardRef } from 'react';
 
-/* ------------------------------- utils --------------------------------- */
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* Force the (+) pill to show the green state briefly */
-function forceGreen(el){
+/* Force (+) pill to solid green briefly regardless of CSS cascade */
+function pulsePlusEl(el){
   if (!el) return;
-  el.classList.add('is-ready');   // your green style hook
-  el.classList.add('is-active');  // ensure solid green even if closed
-  // reflow to guarantee a fresh animation frame
-  // eslint-disable-next-line no-unused-expressions
-  el.offsetHeight;
-  setTimeout(()=>{
-    // keep is-active if user actually opened sizes (shows “–”)
-    if (el.textContent.trim() === '+') el.classList.remove('is-active');
+  // inline styles beat any stylesheet collisions
+  const on = ()=> {
+    el.classList.add('pulse-green','is-ready');
+    el.style.background = 'var(--hover-green)';
+    el.style.color = '#000';
+    el.style.boxShadow = 'inset 0 0 0 1px rgba(0,0,0,.18)';
+  };
+  const off = ()=>{
     el.classList.remove('is-ready');
-  }, 260);
+    if (el.textContent.trim() === '+') el.classList.remove('is-active');
+    el.classList.remove('pulse-green');
+    el.style.background = '';
+    el.style.color = '';
+    el.style.boxShadow = '';
+  };
+  on();
+  setTimeout(off, 260);
 }
 
 /* ---------------------------- ArrowControl ----------------------------- */
@@ -66,7 +72,7 @@ const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M
       const el = plusRef?.current;
       if (el){
         if (next) el.classList.add('is-active'); else el.classList.remove('is-active');
-        forceGreen(el); // also flash when toggled
+        pulsePlusEl(el); // pulse on toggle, too
       }
       return next;
     });
@@ -110,10 +116,8 @@ const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M
 });
 
 /* -------------------------- Swipe Engine (mobile) ----------------------- */
-/* Exactly one vertical product step per gesture; sideways -> images.      */
 function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce, onPulse }) {
   const s = useRef({ down:false, x:0, y:0, stepped:false });
-
   const coarse =
     typeof window !== 'undefined' &&
     window.matchMedia &&
@@ -134,12 +138,10 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce, onPuls
     const dx = p.clientX - s.current.x;
     const dy = p.clientY - s.current.y;
 
-    // horizontal: page images (multi allowed)
     if (imgsLen){
       while (dx <= -STEP_X) { s.current.x -= STEP_X; setImgIdx(i=>clamp(i+1,0,imgsLen-1)); onPulse?.(); }
       while (dx >=  STEP_X) { s.current.x += STEP_X; setImgIdx(i=>clamp(i-1,0,imgsLen-1)); onPulse?.(); }
     }
-    // vertical: ONE product step per gesture
     if (!s.current.stepped && prodsLen>1){
       if (dy <= -STEP_Y) { s.current.stepped = true; stepProductOnce(+1); onPulse?.(); }
       if (dy >=  STEP_Y) { s.current.stepped = true; stepProductOnce(-1); onPulse?.(); }
@@ -166,11 +168,10 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   const clampedImgIdx = useMemo(()=>clamp(imgIdx, 0, Math.max(0, imgs.length-1)), [imgIdx, imgs.length]);
 
-  // (+) pill ref to force green
   const plusRef = useRef(null);
-  const pulsePlus = useCallback(()=>forceGreen(plusRef.current), []);
+  const pulsePlus = useCallback(()=>pulsePlusEl(plusRef.current), []);
 
-  /* Close overlay when orb zooms (heart/orb interactions) */
+  /* Close overlay when orb zooms */
   useEffect(() => {
     const h = () => onClose?.();
     ['lb:zoom','lb:zoom/grid-density'].forEach(n=>{
@@ -198,21 +199,28 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('keydown', onKey);
   }, [imgs.length, products.length, index, onIndexChange, pulsePlus, onClose]);
 
-  /* Wheel – one action every ~380ms to avoid turbo scroll; always pulse (+) */
-  const lastWheel = useRef(0);
+  /* Wheel – pulse on every product/image step */
+  const lastDirRef = useRef(0);
+  const lastTimeRef = useRef(0);
   useEffect(() => {
     const onWheel = (e) => {
       const now = performance.now();
-      if (now - lastWheel.current < 380) return;
-      lastWheel.current = now;
-
       const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
       if (ax > ay && imgs.length) {
-        setImgIdx(i=>clamp(i + (e.deltaX>0?1:-1), 0, imgs.length-1));
+        const dir = e.deltaX>0?1:-1;
+        if (now - lastTimeRef.current > 120 || dir !== lastDirRef.current){
+          setImgIdx(i=>clamp(i + dir, 0, imgs.length-1));
+          pulsePlus();
+          lastTimeRef.current = now; lastDirRef.current = dir;
+        }
       } else if (products.length>1) {
-        onIndexChange?.(wrap(index + (e.deltaY>0?1:-1), products.length));
+        const dir = e.deltaY>0?1:-1;
+        if (now - lastTimeRef.current > 120 || dir !== lastDirRef.current){
+          onIndexChange?.(wrap(index + dir, products.length));
+          pulsePlus();
+          lastTimeRef.current = now; lastDirRef.current = dir;
+        }
       }
-      pulsePlus();
     };
     window.addEventListener('wheel', onWheel, { passive:true });
     return () => window.removeEventListener('wheel', onWheel);
@@ -233,6 +241,12 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     document.documentElement.setAttribute('data-overlay-open','1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
   }, []);
+
+  /* SAFETY NET: pulse any time index prop actually changes */
+  const prevIndex = useRef(index);
+  useEffect(()=>{
+    if (prevIndex.current !== index){ pulsePlus(); prevIndex.current = index; }
+  }, [index, pulsePlus]);
 
   if (!product) return null;
 
@@ -265,19 +279,13 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         onPointerUp={swipe.onUp}
         onPointerCancel={swipe.onUp}
       >
-        {/* click-out area (keeps header clickable) */}
+        {/* click-out (header remains clickable) */}
         <div
           onClick={(e)=>{ e.stopPropagation(); onClose?.(); }}
-          style={{
-            position:'fixed',
-            left:0, right:0, bottom:0, top:'var(--header-ctrl,56px)',
-            background:'transparent',
-            pointerEvents:'auto',
-          }}
+          style={{ position:'fixed', left:0, right:0, bottom:0, top:'var(--header-ctrl,56px)', background:'transparent', pointerEvents:'auto' }}
         />
 
         <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center', zIndex:521 }}>
-          {/* arrows */}
           {products.length>1 && (
             <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
               <ArrowControl dir="up"   night={night} onPulse={pulsePlus} onClick={()=>onIndexChange?.(wrap(index-1, products.length))} />
@@ -285,7 +293,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
             </div>
           )}
 
-          {/* image + dots */}
           {!!imgs.length && (
             <>
               <Image
@@ -323,60 +330,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           <PlusSizesInline ref={plusRef} sizes={sizes} />
         </div>
       </div>
-
-      {/* inline pill styles (scoped + uses your global tokens) */}
-      <style jsx>{`
-        :root{
-          --circle-day: var(--circle-day, #ffffff);
-          --circle-night: var(--circle-night, #0b0c10);
-          --ring-day: var(--ring-day, rgba(0,0,0,.08));
-          --ring-night: var(--ring-night, rgba(255,255,255,.12));
-          --glyph-day: var(--glyph-day, #0f1115);
-          --glyph-night: var(--glyph-night, #ffffff);
-          --neon: var(--hover-green, #0bf05f);
-        }
-        .product-hero-overlay :global(.pill){
-          width:28px; height:28px; border-radius:9999px;
-          border:none; display:inline-grid; place-items:center;
-          font-weight:800; font-size:12px; line-height:1;
-          background: var(--circle-day); color: var(--glyph-day);
-          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
-          transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease;
-          padding:0;
-        }
-        :global(:root[data-theme="night"]) .product-hero-overlay :global(.pill){
-          background: var(--circle-night); color: var(--glyph-night);
-          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
-        }
-
-        .product-hero-overlay :global(.plus-pill){ font-size:18px; }
-        .product-hero-overlay :global(.plus-pill.is-active),
-        .product-hero-overlay :global(.plus-pill.is-ready){
-          background: var(--neon); color:#000;
-          box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
-        }
-
-        .product-hero-overlay :global(.size-pill.is-selected){
-          background: var(--neon); color:#000;
-          box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
-        }
-
-        .product-hero-overlay :global(.dot-pill){
-          border-radius:9999px; padding:0; width:18px; height:18px;
-          background:#ececec;
-        }
-        :global(:root[data-theme="night"]) .product-hero-overlay :global(.dot-pill){ background:#111; }
-        .product-hero-overlay :global(.dot-pill.is-active){
-          background: var(--neon); color:#000;
-          box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
-        }
-
-        @media (hover:hover){
-          .product-hero-overlay :global(.pill:hover){ transform: translateZ(0) scale(1.02); }
-        }
-        .product-hero-title{ margin-top:10px; font-weight:800; }
-        .product-hero-price{ opacity:.85; margin-top:2px; }
-      `}</style>
     </>
   );
 }
