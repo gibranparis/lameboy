@@ -283,13 +283,16 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
   position:relative; z-index: 600 !important;
 }
 [data-orb="density"], [data-orb="density"] *{ outline:0!important; box-shadow:none!important; }
+:root[data-mode="shop"] header [data-orb="density"]:focus,
+:root[data-mode="shop"] header [data-orb="density"]:focus-visible,
+[data-orb="density"]:focus,
+[data-orb="density"]:focus-visible{ outline:0!important; box-shadow:none!important; }
 :root[data-mode="shop"] header [data-orb="density"] canvas{
   display:block !important;
   opacity:1 !important;
   visibility:visible !important;
   pointer-events:auto !important;
 }
-.orb-ring{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; border-radius:9999px; }
 
 /* Code weight accents */
 .code-keyword,.code-var,.code-string,.code-comment{ font-weight:800; }

@@ -177,6 +177,9 @@ export default function ChakraOrbButton({
           // ensure pointer area equals visual circle
           clipPath: 'circle(50% at 50% 50%)',
           WebkitTapHighlightColor: 'transparent',
+          outline: '0',
+          boxShadow: 'none',
+          WebkitAppearance: 'none',
         }}
       >
         {/* pulse aura — now clipped inside the circle by the overflow above */}
