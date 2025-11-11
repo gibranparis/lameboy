@@ -165,8 +165,11 @@ function FloatingTitle({ x, y, text, color, glow = false, z = 10002 }) {
   );
 }
 
-/* White curtain with only orb + LAMEBOY visible; hides clock; fades out when grid ready */
-function WhiteCurtain({ x, y, onDone }) {
+/* White curtain phase:
+   - Solid white background
+   - Centered stack: black ORB (overrideAllColor='#000'), black TIME, black "LAMEBOY, USA"
+   - Fades out when grid signals ready (lb:shop-ready) or after failsafe */
+function WhiteCurtain({ onDone }) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -190,17 +193,75 @@ function WhiteCurtain({ x, y, onDone }) {
   if (!visible) return null;
 
   return createPortal(
-    <>
+    <div
+      aria-hidden
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: '#fff',
+        zIndex: 10002,
+        pointerEvents: 'none',
+        opacity: 1,
+        transition: 'opacity .26s ease',
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      {/* Centered stack */}
       <div
-        aria-hidden
         style={{
-          position:'fixed', inset:0, background:'#fff',
-          zIndex:10002, pointerEvents:'none', opacity:1,
-          transition:'opacity .26s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 6,
+          pointerEvents: 'none',
         }}
-      />
-      <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color="#000" glow={false} z={10003} />
-    </>,
+      >
+        {/* ORB — black override */}
+        <div style={{ lineHeight: 0 }}>
+          <BlueOrbCross3D
+            rpm={44}
+            color={SEAFOAM}
+            geomScale={1.12}
+            glow
+            glowOpacity={1.0}
+            includeZAxis
+            height="88px"
+            interactive={false}
+            overrideAllColor="#000000"
+          />
+        </div>
+
+        {/* TIME — black */}
+        <span
+          style={{
+            color: '#000',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            fontFamily: 'inherit',
+            lineHeight: 1.2,
+          }}
+        >
+          <ClockNaples />
+        </span>
+
+        {/* LAMEBOY, USA — black */}
+        <span
+          style={{
+            color: '#000',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            fontFamily: 'inherit',
+            lineHeight: 1.2,
+            textTransform: 'uppercase',
+          }}
+        >
+          LAMEBOY, USA
+        </span>
+      </div>
+    </div>,
     document.body
   );
 }
@@ -210,12 +271,18 @@ export default function LandingGate({ onCascadeComplete }) {
   // phases: idle → cascade → hold → curtain → done
   const [phase, setPhase] = useState('idle');
   const [hovered, setHovered] = useState(false);
-  const [whiteP, setWhiteP] = useState(0); // reserved if you want to key behaviors off sheet progress later
+  const [whiteP, setWhiteP] = useState(0); // reserved for future behavior
   const labelRef = useRef(null);
   const locked = useRef(false);
 
-  // Measure label center once; pass the SAME x,y everywhere (no hooks inside render)
-  const { x, y } = useCenter(labelRef);
+  // Begin in "gate" mode to prevent background flashes
+  useEffect(() => {
+    try { document.documentElement.setAttribute('data-mode', 'gate'); } catch {}
+    return () => { try { document.documentElement.removeAttribute('data-mode'); } catch {} };
+  }, []);
+
+  // Measure label center once
+  useCenter(labelRef); // (x,y) not needed anymore for curtain since we render a centered stack
 
   const start = useCallback(() => {
     if (locked.current || phase !== 'idle') return;
@@ -225,16 +292,14 @@ export default function LandingGate({ onCascadeComplete }) {
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
     const t1 = setTimeout(() => setPhase('hold'), CASCADE_MS);
-    const t2 = setTimeout(() => setPhase('curtain'), CASCADE_MS + WHITE_HOLD_MS);
+    const t2 = setTimeout(() => {
+      // Enter curtain → also flip mode to shop so globals adopt shop palette
+      setPhase('curtain');
+      try { document.documentElement.setAttribute('data-mode', 'shop'); } catch {}
+    }, CASCADE_MS + WHITE_HOLD_MS);
 
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
-
-  // Title color/glow logic:
-  //  - During bands/hold: *always glowing white*
-  //  - Flip to black only once we enter the curtain phase
-  const titleColor = (phase === 'curtain' || phase === 'done') ? '#000' : '#fff';
-  const titleGlow  = !(phase === 'curtain' || phase === 'done');
 
   // Spacing: (orb ↔ time) == (time ↔ Florida)
   const STACK_GAP = 6; // px
@@ -251,6 +316,8 @@ export default function LandingGate({ onCascadeComplete }) {
         gap: STACK_GAP,
         padding: '1.5rem',
         position: 'relative',
+        // Hide base stack once animation starts; overlays/curtain handle visuals
+        visibility: phase === 'idle' ? 'visible' : 'hidden',
       }}
     >
       {/* ORB — clickable Enter */}
@@ -339,20 +406,13 @@ export default function LandingGate({ onCascadeComplete }) {
       </button>
 
       {/* Overlays */}
-      {phase === 'cascade' && (
+      {(phase === 'cascade' || phase === 'hold') && (
         <CascadeOverlayRAF bandsLeadMs={BANDS_LEAD_MS} onWhiteProgress={setWhiteP} />
       )}
 
-      {/* Floating “LAMEBOY, USA” — stays glowing white until curtain */}
-      {(phase === 'cascade' || phase === 'hold' || phase === 'curtain') && (
-        <FloatingTitle x={x} y={y} text="LAMEBOY, USA" color={titleColor} glow={titleGlow} z={10003} />
-      )}
-
-      {/* White curtain (only orb + LAMEBOY; clock hidden) */}
+      {/* CURTAIN — white bg + black orb/time/label */}
       {phase === 'curtain' && (
         <WhiteCurtain
-          x={x}
-          y={y}
           onDone={() => {
             setPhase('done');
             try { onCascadeComplete?.(); } catch {}
@@ -368,7 +428,7 @@ export default function LandingGate({ onCascadeComplete }) {
   );
 }
 
-/** Naples clock (America/New_York) — text only; parent controls button behavior */
+/** Naples clock (America/New_York) — text only; parent/curtain control rendering */
 function ClockNaples() {
   const [now, setNow] = useState('');
   useEffect(() => {
