@@ -9,20 +9,35 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 /* =============================== Timings ================================ */
-const CASCADE_MS     = 1800; // duration of band sweep (faster + smoother)
-const BANDS_LEAD_MS  = 280;  // white starts a beat AFTER bands begin
-const WHITE_HOLD_MS  = 520;  // brief hold before curtain
-const SEAFOAM        = '#32ffc7';
+export const CASCADE_MS = 2400;          // match BannedLogin
+const WHITE_HOLD_MS     = 520;           // brief hold before curtain
+const SEAFOAM           = '#32ffc7';
 
 /* ---------------- helpers ---------------- */
-function useCenter(ref) {
-  const [pt, setPt] = useState({ x: 0, y: 0 });
-  const measure = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    setPt({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+function useShift() {
+  const calc = () => {
+    const h = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const isPhone = h < 760;
+    return {
+      vh: isPhone ? 4 : 3.5,
+      micro: Math.round(Math.max(2, Math.min(10, h * 0.012))),
+      gap: 6,
+    };
+  };
+  const [s, setS] = useState(calc);
+  useEffect(() => {
+    const onR = () => setS(calc());
+    window.addEventListener('resize', onR);
+    return () => window.removeEventListener('resize', onR);
   }, []);
+  return s;
+}
+
+function useCenter(ref) {
+  const measure = useCallback(() => {
+    // kept for future; not required for centered overlay stack
+    void ref?.current;
+  }, [ref]);
   useLayoutEffect(() => {
     measure();
     const onResize = () => measure();
@@ -33,122 +48,81 @@ function useCenter(ref) {
       window.removeEventListener('resize', onResize);
     };
   }, [measure]);
-  return pt;
 }
 
-/* ====================== CSS-driven CASCADE (smooth) ===================== */
-/* Bands animate on the compositor (translate3d + opacity), each with a
-   uniform duration and a precise stagger. The white sheet slides in under
-   the bands with its own delay (BANDS_LEAD_MS). No RAF jank. */
-function CascadeOverlayCSS({ onWhiteStart }) {
+/** hard-finish to DAY/SHOP on white to avoid any flicker after cascade */
+function finishCascadeToDayShop(){
+  const r = document.documentElement;
+  r.setAttribute('data-theme','day');
+  r.setAttribute('data-mode','shop');
+  r.style.background = '#fff';
+  try {
+    const evt = new CustomEvent('lb:cascade:done', { detail:{ to:'shop-day' } });
+    document.dispatchEvent(evt);
+  } catch {}
+}
+
+/* ====================== BannedLogin-style CASCADE ======================= */
+/** Color cascade that carries a white panel + 7 bands and a label that inverts on white */
+function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
+  const [mounted, setMounted] = useState(true);
+  const [p, setP] = useState(0);
+
   useEffect(() => {
-    const t = setTimeout(() => onWhiteStart?.(), BANDS_LEAD_MS);
-    return () => clearTimeout(t);
-  }, [onWhiteStart]);
+    let start, rafId, doneId;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const step = (t) => {
+      if (start == null) start = t;
+      const raw = Math.min(1, (t - start) / durationMs);
+      setP(ease(raw));
+      if (raw < 1) rafId = requestAnimationFrame(step);
+      else doneId = setTimeout(() => setMounted(false), 120);
+    };
+    rafId = requestAnimationFrame(step);
+    return () => { if (rafId) cancelAnimationFrame(rafId); if (doneId) clearTimeout(doneId); };
+  }, [durationMs]);
+
+  if (!mounted) return null;
+
+  const COLOR_VW = 120;
+  const whiteTx  = (1 - p) * 100;
+  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
 
   return createPortal(
     <>
-      {/* WHITE (under) */}
-      <div
-        aria-hidden
-        className="lb-white-under"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: '#fff',
-          zIndex: 10000, // under bands, over page
-          pointerEvents: 'none',
-          transform: 'translate3d(100%,0,0)',
-          animation: `lbWhiteSlide ${CASCADE_MS}ms cubic-bezier(.22,1,.36,1) ${BANDS_LEAD_MS}ms forwards`,
-          willChange: 'transform',
-        }}
-      />
+      {/* WHITE underlay */}
+      <div aria-hidden style={{
+        position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
+        background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
+      }}/>
 
-      {/* BANDS (over) */}
-      <div
-        className="chakra-overlay"
-        aria-hidden
-        style={{
-          position: 'fixed',
-          inset: 0,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          zIndex: 10001,
-          pointerEvents: 'none',
-          contain: 'layout paint',
-        }}
-      >
-        {[
-          'chakra-root',
-          'chakra-sacral',
-          'chakra-plexus',
-          'chakra-heart',
-          'chakra-throat',
-          'chakra-thirdeye',
-          'chakra-crown',
-        ].map((cls, i) => (
-          <div
-            key={cls}
-            className={`chakra-band ${cls}`}
-            style={{
-              transform: 'translate3d(100vw,0,0)',
-              opacity: 0.001,
-              willChange: 'transform,opacity',
-              // equal, precise staggering for perfectly even entrance
-              animation:
-                `lbBandSlide ${CASCADE_MS}ms cubic-bezier(.22,1,.36,1) ${i * 110}ms forwards,` +
-                `lbBandFade  ${CASCADE_MS}ms ease-out ${i * 110}ms forwards`,
-            }}
-          />
-        ))}
+      {/* COLOR band pack */}
+      <div aria-hidden style={{
+        position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
+        transform:`translate3d(${bandsTx}vw,0,0)`, zIndex:9999, pointerEvents:'none', willChange:'transform'
+      }}>
+        <div style={{ position:'absolute', inset:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
+          {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
+            <div key={i} style={{ position:'relative', background:c }}>
+              <span style={{ position:'absolute', inset:-18, background:c, filter:'blur(28px)', opacity:.95 }} />
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* OVER-BANDS TITLE (white) */}
-      <div
-        aria-hidden
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 10002, // above bands, below curtain
-          pointerEvents: 'none',
-          display: 'grid',
-          placeItems: 'center',
-        }}
-      >
-        <span
-          style={{
-            color: '#fff',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            fontFamily: 'inherit',
-            lineHeight: 1.2,
-            textTransform: 'uppercase',
-            textShadow:
-              '0 0 8px rgba(255,255,255,.85), 0 0 18px rgba(255,255,255,.55), 0 0 28px rgba(255,255,255,.35)',
-          }}
-        >
-          LAMEBOY, USA
-        </span>
+      {/* “LAMEBOY, USA” — appears white over color, black over white via mix-blend */}
+      <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
+        <div style={{ position:'absolute', left:'50%', top:'50%', transform: labelTransform }}>
+          <span style={{
+            color:'#fff',
+            mixBlendMode:'difference',
+            fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase',
+            fontSize:'clamp(11px,1.3vw,14px)'
+          }}>
+            LAMEBOY, USA
+          </span>
+        </div>
       </div>
-
-      <style jsx global>{`
-        @keyframes lbBandSlide {
-          0%   { transform: translate3d(100vw,0,0); }
-          100% { transform: translate3d(0,0,0); }
-        }
-        @keyframes lbBandFade {
-          0%   { opacity: .001; }
-          80%  { opacity: 1; }
-          100% { opacity: .999; }
-        }
-        @keyframes lbWhiteSlide {
-          0%   { transform: translate3d(100%,0,0); }
-          100% { transform: translate3d(0,0,0); }
-        }
-        /* Ensure bands fill full height during gate */
-        :root[data-mode="gate"] .chakra-band { min-height: 100svh; }
-      `}</style>
     </>,
     document.body
   );
@@ -185,7 +159,7 @@ function WhiteCurtain({ onDone }) {
         position: 'fixed',
         inset: 0,
         background: '#fff',
-        zIndex: 10003, // over cascade
+        zIndex: 10003,
         pointerEvents: 'none',
         opacity: 1,
         transition: 'opacity .26s ease',
@@ -246,11 +220,13 @@ function WhiteCurtain({ onDone }) {
 
 /* =============================== Component ============================== */
 export default function LandingGate({ onCascadeComplete }) {
-  // phases: idle → cascade → hold → curtain → done
+  // phases: idle → cascade → curtain → done
   const [phase, setPhase] = useState('idle');
   const [hovered, setHovered] = useState(false);
   const labelRef = useRef(null);
   const locked = useRef(false);
+  const pressTimer = useRef(null);
+  const { vh, micro, gap } = useShift();
 
   // Begin in "gate" mode to prevent background flashes
   useEffect(() => {
@@ -260,22 +236,27 @@ export default function LandingGate({ onCascadeComplete }) {
 
   useCenter(labelRef);
 
-  const start = useCallback(() => {
-    if (locked.current || phase !== 'idle') return;
+  const runCascade = useCallback(() => {
+    if (locked.current) return;
     locked.current = true;
+
     setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    // Advance to hold and then curtain with precise timings
-    const t1 = setTimeout(() => setPhase('hold'), CASCADE_MS);
-    const t2 = setTimeout(() => {
+    // after cascade passes, flip page chrome to day/shop and show curtain
+    const t1 = setTimeout(() => {
+      finishCascadeToDayShop();
       setPhase('curtain');
-      try { document.documentElement.setAttribute('data-mode', 'shop'); } catch {}
+    }, CASCADE_MS);
+
+    // after a tiny hold, let curtain manage the fade-out into shop
+    const t2 = setTimeout(() => {
+      // no-op here; curtain listens to lb:shop-ready or times out
     }, CASCADE_MS + WHITE_HOLD_MS);
 
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [phase]);
+  }, []);
 
   const STACK_GAP = 6;
 
@@ -291,16 +272,50 @@ export default function LandingGate({ onCascadeComplete }) {
         gap: STACK_GAP,
         padding: '1.5rem',
         position: 'relative',
-        visibility: phase === 'idle' ? 'visible' : 'hidden', // base stack hidden once animation starts
+        // Hide base stack once animation starts; overlays/curtain handle visuals
+        visibility: phase === 'idle' ? 'visible' : 'hidden',
       }}
     >
-      {/* ORB — clickable Enter */}
+      {/* CASCADE overlay (BannedLogin-style) */}
+      {phase === 'cascade' && (
+        <CascadeOverlay
+          durationMs={CASCADE_MS}
+          labelTransform={`translate(-50%, calc(-50% - ${vh}vh + ${micro}px + 24px))`}
+        />
+      )}
+
+      {/* CURTAIN — white bg + black orb/time/label */}
+      {phase === 'curtain' && (
+        <WhiteCurtain
+          onDone={() => {
+            setPhase('done');
+            try { onCascadeComplete?.(); } catch {}
+          }}
+        />
+      )}
+
+      {/* ORB — enter (supports click, long-press, and double-click like BannedLogin) */}
       <button
         type="button"
-        onClick={start}
+        onClick={runCascade}
+        onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+        onMouseUp={() => clearTimeout(pressTimer.current)}
+        onMouseLeave={() => clearTimeout(pressTimer.current)}
+        onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+        onTouchEnd={() => clearTimeout(pressTimer.current)}
+        onDoubleClick={runCascade}
         title="Enter"
         aria-label="Enter"
-        style={{ position: 'relative', zIndex: 10004, lineHeight: 0, padding: 0, margin: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
+        style={{
+          position: 'relative',
+          zIndex: 10004,
+          lineHeight: 0,
+          padding: 0,
+          margin: 0,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+        }}
       >
         <BlueOrbCross3D
           rpm={44}
@@ -315,10 +330,10 @@ export default function LandingGate({ onCascadeComplete }) {
       </button>
 
       {/* TIME — white (clickable) */}
-      {phase !== 'curtain' && phase !== 'done' && (
+      {phase === 'idle' && (
         <button
           type="button"
-          onClick={start}
+          onClick={runCascade}
           title="Enter"
           aria-label="Enter"
           style={{
@@ -345,8 +360,8 @@ export default function LandingGate({ onCascadeComplete }) {
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setHovered(true)}
         onBlur={() => setHovered(false)}
-        onClick={start}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && start()}
+        onClick={runCascade}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && runCascade()}
         title="Enter"
         style={{
           visibility: phase === 'idle' ? 'visible' : 'hidden',
@@ -359,37 +374,26 @@ export default function LandingGate({ onCascadeComplete }) {
           fontFamily: 'inherit',
           color: hovered ? '#ffe600' : '#ffffff',
           textShadow: hovered
-            ? `0 0 8px rgba(255,230,0,.95), 0 0 18px rgba(255,210,0,.70), 0 0 28px rgba(255,200,0,.45)`
-            : `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
+            ? `0 0 8px rgba(255,230,0,.95),
+               0 0 18px rgba(255,210,0,.70),
+               0 0 28px rgba(255,200,0,.45)`
+            : `0 0 8px rgba(255,255,255,.45),
+               0 0 16px rgba(255,255,255,.30)`,
           marginTop: 0,
         }}
       >
         Florida, USA
       </button>
 
-      {/* Overlays */}
-      {(phase === 'cascade' || phase === 'hold') && (
-        <CascadeOverlayCSS
-          onWhiteStart={() => {
-            // White has just begun sliding; nothing to do yet, but hook is here if needed
-          }}
-        />
-      )}
-
-      {/* CURTAIN — white bg + black orb/time/label */}
-      {phase === 'curtain' && (
-        <WhiteCurtain
-          onDone={() => {
-            setPhase('done');
-            try { onCascadeComplete?.(); } catch {}
-          }}
-        />
-      )}
+      {/* Safety: ensure bands fill height in gate mode */}
+      <style jsx>{`
+        :global(:root[data-mode="gate"]) .chakra-band { min-height: 100%; }
+      `}</style>
     </div>
   );
 }
 
-/** Naples clock (America/New_York) */
+/** Naples clock (America/New_York) — text only; parent/curtain control rendering */
 function ClockNaples() {
   const [now, setNow] = useState('');
   useEffect(() => {
