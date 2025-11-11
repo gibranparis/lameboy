@@ -56,88 +56,80 @@ function ArrowControl({ dir='up', night, onClick, dataUi }) {
 }
 
 /* -------------------------- Sizes + (+/–) toggle ------------------------- */
-/* Behavior:
-   - Default: shows "+" (neutral)
-   - Click "+": sizes open, icon becomes "–"
-   - Click size: size pill flashes green (~420ms) → closes panel
-                 '+' pulses green (~640ms)
-                 "Added" toast appears then fades out
+/* Sequence:
+   1) Tap "+" → sizes open (icon "–")
+   2) Tap size → that size pill flashes green (~420ms)
+   3) Sizes collapse
+   4) The "+" button text becomes **"Added"** with the **same color & font size as the price**
+   5) After ~900ms, text fades and "+" returns
 */
-function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
+function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
 
-  // plus-button green pulse state
-  const [confirming, setConfirming] = useState(false);
-
-  // which pill is currently flashing green before close
+  // short flash on the tapped size
   const [hotSize, setHotSize] = useState(null);
 
-  // ephemeral "Added" toast
+  // replace "+" with "Added" (styled like price)
   const [showAdded, setShowAdded] = useState(false);
 
   const timers = useRef({});
 
   const onToggle = () => {
-    // prevent toggle spam during confirm pulse
-    if (confirming) return;
+    // do not toggle while "Added" message is active, so the feedback reads clearly
+    if (showAdded) return;
     setOpen(v => !v);
   };
 
   const pick = (sz) => {
     setPicked(sz);
-
-    // fire your existing event
     try {
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
     } catch {}
 
-    // 1) flash the SELECTED size pill green first
+    // 1) flash the selected pill
     setHotSize(sz);
 
-    // show the little "Added" toast immediately (it will fade out)
-    setShowAdded(true);
-
-    // after a short flash, close sizes + run plus pulse
+    // 2) after short flash, close + show "Added"
     clearTimeout(timers.current.flashClose);
     timers.current.flashClose = setTimeout(() => {
       setOpen(false);
       setHotSize(null);
+      setShowAdded(true);
 
-      // 2) now pulse the "+" green
-      setConfirming(true);
-      clearTimeout(timers.current.confirm);
-      timers.current.confirm = setTimeout(() => setConfirming(false), 640);
+      // hide "Added" later and restore "+"
+      clearTimeout(timers.current.addedHide);
+      timers.current.addedHide = setTimeout(() => {
+        setShowAdded(false);
+      }, 900);
     }, 420);
-
-    // hide toast after its fade
-    clearTimeout(timers.current.toast);
-    timers.current.toast = setTimeout(() => setShowAdded(false), 900);
   };
 
   useEffect(() => {
-    return () => {
-      Object.values(timers.current).forEach(t => clearTimeout(t));
-    };
+    return () => Object.values(timers.current).forEach(t => clearTimeout(t));
   }, []);
 
-  const glyph = open ? '–' : '+';
+  const glyph = open ? '–' : (showAdded ? 'Added' : '+');
+
+  // Inline style to match price when showing "Added"
+  const asPriceStyle = showAdded ? {
+    color: priceStyle?.color || 'inherit',
+    fontSize: priceStyle?.fontSize || 'inherit',
+    fontWeight: priceStyle?.fontWeight || 800,
+    letterSpacing: priceStyle?.letterSpacing || '.06em',
+  } : null;
 
   return (
     <div style={{ display:'grid', justifyItems:'center', gap:12, position:'relative' }}>
-      {/* Added toast */}
-      {showAdded && (
-        <div className="added-toast" aria-live="polite">Added</div>
-      )}
-
-      {/* +/- button */}
+      {/* +/- button (or "Added") */}
       <button
         type="button"
         data-ui="size-toggle"
-        className={`pill plus-pill ${open ? 'is-ready' : ''} ${confirming ? 'is-confirmed' : ''}`}
+        className={`pill plus-pill ${open ? 'is-ready' : ''} ${showAdded ? 'is-added' : ''}`}
         onClick={onToggle}
-        aria-label={open?'Close sizes':'Choose size'}
-        title={open?'Close sizes':'Choose size'}
+        aria-label={open?'Close sizes':(showAdded?'Added':'Choose size')}
+        title={open?'Close sizes':(showAdded?'Added':'Choose size')}
+        style={asPriceStyle || undefined}
       >
         {glyph}
       </button>
@@ -161,6 +153,84 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
           >{sz}</button>
         ))}
       </div>
+
+      <style jsx>{`
+        :root{
+          --neon: var(--hover-green, #0bf05f);
+          --pill-bg: var(--panel, #1e1e1e);
+          --pill-fg: var(--text, #ffffff);
+          --pill-ring: rgba(255,255,255,.12);
+        }
+
+        /* --- pills --- */
+        .pill{
+          font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
+          letter-spacing:.2px;
+          padding:10px 14px;
+          border-radius:999px;
+          border:none;
+          cursor:pointer;
+          transition: transform .18s ease, box-shadow .18s ease, color .2s ease, background .2s ease, opacity .25s ease;
+          user-select:none;
+          outline:none;
+        }
+
+        .plus-pill{
+          min-width:42px; height:42px; display:grid; place-items:center;
+          background: var(--pill-bg);
+          color: var(--pill-fg);
+          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--pill-ring);
+        }
+        .plus-pill.is-ready{
+          transform: scale(1.02);
+          box-shadow: 0 4px 16px rgba(0,0,0,.18), inset 0 0 0 1px var(--pill-ring);
+        }
+        /* When showing "Added", let text breathe like a label rather than a tiny icon */
+        .plus-pill.is-added{
+          min-width:auto; height:auto;
+          padding: 8px 12px;
+          background: var(--pill-bg);
+        }
+
+        .size-panel{
+          overflow:hidden;
+          max-height:0;
+          transition:max-height .28s ease;
+          display:flex;
+          flex-wrap:nowrap;
+          justify-content:center;
+        }
+        .size-panel.is-open{ max-height:68px; }
+
+        .size-pill{
+          background: var(--pill-bg);
+          color: var(--pill-fg);
+          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--pill-ring);
+          min-width:42px;
+        }
+        .size-pill:hover{ transform: translateY(-1px); }
+        .size-pill.is-selected{
+          /* persists as a hint when panel re-opens later */
+          color: var(--neon);
+          box-shadow: 0 0 0 0 rgba(11,240,95,.12), inset 0 0 0 1px rgba(11,240,95,.5);
+        }
+        /* short "flash" like the arrows, before close */
+        .size-pill.is-hot{
+          color: var(--neon);
+          transform: scale(1.06);
+          box-shadow:
+            0 0 0 0 rgba(11,240,95,.42),
+            inset 0 0 0 1px rgba(11,240,95,.55);
+          animation: lbPulseShort 420ms ease;
+        }
+
+        /* Pulses */
+        @keyframes lbPulseShort{
+          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
+          70%  { box-shadow: 0 0 0 8px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
+          100% { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -319,6 +389,20 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   const sizes = product.sizes?.length ? product.sizes : ['OS','S','M','L','XL'];
 
+  // capture the live computed styles of the price node so "Added" matches exactly
+  const priceRef = useRef(null);
+  const [priceStyle, setPriceStyle] = useState(null);
+  useEffect(() => {
+    if (!priceRef.current) return;
+    const cs = getComputedStyle(priceRef.current);
+    setPriceStyle({
+      color: cs.color,
+      fontSize: cs.fontSize,
+      fontWeight: cs.fontWeight,
+      letterSpacing: cs.letterSpacing,
+    });
+  }, []);
+
   return (
     <>
       <div
@@ -397,13 +481,13 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           )}
 
           <div className="product-hero-title">{product.title}</div>
-          <div className="product-hero-price">{priceText}</div>
+          <div ref={priceRef} className="product-hero-price">{priceText}</div>
 
-          <PlusSizesInline sizes={sizes} />
+          <PlusSizesInline sizes={sizes} priceStyle={priceStyle} />
         </div>
       </div>
 
-      {/* local styles for pills/arrow flash + toast */}
+      {/* local styles for pills/arrow flash */}
       <style jsx>{`
         :root{
           --neon: var(--hover-green, #0bf05f);
@@ -417,7 +501,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12);
         }
 
-        /* --- pills --- */
         .pill{
           font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
           letter-spacing:.2px;
@@ -425,63 +508,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           border-radius:999px;
           border:none;
           cursor:pointer;
-          transition: transform .18s ease, box-shadow .18s ease, color .2s ease, background .2s ease;
+          transition: transform .18s ease, box-shadow .18s ease, color .2s ease, background .2s ease, opacity .25s ease;
           user-select:none;
           outline:none;
         }
 
-        .plus-pill{
-          min-width:42px; height:42px; display:grid; place-items:center;
-          background: var(--pill-bg);
-          color: var(--pill-fg);
-          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--pill-ring);
-        }
-        .plus-pill.is-ready{
-          transform: scale(1.02);
-          box-shadow: 0 4px 16px rgba(0,0,0,.18), inset 0 0 0 1px var(--pill-ring);
-        }
-        .plus-pill.is-confirmed{
-          color: var(--neon);
-          transform: scale(1.12);
-          box-shadow:
-            0 0 0 0 rgba(11,240,95,.42),
-            inset 0 0 0 1px rgba(11,240,95,.55);
-          animation: lbPulse 640ms ease;
-        }
-
-        .size-panel{
-          overflow:hidden;
-          max-height:0;
-          transition:max-height .28s ease;
-          display:flex;
-          flex-wrap:nowrap;
-          justify-content:center;
-        }
-        .size-panel.is-open{ max-height:68px; }
-
-        .size-pill{
-          background: var(--pill-bg);
-          color: var(--pill-fg);
-          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--pill-ring);
-          min-width:42px;
-        }
-        .size-pill:hover{ transform: translateY(-1px); }
-        .size-pill.is-selected{
-          /* persistent state after choosing (when panel reopens later) */
-          color: var(--neon);
-          box-shadow: 0 0 0 0 rgba(11,240,95,.12), inset 0 0 0 1px rgba(11,240,95,.5);
-        }
-        /* short "flash" like the arrows, before close */
-        .size-pill.is-hot{
-          color: var(--neon);
-          transform: scale(1.06);
-          box-shadow:
-            0 0 0 0 rgba(11,240,95,.42),
-            inset 0 0 0 1px rgba(11,240,95,.55);
-          animation: lbPulseShort 420ms ease;
-        }
-
-        /* Dots */
         .dot-pill{
           border-radius:50%;
           background: var(--pill-bg);
@@ -490,42 +521,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         .dot-pill.is-active{
           background: var(--neon);
           box-shadow: inset 0 0 0 0 rgba(0,0,0,0);
-        }
-
-        /* Pulses */
-        @keyframes lbPulse{
-          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
-          70%  { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
-          100% { box-shadow: 0 0 0 12px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
-        }
-        @keyframes lbPulseShort{
-          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
-          70%  { box-shadow: 0 0 0 8px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
-          100% { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
-        }
-
-        /* Added toast */
-        .added-toast{
-          position:absolute;
-          top:-22px;
-          left:50%;
-          transform: translateX(-50%) translateY(6px);
-          padding:6px 10px;
-          border-radius:999px;
-          font: 700 12px/1 system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
-          letter-spacing:.04em;
-          color:#0f1115;
-          background:#ffffff;
-          box-shadow: 0 6px 22px rgba(0,0,0,.22), inset 0 0 0 1px rgba(0,0,0,.08);
-          opacity:0;
-          animation: lbToast 900ms ease forwards;
-          pointer-events:none;
-        }
-        @keyframes lbToast{
-          0%   { opacity:0; transform: translateX(-50%) translateY(6px); }
-          15%  { opacity:1; transform: translateX(-50%) translateY(0); }
-          70%  { opacity:1; transform: translateX(-50%) translateY(0); }
-          100% { opacity:0; transform: translateX(-50%) translateY(-6px); }
         }
       `}</style>
     </>
