@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
-const CASCADE_MS = 2400;
+export const CASCADE_MS = 2400;
 
 /* ---------------- helpers ---------------- */
 function useShift() {
@@ -15,10 +15,9 @@ function useShift() {
     const h = typeof window !== 'undefined' ? window.innerHeight : 800;
     const isPhone = h < 760;
     return {
-      // pull the stack up a touch, but keep items tightly grouped
       vh: isPhone ? 4 : 3.5,
       micro: Math.round(Math.max(2, Math.min(10, h * 0.012))),
-      gap: 6, // was larger—keep consistent tight grouping everywhere
+      gap: 6,
     };
   };
   const [s, setS] = useState(calc);
@@ -28,6 +27,18 @@ function useShift() {
     return () => window.removeEventListener('resize', onR);
   }, []);
   return s;
+}
+
+/** hard-finish to DAY/SHOP on white to avoid any flicker after cascade */
+function finishCascadeToDayShop(){
+  const r = document.documentElement;
+  r.setAttribute('data-theme','day');
+  r.setAttribute('data-mode','shop');
+  r.style.background = '#fff';
+  try {
+    const evt = new CustomEvent('lb:cascade:done', { detail:{ to:'shop-day' } });
+    document.dispatchEvent(evt);
+  } catch {}
 }
 
 /** Color cascade that carries a white panel + 7 bands and a label that inverts on white */
@@ -105,7 +116,11 @@ export default function BannedLogin({ onProceed }) {
   const runCascade = useCallback(() => {
     if (cascade) return;
     setCascade(true);
-    setTimeout(() => { setCascade(false); onProceed?.(); }, CASCADE_MS);
+    window.setTimeout(() => {
+      finishCascadeToDayShop();
+      setCascade(false);
+      onProceed?.();
+    }, CASCADE_MS);
   }, [cascade, onProceed]);
 
   return (
@@ -113,7 +128,7 @@ export default function BannedLogin({ onProceed }) {
       className="page-center"
       style={{
         transform:`translateY(calc(-${vh}vh + ${micro}px))`,
-        gap,                      // tighter cluster
+        gap,
         alignItems:'center',
       }}
     >
@@ -151,7 +166,7 @@ export default function BannedLogin({ onProceed }) {
         />
       </button>
 
-      {/* Code block — pulled closer */}
+      {/* Code block */}
       <pre
         className="code-tight"
         style={{
@@ -168,7 +183,7 @@ export default function BannedLogin({ onProceed }) {
         <span className="code-keyword">const</span> <span className="code-var">msg</span> <span className="code-op">=</span> <span className="code-string">"welcome to"</span><span className="code-punc">;</span>
       </pre>
 
-      {/* Florida/LAMEBOY label — very tight to code block */}
+      {/* Florida/LAMEBOY label */}
       <button
         type="button"
         className="florida-link"

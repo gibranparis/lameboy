@@ -2,13 +2,25 @@
 'use client';
 
 import Image from 'next/image';
-import React, { useEffect, useRef, useState, useMemo, useCallback, forwardRef } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 
+/* --------------------------------- Utils --------------------------------- */
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* ---------------------------- ArrowControl ----------------------------- */
-function ArrowControl({ dir='up', night, onClick, active=false }) {
+/* small helper: one–shot “flash” class toggler */
+function flash(el, klass='is-hot', ms=220){
+  if (!el) return;
+  el.classList.remove(klass);
+  // reflow to restart animation
+  // eslint-disable-next-line no-unused-expressions
+  el.offsetWidth;
+  el.classList.add(klass);
+  window.setTimeout(()=>el.classList.remove(klass), ms);
+}
+
+/* ---------------------------- Arrow controller --------------------------- */
+function ArrowControl({ dir='up', night, onClick, dataUi }) {
   const baseBg = night ? '#0b0c10' : '#ffffff';
   const ring   = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
   const glyph  = night ? '#ffffff' : '#0f1115';
@@ -17,6 +29,8 @@ function ArrowControl({ dir='up', night, onClick, active=false }) {
     <button
       type="button"
       onClick={onClick}
+      data-ui={dataUi}
+      className="arrow-pill"
       aria-label={dir==='up'?'Previous product':'Next product'}
       title={dir==='up'?'Previous product':'Next product'}
       style={{ padding:0, background:'transparent', border:'none' }}
@@ -26,7 +40,7 @@ function ArrowControl({ dir='up', night, onClick, active=false }) {
         style={{
           width:28, height:28, borderRadius:'50%',
           display:'grid', placeItems:'center',
-          background: active ? 'var(--hover-green,#0bf05f)' : baseBg,
+          background: baseBg,
           boxShadow:`0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}`,
           transition:'background .12s ease',
         }}
@@ -41,61 +55,56 @@ function ArrowControl({ dir='up', night, onClick, active=false }) {
   );
 }
 
-/* ---------------------------- Plus / Sizes UI --------------------------- */
-const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }, plusRef){
+/* -------------------------- Sizes + (+/–) toggle ------------------------- */
+function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
 
-  const toggle = ()=> setOpen(v=>{
-    const next = !v;
-    // maintain .is-active for styling the “–” state (grey), no green flash
-    if (plusRef?.current){
-      plusRef.current.classList.toggle('is-active', next);
-      plusRef.current.classList.toggle('is-ready',  next);
-    }
-    return next;
-  });
+  const onToggle = () => setOpen(v=>!v);
 
-  const pick = (sz)=>{
+  const pick = (sz) => {
     setPicked(sz);
-    try { window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }})); } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
+    } catch {}
   };
 
   return (
     <div style={{ display:'grid', justifyItems:'center', gap:12 }}>
       <button
-        ref={plusRef}
         type="button"
-        className={`pill plus-pill ${open ? 'is-active is-ready' : ''}`}
-        onClick={toggle}
+        data-ui="size-toggle"
+        className={`pill plus-pill ${open ? 'is-ready' : ''}`}
+        onClick={onToggle}
         aria-label={open?'Close sizes':'Choose size'}
         title={open?'Close sizes':'Choose size'}
       >
         {open ? '–' : '+'}
       </button>
 
-      {open && (
-        <div className="row-nowrap" style={{ gap:8 }}>
-          {sizes.map((sz)=>(
-            <button
-              key={sz}
-              type="button"
-              className={`pill size-pill ${picked===sz ? 'is-selected' : ''}`}
-              onClick={()=>pick(sz)}
-              aria-label={`Size ${sz}`}
-              title={`Size ${sz}`}
-            >{sz}</button>
-          ))}
-        </div>
-      )}
+      <div className="row-nowrap" data-ui="size-panel" hidden={!open} style={{ gap:8 }}>
+        {sizes.map((sz)=>(
+          <button
+            key={sz}
+            type="button"
+            className={`pill size-pill ${picked===sz?'is-selected':''}`}
+            data-size={sz}
+            onClick={()=>pick(sz)}
+            aria-label={`Size ${sz}`}
+            title={`Size ${sz}`}
+          >{sz}</button>
+        ))}
+      </div>
     </div>
   );
-});
+}
 
-/* -------------------------- Swipe Engine (mobile) ----------------------- */
-/* One product step per gesture (prevents ultra-fast scroll on mobile) */
-function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce }) {
-  const s = useRef({ down:false, x:0, y:0, stepped:false });
+/* ------ SWIPE ENGINE (mobile) : slower + more deliberate ------ */
+function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash }) {
+  const state = useRef({
+    active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0,
+  });
+
   const coarse =
     typeof window !== 'undefined' &&
     window.matchMedia &&
@@ -103,34 +112,58 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce }) {
 
   const STEP_X = coarse ? 90 : 50;
   const STEP_Y = coarse ? 120 : 70;
+  const FLICK_V_BONUS = coarse ? 0.2 : 0.35;
 
-  const onDown = useCallback((e)=>{
+  const onDown = useCallback((e) => {
     const p = e.touches ? e.touches[0] : e;
-    s.current = { down:true, x:p.clientX, y:p.clientY, stepped:false };
+    state.current.active = true;
+    state.current.lastX  = p.clientX;
+    state.current.lastY  = p.clientY;
+    state.current.ax = 0; state.current.ay = 0;
+    state.current.lastT = performance.now();
+    state.current.vx = 0; state.current.vy = 0;
   }, []);
 
-  const onMove = useCallback((e)=>{
-    if (!s.current.down) return;
+  const onMove = useCallback((e) => {
+    if (!state.current.active) return;
     if (e.cancelable) e.preventDefault();
+
     const p = e.touches ? e.touches[0] : e;
-    const dx = p.clientX - s.current.x;
-    const dy = p.clientY - s.current.y;
+    const now = performance.now();
+    const dt  = Math.max(1, now - state.current.lastT);
 
-    if (imgsLen){
-      while (dx <= -STEP_X) { s.current.x -= STEP_X; setImgIdx(i=>clamp(i+1,0,imgsLen-1)); }
-      while (dx >=  STEP_X) { s.current.x += STEP_X; setImgIdx(i=>clamp(i-1,0,imgsLen-1)); }
-    }
-    if (!s.current.stepped && prodsLen>1){
-      if (dy <= -STEP_Y) { s.current.stepped = true; stepProductOnce(+1); }
-      if (dy >=  STEP_Y) { s.current.stepped = true; stepProductOnce(-1); }
-    }
-  }, [imgsLen, prodsLen, setImgIdx, stepProductOnce]);
+    const dx = p.clientX - state.current.lastX;
+    const dy = p.clientY - state.current.lastY;
 
-  const onUp = useCallback(()=>{ s.current.down=false; }, []);
+    state.current.vx = dx / dt;
+    state.current.vy = dy / dt;
+
+    state.current.lastX = p.clientX;
+    state.current.lastY = p.clientY;
+    state.current.lastT = now;
+
+    state.current.ax += dx + state.current.vx * FLICK_V_BONUS * 80;
+    state.current.ay += dy + state.current.vy * FLICK_V_BONUS * 80;
+
+    if (imgsLen) {
+      while (state.current.ax <= -STEP_X) { state.current.ax += STEP_X; setImgIdx(i => clamp(i+1, 0, imgsLen-1)); }
+      while (state.current.ax >=  STEP_X) { state.current.ax -= STEP_X; setImgIdx(i => clamp(i-1, 0, imgsLen-1)); }
+    }
+    if (prodsLen>1) {
+      while (state.current.ay <= -STEP_Y) { state.current.ay += STEP_Y; onIndexChange?.(wrap(index+1, prodsLen)); onDirFlash?.('down'); }
+      while (state.current.ay >=  STEP_Y) { state.current.ay -= STEP_Y; onIndexChange?.(wrap(index-1, prodsLen)); onDirFlash?.('up'); }
+    }
+  }, [imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash]);
+
+  const onUp = useCallback(() => {
+    state.current.active = false;
+    state.current.ax = 0; state.current.ay = 0;
+  }, []);
+
   return { onDown, onMove, onUp };
 }
 
-/* =============================== Component ============================== */
+/* -------------------------------- Component ------------------------------ */
 export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
   const night =
     typeof document !== 'undefined' &&
@@ -146,15 +179,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   const clampedImgIdx = useMemo(()=>clamp(imgIdx, 0, Math.max(0, imgs.length-1)), [imgIdx, imgs.length]);
 
-  // arrow tick states
-  const [upTick, setUpTick] = useState(false);
-  const [dnTick, setDnTick] = useState(false);
-  const tickUp = useCallback(()=>{ setUpTick(true);  setTimeout(()=>setUpTick(false), 160); }, []);
-  const tickDn = useCallback(()=>{ setDnTick(true);  setTimeout(()=>setDnTick(false), 160); }, []);
-
-  const plusRef = useRef(null);
-
-  /* Close overlay when orb zooms */
+  /* close on orb zoom */
   useEffect(() => {
     const h = () => onClose?.();
     ['lb:zoom','lb:zoom/grid-density'].forEach(n=>{
@@ -165,7 +190,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     });
   }, [onClose]);
 
-  /* Keyboard */
+  /* keyboard */
   useEffect(() => {
     const onKey = (e) => {
       if (e.key==='Escape') return onClose?.();
@@ -174,50 +199,46 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         if (e.key==='ArrowLeft')  return setImgIdx(i=>clamp(i-1,0,imgs.length-1));
       }
       if (products.length>1) {
-        if (e.key==='ArrowDown'){ onIndexChange?.(wrap(index+1, products.length)); tickDn(); return; }
-        if (e.key==='ArrowUp')  { onIndexChange?.(wrap(index-1, products.length)); tickUp(); return; }
+        if (e.key==='ArrowDown'){ document.querySelector('[data-ui="img-down"]') && flash(document.querySelector('[data-ui="img-down"]')); return onIndexChange?.(wrap(index+1, products.length)); }
+        if (e.key==='ArrowUp'){   document.querySelector('[data-ui="img-up"]') && flash(document.querySelector('[data-ui="img-up"]'));   return onIndexChange?.(wrap(index-1, products.length)); }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [imgs.length, products.length, index, onIndexChange, onClose, tickUp, tickDn]);
+  }, [imgs.length, products.length, index, onIndexChange, onClose]);
 
-  /* Wheel – tick arrow for every product step */
-  const lastDirRef = useRef(0);
-  const lastTimeRef = useRef(0);
+  /* wheel (desktop) — flash arrows according to scroll dir */
+  const lastWheel = useRef(0);
   useEffect(() => {
     const onWheel = (e) => {
-      const now = performance.now();
+      const now = performance.now(); if (now - lastWheel.current < 110) return; lastWheel.current = now;
       const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
-      if (ax > ay && imgs.length) {
-        const dir = e.deltaX>0?1:-1;
-        if (now - lastTimeRef.current > 120 || dir !== lastDirRef.current){
-          setImgIdx(i=>clamp(i + dir, 0, imgs.length-1));
-          lastTimeRef.current = now; lastDirRef.current = dir;
-        }
-      } else if (products.length>1) {
-        const dir = e.deltaY>0?1:-1;                 // down = next
-        if (now - lastTimeRef.current > 120 || dir !== lastDirRef.current){
-          onIndexChange?.(wrap(index + dir, products.length));
-          if (dir>0) tickDn(); else tickUp();
-          lastTimeRef.current = now; lastDirRef.current = dir;
-        }
+      if (ax > ay && imgs.length) setImgIdx(i=>clamp(i + (e.deltaX>0?1:-1), 0, imgs.length-1));
+      else if (products.length>1) {
+        const dirDown = e.deltaY>0;
+        flash(document.querySelector(dirDown ? '[data-ui="img-down"]' : '[data-ui="img-up"]'));
+        onIndexChange?.(wrap(index + (dirDown?1:-1), products.length));
       }
     };
     window.addEventListener('wheel', onWheel, { passive:true });
     return () => window.removeEventListener('wheel', onWheel);
-  }, [imgs.length, products.length, index, onIndexChange, tickUp, tickDn]);
+  }, [imgs.length, products.length, index, onIndexChange]);
 
-  /* Swipe – one product step per gesture + tick */
+  const onDirFlash = useCallback((dir)=> {
+    flash(document.querySelector(dir==='down' ? '[data-ui="img-down"]' : '[data-ui="img-up"]'));
+  }, []);
+
+  /* swipe */
   const swipe = useSwipe({
     imgsLen: imgs.length,
     prodsLen: products.length,
     index,
     setImgIdx,
-    stepProductOnce: (dir)=>{ onIndexChange?.(wrap(index + (dir>0?1:-1), products.length)); if (dir>0) tickDn(); else tickUp(); },
+    onIndexChange,
+    onDirFlash,
   });
 
-  /* Overlay flag for page styles */
+  /* overlay flag for page styles */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open','1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -254,44 +275,44 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         onPointerUp={swipe.onUp}
         onPointerCancel={swipe.onUp}
       >
-        {/* click-out (header remains clickable) */}
+        {/* transparent click-catcher (no visual dim) */}
         <div
           onClick={(e)=>{ e.stopPropagation(); onClose?.(); }}
-          style={{ position:'fixed', left:0, right:0, bottom:0, top:'var(--header-ctrl,56px)', background:'transparent', pointerEvents:'auto' }}
+          style={{
+            position:'fixed',
+            left:0, right:0, bottom:0, top:'var(--header-ctrl,64px)',
+            background:'transparent',
+            pointerEvents:'auto',
+          }}
         />
 
+        {/* content */}
         <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center', zIndex:521 }}>
+          {/* left arrows */}
           {products.length>1 && (
             <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
-              <ArrowControl
-                dir="up"
-                night={night}
-                active={upTick}
-                onClick={()=>{ onIndexChange?.(wrap(index-1, products.length)); tickUp(); }}
-              />
-              <ArrowControl
-                dir="down"
-                night={night}
-                active={dnTick}
-                onClick={()=>{ onIndexChange?.(wrap(index+1, products.length)); tickDn(); }}
-              />
+              <ArrowControl dir="up"   night={night} dataUi="img-up"   onClick={()=>{ onIndexChange?.(wrap(index-1, products.length)); onDirFlash('up'); }} />
+              <ArrowControl dir="down" night={night} dataUi="img-down" onClick={()=>{ onIndexChange?.(wrap(index+1, products.length)); onDirFlash('down'); }} />
             </div>
           )}
 
+          {/* main image */}
           {!!imgs.length && (
             <>
-              <Image
-                src={imgs[clampedImgIdx]}
-                alt={product.title}
-                width={2048}
-                height={1536}
-                className="product-hero-img"
-                priority
-                fetchPriority="high"
-                quality={95}
-                sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
-                style={{ width:'100%', height:'auto', maxHeight:'70vh', objectFit:'contain' }}
-              />
+              <div data-ui="product-viewport" style={{ width:'100%' }}>
+                <Image
+                  src={imgs[clampedImgIdx]}
+                  alt={product.title}
+                  width={2048}
+                  height={1536}
+                  className="product-hero-img"
+                  priority
+                  fetchPriority="high"
+                  quality={95}
+                  sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
+                  style={{ width:'100%', height:'auto', maxHeight:'70vh', objectFit:'contain', imageRendering:'auto' }}
+                />
+              </div>
               {imgs.length>1 && (
                 <div className="row-nowrap" style={{ gap:8, marginTop:6, justifyContent:'center', display:'flex' }}>
                   {imgs.map((_,i)=>(
@@ -312,9 +333,20 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           <div className="product-hero-title">{product.title}</div>
           <div className="product-hero-price">{priceText}</div>
 
-          <PlusSizesInline ref={plusRef} sizes={sizes} />
+          <PlusSizesInline sizes={sizes} />
         </div>
       </div>
+
+      {/* local styles for pills/arrow flash */}
+      <style jsx>{`
+        :root{
+          --neon: var(--hover-green, #0bf05f);
+        }
+        .arrow-pill.is-hot > div{
+          background: var(--neon) !important;
+          box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12);
+        }
+      `}</style>
     </>
   );
 }

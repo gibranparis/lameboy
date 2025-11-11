@@ -1,3 +1,4 @@
+// src/components/DayNightToggle.jsx
 // Clouds (day), starry sky + LAMEBOY constellation (night)
 // Ridged sun with gradient + glow
 'use client';
@@ -91,7 +92,7 @@ export default function DayNightToggle({
   className = '',
   value,                         /** @type {Theme | undefined} */
   onChange,                      /** @type {(t: Theme) => void | undefined} */
-  circlePx = 28,
+  circlePx = 24,
   trackPad = 1,
   moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
   onThemeChange,                 /** @type {(t: Theme) => void | undefined} */
@@ -154,138 +155,6 @@ export default function DayNightToggle({
 
   const moonSrc = Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/moon-red.png';
 
-  // ===== Night sky canvas (stars + constellation + meteor) =====
-  const skyRef = useRef/** @type {React.RefObject<HTMLCanvasElement>} */(null);
-  useEffect(() => {
-    if (!isNight) return;
-    const canvas = skyRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: true });
-    if (!ctx) return;
-
-    let W = 0, H = 0, DPR = 1;
-    let rafId = 0;
-
-    const resizeCanvas = () => {
-      try {
-        DPR = Math.max(1, Math.round(window.devicePixelRatio || 1));
-        const rect = canvas.getBoundingClientRect();
-        W = Math.max(1, Math.floor(rect.width * DPR));
-        H = Math.max(1, Math.floor(rect.height * DPR));
-        canvas.width = W;
-        canvas.height = H;
-      } catch {}
-    };
-    resizeCanvas();
-
-    // RO with fallback
-    let ro = null;
-    try {
-      ro = new ResizeObserver(resizeCanvas);
-      ro.observe(canvas);
-    } catch {
-      window.addEventListener('resize', resizeCanvas);
-    }
-
-    const stars = Array.from({ length: 28 }, () => ({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      a: Math.random() * Math.PI * 2,
-      as: 0.004 + Math.random() * 0.006,
-      r: (0.8 + Math.random()*0.6) * DPR,
-    }));
-
-    /** @type {[number,number][]} */
-    const C = [
-      [0.10,0.25],[0.10,0.70],[0.18,0.70],
-      [0.27,0.72],[0.30,0.25],[0.33,0.72],[0.29,0.52],[0.31,0.52],
-      [0.40,0.72],[0.40,0.28],[0.44,0.55],[0.48,0.28],[0.48,0.72],
-      [0.56,0.25],[0.56,0.70],[0.62,0.70],[0.56,0.48],[0.60,0.48],[0.62,0.25],
-      [0.70,0.25],[0.70,0.70],[0.76,0.62],[0.70,0.52],[0.76,0.42],[0.70,0.35],
-      [0.84,0.48],[0.86,0.42],[0.90,0.42],[0.92,0.48],[0.90,0.56],[0.86,0.56],
-      [0.96,0.25],[0.94,0.40],[0.98,0.40],[0.96,0.70],
-    ];
-
-    let meteor = { t: -1, x0:0, y0:0, x1:0, y1:0, dur: 1200, born: 0 };
-    let lastSpawn = performance.now();
-
-    const spawnMeteor = () => {
-      const now = performance.now();
-      meteor.born = now;
-      meteor.dur = 900 + Math.random()*700;
-      meteor.x0 = Math.random() < 0.5 ? -0.1 * W : 1.1 * W;
-      meteor.y0 = Math.random() * (0.25 * H) + 0.15 * H;
-      meteor.x1 = meteor.x0 < 0 ? 1.2 * W : -0.2 * W;
-      meteor.y1 = meteor.y0 + (Math.random()*0.2 - 0.1) * H;
-      meteor.t = 0;
-    };
-
-    const LOOP = () => {
-      const g = ctx;
-      g.clearRect(0,0,W,H);
-
-      // twinkling stars
-      for (const s of stars) {
-        s.a += s.as;
-        const tw = 0.5 + 0.5*Math.sin(s.a);
-        g.globalAlpha = 0.7*tw;
-        g.fillStyle = '#fff';
-        g.beginPath(); g.arc(s.x, s.y, s.r, 0, Math.PI*2); g.fill();
-      }
-      g.globalAlpha = 1;
-
-      // constellation
-      g.lineWidth = 1 * DPR;
-      g.strokeStyle = 'rgba(255,255,255,.55)';
-      g.fillStyle = 'rgba(255,255,255,.95)';
-      g.beginPath();
-      for (let i=0;i<C.length;i++){
-        const [nx,ny]=C[i]; const x=nx*W, y=ny*H;
-        if(i===0) g.moveTo(x,y); else g.lineTo(x,y);
-      }
-      g.stroke();
-      for (const [nx,ny] of C) {
-        const x=nx*W, y=ny*H;
-        g.beginPath(); g.arc(x,y,1.2*DPR,0,Math.PI*2); g.fill();
-      }
-
-      // meteor sometimes
-      const now = performance.now();
-      if (meteor.t < 0 && now - lastSpawn > 2400 + Math.random()*2600) {
-        lastSpawn = now; spawnMeteor();
-      }
-      if (meteor.t >= 0) {
-        const p = Math.min(1, (now - meteor.born)/meteor.dur);
-        const x = meteor.x0 + (meteor.x1 - meteor.x0)*p;
-        const y = meteor.y0 + (meteor.y1 - meteor.y0)*p;
-        const trail = 80 * DPR;
-        const ang = Math.atan2(meteor.y1-meteor.y0, meteor.x1-meteor.x0);
-        const tx = x - Math.cos(ang)*trail;
-        const ty = y - Math.sin(ang)*trail;
-
-        const grad = g.createLinearGradient(tx,ty,x,y);
-        grad.addColorStop(0,'rgba(255,255,255,0)');
-        grad.addColorStop(1,'rgba(255,255,255,.9)');
-        g.strokeStyle = grad;
-        g.lineWidth = 1.2*DPR;
-        g.beginPath(); g.moveTo(tx,ty); g.lineTo(x,y); g.stroke();
-
-        g.fillStyle = '#fff';
-        g.beginPath(); g.arc(x,y,1.4*DPR,0,Math.PI*2); g.fill();
-
-        if (p >= 1) meteor.t = -1;
-      }
-
-      rafId = requestAnimationFrame(LOOP);
-    };
-
-    rafId = requestAnimationFrame(LOOP);
-    return () => {
-      try { cancelAnimationFrame(rafId); } catch {}
-      try { ro ? ro.disconnect() : window.removeEventListener('resize', resizeCanvas); } catch {}
-    };
-  }, [isNight]);
-
   // keyboard a11y
   function onKeyDown(e) {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -330,7 +199,7 @@ export default function DayNightToggle({
 
       {/* NIGHT SKY (canvas) */}
       {isNight && (
-        <canvas ref={skyRef} aria-hidden style={{ position:'absolute', inset:0, borderRadius:9999, pointerEvents:'none' }} />
+        <canvas aria-hidden style={{ position:'absolute', inset:0, borderRadius:9999, pointerEvents:'none' }} />
       )}
 
       {/* KNOB (ridged sun / moon image) */}
@@ -345,6 +214,7 @@ export default function DayNightToggle({
           transform:`translateX(${isNight ? dims.shift : 0}px)`,
           transition:'transform 320ms cubic-bezier(.22,.61,.21,.99)',
           overflow:'visible',
+          filter:'saturate(1.02)',
         }}
       >
         {/* Sun */}
@@ -358,7 +228,7 @@ export default function DayNightToggle({
           <SunIcon size={dims.knob}/>
         </span>
 
-        {/* Moon (no blue ring) */}
+        {/* Moon */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',

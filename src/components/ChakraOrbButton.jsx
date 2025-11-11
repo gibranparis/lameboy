@@ -1,12 +1,13 @@
+// src/components/ChakraOrbButton.jsx
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
-  size = 72,              // universal orb size (matches BANNED)
-  rpm = 44,               // match BANNED
-  color = '#32ffc7',      // base seafoam
+  size = 'var(--orb-px,88px)', // universal orb size (token)
+  rpm = 44,                     // match BANNED
+  color = '#32ffc7',            // base seafoam
   geomScale = 1.12,
   offsetFactor = 2.25,
   armRatio = 0.35,
@@ -15,7 +16,7 @@ export default function ChakraOrbButton({
   includeZAxis = true,
   className = '',
   style = {},
-  tightHitbox = true,     // keeps click radius tight to the visible orb
+  tightHitbox = true,           // keeps click radius tight to the visible orb
 }) {
   const lastFireRef = useRef(0);
   const FIRE_COOLDOWN_MS = 150;
@@ -156,7 +157,6 @@ export default function ChakraOrbButton({
           respectReducedMotion={false}
           onActivate={onClick}
           overrideAllColor={pressColor || null}
-          /* tint halos to the press color for the BANNED-style pop */
           haloTint={pressColor || null}
         />
       </button>

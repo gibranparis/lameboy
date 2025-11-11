@@ -1,3 +1,4 @@
+// src/components/ChakraBottomRunner.jsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -39,6 +40,7 @@ export default function ChakraBottomRunner({
   return (
     <div
       aria-hidden
+      className="lb-chakra-runner"
       style={{
         position:'fixed', left:0, right:0,
         bottom:'env(safe-area-inset-bottom, 0px)',
@@ -74,7 +76,6 @@ function RunnerTrack({ mirror=false, glow=false }){
         filter: glow ? 'blur(12px) saturate(1.3)' : 'none',
       }}
     >
-      {/* 7 + 7 */}
       {Array.from({length:14}, (_,k)=>(<Bar key={k} i={(k%7)+1} />))}
     </div>
   );
