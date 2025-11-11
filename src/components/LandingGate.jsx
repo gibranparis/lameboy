@@ -9,8 +9,8 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 const CASCADE_MS     = 2400; // total band pass
-const BANDS_LEAD_MS  = 240;  // when white *starts* (after bands already in flight)
-const WHITE_HOLD_MS  = 520;  // brief hold before we hand to the curtain
+const BANDS_LEAD_MS  = 320;  // white starts later so bands clearly lead
+const WHITE_HOLD_MS  = 520;  // brief hold before curtain
 const SEAFOAM        = '#32ffc7';
 
 /* ---------------- helpers ---------------- */
@@ -44,7 +44,7 @@ function CascadeOverlayRAF({
   bandsLeadMs = BANDS_LEAD_MS,
   onWhiteProgress,
 }) {
-  const [p, setP] = useState(0);       // 0..1 overall timeline
+  const [p, setP] = useState(0);
   const raf = useRef(0);
   const t0  = useRef(0);
   const cb  = useRef(onWhiteProgress);
@@ -61,19 +61,18 @@ function CascadeOverlayRAF({
     return () => cancelAnimationFrame(raf.current);
   }, [durationMs]);
 
-  // Staggers for 7 bands (even, with mild offset)
   const STAGGERS = [0.00, 0.06, 0.12, 0.18, 0.24, 0.30, 0.36];
   const FADE_LOCAL = 0.80;
 
-  // White sheet progress (starts strictly AFTER bandsLeadMs)
+  // White sheet progress (begins only after bandsLeadMs)
   const rawWhite = (p * durationMs - bandsLeadMs) / (durationMs - bandsLeadMs);
   const whiteRaw = clamp01(rawWhite);
   const whiteP   = easeOutCubic(whiteRaw);
   const whiteTx  = (1 - whiteP) * 100; // +100% -> 0%
   useEffect(() => { cb.current?.(whiteP); }, [whiteP]);
 
-  // Hide white completely until it meaningfully exists (no subpixel flicker)
-  const whiteVisible = whiteRaw > 0.025;
+  // Absolutely hide white until it meaningfully exists
+  const whiteVisible = whiteRaw > 0.06; // buffer to kill pre-flicker
 
   return createPortal(
     <>
@@ -166,7 +165,7 @@ function FloatingTitle({ x, y, text, color, glow = false, z = 10002 }) {
   );
 }
 
-/* White curtain with only orb + LAMEBOY visible; fades when shop fires ready */
+/* White curtain with only orb + LAMEBOY visible; hides clock; fades out when grid ready */
 function WhiteCurtain({ x, y, onDone }) {
   const [visible, setVisible] = useState(true);
 
@@ -230,12 +229,14 @@ export default function LandingGate({ onCascadeComplete }) {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
 
-  // Title behavior:
-  //  - During bands: ALWAYS bright/glowing white on top (no blend tricks).
-  //  - Flip to black *only after* white is basically full coverage.
-  const FLIP_AFTER_WHITE = 0.985; // 98.5% → prevents premature black
-  const titleColor = whiteP >= FLIP_AFTER_WHITE ? '#000' : '#fff';
-  const titleGlow  = whiteP < FLIP_AFTER_WHITE;
+  // Title color/glow logic:
+  //  - During bands/hold: *always glowing white*
+  //  - Flip to black only once we enter the curtain phase
+  const titleColor = (phase === 'curtain' || phase === 'done') ? '#000' : '#fff';
+  const titleGlow  = !(phase === 'curtain' || phase === 'done');
+
+  // Spacing: make (orb ↔ time) equal to (time ↔ Florida)
+  const STACK_GAP = 6; // px
 
   return (
     <div
@@ -246,15 +247,27 @@ export default function LandingGate({ onCascadeComplete }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6, // tight stack: orb ↔ time ↔ Florida
+        gap: STACK_GAP,
         padding: '1.5rem',
         position: 'relative',
       }}
     >
-      {/* ORB — always visible, above everything */}
-      <div
-        aria-hidden
-        style={{ position: 'relative', zIndex: 10004, lineHeight: 0, marginBottom: 2 }}
+      {/* ORB — clickable Enter */}
+      <button
+        type="button"
+        onClick={start}
+        title="Enter"
+        aria-label="Enter"
+        style={{
+          position: 'relative',
+          zIndex: 10004,
+          lineHeight: 0,
+          padding: 0,
+          margin: 0,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+        }}
       >
         <BlueOrbCross3D
           rpm={44}
@@ -266,12 +279,32 @@ export default function LandingGate({ onCascadeComplete }) {
           height="88px"
           interactive={false}
         />
-      </div>
+      </button>
 
-      {/* Clock — landing page time (Naples, FL) */}
-      <ClockNaples />
+      {/* Timer — same font/size as Florida; white; also clickable Enter */}
+      {phase !== 'curtain' && phase !== 'done' && (
+        <button
+          type="button"
+          onClick={start}
+          title="Enter"
+          aria-label="Enter"
+          style={{
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+            color: '#fff',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            fontFamily: 'inherit',
+            lineHeight: 1.2,
+          }}
+        >
+          <ClockNaples />
+        </button>
+      )}
 
-      {/* Clickable label under time (only visible before cascade) */}
+      {/* Florida label — clickable Enter, matches timer sizing */}
       <button
         ref={labelRef}
         type="button"
@@ -298,7 +331,7 @@ export default function LandingGate({ onCascadeComplete }) {
                0 0 28px rgba(255,200,0,.45)`
             : `0 0 8px rgba(255,255,255,.45),
                0 0 16px rgba(255,255,255,.30)`,
-          marginTop: -2,
+          marginTop: 0,
         }}
       >
         Florida, USA
@@ -306,40 +339,43 @@ export default function LandingGate({ onCascadeComplete }) {
 
       {/* Overlays */}
       {phase === 'cascade' && (
-        <CascadeOverlayRAF
-          bandsLeadMs={BANDS_LEAD_MS}
-          onWhiteProgress={setWhiteP}
-        />
+        <CascadeOverlayRAF bandsLeadMs={BANDS_LEAD_MS} onWhiteProgress={setWhiteP} />
       )}
 
-      {/* Floating “LAMEBOY, USA”/title during bands + brief hold — WHITE/Glow then flip */}
-      {(phase === 'cascade' || phase === 'hold') && (
+      {/* Floating “LAMEBOY, USA” — stays glowing white until curtain */}
+      {(phase === 'cascade' || phase === 'hold' || phase === 'curtain') && (
         <FloatingTitle
-          x={x}
-          y={y}
+          x={labelRef.current ? undefined : 0}
+          y={labelRef.current ? undefined : 0}
+          // If ref is not measured yet, fallback to center via CSS trick below
           text="LAMEBOY, USA"
           color={titleColor}
           glow={titleGlow}
-          z={10003} // over bands & white
+          z={10003}
         />
       )}
 
-      {/* White curtain until shop is ready */}
+      {/* White curtain (only orb + LAMEBOY; clock hidden) */}
       {phase === 'curtain' && (
         <WhiteCurtain
-          x={x}
-          y={y}
+          x={useCenter(labelRef).x}
+          y={useCenter(labelRef).y}
           onDone={() => {
             setPhase('done');
             try { onCascadeComplete?.(); } catch {}
           }}
         />
       )}
+
+      {/* Safety: ensure bands fill height in gate mode */}
+      <style jsx>{`
+        :global(:root[data-mode="gate"]) .chakra-band { min-height: 100%; }
+      `}</style>
     </div>
   );
 }
 
-/** Naples clock (America/New_York) — fixed spacing under orb */
+/** Naples clock (America/New_York) — text only; parent controls button behavior */
 function ClockNaples() {
   const [now, setNow] = useState('');
   useEffect(() => {
@@ -357,15 +393,5 @@ function ClockNaples() {
     const id = setInterval(fmt, 1000);
     return () => clearInterval(id);
   }, []);
-  return (
-    <div
-      style={{
-        font: '800 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-        letterSpacing: '.06em',
-        marginTop: 0, // keep orb↔time tight
-      }}
-    >
-      {now}
-    </div>
-  );
+  return <span>{now}</span>;
 }
