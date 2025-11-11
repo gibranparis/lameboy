@@ -8,8 +8,9 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
-const CASCADE_MS     = 2400; // total band pass
-const BANDS_LEAD_MS  = 320;  // white starts later so bands clearly lead
+/* =============================== Timings ================================ */
+const CASCADE_MS     = 1800; // duration of band sweep (faster + smoother)
+const BANDS_LEAD_MS  = 280;  // white starts a beat AFTER bands begin
 const WHITE_HOLD_MS  = 520;  // brief hold before curtain
 const SEAFOAM        = '#32ffc7';
 
@@ -35,72 +36,46 @@ function useCenter(ref) {
   return pt;
 }
 
-const clamp01 = (v) => Math.max(0, Math.min(1, v));
-const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-
-/* ---------- RAF-driven CASCADE (white under, bands over) ---------- */
-function CascadeOverlayRAF({
-  durationMs = CASCADE_MS,
-  bandsLeadMs = BANDS_LEAD_MS,
-  onWhiteProgress,
-}) {
-  const [p, setP] = useState(0);
-  const raf = useRef(0);
-  const t0  = useRef(0);
-  const cb  = useRef(onWhiteProgress);
-  useEffect(() => { cb.current = onWhiteProgress; }, [onWhiteProgress]);
-
+/* ====================== CSS-driven CASCADE (smooth) ===================== */
+/* Bands animate on the compositor (translate3d + opacity), each with a
+   uniform duration and a precise stagger. The white sheet slides in under
+   the bands with its own delay (BANDS_LEAD_MS). No RAF jank. */
+function CascadeOverlayCSS({ onWhiteStart }) {
   useEffect(() => {
-    const step = (t) => {
-      if (!t0.current) t0.current = t;
-      const k = Math.min(1, (t - t0.current) / durationMs);
-      setP(k);
-      if (k < 1) raf.current = requestAnimationFrame(step);
-    };
-    raf.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf.current);
-  }, [durationMs]);
-
-  const STAGGERS = [0.00, 0.06, 0.12, 0.18, 0.24, 0.30, 0.36];
-  const FADE_LOCAL = 0.80;
-
-  // White sheet progress (begins only after bandsLeadMs)
-  const rawWhite = (p * durationMs - bandsLeadMs) / (durationMs - bandsLeadMs);
-  const whiteRaw = clamp01(rawWhite);
-  const whiteP   = easeOutCubic(whiteRaw);
-  const whiteTx  = (1 - whiteP) * 100; // +100% -> 0%
-  useEffect(() => { cb.current?.(whiteP); }, [whiteP]);
-
-  // Absolutely hide white until it meaningfully exists
-  const whiteVisible = whiteRaw > 0.06;
+    const t = setTimeout(() => onWhiteStart?.(), BANDS_LEAD_MS);
+    return () => clearTimeout(t);
+  }, [onWhiteStart]);
 
   return createPortal(
     <>
-      {/* WHITE under-bands — fully hidden until it actually starts */}
+      {/* WHITE (under) */}
       <div
         aria-hidden
+        className="lb-white-under"
         style={{
           position: 'fixed',
           inset: 0,
-          transform: `translate3d(${whiteTx}%,0,0)`,
           background: '#fff',
-          zIndex: 10000,               // under bands, over page
+          zIndex: 10000, // under bands, over page
           pointerEvents: 'none',
+          transform: 'translate3d(100%,0,0)',
+          animation: `lbWhiteSlide ${CASCADE_MS}ms cubic-bezier(.22,1,.36,1) ${BANDS_LEAD_MS}ms forwards`,
           willChange: 'transform',
-          visibility: whiteVisible ? 'visible' : 'hidden',
         }}
       />
-      {/* BANDS above white */}
+
+      {/* BANDS (over) */}
       <div
         className="chakra-overlay"
-        data-js-cascade="raf"
         aria-hidden
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 10001,
+          display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
+          zIndex: 10001,
           pointerEvents: 'none',
+          contain: 'layout paint',
         }}
       >
         {[
@@ -111,64 +86,77 @@ function CascadeOverlayRAF({
           'chakra-throat',
           'chakra-thirdeye',
           'chakra-crown',
-        ].map((cls, i) => {
-          const offset  = STAGGERS[i];
-          const local   = clamp01((p - offset) / (1 - offset));
-          const move    = easeOutCubic(local);
-          const tx      = (1 - move) * 100; // +100vw → 0
-          const opacity = local < FADE_LOCAL ? 1 : clamp01(1 - (local - FADE_LOCAL) / (1 - FADE_LOCAL));
-          return (
-            <div
-              key={cls}
-              className={`chakra-band ${cls}`}
-              style={{
-                transform: `translate3d(${tx}vw,0,0)`,
-                opacity,
-                willChange: 'transform,opacity',
-              }}
-            />
-          );
-        })}
+        ].map((cls, i) => (
+          <div
+            key={cls}
+            className={`chakra-band ${cls}`}
+            style={{
+              transform: 'translate3d(100vw,0,0)',
+              opacity: 0.001,
+              willChange: 'transform,opacity',
+              // equal, precise staggering for perfectly even entrance
+              animation:
+                `lbBandSlide ${CASCADE_MS}ms cubic-bezier(.22,1,.36,1) ${i * 110}ms forwards,` +
+                `lbBandFade  ${CASCADE_MS}ms ease-out ${i * 110}ms forwards`,
+            }}
+          />
+        ))}
       </div>
+
+      {/* OVER-BANDS TITLE (white) */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 10002, // above bands, below curtain
+          pointerEvents: 'none',
+          display: 'grid',
+          placeItems: 'center',
+        }}
+      >
+        <span
+          style={{
+            color: '#fff',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            fontFamily: 'inherit',
+            lineHeight: 1.2,
+            textTransform: 'uppercase',
+            textShadow:
+              '0 0 8px rgba(255,255,255,.85), 0 0 18px rgba(255,255,255,.55), 0 0 28px rgba(255,255,255,.35)',
+          }}
+        >
+          LAMEBOY, USA
+        </span>
+      </div>
+
+      <style jsx global>{`
+        @keyframes lbBandSlide {
+          0%   { transform: translate3d(100vw,0,0); }
+          100% { transform: translate3d(0,0,0); }
+        }
+        @keyframes lbBandFade {
+          0%   { opacity: .001; }
+          80%  { opacity: 1; }
+          100% { opacity: .999; }
+        }
+        @keyframes lbWhiteSlide {
+          0%   { transform: translate3d(100%,0,0); }
+          100% { transform: translate3d(0,0,0); }
+        }
+        /* Ensure bands fill full height during gate */
+        :root[data-mode="gate"] .chakra-band { min-height: 100svh; }
+      `}</style>
     </>,
     document.body
   );
 }
 
-/* Floating title that locks to label center (always above bands/white) */
-function FloatingTitle({ x, y, text, color, glow = false, z = 10002 }) {
-  return createPortal(
-    <span
-      aria-hidden
-      style={{
-        position: 'fixed',
-        left: x,
-        top: y,
-        transform: 'translate(-50%, -50%)',
-        zIndex: z,
-        pointerEvents: 'none',
-        fontWeight: 800,
-        letterSpacing: '.06em',
-        fontSize: 'clamp(12px,1.3vw,14px)',
-        fontFamily: 'inherit',
-        color,
-        textShadow: glow
-          ? `0 0 8px rgba(255,255,255,.95),
-             0 0 18px rgba(255,255,255,.65),
-             0 0 28px rgba(255,255,255,.35)`
-          : '0 0 0 transparent',
-      }}
-    >
-      {text}
-    </span>,
-    document.body
-  );
-}
-
-/* White curtain phase:
-   - Solid white background
-   - Centered stack: black ORB (overrideAllColor='#000'), black TIME, black "LAMEBOY, USA"
-   - Fades out when grid signals ready (lb:shop-ready) or after failsafe */
+/* ============================ White curtain ============================= */
+/* Solid white + black ORB + black clock + black LAMEBOY, USA.
+   Fades out on lb:shop-ready or after failsafe. */
 function WhiteCurtain({ onDone }) {
   const [visible, setVisible] = useState(true);
 
@@ -184,9 +172,7 @@ function WhiteCurtain({ onDone }) {
     const onReady = () => finish();
     window.addEventListener('lb:shop-ready', onReady, { once: true });
 
-    // failsafe if grid never signals ready
     const t = setTimeout(finish, 2400);
-
     return () => { clearTimeout(t); window.removeEventListener('lb:shop-ready', onReady); };
   }, [onDone]);
 
@@ -199,7 +185,7 @@ function WhiteCurtain({ onDone }) {
         position: 'fixed',
         inset: 0,
         background: '#fff',
-        zIndex: 10002,
+        zIndex: 10003, // over cascade
         pointerEvents: 'none',
         opacity: 1,
         transition: 'opacity .26s ease',
@@ -208,15 +194,7 @@ function WhiteCurtain({ onDone }) {
       }}
     >
       {/* Centered stack */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 6,
-          pointerEvents: 'none',
-        }}
-      >
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'none' }}>
         {/* ORB — black override */}
         <div style={{ lineHeight: 0 }}>
           <BlueOrbCross3D
@@ -266,12 +244,11 @@ function WhiteCurtain({ onDone }) {
   );
 }
 
-/* ---------------- main ---------------- */
+/* =============================== Component ============================== */
 export default function LandingGate({ onCascadeComplete }) {
   // phases: idle → cascade → hold → curtain → done
   const [phase, setPhase] = useState('idle');
   const [hovered, setHovered] = useState(false);
-  const [whiteP, setWhiteP] = useState(0); // reserved for future behavior
   const labelRef = useRef(null);
   const locked = useRef(false);
 
@@ -281,8 +258,7 @@ export default function LandingGate({ onCascadeComplete }) {
     return () => { try { document.documentElement.removeAttribute('data-mode'); } catch {} };
   }, []);
 
-  // Measure label center once
-  useCenter(labelRef); // (x,y) not needed anymore for curtain since we render a centered stack
+  useCenter(labelRef);
 
   const start = useCallback(() => {
     if (locked.current || phase !== 'idle') return;
@@ -291,9 +267,9 @@ export default function LandingGate({ onCascadeComplete }) {
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
+    // Advance to hold and then curtain with precise timings
     const t1 = setTimeout(() => setPhase('hold'), CASCADE_MS);
     const t2 = setTimeout(() => {
-      // Enter curtain → also flip mode to shop so globals adopt shop palette
       setPhase('curtain');
       try { document.documentElement.setAttribute('data-mode', 'shop'); } catch {}
     }, CASCADE_MS + WHITE_HOLD_MS);
@@ -301,8 +277,7 @@ export default function LandingGate({ onCascadeComplete }) {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
 
-  // Spacing: (orb ↔ time) == (time ↔ Florida)
-  const STACK_GAP = 6; // px
+  const STACK_GAP = 6;
 
   return (
     <div
@@ -316,8 +291,7 @@ export default function LandingGate({ onCascadeComplete }) {
         gap: STACK_GAP,
         padding: '1.5rem',
         position: 'relative',
-        // Hide base stack once animation starts; overlays/curtain handle visuals
-        visibility: phase === 'idle' ? 'visible' : 'hidden',
+        visibility: phase === 'idle' ? 'visible' : 'hidden', // base stack hidden once animation starts
       }}
     >
       {/* ORB — clickable Enter */}
@@ -326,16 +300,7 @@ export default function LandingGate({ onCascadeComplete }) {
         onClick={start}
         title="Enter"
         aria-label="Enter"
-        style={{
-          position: 'relative',
-          zIndex: 10004,
-          lineHeight: 0,
-          padding: 0,
-          margin: 0,
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-        }}
+        style={{ position: 'relative', zIndex: 10004, lineHeight: 0, padding: 0, margin: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
       >
         <BlueOrbCross3D
           rpm={44}
@@ -349,7 +314,7 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       </button>
 
-      {/* Timer — same font/size as Florida; white; also clickable Enter */}
+      {/* TIME — white (clickable) */}
       {phase !== 'curtain' && phase !== 'done' && (
         <button
           type="button"
@@ -372,7 +337,7 @@ export default function LandingGate({ onCascadeComplete }) {
         </button>
       )}
 
-      {/* Florida label — clickable Enter, matches timer sizing */}
+      {/* Florida label — white (hover = neon yellow) */}
       <button
         ref={labelRef}
         type="button"
@@ -394,11 +359,8 @@ export default function LandingGate({ onCascadeComplete }) {
           fontFamily: 'inherit',
           color: hovered ? '#ffe600' : '#ffffff',
           textShadow: hovered
-            ? `0 0 8px rgba(255,230,0,.95),
-               0 0 18px rgba(255,210,0,.70),
-               0 0 28px rgba(255,200,0,.45)`
-            : `0 0 8px rgba(255,255,255,.45),
-               0 0 16px rgba(255,255,255,.30)`,
+            ? `0 0 8px rgba(255,230,0,.95), 0 0 18px rgba(255,210,0,.70), 0 0 28px rgba(255,200,0,.45)`
+            : `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
           marginTop: 0,
         }}
       >
@@ -407,7 +369,11 @@ export default function LandingGate({ onCascadeComplete }) {
 
       {/* Overlays */}
       {(phase === 'cascade' || phase === 'hold') && (
-        <CascadeOverlayRAF bandsLeadMs={BANDS_LEAD_MS} onWhiteProgress={setWhiteP} />
+        <CascadeOverlayCSS
+          onWhiteStart={() => {
+            // White has just begun sliding; nothing to do yet, but hook is here if needed
+          }}
+        />
       )}
 
       {/* CURTAIN — white bg + black orb/time/label */}
@@ -419,16 +385,11 @@ export default function LandingGate({ onCascadeComplete }) {
           }}
         />
       )}
-
-      {/* Safety: ensure bands fill height in gate mode */}
-      <style jsx>{`
-        :global(:root[data-mode="gate"]) .chakra-band { min-height: 100%; }
-      `}</style>
     </div>
   );
 }
 
-/** Naples clock (America/New_York) — text only; parent/curtain control rendering */
+/** Naples clock (America/New_York) */
 function ClockNaples() {
   const [now, setNow] = useState('');
   useEffect(() => {
