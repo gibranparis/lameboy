@@ -4,22 +4,18 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 
-/* --------------------------------- Utils --------------------------------- */
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* one–shot “flash” class toggler (for arrows) */
 function flash(el, klass='is-hot', ms=220){
   if (!el) return;
   el.classList.remove(klass);
-  // reflow to restart animation
   // eslint-disable-next-line no-unused-expressions
   el.offsetWidth;
   el.classList.add(klass);
   window.setTimeout(()=>el.classList.remove(klass), ms);
 }
 
-/* ---------------------------- Arrow controller --------------------------- */
 function ArrowControl({ dir='up', night, onClick, dataUi }) {
   const baseBg = night ? '#0b0c10' : '#ffffff';
   const ring   = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
@@ -56,26 +52,17 @@ function ArrowControl({ dir='up', night, onClick, dataUi }) {
 }
 
 /* -------------------------- Sizes + (+/–) toggle ------------------------- */
-/**
- * Sequence:
- * 1) Tap "+" → sizes open (icon "–")
- * 2) Tap size → that size pill flashes GREEN (same as arrow flash) for ~420ms
- * 3) Sizes collapse
- * 4) The entire "+" pill becomes INVISIBLE and an "Added" label (price-matched) shows in its place
- * 5) After ~900ms, "Added" fades and the "+" pill returns (visible)
- */
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
   const [hotSize, setHotSize] = useState(null);
-
-  // “Added” replaces the + (hide the whole pill, not just glyph)
   const [showAdded, setShowAdded] = useState(false);
-
+  const [plusHot, setPlusHot] = useState(false);
+  const plusRef = useRef(null);
   const timers = useRef({});
 
   const onToggle = () => {
-    if (showAdded) return; // don't interrupt the “Added” moment
+    if (showAdded) return;
     setOpen(v => !v);
   };
 
@@ -86,29 +73,29 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
     } catch {}
 
-    // 1) flash the tapped size pill (same green language as arrow flash)
+    // flash the size pill (like arrows)
     setHotSize(sz);
 
-    // 2) after flash completes, collapse + show “Added”
+    // flash the + pill (same language as arrows)
+    setPlusHot(true);
+    clearTimeout(timers.current.plusHot);
+    timers.current.plusHot = setTimeout(()=>setPlusHot(false), 220);
+
+    // collapse and show "Added"
     clearTimeout(timers.current.flashClose);
     timers.current.flashClose = setTimeout(() => {
       setOpen(false);
       setHotSize(null);
       setShowAdded(true);
-
-      // 3) hide “Added” later and restore “+”
       clearTimeout(timers.current.addedHide);
       timers.current.addedHide = setTimeout(() => setShowAdded(false), 900);
     }, 420);
   };
 
-  useEffect(() => {
-    return () => Object.values(timers.current).forEach(t => clearTimeout(t));
-  }, []);
+  useEffect(() => () => Object.values(timers.current).forEach(t => clearTimeout(t)), []);
 
   const glyph = open ? '–' : '+';
 
-  // Price-matched style for “Added”
   const addedStyle = {
     color: priceStyle?.color || 'inherit',
     fontSize: priceStyle?.fontSize || 'inherit',
@@ -119,25 +106,27 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
 
   return (
     <div style={{ display:'grid', justifyItems:'center', gap:12, position:'relative' }}>
-      {/* +/- pill — footprint stays, but becomes FULLY invisible while “Added” shows */}
+      {/* +/- pill */}
       <button
+        ref={plusRef}
         type="button"
         data-ui="size-toggle"
         className={[
           'pill',
           'plus-pill',
           open ? 'is-ready' : '',
-          showAdded ? 'is-hidden-pod' : '', // << full invis when Added shows
+          plusHot ? 'is-hot' : '',
+          showAdded ? 'is-hidden' : ''   // FULLY HIDE during "Added" (no ghost circle)
         ].join(' ').trim()}
         onClick={onToggle}
-        disabled={showAdded}
         aria-label={open ? 'Close sizes' : (showAdded ? 'Added' : 'Choose size')}
         title={open ? 'Close sizes' : (showAdded ? 'Added' : 'Choose size')}
       >
-        <span aria-hidden>{glyph}</span>
+        {/* hide glyph if needed (kept for safety) */}
+        <span aria-hidden style={{ opacity: showAdded ? 0 : 1 }}>{glyph}</span>
       </button>
 
-      {/* “Added” label — centered where the + pill lives */}
+      {/* “Added” label — sits over the + spot */}
       {showAdded && (
         <span
           aria-live="polite"
@@ -153,7 +142,7 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
         </span>
       )}
 
-      {/* Size panel */}
+      {/* Sizes */}
       <div
         className={`row-nowrap size-panel ${open ? 'is-open' : ''}`}
         data-ui="size-panel"
@@ -179,76 +168,6 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
       </div>
 
       <style jsx>{`
-        :root{
-          --neon: var(--hover-green, #0bf05f);
-          --circle-day:#ffffff; --circle-night:#0b0c10;
-          --ring-day:rgba(0,0,0,.08); --ring-night:rgba(255,255,255,.12);
-          --glyph-day:#0f1115; --glyph-night:#ffffff;
-        }
-
-        /* Pills baseline: aligned with globals */
-        .pill{
-          display:inline-grid; place-items:center; border:none; font-weight:800;
-          transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease, opacity .18s ease;
-          user-select:none; outline:none;
-        }
-
-        /* + / – circle (28x28) */
-        .plus-pill{
-          width:28px; height:28px; border-radius:9999px; line-height:1; font-size:18px;
-          background:var(--circle-day); color:var(--glyph-day);
-          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
-        }
-        :root[data-theme="night"] .plus-pill{
-          background:var(--circle-night); color:var(--glyph-night);
-          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
-        }
-        .plus-pill.is-ready{
-          background:var(--circle-day); color:var(--glyph-day);
-          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
-        }
-        :root[data-theme="night"] .plus-pill.is-ready{
-          background:var(--circle-night); color:var(--glyph-night);
-          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
-        }
-
-        /* FULL invisibility while "Added" is visible — no faint pill ghost */
-        .plus-pill.is-hidden-pod{
-          opacity: 0 !important;
-        }
-
-        /* size pills (28x28) */
-        .size-pill{
-          width:28px; height:28px; border-radius:9999px; font-size:12px;
-          background:var(--circle-day); color:var(--glyph-day);
-          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
-        }
-        :root[data-theme="night"] .size-pill{
-          background:var(--circle-night); color:var(--glyph-night);
-          box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
-        }
-
-        /* Persist hint if you want (kept subtle); the flash is the bold signal */
-        .size-pill.is-selected{
-          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px rgba(0,0,0,.22);
-          color: inherit;
-          background: inherit;
-        }
-
-        /* EXACT same green flash language as arrow pills */
-        .size-pill.is-hot{
-          background: var(--neon) !important;
-          color:#000 !important;
-          box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12) !important;
-          transform: scale(1.06);
-          animation: lbPulseShort 420ms ease;
-        }
-        @keyframes lbPulseShort{
-          0%   { box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 0 0 0 rgba(11,240,95,.42); }
-          70%  { box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 0 0 10px rgba(11,240,95,0); }
-          100% { box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 0 0 12px rgba(11,240,95,0); }
-        }
-
         .size-panel{
           overflow:hidden;
           max-height:0;
@@ -259,29 +178,26 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
         }
         .size-panel.is-open{ max-height:68px; }
 
-        /* The in-place “Added” label */
-        .added-label{
-          pointer-events:none;
-          animation: addedFade .9s ease forwards;
-          white-space:nowrap;
-          text-transform:none;
+        .size-pill.is-hot{
+          transform: scale(1.06);
+          box-shadow:
+            0 0 0 0 rgba(11,240,95,.42),
+            inset 0 0 0 1px rgba(11,240,95,.55);
+          animation: lbPulseShort 420ms ease;
         }
-        @keyframes addedFade{
-          0%{ opacity:1; transform:translateY(2px) scale(0.98); }
-          60%{ opacity:1; transform:translateY(2px) scale(1); }
-          100%{ opacity:0; transform:translateY(2px) scale(1); }
+        @keyframes lbPulseShort{
+          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
+          70%  { box-shadow: 0 0 0 8px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
+          100% { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
         }
       `}</style>
     </div>
   );
 }
 
-/* ------ SWIPE ENGINE (mobile & desktop parity) ------ */
+/* ------ SWIPE ENGINE (unchanged) ------ */
 function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash }) {
-  const state = useRef({
-    active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0,
-  });
-
+  const state = useRef({ active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0 });
   const coarse =
     typeof window !== 'undefined' &&
     window.matchMedia &&
@@ -356,6 +272,12 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   const clampedImgIdx = useMemo(()=>clamp(imgIdx, 0, Math.max(0, imgs.length-1)), [imgIdx, imgs.length]);
 
+  /* signal mount for grid-flash guard */
+  useEffect(() => {
+    try { window.dispatchEvent(new Event('lb:overlay-open')); } catch {}
+    return () => {};
+  }, []);
+
   /* close on orb zoom */
   useEffect(() => {
     const h = () => onClose?.();
@@ -384,7 +306,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('keydown', onKey);
   }, [imgs.length, products.length, index, onIndexChange, onClose]);
 
-  /* wheel (desktop) — flash arrows according to scroll dir */
+  /* wheel flash parity */
   const lastWheel = useRef(0);
   useEffect(() => {
     const onWheel = (e) => {
@@ -405,7 +327,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     flash(document.querySelector(dir==='down' ? '[data-ui="img-down"]' : '[data-ui="img-up"]'));
   }, []);
 
-  /* swipe */
   const swipe = useSwipe({
     imgsLen: imgs.length,
     prodsLen: products.length,
@@ -415,7 +336,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     onDirFlash,
   });
 
-  /* overlay flag for page styles */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open','1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -430,7 +350,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   const sizes = product.sizes?.length ? product.sizes : ['OS','S','M','L','XL'];
 
-  // capture computed styles of the price so "Added" matches exactly
   const priceRef = useRef(null);
   const [priceStyle, setPriceStyle] = useState(null);
   useEffect(() => {
@@ -466,7 +385,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         onPointerUp={swipe.onUp}
         onPointerCancel={swipe.onUp}
       >
-        {/* transparent click-catcher (no dim) */}
         <div
           onClick={(e)=>{ e.stopPropagation(); onClose?.(); }}
           style={{
@@ -477,9 +395,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           }}
         />
 
-        {/* content */}
         <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center', zIndex:521 }}>
-          {/* left arrows */}
           {products.length>1 && (
             <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
               <ArrowControl dir="up"   night={night} dataUi="img-up"   onClick={()=>{ onIndexChange?.(wrap(index-1, products.length)); onDirFlash('up'); }} />
@@ -487,7 +403,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
             </div>
           )}
 
-          {/* main image */}
           {!!imgs.length && (
             <>
               <div data-ui="product-viewport" style={{ width:'100%' }}>
@@ -528,26 +443,15 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         </div>
       </div>
 
-      {/* local styles for arrow flash + dots (unchanged) */}
       <style jsx>{`
-        :root{
-          --neon: var(--hover-green, #0bf05f);
-          --pill-bg: var(--panel, #1e1e1e);
-          --pill-fg: var(--text, #ffffff);
-          --pill-ring: rgba(255,255,255,.12);
-        }
-
         .arrow-pill.is-hot > div{
-          background: var(--neon) !important;
+          background: var(--hover-green) !important;
           color:#000 !important;
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12) !important;
         }
-
-        .dot-pill{
-          border-radius:9999px; padding:0; width:18px; height:18px; background:#ececec;
-        }
+        .dot-pill{ border-radius:9999px; padding:0; width:18px; height:18px; background:#ececec; }
         :root[data-theme="night"] .dot-pill{ background:#111; }
-        .dot-pill.is-active{ background:var(--neon); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
+        .dot-pill.is-active{ background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
       `}</style>
     </>
   );

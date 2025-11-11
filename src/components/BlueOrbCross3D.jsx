@@ -20,23 +20,47 @@ function OrbCross({
   overrideGlowOpacity,
   interactive = false,
   haloTint = null,
+
+  // NEW: click responsiveness
+  clickPulseMs = 130,
+  clickGlowOpacity = 0.16,
 }) {
   const group = useRef();
+  const [pressed, setPressed] = useState(false);
 
   const coarse =
     typeof window !== 'undefined' &&
     window.matchMedia &&
     window.matchMedia('(pointer:coarse)').matches;
 
+  useEffect(() => {
+    const kill = () => setPressed(false);
+    window.addEventListener('lb:zoom', kill);
+    window.addEventListener('lb:zoom/grid-density', kill);
+    document.addEventListener('lb:zoom', kill);
+    document.addEventListener('lb:zoom/grid-density', kill);
+    return () => {
+      window.removeEventListener('lb:zoom', kill);
+      window.removeEventListener('lb:zoom/grid-density', kill);
+      document.removeEventListener('lb:zoom', kill);
+      document.removeEventListener('lb:zoom/grid-density', kill);
+    };
+  }, []);
+
   useFrame((state, dt) => {
     if (!group.current) return;
     group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt;
 
+    // pulse halo materials when enabled
     const u = group.current.userData;
     if (glow && u?.pulse) {
       const t = state.clock.getElapsedTime();
       const pulse = 0.85 + Math.sin(t * 3.6) * 0.15;
-      const b = u.base * pulse;
+      const base = pressed
+        ? (overrideGlowOpacity ?? clickGlowOpacity)
+        : (overrideGlowOpacity ?? (Math.min(1, glowOpacity * 1.35) * (coarse ? 0.55 : 1.0)));
+      const b = base * (pressed ? 1 : (0.55 + pulse * 0.45));
+
       u.barHalo.opacity = b * 0.55;
       u.sphereHalos.forEach((m) => (m.opacity = b));
       u.halo2.opacity = b * 0.65;
@@ -150,13 +174,30 @@ function OrbCross({
     };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
-  const handlePointerDown = interactive ? (e) => { e.stopPropagation(); onActivate && onActivate(); } : undefined;
-  const handleKeyDown     = interactive ? (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } } : undefined;
+  const handlePointerDown = interactive ? (e) => {
+    e.stopPropagation();
+    setPressed(true);
+    const t = setTimeout(() => setPressed(false), Math.max(60, clickPulseMs));
+    e.target.__lb_p = t;
+    onActivate && onActivate();
+  } : undefined;
+
+  const handlePointerUp = interactive ? (e) => {
+    e.stopPropagation();
+    setPressed(false);
+    if (e.target.__lb_p) { clearTimeout(e.target.__lb_p); e.target.__lb_p = null; }
+  } : undefined;
+
+  const handleKeyDown = interactive ? (e) => {
+    if (e.key==='Enter'||e.key===' ') { e.preventDefault(); setPressed(true); setTimeout(() => setPressed(false), Math.max(60, clickPulseMs)); onActivate && onActivate(); }
+  } : undefined;
 
   return (
     <group
       ref={group}
       onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       onKeyDown={handleKeyDown}
       tabIndex={interactive ? 0 : -1}
     >
@@ -197,26 +238,30 @@ function OrbCross({
   );
 }
 
-export default function BlueOrbCross3D({
-  height = '28px',
-  rpm = 14.4,
-  color = '#32ffc7',
-  geomScale = 1,
-  offsetFactor = 2.05,
-  armRatio = 0.33,
-  glow = true,
-  glowOpacity = 0.7,
-  glowScale = 1.35,
-  includeZAxis = true,
-  onActivate = null,
-  overrideAllColor = null,
-  overrideGlowOpacity,
-  style = {},
-  className = '',
-  interactive = false,
-  respectReducedMotion = false,
-  haloTint = null,
-}) {
+export default function BlueOrbCross3D(props) {
+  const {
+    height = '28px',
+    rpm = 14.4,
+    color = '#32ffc7',
+    geomScale = 1,
+    offsetFactor = 2.05,
+    armRatio = 0.33,
+    glow = true,
+    glowOpacity = 0.7,
+    glowScale = 1.35,
+    includeZAxis = true,
+    onActivate = null,
+    overrideAllColor = null,
+    overrideGlowOpacity,
+    style = {},
+    className = '',
+    interactive = false,
+    respectReducedMotion = false,
+    haloTint = null,
+    clickPulseMs,
+    clickGlowOpacity,
+  } = props;
+
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
 
@@ -272,6 +317,8 @@ export default function BlueOrbCross3D({
           overrideGlowOpacity={overrideGlowOpacity}
           interactive={interactive}
           haloTint={haloTint}
+          clickPulseMs={clickPulseMs}
+          clickGlowOpacity={clickGlowOpacity}
         />
       </Canvas>
     </div>
