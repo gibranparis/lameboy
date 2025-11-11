@@ -1,3 +1,4 @@
+// src/app/page.js (or src/app/page.jsx)
 'use client';
 
 export const dynamic = 'force-static';
@@ -114,19 +115,18 @@ export default function Page(){
               </div>
             </div>
 
-            {/* CENTER: Chakra Orb */}
+            {/* CENTER: Chakra Orb (larger than cart) */}
             <div style={{ display:'grid', placeItems:'center' }}>
               <ChakraOrbButton
                 size={64}
-                className="orb-ring"
                 style={{ display:'grid', placeItems:'center' }}
               />
             </div>
 
-            {/* RIGHT: Cart */}
+            {/* RIGHT: Cart (smaller visual) */}
             <div style={{ display:'grid', justifyContent:'end' }}>
               <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
-                <CartButton inHeader />
+                <CartButton size={40} inHeader />
               </div>
             </div>
           </header>
@@ -151,7 +151,7 @@ export default function Page(){
                   zIndex:540,
                   display:'grid',
                   placeItems:'center',
-                  background:'#fff' /* fixed stray ')' */
+                  background:'#fff'
                 }}
                 onClick={(e)=>{ if(e.target === e.currentTarget) setLoginOpen(false); }}
               >
