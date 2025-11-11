@@ -35,7 +35,6 @@ function useShift() {
 
 function useCenter(ref) {
   const measure = useCallback(() => {
-    // kept for future; not required for centered overlay stack
     void ref?.current;
   }, [ref]);
   useLayoutEffect(() => {
@@ -63,7 +62,13 @@ function finishCascadeToDayShop(){
 }
 
 /* ====================== BannedLogin-style CASCADE ======================= */
-/** Color cascade that carries a white panel + 7 bands and a label that inverts on white */
+/**
+ * Color cascade that carries:
+ * - a WHITE sheet (slides from right → left)
+ * - 7 COLOR bands
+ * - a label that inverts on white (mix-blend:difference)
+ * - an **Early Black Stack** (orb/time/label) that fades in the instant white covers center.
+ */
 function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
   const [mounted, setMounted] = useState(true);
   const [p, setP] = useState(0);
@@ -84,13 +89,19 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
 
   if (!mounted) return null;
 
+  // White sheet progress: translateX from 100% → 0%
   const COLOR_VW = 120;
-  const whiteTx  = (1 - p) * 100;
-  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
+  const whiteTx  = (1 - p) * 100;               // %
+  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // vw
+
+  // As soon as white reaches screen center (whiteTx <= 50), pop in black stack.
+  // Tight ramp for a crisp "not a moment later" feel.
+  const showBlack   = whiteTx <= 50;
+  const blackAlpha  = Math.max(0, Math.min(1, 1 - (whiteTx - 50) / 6)); // 0→1 over ~6% travel
 
   return createPortal(
     <>
-      {/* WHITE underlay */}
+      {/* WHITE underlay (slides in) */}
       <div aria-hidden style={{
         position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
         background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
@@ -110,8 +121,8 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
         </div>
       </div>
 
-      {/* “LAMEBOY, USA” — appears white over color, black over white via mix-blend */}
-      <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
+      {/* “LAMEBOY, USA” — white over color, black over white via difference */}
+      <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10000, pointerEvents:'none' }}>
         <div style={{ position:'absolute', left:'50%', top:'50%', transform: labelTransform }}>
           <span style={{
             color:'#fff',
@@ -123,6 +134,64 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
           </span>
         </div>
       </div>
+
+      {/* === Early Black Stack (on top) =================================== */}
+      <div
+        aria-hidden
+        style={{
+          position:'fixed', inset:0, zIndex:10002, pointerEvents:'none',
+          display:'grid', placeItems:'center',
+          opacity: showBlack ? blackAlpha : 0,
+          transition: 'opacity .08s linear',  // very snappy
+        }}
+      >
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+          {/* ORB — forced black */}
+          <div style={{ lineHeight:0 }}>
+            <BlueOrbCross3D
+              rpm={44}
+              color={SEAFOAM}
+              geomScale={1.12}
+              glow
+              glowOpacity={1.0}
+              includeZAxis
+              height="88px"
+              interactive={false}
+              overrideAllColor="#000000"
+            />
+          </div>
+
+          {/* TIME — black */}
+          <span
+            style={{
+              color:'#000',
+              fontWeight:800,
+              letterSpacing:'.06em',
+              fontSize:'clamp(12px,1.3vw,14px)',
+              lineHeight:1.2,
+              fontFamily:'inherit',
+            }}
+          >
+            <ClockNaples />
+          </span>
+
+          {/* LAMEBOY, USA — black */}
+          <span
+            style={{
+              color:'#000',
+              fontWeight:800,
+              letterSpacing:'.06em',
+              fontSize:'clamp(12px,1.3vw,14px)',
+              lineHeight:1.2,
+              fontFamily:'inherit',
+              textTransform:'uppercase',
+            }}
+          >
+            LAMEBOY, USA
+          </span>
+        </div>
+      </div>
+      {/* ================================================================== */}
     </>,
     document.body
   );
@@ -226,7 +295,7 @@ export default function LandingGate({ onCascadeComplete }) {
   const labelRef = useRef(null);
   const locked = useRef(false);
   const pressTimer = useRef(null);
-  const { vh, micro, gap } = useShift();
+  const { vh, micro } = useShift();
 
   // Begin in "gate" mode to prevent background flashes
   useEffect(() => {
@@ -244,15 +313,14 @@ export default function LandingGate({ onCascadeComplete }) {
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    // after cascade passes, flip page chrome to day/shop and show curtain
+    // Flip chrome to day/shop right at cascade end; Early Black Stack already visible before this.
     const t1 = setTimeout(() => {
       finishCascadeToDayShop();
       setPhase('curtain');
     }, CASCADE_MS);
 
-    // after a tiny hold, let curtain manage the fade-out into shop
     const t2 = setTimeout(() => {
-      // no-op here; curtain listens to lb:shop-ready or times out
+      // curtain will listen for lb:shop-ready or auto-timeout
     }, CASCADE_MS + WHITE_HOLD_MS);
 
     return () => { clearTimeout(t1); clearTimeout(t2); };
@@ -276,7 +344,7 @@ export default function LandingGate({ onCascadeComplete }) {
         visibility: phase === 'idle' ? 'visible' : 'hidden',
       }}
     >
-      {/* CASCADE overlay (BannedLogin-style) */}
+      {/* CASCADE overlay (now includes Early Black Stack) */}
       {phase === 'cascade' && (
         <CascadeOverlay
           durationMs={CASCADE_MS}
@@ -356,12 +424,7 @@ export default function LandingGate({ onCascadeComplete }) {
       <button
         ref={labelRef}
         type="button"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onFocus={() => setHovered(true)}
-        onBlur={() => setHovered(false)}
         onClick={runCascade}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && runCascade()}
         title="Enter"
         style={{
           visibility: phase === 'idle' ? 'visible' : 'hidden',
@@ -372,15 +435,11 @@ export default function LandingGate({ onCascadeComplete }) {
           letterSpacing: '.06em',
           fontSize: 'clamp(12px,1.3vw,14px)',
           fontFamily: 'inherit',
-          color: hovered ? '#ffe600' : '#ffffff',
-          textShadow: hovered
-            ? `0 0 8px rgba(255,230,0,.95),
-               0 0 18px rgba(255,210,0,.70),
-               0 0 28px rgba(255,200,0,.45)`
-            : `0 0 8px rgba(255,255,255,.45),
-               0 0 16px rgba(255,255,255,.30)`,
+          color: '#ffffff',
+          textShadow: `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
           marginTop: 0,
         }}
+        onMouseEnter={( ) => {}}
       >
         Florida, USA
       </button>
