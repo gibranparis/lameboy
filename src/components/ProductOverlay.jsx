@@ -56,33 +56,64 @@ function ArrowControl({ dir='up', night, onClick, dataUi }) {
 }
 
 /* -------------------------- Sizes + (+/–) toggle ------------------------- */
+/* Behavior:
+   - Default: shows "+" (neutral)
+   - Click "+": sizes open, icon becomes "–"
+   - Click size: closes sizes, pulses + in green for ~600ms, dispatches lb:add-to-cart
+*/
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
+  const [confirming, setConfirming] = useState(false);
+  const confirmTimer = useRef(null);
 
-  const onToggle = () => setOpen(v=>!v);
+  const onToggle = () => {
+    // prevent immediate re-open while confirmation pulse is active
+    if (confirming) return;
+    setOpen(v => !v);
+  };
 
   const pick = (sz) => {
     setPicked(sz);
     try {
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
     } catch {}
+    // collapse + pulse green for satisfaction
+    setOpen(false);
+    setConfirming(true);
+    // clear any prior timer
+    if (confirmTimer.current) window.clearTimeout(confirmTimer.current);
+    confirmTimer.current = window.setTimeout(() => {
+      setConfirming(false);
+    }, 640); // a hair over 600ms feels better with CSS ease
   };
+
+  useEffect(() => () => {
+    if (confirmTimer.current) window.clearTimeout(confirmTimer.current);
+  }, []);
+
+  const glyph = open ? '–' : '+';
 
   return (
     <div style={{ display:'grid', justifyItems:'center', gap:12 }}>
       <button
         type="button"
         data-ui="size-toggle"
-        className={`pill plus-pill ${open ? 'is-ready' : ''}`}
+        className={`pill plus-pill ${open ? 'is-ready' : ''} ${confirming ? 'is-confirmed' : ''}`}
         onClick={onToggle}
         aria-label={open?'Close sizes':'Choose size'}
         title={open?'Close sizes':'Choose size'}
       >
-        {open ? '–' : '+'}
+        {glyph}
       </button>
 
-      <div className="row-nowrap" data-ui="size-panel" hidden={!open} style={{ gap:8 }}>
+      {/* Keep panel in DOM for smooth height animation; control via [hidden] + max-height */}
+      <div
+        className={`row-nowrap size-panel ${open ? 'is-open' : ''}`}
+        data-ui="size-panel"
+        hidden={!open}
+        style={{ gap:8 }}
+      >
         {sizes.map((sz)=>(
           <button
             key={sz}
@@ -341,10 +372,91 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       <style jsx>{`
         :root{
           --neon: var(--hover-green, #0bf05f);
+          --pill-bg: var(--panel, #1e1e1e);
+          --pill-fg: var(--text, #ffffff);
+          --pill-ring: rgba(255,255,255,.12);
+          --pill-bg-day: #ffffff;
+          --pill-fg-day: #0f1115;
+          --pill-ring-day: rgba(0,0,0,.08);
         }
+
         .arrow-pill.is-hot > div{
           background: var(--neon) !important;
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12);
+        }
+
+        /* --- pills --- */
+        .pill{
+          font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
+          letter-spacing:.2px;
+          padding:10px 14px;
+          border-radius:999px;
+          border:none;
+          cursor:pointer;
+          transition: transform .18s ease, box-shadow .18s ease, color .2s ease, background .2s ease;
+          user-select:none;
+          outline:none;
+        }
+
+        .plus-pill{
+          min-width:42px; height:42px; display:grid; place-items:center;
+          background: var(--pill-bg);
+          color: var(--pill-fg);
+          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--pill-ring);
+        }
+        /* open state: calm emphasis */
+        .plus-pill.is-ready{
+          transform: scale(1.02);
+          box-shadow: 0 4px 16px rgba(0,0,0,.18), inset 0 0 0 1px var(--pill-ring);
+        }
+        /* confirmation pulse (keeps the '+' glyph) */
+        .plus-pill.is-confirmed{
+          color: var(--neon);
+          transform: scale(1.12);
+          box-shadow:
+            0 0 0 0 rgba(11,240,95,.42),
+            inset 0 0 0 1px rgba(11,240,95,.55);
+          animation: lbPulse 640ms ease;
+        }
+        @keyframes lbPulse{
+          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
+          70%  { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
+          100% { box-shadow: 0 0 0 12px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
+        }
+
+        .size-panel{
+          overflow:hidden;
+          max-height:0;
+          transition:max-height .28s ease;
+          display:flex;
+          flex-wrap:nowrap;
+          justify-content:center;
+        }
+        .size-panel.is-open{
+          max-height:68px; /* enough for one row of pills */
+        }
+
+        .size-pill{
+          background: var(--pill-bg);
+          color: var(--pill-fg);
+          box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--pill-ring);
+          min-width:42px;
+        }
+        .size-pill:hover{ transform: translateY(-1px); }
+        .size-pill.is-selected{
+          color: var(--neon);
+          box-shadow: 0 0 0 0 rgba(11,240,95,.12), inset 0 0 0 1px rgba(11,240,95,.5);
+        }
+
+        /* Dots */
+        .dot-pill{
+          border-radius:50%;
+          background: var(--pill-bg);
+          box-shadow: inset 0 0 0 1px var(--pill-ring);
+        }
+        .dot-pill.is-active{
+          background: var(--neon);
+          box-shadow: inset 0 0 0 0 rgba(0,0,0,0);
         }
       `}</style>
     </>
