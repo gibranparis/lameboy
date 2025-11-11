@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* small helper: one–shot “flash” class toggler */
+/* small helper: one–shot “flash” class toggler (for arrows) */
 function flash(el, klass='is-hot', ms=220){
   if (!el) return;
   el.classList.remove(klass);
@@ -59,43 +59,78 @@ function ArrowControl({ dir='up', night, onClick, dataUi }) {
 /* Behavior:
    - Default: shows "+" (neutral)
    - Click "+": sizes open, icon becomes "–"
-   - Click size: closes sizes, pulses + in green for ~600ms, dispatches lb:add-to-cart
+   - Click size: size pill flashes green (~420ms) → closes panel
+                 '+' pulses green (~640ms)
+                 "Added" toast appears then fades out
 */
 function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(null);
+
+  // plus-button green pulse state
   const [confirming, setConfirming] = useState(false);
-  const confirmTimer = useRef(null);
+
+  // which pill is currently flashing green before close
+  const [hotSize, setHotSize] = useState(null);
+
+  // ephemeral "Added" toast
+  const [showAdded, setShowAdded] = useState(false);
+
+  const timers = useRef({});
 
   const onToggle = () => {
-    // prevent immediate re-open while confirmation pulse is active
+    // prevent toggle spam during confirm pulse
     if (confirming) return;
     setOpen(v => !v);
   };
 
   const pick = (sz) => {
     setPicked(sz);
+
+    // fire your existing event
     try {
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
     } catch {}
-    // collapse + pulse green for satisfaction
-    setOpen(false);
-    setConfirming(true);
-    // clear any prior timer
-    if (confirmTimer.current) window.clearTimeout(confirmTimer.current);
-    confirmTimer.current = window.setTimeout(() => {
-      setConfirming(false);
-    }, 640); // a hair over 600ms feels better with CSS ease
+
+    // 1) flash the SELECTED size pill green first
+    setHotSize(sz);
+
+    // show the little "Added" toast immediately (it will fade out)
+    setShowAdded(true);
+
+    // after a short flash, close sizes + run plus pulse
+    clearTimeout(timers.current.flashClose);
+    timers.current.flashClose = setTimeout(() => {
+      setOpen(false);
+      setHotSize(null);
+
+      // 2) now pulse the "+" green
+      setConfirming(true);
+      clearTimeout(timers.current.confirm);
+      timers.current.confirm = setTimeout(() => setConfirming(false), 640);
+    }, 420);
+
+    // hide toast after its fade
+    clearTimeout(timers.current.toast);
+    timers.current.toast = setTimeout(() => setShowAdded(false), 900);
   };
 
-  useEffect(() => () => {
-    if (confirmTimer.current) window.clearTimeout(confirmTimer.current);
+  useEffect(() => {
+    return () => {
+      Object.values(timers.current).forEach(t => clearTimeout(t));
+    };
   }, []);
 
   const glyph = open ? '–' : '+';
 
   return (
-    <div style={{ display:'grid', justifyItems:'center', gap:12 }}>
+    <div style={{ display:'grid', justifyItems:'center', gap:12, position:'relative' }}>
+      {/* Added toast */}
+      {showAdded && (
+        <div className="added-toast" aria-live="polite">Added</div>
+      )}
+
+      {/* +/- button */}
       <button
         type="button"
         data-ui="size-toggle"
@@ -107,7 +142,7 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
         {glyph}
       </button>
 
-      {/* Keep panel in DOM for smooth height animation; control via [hidden] + max-height */}
+      {/* Size panel (kept in DOM for smooth height anim) */}
       <div
         className={`row-nowrap size-panel ${open ? 'is-open' : ''}`}
         data-ui="size-panel"
@@ -118,7 +153,7 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
           <button
             key={sz}
             type="button"
-            className={`pill size-pill ${picked===sz?'is-selected':''}`}
+            className={`pill size-pill ${picked===sz?'is-selected':''} ${hotSize===sz?'is-hot':''}`}
             data-size={sz}
             onClick={()=>pick(sz)}
             aria-label={`Size ${sz}`}
@@ -368,16 +403,13 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         </div>
       </div>
 
-      {/* local styles for pills/arrow flash */}
+      {/* local styles for pills/arrow flash + toast */}
       <style jsx>{`
         :root{
           --neon: var(--hover-green, #0bf05f);
           --pill-bg: var(--panel, #1e1e1e);
           --pill-fg: var(--text, #ffffff);
           --pill-ring: rgba(255,255,255,.12);
-          --pill-bg-day: #ffffff;
-          --pill-fg-day: #0f1115;
-          --pill-ring-day: rgba(0,0,0,.08);
         }
 
         .arrow-pill.is-hot > div{
@@ -404,12 +436,10 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           color: var(--pill-fg);
           box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--pill-ring);
         }
-        /* open state: calm emphasis */
         .plus-pill.is-ready{
           transform: scale(1.02);
           box-shadow: 0 4px 16px rgba(0,0,0,.18), inset 0 0 0 1px var(--pill-ring);
         }
-        /* confirmation pulse (keeps the '+' glyph) */
         .plus-pill.is-confirmed{
           color: var(--neon);
           transform: scale(1.12);
@@ -417,11 +447,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
             0 0 0 0 rgba(11,240,95,.42),
             inset 0 0 0 1px rgba(11,240,95,.55);
           animation: lbPulse 640ms ease;
-        }
-        @keyframes lbPulse{
-          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
-          70%  { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
-          100% { box-shadow: 0 0 0 12px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
         }
 
         .size-panel{
@@ -432,9 +457,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           flex-wrap:nowrap;
           justify-content:center;
         }
-        .size-panel.is-open{
-          max-height:68px; /* enough for one row of pills */
-        }
+        .size-panel.is-open{ max-height:68px; }
 
         .size-pill{
           background: var(--pill-bg);
@@ -444,8 +467,18 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         }
         .size-pill:hover{ transform: translateY(-1px); }
         .size-pill.is-selected{
+          /* persistent state after choosing (when panel reopens later) */
           color: var(--neon);
           box-shadow: 0 0 0 0 rgba(11,240,95,.12), inset 0 0 0 1px rgba(11,240,95,.5);
+        }
+        /* short "flash" like the arrows, before close */
+        .size-pill.is-hot{
+          color: var(--neon);
+          transform: scale(1.06);
+          box-shadow:
+            0 0 0 0 rgba(11,240,95,.42),
+            inset 0 0 0 1px rgba(11,240,95,.55);
+          animation: lbPulseShort 420ms ease;
         }
 
         /* Dots */
@@ -457,6 +490,42 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         .dot-pill.is-active{
           background: var(--neon);
           box-shadow: inset 0 0 0 0 rgba(0,0,0,0);
+        }
+
+        /* Pulses */
+        @keyframes lbPulse{
+          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
+          70%  { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
+          100% { box-shadow: 0 0 0 12px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
+        }
+        @keyframes lbPulseShort{
+          0%   { box-shadow: 0 0 0 0 rgba(11,240,95,.42), inset 0 0 0 1px rgba(11,240,95,.55); }
+          70%  { box-shadow: 0 0 0 8px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.35); }
+          100% { box-shadow: 0 0 0 10px rgba(11,240,95,0), inset 0 0 0 1px rgba(11,240,95,.2); }
+        }
+
+        /* Added toast */
+        .added-toast{
+          position:absolute;
+          top:-22px;
+          left:50%;
+          transform: translateX(-50%) translateY(6px);
+          padding:6px 10px;
+          border-radius:999px;
+          font: 700 12px/1 system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
+          letter-spacing:.04em;
+          color:#0f1115;
+          background:#ffffff;
+          box-shadow: 0 6px 22px rgba(0,0,0,.22), inset 0 0 0 1px rgba(0,0,0,.08);
+          opacity:0;
+          animation: lbToast 900ms ease forwards;
+          pointer-events:none;
+        }
+        @keyframes lbToast{
+          0%   { opacity:0; transform: translateX(-50%) translateY(6px); }
+          15%  { opacity:1; transform: translateX(-50%) translateY(0); }
+          70%  { opacity:1; transform: translateX(-50%) translateY(0); }
+          100% { opacity:0; transform: translateX(-50%) translateY(-6px); }
         }
       `}</style>
     </>
