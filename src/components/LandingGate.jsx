@@ -3,15 +3,28 @@
 
 import nextDynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 /* =============================== Timings ================================ */
-export const CASCADE_MS = 2400;          // match BannedLogin
-const WHITE_HOLD_MS     = 520;           // brief hold before curtain
+export const CASCADE_MS = 2400;                    // visual travel time for the band pack
+const WHITE_HOLD_MS     = 520;                     // minimal hold; curtain will fade away on shop-ready
 const SEAFOAM           = '#32ffc7';
+
+/* === shared stack geometry so all labels align perfectly === */
+const ORB_PX     = 88;   // matches --orb-px
+const STACK_GAP  = 6;
+const LABEL_SHIFT_PX = Math.round(ORB_PX / 2 + STACK_GAP + 8); // baseline-align to “Florida, USA”
+
+/* The exact moment the last (violet) band’s right edge crosses center (50vw)
+   Pack width = 120vw. It translates from +100vw to -120vw.
+   Crossing condition: bandsRight = bandsTx + 120 <= 50  => bandsTx <= -70
+   bandsTx = (1-p)*(100+120) - 120 = (1-p)*220 - 120
+   Solve (1-p)*220 - 120 <= -70  => (1-p)*220 <= 50  => p >= 0.772727...
+*/
+const P_SWITCH = 0.77273;
 
 /* ---------------- helpers ---------------- */
 function useShift() {
@@ -49,7 +62,7 @@ function useCenter(ref) {
   }, [measure]);
 }
 
-/** hard-finish to DAY/SHOP on white to avoid any flicker after cascade */
+/** hard-finish to DAY/SHOP on white */
 function finishCascadeToDayShop(){
   const r = document.documentElement;
   r.setAttribute('data-theme','day');
@@ -62,7 +75,7 @@ function finishCascadeToDayShop(){
 }
 
 /* ====================== BannedLogin-style CASCADE ======================= */
-function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
+function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress }) {
   const [mounted, setMounted] = useState(true);
   const [p, setP] = useState(0);
 
@@ -72,13 +85,15 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
     const step = (t) => {
       if (start == null) start = t;
       const raw = Math.min(1, (t - start) / durationMs);
-      setP(ease(raw));
+      const eased = ease(raw);
+      setP(eased);
+      onProgress?.(eased);
       if (raw < 1) rafId = requestAnimationFrame(step);
       else doneId = setTimeout(() => setMounted(false), 120);
     };
     rafId = requestAnimationFrame(step);
     return () => { if (rafId) cancelAnimationFrame(rafId); if (doneId) clearTimeout(doneId); };
-  }, [durationMs]);
+  }, [durationMs, onProgress]);
 
   if (!mounted) return null;
 
@@ -88,7 +103,10 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
 
   return createPortal(
     <>
-      {/* WHITE underlay */}
+      {/* Solid black floor so no white flicker behind bands */}
+      <div aria-hidden style={{ position:'fixed', inset:0, background:'#000', zIndex:9997 }} />
+
+      {/* WHITE underlay that travels slightly ahead */}
       <div aria-hidden style={{
         position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
         background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
@@ -127,7 +145,9 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
 }
 
 /* ============================ White curtain ============================= */
-function WhiteCurtain({ onDone, yOffset = '0px' }) {
+/* Solid white + black ORB + black clock + black LAMEBOY, USA.
+   Visibility is controlled by phase; we don't delay—phase flips at p>=P_SWITCH. */
+function WhiteCurtain({ onDone }) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -163,11 +183,8 @@ function WhiteCurtain({ onDone, yOffset = '0px' }) {
         placeItems: 'center',
       }}
     >
-      {/* Centered stack — raised EXACTLY like Florida, USA */}
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'none',
-        transform: `translate3d(0, ${yOffset}, 0)`
-      }}>
+      {/* Centered stack */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'none' }}>
         {/* ORB — black override */}
         <div style={{ lineHeight: 0 }}>
           <BlueOrbCross3D
@@ -227,10 +244,7 @@ export default function LandingGate({ onCascadeComplete }) {
   const pressTimer = useRef(null);
   const { vh, micro } = useShift();
 
-  // unified vertical offset so FL/wordmark/curtain stacks align perfectly
-  const yOffset = useMemo(() => `calc(-${vh}vh + ${micro}px + 24px)`, [vh, micro]);
-
-  // Begin in "gate" mode to prevent background flashes
+  // Begin in "gate" mode and mark cascade-guard states
   useEffect(() => {
     try { document.documentElement.setAttribute('data-mode', 'gate'); } catch {}
     return () => { try { document.documentElement.removeAttribute('data-mode'); } catch {} };
@@ -242,33 +256,37 @@ export default function LandingGate({ onCascadeComplete }) {
     if (locked.current) return;
     locked.current = true;
 
+    // prevent any shop/grid visibility until we explicitly flip
+    try { document.documentElement.setAttribute('data-cascade-active','1'); } catch {}
+
     setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
-
-    const root = document.documentElement;
-    root.setAttribute('data-entering-shop','');
-
-    // after cascade passes, flip page chrome to day/shop and show curtain
-    const t1 = setTimeout(() => {
-      finishCascadeToDayShop();
-      setPhase('curtain');
-    }, CASCADE_MS);
-
-    // remove the entering flag once curtain takes over visuals
-    const t1b = setTimeout(() => {
-      root.removeAttribute('data-entering-shop');
-    }, CASCADE_MS + 32);
-
-    // after a tiny hold, let curtain manage the fade-out into shop
-    const t2 = setTimeout(() => {
-      // curtain listens to lb:shop-ready or times out
-    }, CASCADE_MS + WHITE_HOLD_MS);
-
-    return () => { clearTimeout(t1); clearTimeout(t1b); clearTimeout(t2); };
   }, []);
 
-  const STACK_GAP = 6;
+  // curtain -> done handoff
+  const onCurtainDone = () => {
+    setPhase('done');
+    try { document.documentElement.removeAttribute('data-cascade-active'); } catch {}
+    try { onCascadeComplete?.(); } catch {}
+  };
+
+  // When the last violet band washes past the center stack, flip immediately
+  const onCascadeProgress = useCallback((p) => {
+    if (p >= P_SWITCH && phase === 'cascade') {
+      // set page chrome to day/shop and show curtain immediately
+      finishCascadeToDayShop();
+      setPhase('curtain');
+      // small optional hold before we allow shop to fade in (curtain manages exit)
+      window.setTimeout(() => {
+        try {
+          const evt = new CustomEvent('lb:shop-ready');
+          window.dispatchEvent(evt);
+          document.dispatchEvent(evt);
+        } catch {}
+      }, WHITE_HOLD_MS);
+    }
+  }, [phase]);
 
   return (
     <div
@@ -282,111 +300,117 @@ export default function LandingGate({ onCascadeComplete }) {
         gap: STACK_GAP,
         padding: '1.5rem',
         position: 'relative',
-        // Hide base stack once animation starts
+        // Hide base stack once animation starts; overlays/curtain handle visuals
         visibility: phase === 'idle' ? 'visible' : 'hidden',
       }}
     >
-      {/* CASCADE overlay (BannedLogin-style), wordmark raised to same baseline */}
+      {/* CASCADE overlay */}
       {phase === 'cascade' && (
         <CascadeOverlay
           durationMs={CASCADE_MS}
-          labelTransform={`translate(-50%, calc(-50% + ${yOffset}))`}
+          // WHITE “LAMEBOY, USA” aligned to Florida baseline
+          labelTransform={`translate(-50%, calc(-50% + ${LABEL_SHIFT_PX}px))`}
+          onProgress={onCascadeProgress}
         />
       )}
 
-      {/* CURTAIN — white bg + black orb/time/label, raised identically */}
+      {/* CURTAIN — white bg + black orb/time/label */}
       {phase === 'curtain' && (
-        <WhiteCurtain
-          yOffset={yOffset}
-          onDone={() => {
-            setPhase('done');
-            try { onCascadeComplete?.(); } catch {}
-          }}
+        <WhiteCurtain onDone={onCurtainDone} />
+      )}
+
+      {/* ORB — enter (tap/press/dblclick) */}
+      <button
+        type="button"
+        onClick={runCascade}
+        onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+        onMouseUp={() => clearTimeout(pressTimer.current)}
+        onMouseLeave={() => clearTimeout(pressTimer.current)}
+        onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+        onTouchEnd={() => clearTimeout(pressTimer.current)}
+        onDoubleClick={runCascade}
+        title="Enter"
+        aria-label="Enter"
+        style={{
+          position: 'relative',
+          zIndex: 10004,
+          lineHeight: 0,
+          padding: 0,
+          margin: 0,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+        }}
+      >
+        <BlueOrbCross3D
+          rpm={44}
+          color={SEAFOAM}
+          geomScale={1.12}
+          glow
+          glowOpacity={0.95}
+          includeZAxis
+          height="88px"
+          interactive={false}
         />
-      )}
+      </button>
 
-      {/* Idle stack — raised so FL/Time/Orb baseline matches overlay + curtain */}
+      {/* TIME — white (clickable in gate) */}
       {phase === 'idle' && (
-        <div style={{ transform: `translate3d(0, ${yOffset}, 0)`, display:'contents' }}>
-          {/* ORB — enter */}
-          <button
-            type="button"
-            onClick={runCascade}
-            onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-            onMouseUp={() => clearTimeout(pressTimer.current)}
-            onMouseLeave={() => clearTimeout(pressTimer.current)}
-            onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-            onTouchEnd={() => clearTimeout(pressTimer.current)}
-            onDoubleClick={runCascade}
-            title="Enter"
-            aria-label="Enter"
-            style={{
-              position: 'relative',
-              zIndex: 10004,
-              lineHeight: 0,
-              padding: 0,
-              margin: 0,
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <BlueOrbCross3D
-              rpm={44}
-              color={SEAFOAM}
-              geomScale={1.12}
-              glow
-              glowOpacity={0.95}
-              includeZAxis
-              height="88px"
-              interactive={false}
-            />
-          </button>
-
-          {/* TIME — white (clickable) */}
-          <button
-            type="button"
-            onClick={runCascade}
-            title="Enter"
-            aria-label="Enter"
-            className="time-link"
-            style={{
-              background: 'transparent',
-              border: 0,
-              cursor: 'pointer',
-              color: '#fff',
-              fontWeight: 800,
-              letterSpacing: '.06em',
-              fontSize: 'clamp(12px,1.3vw,14px)',
-              fontFamily: 'inherit',
-              lineHeight: 1.2,
-            }}
-          >
-            <ClockNaples />
-          </button>
-
-          {/* Florida label — white (hover = neon yellow) */}
-          <button
-            ref={labelRef}
-            type="button"
-            onClick={runCascade}
-            title="Enter"
-            className="florida-link florida-inline"
-            style={{
-              background: 'transparent',
-              border: 0,
-              cursor: 'pointer',
-              fontWeight: 800,
-              letterSpacing: '.06em',
-              fontSize: 'clamp(12px,1.3vw,14px)',
-              fontFamily: 'inherit',
-              marginTop: 0,
-            }}
-          >
-            Florida, USA
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={runCascade}
+          title="Enter"
+          aria-label="Enter"
+          className="gate-white"
+          style={{
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+            color: '#fff',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            fontFamily: 'inherit',
+            lineHeight: 1.2,
+          }}
+        >
+          <ClockNaples />
+        </button>
       )}
+
+      {/* Florida label — white (hover = neon yellow) */}
+      <button
+        ref={labelRef}
+        type="button"
+        className="gate-white"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setHovered(true)}
+        onBlur={() => setHovered(false)}
+        onClick={runCascade}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && runCascade()}
+        title="Enter"
+        style={{
+          visibility: phase === 'idle' ? 'visible' : 'hidden',
+          background: 'transparent',
+          border: 0,
+          cursor: 'pointer',
+          fontWeight: 800,
+          letterSpacing: '.06em',
+          fontSize: 'clamp(12px,1.3vw,14px)',
+          fontFamily: 'inherit',
+          color: hovered ? '#ffe600' : '#ffffff',
+          textShadow: hovered
+            ? `0 0 8px rgba(255,230,0,.95),
+               0 0 18px rgba(255,210,0,.70),
+               0 0 28px rgba(255,200,0,.45)`
+            : `0 0 8px rgba(255,255,255,.45),
+               0 0 16px rgba(255,255,255,.30)`,
+          marginTop: 0,
+        }}
+      >
+        Florida, USA
+      </button>
 
       {/* Safety: ensure bands fill height in gate mode */}
       <style jsx>{`
