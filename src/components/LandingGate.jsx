@@ -3,14 +3,14 @@
 
 import nextDynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 /* =============================== Timings ================================ */
-export const CASCADE_MS = 2400;
-const WHITE_HOLD_MS     = 520;     // brief hold before curtain
+export const CASCADE_MS = 2400;          // match BannedLogin
+const WHITE_HOLD_MS     = 520;           // brief hold before curtain
 const SEAFOAM           = '#32ffc7';
 
 /* ---------------- helpers ---------------- */
@@ -21,6 +21,7 @@ function useShift() {
     return {
       vh: isPhone ? 4 : 3.5,
       micro: Math.round(Math.max(2, Math.min(10, h * 0.012))),
+      gap: 6,
     };
   };
   const [s, setS] = useState(calc);
@@ -32,7 +33,23 @@ function useShift() {
   return s;
 }
 
-/** hard-finish to DAY/SHOP on white to avoid flicker after cascade */
+function useCenter(ref) {
+  const measure = useCallback(() => {
+    void ref?.current;
+  }, [ref]);
+  useLayoutEffect(() => {
+    measure();
+    const onResize = () => measure();
+    window.addEventListener('resize', onResize);
+    const id = requestAnimationFrame(measure);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [measure]);
+}
+
+/** hard-finish to DAY/SHOP on white to avoid any flicker after cascade */
 function finishCascadeToDayShop(){
   const r = document.documentElement;
   r.setAttribute('data-theme','day');
@@ -45,16 +62,7 @@ function finishCascadeToDayShop(){
 }
 
 /* ====================== BannedLogin-style CASCADE ======================= */
-/**
- * We render:
- * 1) Moving WHITE underlay
- * 2) COLOR band pack
- * 3) Overlaid label that is white over color, then flips to black EXACTLY when
- *    the white reaches the orb/label position (not when violet leaves the screen).
- *    We compute that moment from the white panel’s translateX, relative to the
- *    measured label center Y offset so the visual doesn’t jump.
- */
-function CascadeOverlay({ durationMs, labelTransform, onCrossCenter }) {
+function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
   const [mounted, setMounted] = useState(true);
   const [p, setP] = useState(0);
 
@@ -75,29 +83,21 @@ function CascadeOverlay({ durationMs, labelTransform, onCrossCenter }) {
   if (!mounted) return null;
 
   const COLOR_VW = 120;
-  const whiteTxPct = (1 - p) * 100;                             // 100% → 0%
-  const bandsTxVW  = (1 - p) * (100 + COLOR_VW) - COLOR_VW;     // 100vw → -120vw
-
-  // Reveal black **as soon as the center is on white** (left edge of white ≤ 50%)
-  const blackReveal = whiteTxPct <= 50;
-
-  // notify once at the crossing moment (for debugging/tuning if needed)
-  useEffect(() => {
-    if (blackReveal) onCrossCenter?.();
-  }, [blackReveal, onCrossCenter]);
+  const whiteTx  = (1 - p) * 100;
+  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW;
 
   return createPortal(
     <>
       {/* WHITE underlay */}
       <div aria-hidden style={{
-        position:'fixed', inset:0, transform:`translate3d(${whiteTxPct}%,0,0)`,
+        position:'fixed', inset:0, transform:`translate3d(${whiteTx}%,0,0)`,
         background:'#fff', zIndex:9998, pointerEvents:'none', willChange:'transform'
       }}/>
 
       {/* COLOR band pack */}
       <div aria-hidden style={{
         position:'fixed', top:0, left:0, height:'100vh', width:`${COLOR_VW}vw`,
-        transform:`translate3d(${bandsTxVW}vw,0,0)`, zIndex:9999, pointerEvents:'none', willChange:'transform'
+        transform:`translate3d(${bandsTx}vw,0,0)`, zIndex:9999, pointerEvents:'none', willChange:'transform'
       }}>
         <div style={{ position:'absolute', inset:0, display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
           {['#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#4f46e5','#c084fc'].map((c,i)=>(
@@ -108,11 +108,12 @@ function CascadeOverlay({ durationMs, labelTransform, onCrossCenter }) {
         </div>
       </div>
 
-      {/* Center label — stays WHITE over color, flips to BLACK when white reaches center */}
+      {/* “LAMEBOY, USA” — white over color, black over white via mix-blend */}
       <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10001, pointerEvents:'none' }}>
         <div style={{ position:'absolute', left:'50%', top:'50%', transform: labelTransform }}>
           <span style={{
-            color: blackReveal ? '#000' : '#fff',
+            color:'#fff',
+            mixBlendMode:'difference',
             fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase',
             fontSize:'clamp(11px,1.3vw,14px)'
           }}>
@@ -126,7 +127,7 @@ function CascadeOverlay({ durationMs, labelTransform, onCrossCenter }) {
 }
 
 /* ============================ White curtain ============================= */
-function WhiteCurtain({ onDone, labelTransform }) {
+function WhiteCurtain({ onDone, yOffset = '0px' }) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -140,6 +141,7 @@ function WhiteCurtain({ onDone, labelTransform }) {
 
     const onReady = () => finish();
     window.addEventListener('lb:shop-ready', onReady, { once: true });
+
     const t = setTimeout(finish, 2400);
     return () => { clearTimeout(t); window.removeEventListener('lb:shop-ready', onReady); };
   }, [onDone]);
@@ -161,8 +163,12 @@ function WhiteCurtain({ onDone, labelTransform }) {
         placeItems: 'center',
       }}
     >
-      {/* Centered stack: black ORB / time / LAMEBOY, USA — aligned to Florida label */}
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap: 6, pointerEvents:'none' }}>
+      {/* Centered stack — raised EXACTLY like Florida, USA */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'none',
+        transform: `translate3d(0, ${yOffset}, 0)`
+      }}>
+        {/* ORB — black override */}
         <div style={{ lineHeight: 0 }}>
           <BlueOrbCross3D
             rpm={44}
@@ -177,6 +183,7 @@ function WhiteCurtain({ onDone, labelTransform }) {
           />
         </div>
 
+        {/* TIME — black */}
         <span
           style={{
             color: '#000',
@@ -190,21 +197,20 @@ function WhiteCurtain({ onDone, labelTransform }) {
           <ClockNaples />
         </span>
 
-        <div style={{ position:'absolute', left:'50%', top:'50%', transform: labelTransform }}>
-          <span
-            style={{
-              color: '#000',
-              fontWeight: 800,
-              letterSpacing: '.06em',
-              fontSize: 'clamp(12px,1.3vw,14px)',
-              fontFamily: 'inherit',
-              lineHeight: 1.2,
-              textTransform: 'uppercase',
-            }}
-          >
-            LAMEBOY, USA
-          </span>
-        </div>
+        {/* LAMEBOY, USA — black */}
+        <span
+          style={{
+            color: '#000',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            fontFamily: 'inherit',
+            lineHeight: 1.2,
+            textTransform: 'uppercase',
+          }}
+        >
+          LAMEBOY, USA
+        </span>
       </div>
     </div>,
     document.body
@@ -215,25 +221,14 @@ function WhiteCurtain({ onDone, labelTransform }) {
 export default function LandingGate({ onCascadeComplete }) {
   // phases: idle → cascade → curtain → done
   const [phase, setPhase] = useState('idle');
+  const [hovered, setHovered] = useState(false);
   const labelRef = useRef(null);
+  const locked = useRef(false);
   const pressTimer = useRef(null);
   const { vh, micro } = useShift();
 
-  const [labelDeltaY, setLabelDeltaY] = useState(0);
-  useLayoutEffect(() => {
-    const measure = () => {
-      const el = labelRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const cy = r.top + r.height / 2;
-      const vy = (typeof window !== 'undefined' ? window.innerHeight : 0) / 2;
-      setLabelDeltaY(Math.round(cy - vy)); // px delta from viewport center
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    const id = requestAnimationFrame(measure);
-    return () => { cancelAnimationFrame(id); window.removeEventListener('resize', measure); };
-  }, []);
+  // unified vertical offset so FL/wordmark/curtain stacks align perfectly
+  const yOffset = useMemo(() => `calc(-${vh}vh + ${micro}px + 24px)`, [vh, micro]);
 
   // Begin in "gate" mode to prevent background flashes
   useEffect(() => {
@@ -241,31 +236,39 @@ export default function LandingGate({ onCascadeComplete }) {
     return () => { try { document.documentElement.removeAttribute('data-mode'); } catch {} };
   }, []);
 
+  useCenter(labelRef);
+
   const runCascade = useCallback(() => {
+    if (locked.current) return;
+    locked.current = true;
+
     setPhase('cascade');
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
+    const root = document.documentElement;
+    root.setAttribute('data-entering-shop','');
+
     // after cascade passes, flip page chrome to day/shop and show curtain
     const t1 = setTimeout(() => {
       finishCascadeToDayShop();
-      // guard grid flash for auto-open: hide grid for ~600ms or until overlay opens
-      document.documentElement.setAttribute('data-entering-shop','1');
-      const endGuard = () => document.documentElement.removeAttribute('data-entering-shop');
-      const onOverlay = () => { endGuard(); window.removeEventListener('lb:overlay-open', onOverlay); };
-      window.addEventListener('lb:overlay-open', onOverlay, { once:true });
-      setTimeout(endGuard, 900);
-
       setPhase('curtain');
     }, CASCADE_MS);
 
-    // small hold; curtain then fades out on lb:shop-ready or timeout
-    const t2 = setTimeout(() => {}, CASCADE_MS + WHITE_HOLD_MS);
+    // remove the entering flag once curtain takes over visuals
+    const t1b = setTimeout(() => {
+      root.removeAttribute('data-entering-shop');
+    }, CASCADE_MS + 32);
 
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    // after a tiny hold, let curtain manage the fade-out into shop
+    const t2 = setTimeout(() => {
+      // curtain listens to lb:shop-ready or times out
+    }, CASCADE_MS + WHITE_HOLD_MS);
+
+    return () => { clearTimeout(t1); clearTimeout(t1b); clearTimeout(t2); };
   }, []);
 
-  const labelTransform = `translate(-50%, calc(-50% + ${labelDeltaY}px))`;
+  const STACK_GAP = 6;
 
   return (
     <div
@@ -276,25 +279,25 @@ export default function LandingGate({ onCascadeComplete }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
+        gap: STACK_GAP,
         padding: '1.5rem',
         position: 'relative',
-        visibility: phase === 'idle' ? 'visible' : 'hidden', // overlays own the visuals after start
+        // Hide base stack once animation starts
+        visibility: phase === 'idle' ? 'visible' : 'hidden',
       }}
     >
-      {/* CASCADE overlay */}
+      {/* CASCADE overlay (BannedLogin-style), wordmark raised to same baseline */}
       {phase === 'cascade' && (
         <CascadeOverlay
           durationMs={CASCADE_MS}
-          labelTransform={labelTransform}
-          onCrossCenter={() => {}}
+          labelTransform={`translate(-50%, calc(-50% + ${yOffset}))`}
         />
       )}
 
-      {/* CURTAIN — white bg + black orb/time/label (aligned) */}
+      {/* CURTAIN — white bg + black orb/time/label, raised identically */}
       {phase === 'curtain' && (
         <WhiteCurtain
-          labelTransform={labelTransform}
+          yOffset={yOffset}
           onDone={() => {
             setPhase('done');
             try { onCascadeComplete?.(); } catch {}
@@ -302,77 +305,90 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       )}
 
-      {/* ORB — enter */}
-      <button
-        type="button"
-        onClick={runCascade}
-        onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-        onMouseUp={() => clearTimeout(pressTimer.current)}
-        onMouseLeave={() => clearTimeout(pressTimer.current)}
-        onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-        onTouchEnd={() => clearTimeout(pressTimer.current)}
-        onDoubleClick={runCascade}
-        title="Enter"
-        aria-label="Enter"
-        style={{ position:'relative', zIndex: 10004, lineHeight: 0, padding:0, margin:0, background:'transparent', border:'none', cursor:'pointer' }}
-      >
-        <BlueOrbCross3D
-          rpm={44}
-          color={SEAFOAM}
-          geomScale={1.12}
-          glow
-          glowOpacity={0.95}
-          includeZAxis
-          height="88px"
-          interactive={false}
-        />
-      </button>
-
-      {/* TIME — white */}
+      {/* Idle stack — raised so FL/Time/Orb baseline matches overlay + curtain */}
       {phase === 'idle' && (
-        <button
-          type="button"
-          onClick={runCascade}
-          title="Enter"
-          aria-label="Enter"
-          style={{
-            background: 'transparent',
-            border: 0,
-            cursor: 'pointer',
-            color: '#fff',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            fontFamily: 'inherit',
-            lineHeight: 1.2,
-          }}
-        >
-          <ClockNaples />
-        </button>
+        <div style={{ transform: `translate3d(0, ${yOffset}, 0)`, display:'contents' }}>
+          {/* ORB — enter */}
+          <button
+            type="button"
+            onClick={runCascade}
+            onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+            onMouseUp={() => clearTimeout(pressTimer.current)}
+            onMouseLeave={() => clearTimeout(pressTimer.current)}
+            onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+            onTouchEnd={() => clearTimeout(pressTimer.current)}
+            onDoubleClick={runCascade}
+            title="Enter"
+            aria-label="Enter"
+            style={{
+              position: 'relative',
+              zIndex: 10004,
+              lineHeight: 0,
+              padding: 0,
+              margin: 0,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <BlueOrbCross3D
+              rpm={44}
+              color={SEAFOAM}
+              geomScale={1.12}
+              glow
+              glowOpacity={0.95}
+              includeZAxis
+              height="88px"
+              interactive={false}
+            />
+          </button>
+
+          {/* TIME — white (clickable) */}
+          <button
+            type="button"
+            onClick={runCascade}
+            title="Enter"
+            aria-label="Enter"
+            className="time-link"
+            style={{
+              background: 'transparent',
+              border: 0,
+              cursor: 'pointer',
+              color: '#fff',
+              fontWeight: 800,
+              letterSpacing: '.06em',
+              fontSize: 'clamp(12px,1.3vw,14px)',
+              fontFamily: 'inherit',
+              lineHeight: 1.2,
+            }}
+          >
+            <ClockNaples />
+          </button>
+
+          {/* Florida label — white (hover = neon yellow) */}
+          <button
+            ref={labelRef}
+            type="button"
+            onClick={runCascade}
+            title="Enter"
+            className="florida-link florida-inline"
+            style={{
+              background: 'transparent',
+              border: 0,
+              cursor: 'pointer',
+              fontWeight: 800,
+              letterSpacing: '.06em',
+              fontSize: 'clamp(12px,1.3vw,14px)',
+              fontFamily: 'inherit',
+              marginTop: 0,
+            }}
+          >
+            Florida, USA
+          </button>
+        </div>
       )}
 
-      {/* Florida label — white (hover = neon yellow) */}
-      <button
-        ref={labelRef}
-        type="button"
-        onClick={runCascade}
-        title="Enter"
-        style={{
-          background: 'transparent',
-          border: 0,
-          cursor: 'pointer',
-          fontWeight: 800,
-          letterSpacing: '.06em',
-          fontSize: 'clamp(12px,1.3vw,14px)',
-          fontFamily: 'inherit',
-          color: '#ffffff',
-          textShadow: `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
-          marginTop: 0,
-        }}
-      >
-        Florida, USA
-      </button>
-
+      {/* Safety: ensure bands fill height in gate mode */}
       <style jsx>{`
         :global(:root[data-mode="gate"]) .chakra-band { min-height: 100%; }
       `}</style>
@@ -380,6 +396,7 @@ export default function LandingGate({ onCascadeComplete }) {
   );
 }
 
+/** Naples clock (America/New_York) — text only; parent/curtain control rendering */
 function ClockNaples() {
   const [now, setNow] = useState('');
   useEffect(() => {
