@@ -19,7 +19,7 @@ function OrbCross({
   overrideAllColor = null,
   overrideGlowOpacity,
   __interactive = false,
-  haloTint = null,               // <— NEW: tint halos only (e.g., green/red pulse)
+  haloTint = null,               // tint halos only (green/red pulse)
 }) {
   const group = useRef();
 
@@ -95,14 +95,12 @@ function OrbCross({
     emissive:new THREE.Color(barColor), emissiveIntensity:barEmissive, toneMapped:true,
   }), [barColor, barEmissive]);
 
-  // When haloTint is provided, use it for bar halos
   const barHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
     color: haloTint || barColor,
     transparent:true, opacity: glow ? haloBase * 0.5 : 0,
     blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false,
   }), [barColor, glow, haloBase, haloTint]);
 
-  // Chakra cores remain their own colors regardless of haloTint
   const sphereDefs = useOverride
     ? new Array(centers.length).fill({ core: barColor, halo: haloTint || barColor, haloOp: haloBase })
     : [
@@ -183,7 +181,8 @@ function OrbCross({
             <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />
           ))}
 
-          {overrideAllColor && (
+          {/* IMPORTANT: render outer halos when haloTint is present (strong pulse like BANNED) */}
+          {(overrideAllColor || haloTint) && (
             <>
               {centers.map((p, i) => (
                 <mesh key={`h2-${i}`} geometry={sphereGeo} material={halo2Mat} position={p} scale={glowScale * 1.6} />
@@ -217,7 +216,7 @@ export default function BlueOrbCross3D({
   className = '',
   interactive = false,
   respectReducedMotion = false,
-  haloTint = null,              // <— NEW
+  haloTint = null,
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);
@@ -273,7 +272,7 @@ export default function BlueOrbCross3D({
           overrideAllColor={overrideAllColor}
           overrideGlowOpacity={overrideGlowOpacity}
           __interactive={interactive}
-          haloTint={haloTint}       // <— propagate
+          haloTint={haloTint}
         />
       </Canvas>
     </div>

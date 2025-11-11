@@ -1,4 +1,4 @@
-// src/app/page.js (or src/app/page.jsx)
+// src/app/page.js
 'use client';
 
 export const dynamic = 'force-static';
@@ -46,8 +46,8 @@ export default function Page(){
   // reflect mode/theme + header size + runner height (for heart offset)
   useEffect(() => {
     const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate');
+    root.setAttribute('data-theme', theme);
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`);
     root.style.setProperty('--runner-h', `${RUNNER_H}px`);
     if (isShop) {
@@ -95,6 +95,11 @@ export default function Page(){
     background:'transparent',
   }), [ctrlPx]);
 
+  // Sizing: make orb dominant, cart smaller
+  const ORB_DESKTOP = 80;
+  const ORB_MOBILE  = 60;
+  const orbPx = typeof window !== 'undefined' && window.innerWidth <= 480 ? ORB_MOBILE : ORB_DESKTOP;
+
   return (
     <div className="lb-screen w-full" style={{ background:'var(--bg,#000)', color:'var(--text,#fff)' }}>
       {!isShop ? (
@@ -104,35 +109,34 @@ export default function Page(){
       ) : (
         <>
           <header role="banner" style={headerStyle}>
-            {/* LEFT: Day/Night Toggle */}
+            {/* LEFT: Day/Night Toggle (compact) */}
             <div style={{ display:'grid', justifyContent:'start' }}>
-              <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
-                <DayNightToggle
-                  circlePx={28}
-                  trackPad={1}
-                  moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
-                />
-              </div>
-            </div>
-
-            {/* CENTER: Chakra Orb (larger than cart) */}
-            <div style={{ display:'grid', placeItems:'center' }}>
-              <ChakraOrbButton
-                size={64}
-                style={{ display:'grid', placeItems:'center' }}
+              <DayNightToggle
+                className="select-none"
+                circlePx={36}
+                trackPad={6}
+                moonImages={['/toggle/moon-red.png','/toggle/moon-blue.png']}
               />
             </div>
 
-            {/* RIGHT: Cart (smaller visual) */}
+            {/* CENTER: Chakra Orb (dominant) */}
+            <div style={{ display:'grid', placeItems:'center' }}>
+              <ChakraOrbButton
+                size={orbPx}
+                tightHitbox
+              />
+            </div>
+
+            {/* RIGHT: Cart (smaller than orb) */}
             <div style={{ display:'grid', justifyContent:'end' }}>
-              <div style={{ height: ctrlPx, width: ctrlPx, display:'grid', placeItems:'center' }}>
-                <CartButton size={40} inHeader />
+              <div style={{ height: 44, width: 44, display:'grid', placeItems:'center' }}>
+                <CartButton inHeader />
               </div>
             </div>
           </header>
 
           <main style={{ paddingTop: ctrlPx }}>
-            <ShopGrid products={products} autoOpenFirstOnMount />
+            <ShopGrid products={products} />
 
             {/* Heart FAB (offset uses --runner-h in CSS) */}
             <HeartBeatButton

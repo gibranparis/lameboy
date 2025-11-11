@@ -60,6 +60,12 @@ html,body{
   -moz-osx-font-smoothing:grayscale;
 }
 
+/* Hard-lock gate to black so no white shows before cascade */
+:root[data-mode="gate"]{
+  --bg:#000 !important;
+  --text:#fff !important;
+}
+
 /* Prevent background scroll while a product overlay is open */
 html[data-overlay-open]{ overflow:hidden; }
 
@@ -275,7 +281,8 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
   transition:border-color .25s ease, background .25s ease, box-shadow .25s ease;
   -webkit-tap-highlight-color:transparent;
 }
-.lb-switch:focus-visible{ outline:2px solid rgba(74,165,255,.9); outline-offset:3px; }
+/* remove blue focus ring */
+.lb-switch:focus-visible{ outline:0 !important; outline-offset:0 !important; }
 
 /* ========== ORB ========================================================= */
 :root[data-mode="shop"] header [data-orb="density"]{
