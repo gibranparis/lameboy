@@ -2,37 +2,44 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback, forwardRef } from 'react';
 
-/* utils */
+/* -------------------------------- utils -------------------------------- */
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const wrap  = (i,len)=>((i%len)+len)%len;
 
-/* arrow with solid green activation */
-function ArrowControl({ dir='up', night, onClick }) {
+function flashReady(el){
+  if (!el) return;
+  el.classList.remove('is-ready');
+  // reflow to re-trigger
+  // eslint-disable-next-line no-unused-expressions
+  el.offsetHeight;
+  el.classList.add('is-ready');
+  setTimeout(()=>el && el.classList.remove('is-ready'), 260);
+}
+
+/* ----------------------------- ArrowControl ---------------------------- */
+function ArrowControl({ dir='up', night, onClick, onPulse }) {
   const [active, setActive] = useState(false);
   const baseBg = night ? '#0b0c10' : '#ffffff';
   const ring   = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
   const glyph  = night ? '#ffffff' : '#0f1115';
 
+  const fire = (e)=>{
+    setActive(true);
+    setTimeout(()=>setActive(false), 160);
+    onPulse?.();           // make (+) flash
+    onClick?.(e);
+  };
+
   return (
-    <button
-      type="button"
-      onClick={(e)=>{ setActive(true); setTimeout(()=>setActive(false), 160); onClick?.(e); }}
-      aria-label={dir==='up'?'Previous product':'Next product'}
-      title={dir==='up'?'Previous product':'Next product'}
-      style={{ padding:0, background:'transparent', border:'none' }}
-    >
-      <div
-        aria-hidden
-        style={{
-          width:28, height:28, borderRadius:'50%',
-          display:'grid', placeItems:'center',
-          background: active ? 'var(--hover-green,#0bf05f)' : baseBg,
-          boxShadow:`0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}`,
-          transition:'background .12s ease',
-        }}
-      >
+    <button type="button" onClick={fire} aria-label={dir==='up'?'Previous product':'Next product'} title={dir==='up'?'Previous product':'Next product'} style={{ padding:0, background:'transparent', border:'none' }}>
+      <div aria-hidden style={{
+        width:28, height:28, borderRadius:'50%', display:'grid', placeItems:'center',
+        background: active ? 'var(--hover-green,#0bf05f)' : baseBg,
+        boxShadow:`0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}`,
+        transition:'background .12s ease',
+      }}>
         <svg width="14" height="14" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
           {dir==='up'
             ? <path d="M6 14l6-6 6 6" stroke={glyph} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
@@ -43,25 +50,37 @@ function ArrowControl({ dir='up', night, onClick }) {
   );
 }
 
-/* + / sizes — 28px circles identical to arrow UI; solid green on active/selected; single add event */
-function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
-  const [open, setOpen] = useState(false);
+/* ---------------------------- Plus / Sizes UI -------------------------- */
+/* Forward a ref to the (+) pill so we can flash it from wheel/swipe */
+const PlusSizesInline = forwardRef(function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }, plusRef){
+  const [open, setOpen]   = useState(false);
   const [picked, setPicked] = useState(null);
 
-  const pick = (sz) => {
+  const toggle = ()=>{
+    setOpen(v=>{
+      const el = plusRef?.current;
+      if (el){
+        if (!v) el.classList.add('is-active'); else el.classList.remove('is-active');
+        flashReady(el); // also flash on toggle
+      }
+      return !v;
+    });
+  };
+
+  const pick = (sz)=>{
     setPicked(sz);
-    try {
-      window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
-    } catch {}
+    try { window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }})); } catch {}
+    flashReady(plusRef?.current);
     setTimeout(()=>setPicked(null), 320);
   };
 
   return (
     <div style={{ display:'grid', justifyItems:'center', gap:12 }}>
       <button
+        ref={plusRef}
         type="button"
         className={`pill plus-pill ${open ? 'is-active' : ''}`}
-        onClick={()=>setOpen(v=>!v)}
+        onClick={toggle}
         aria-label={open?'Close sizes':'Choose size'}
         title={open?'Close sizes':'Choose size'}
       >
@@ -84,13 +103,12 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'] }) {
       )}
     </div>
   );
-}
+});
 
-/* ------ SWIPE ENGINE (mobile) : slower + more deliberate ------ */
-function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }) {
-  const state = useRef({
-    active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0,
-  });
+/* -------------------------- Swipe Engine (mobile) ---------------------- */
+/* Exactly ONE vertical step per gesture; sideways swipes change image.   */
+function useSwipe({ imgsLen, prodsLen, index, setImgIdx, stepProductOnce, onPulse }) {
+  const s = useRef({ down:false, x:0, y:0, t:0, steppedY:false });
 
   const coarse =
     typeof window !== 'undefined' &&
@@ -99,57 +117,37 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange }) {
 
   const STEP_X = coarse ? 90 : 50;
   const STEP_Y = coarse ? 120 : 70;
-  const FLICK_V_BONUS = coarse ? 0.2 : 0.35;
 
-  const onDown = useCallback((e) => {
+  const onDown = useCallback((e)=>{
     const p = e.touches ? e.touches[0] : e;
-    state.current.active = true;
-    state.current.lastX  = p.clientX;
-    state.current.lastY  = p.clientY;
-    state.current.ax = 0; state.current.ay = 0;
-    state.current.lastT = performance.now();
-    state.current.vx = 0; state.current.vy = 0;
+    s.current = { down:true, x:p.clientX, y:p.clientY, t:performance.now(), steppedY:false };
   }, []);
 
-  const onMove = useCallback((e) => {
-    if (!state.current.active) return;
+  const onMove = useCallback((e)=>{
+    if (!s.current.down) return;
     if (e.cancelable) e.preventDefault();
-
     const p = e.touches ? e.touches[0] : e;
-    const now = performance.now();
-    const dt  = Math.max(1, now - state.current.lastT);
+    const dx = p.clientX - s.current.x;
+    const dy = p.clientY - s.current.y;
 
-    const dx = p.clientX - state.current.lastX;
-    const dy = p.clientY - state.current.lastY;
-
-    state.current.vx = dx / dt;
-    state.current.vy = dy / dt;
-
-    state.current.lastX = p.clientX;
-    state.current.lastY = p.clientY;
-    state.current.lastT = now;
-
-    state.current.ax += dx + state.current.vx * FLICK_V_BONUS * 80;
-    state.current.ay += dy + state.current.vy * FLICK_V_BONUS * 80;
-
-    if (imgsLen) {
-      while (state.current.ax <= -STEP_X) { state.current.ax += STEP_X; setImgIdx(i => clamp(i+1, 0, imgsLen-1)); }
-      while (state.current.ax >=  STEP_X) { state.current.ax -= STEP_X; setImgIdx(i => clamp(i-1, 0, imgsLen-1)); }
+    // horizontal -> image paging (multi allowed)
+    if (imgsLen){
+      while (dx <= -STEP_X) { s.current.x -= STEP_X; setImgIdx(i=>clamp(i+1,0,imgsLen-1)); onPulse?.(); }
+      while (dx >=  STEP_X) { s.current.x += STEP_X; setImgIdx(i=>clamp(i-1,0,imgsLen-1)); onPulse?.(); }
     }
-    if (prodsLen>1) {
-      while (state.current.ay <= -STEP_Y) { state.current.ay += STEP_Y; onIndexChange?.(wrap(index+1, prodsLen)); }
-      while (state.current.ay >=  STEP_Y) { state.current.ay -= STEP_Y; onIndexChange?.(wrap(index-1, prodsLen)); }
+
+    // vertical -> product index (ONE step only)
+    if (!s.current.steppedY && prodsLen>1){
+      if (dy <= -STEP_Y) { s.current.steppedY = true; stepProductOnce(+1); onPulse?.(); }
+      if (dy >=  STEP_Y) { s.current.steppedY = true; stepProductOnce(-1); onPulse?.(); }
     }
-  }, [imgsLen, prodsLen, index, setImgIdx, onIndexChange]);
+  }, [imgsLen, prodsLen, setImgIdx, stepProductOnce, onPulse]);
 
-  const onUp = useCallback(() => {
-    state.current.active = false;
-    state.current.ax = 0; state.current.ay = 0;
-  }, []);
-
+  const onUp = useCallback(()=>{ s.current.down=false; }, []);
   return { onDown, onMove, onUp };
 }
 
+/* =============================== Component ============================== */
 export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
   const night =
     typeof document !== 'undefined' &&
@@ -165,7 +163,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   const clampedImgIdx = useMemo(()=>clamp(imgIdx, 0, Math.max(0, imgs.length-1)), [imgIdx, imgs.length]);
 
-  /* close on orb zoom */
+  // ref to the (+) pill to flash it
+  const plusRef = useRef(null);
+  const pulsePlus = useCallback(()=>flashReady(plusRef.current), []);
+
+  // close overlay if orb zooms (heart/orb interactions)
   useEffect(() => {
     const h = () => onClose?.();
     ['lb:zoom','lb:zoom/grid-density'].forEach(n=>{
@@ -176,46 +178,61 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     });
   }, [onClose]);
 
-  /* keyboard */
+  // keyboard support
   useEffect(() => {
     const onKey = (e) => {
       if (e.key==='Escape') return onClose?.();
       if (imgs.length) {
-        if (e.key==='ArrowRight') return setImgIdx(i=>clamp(i+1,0,imgs.length-1));
-        if (e.key==='ArrowLeft')  return setImgIdx(i=>clamp(i-1,0,imgs.length-1));
+        if (e.key==='ArrowRight') { setImgIdx(i=>clamp(i+1,0,imgs.length-1)); pulsePlus(); return; }
+        if (e.key==='ArrowLeft')  { setImgIdx(i=>clamp(i-1,0,imgs.length-1)); pulsePlus(); return; }
       }
       if (products.length>1) {
-        if (e.key==='ArrowDown') return onIndexChange?.(wrap(index+1, products.length));
-        if (e.key==='ArrowUp')   return onIndexChange?.(wrap(index-1, products.length));
+        if (e.key==='ArrowDown') { stepProduct(+1); return; }
+        if (e.key==='ArrowUp')   { stepProduct(-1); return; }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [imgs.length, products.length, index, onIndexChange, onClose]);
+  }, [imgs.length, products.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* wheel (desktop) */
-  const lastWheel = useRef(0);
+  // step helpers (emit event + cooldowns)
+  const emitStep = (dir)=> {
+    const detail = { dir: dir>0 ? 'next' : 'prev' };
+    try { document.dispatchEvent(new CustomEvent('lb:product-step', { detail })); } catch {}
+  };
+  const stepProduct = (dir)=>{ onIndexChange?.(wrap(index + (dir>0?1:-1), products.length)); emitStep(dir); pulsePlus(); };
+
+  // wheel – one step per ~420ms and flash (+)
+  const wheelLock = useRef(false);
   useEffect(() => {
     const onWheel = (e) => {
-      const now = performance.now(); if (now - lastWheel.current < 110) return; lastWheel.current = now;
+      if (wheelLock.current) return;
       const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY);
-      if (ax > ay && imgs.length) setImgIdx(i=>clamp(i + (e.deltaX>0?1:-1), 0, imgs.length-1));
-      else if (products.length>1) onIndexChange?.(wrap(index + (e.deltaY>0?1:-1), products.length));
+      wheelLock.current = true;
+      if (ax > ay && imgs.length){
+        setImgIdx(i=>clamp(i + (e.deltaX>0?1:-1), 0, imgs.length-1));
+      } else if (products.length>1){
+        stepProduct(e.deltaY>0 ? +1 : -1);
+      }
+      pulsePlus();
+      setTimeout(()=>{ wheelLock.current = false; }, 420);
     };
     window.addEventListener('wheel', onWheel, { passive:true });
     return () => window.removeEventListener('wheel', onWheel);
-  }, [imgs.length, products.length, index, onIndexChange]);
+  }, [imgs.length, products.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* swipe */
+  // swipe – exactly one vertical step per gesture
+  const stepProductOnce = useCallback((dir)=>stepProduct(dir), []); // reuse cooldown via wheelLock timing not needed here
   const swipe = useSwipe({
     imgsLen: imgs.length,
     prodsLen: products.length,
     index,
     setImgIdx,
-    onIndexChange,
+    stepProductOnce,
+    onPulse: pulsePlus,
   });
 
-  /* overlay flag for page styles */
+  // overlay flag for page styles
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open','1');
     return () => document.documentElement.removeAttribute('data-overlay-open');
@@ -232,7 +249,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   return (
     <>
-      {/* root overlay: no gray fade, header stays clickable */}
       <div
         className="product-hero-overlay"
         data-overlay
@@ -253,7 +269,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         onPointerUp={swipe.onUp}
         onPointerCancel={swipe.onUp}
       >
-        {/* transparent click-catcher (no visual dim) */}
+        {/* click-out area (keeps header clickable) */}
         <div
           onClick={(e)=>{ e.stopPropagation(); onClose?.(); }}
           style={{
@@ -264,17 +280,16 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           }}
         />
 
-        {/* content */}
         <div className="product-hero" style={{ pointerEvents:'auto', textAlign:'center', zIndex:521 }}>
           {/* left arrows */}
           {products.length>1 && (
             <div style={{ position:'fixed', left:`calc(12px + env(safe-area-inset-left,0px))`, top:'50%', transform:'translateY(-50%)', display:'grid', gap:8, zIndex:110 }}>
-              <ArrowControl dir="up"   night={night} onClick={()=>onIndexChange?.(wrap(index-1, products.length))} />
-              <ArrowControl dir="down" night={night} onClick={()=>onIndexChange?.(wrap(index+1, products.length))} />
+              <ArrowControl dir="up"   night={night} onClick={()=>stepProduct(-1)} onPulse={pulsePlus} />
+              <ArrowControl dir="down" night={night} onClick={()=>stepProduct(+1)} onPulse={pulsePlus} />
             </div>
           )}
 
-          {/* main image */}
+          {/* image */}
           {!!imgs.length && (
             <>
               <Image
@@ -297,7 +312,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
                       type="button"
                       aria-label={`Image ${i+1}`}
                       className={`pill dot-pill ${i===clampedImgIdx ? 'is-active' : ''}`}
-                      onClick={()=>setImgIdx(i)}
+                      onClick={()=>{ setImgIdx(i); pulsePlus(); }}
                       style={{ width:18, height:18, padding:0 }}
                     />
                   ))}
@@ -309,11 +324,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           <div className="product-hero-title">{product.title}</div>
           <div className="product-hero-price">{priceText}</div>
 
-          <PlusSizesInline sizes={sizes} />
+          <PlusSizesInline ref={plusRef} sizes={sizes} />
         </div>
       </div>
 
-      {/* pills styling — EXACT 28×28 circles to match ArrowControl */}
+      {/* inline style hooks for the pills */}
       <style jsx>{`
         :root{
           --circle-day: var(--circle-day, #ffffff);
@@ -324,7 +339,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           --glyph-night: var(--glyph-night, #ffffff);
           --neon: var(--hover-green, #0bf05f);
         }
-
         .product-hero-overlay :global(.pill){
           width:28px; height:28px; border-radius:9999px;
           border:none; display:inline-grid; place-items:center;
@@ -360,11 +374,9 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           background: var(--neon); color:#000;
           box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
         }
-
         @media (hover:hover){
           .product-hero-overlay :global(.pill:hover){ transform: translateZ(0) scale(1.02); }
         }
-
         .product-hero-title{ margin-top:10px; font-weight:800; }
         .product-hero-price{ opacity:.85; margin-top:2px; }
       `}</style>
