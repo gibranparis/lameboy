@@ -37,10 +37,10 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
   // sizes
   const sizes = useMemo(() => {
     return {
-      box: ctrlPx,          // container square for the side controls
-      toggleDot: 22,        // toggle “sun/moon” circle size
-      cartImg: 28,          // purse image actual size (CSS also enforces)
-      orb: Math.round(ctrlPx * 1.9), // make orb clearly larger than everything
+      box: ctrlPx,                 // container square for the side controls
+      toggleDot: 22,               // toggle “sun/moon” circle size
+      cartImg: 28,                 // purse image actual size (CSS also enforces)
+      orb: Math.round(ctrlPx * 1.9), // orb clearly larger than everything
     };
   }, [ctrlPx]);
 

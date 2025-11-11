@@ -143,7 +143,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     if (!imgEl || onFirstThumbRef.current) return;
     onFirstThumbRef.current = true;
     try {
-      // If browser supports decode(), use it; otherwise, rely on load event
       const run = () => sendReady();
       imgEl.decode ? imgEl.decode().then(run).catch(run) : run();
     } catch { sendReady(); }
