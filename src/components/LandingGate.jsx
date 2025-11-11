@@ -21,7 +21,6 @@ function useShift() {
     return {
       vh: isPhone ? 4 : 3.5,
       micro: Math.round(Math.max(2, Math.min(10, h * 0.012))),
-      gap: 6,
     };
   };
   const [s, setS] = useState(calc);
@@ -34,9 +33,7 @@ function useShift() {
 }
 
 function useCenter(ref) {
-  const measure = useCallback(() => {
-    void ref?.current;
-  }, [ref]);
+  const measure = useCallback(() => { void ref?.current; }, [ref]);
   useLayoutEffect(() => {
     measure();
     const onResize = () => measure();
@@ -55,19 +52,19 @@ function finishCascadeToDayShop(){
   r.setAttribute('data-theme','day');
   r.setAttribute('data-mode','shop');
   r.style.background = '#fff';
-  try {
-    const evt = new CustomEvent('lb:cascade:done', { detail:{ to:'shop-day' } });
-    document.dispatchEvent(evt);
-  } catch {}
+  try { document.dispatchEvent(new CustomEvent('lb:cascade:done', { detail:{ to:'shop-day' } })); } catch {}
 }
 
 /* ====================== BannedLogin-style CASCADE ======================= */
 /**
- * Color cascade that carries:
- * - a WHITE sheet (slides from right → left)
- * - 7 COLOR bands
- * - a label that inverts on white (mix-blend:difference)
- * - an **Early Black Stack** (orb/time/label) that fades in the instant white covers center.
+ * Cascade carries:
+ * - WHITE sheet (slides from right → left)
+ * - 7 COLOR bands (last = violet)
+ * - “LAMEBOY, USA” using mix-blend:difference (stays WHITE until the violet fully exits)
+ * - Early Black Stack (ORB/TIME/LABEL) that fades in ONLY when the violet has fully cleared.
+ *
+ * Key: we compute the COLOR pack’s right edge (in vw). When rightEdge <= 0, violet has exited.
+ * We then crossfade white label → black stack over a very short ramp.
  */
 function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
   const [mounted, setMounted] = useState(true);
@@ -89,15 +86,19 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
 
   if (!mounted) return null;
 
-  // White sheet progress: translateX from 100% → 0%
-  const COLOR_VW = 120;
-  const whiteTx  = (1 - p) * 100;               // %
-  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // vw
+  // Geometry
+  const COLOR_VW = 120;             // width of color pack container (vw)
+  const whiteTx  = (1 - p) * 100;   // %  : 100% → 0% (sheet moves in)
+  const bandsTx  = (1 - p) * (100 + COLOR_VW) - COLOR_VW; // vw: starts at +100, ends at -COLOR_VW
 
-  // As soon as white reaches screen center (whiteTx <= 50), pop in black stack.
-  // Tight ramp for a crisp "not a moment later" feel.
-  const showBlack   = whiteTx <= 50;
-  const blackAlpha  = Math.max(0, Math.min(1, 1 - (whiteTx - 50) / 6)); // 0→1 over ~6% travel
+  // Right edge of the color pack relative to viewport (vw). When <= 0, the violet (last strip) has fully exited.
+  const rightEdge = bandsTx + COLOR_VW; // vw
+
+  // Crossfade window: tiny 2vw ramp after violet clears. Crisp but not harsh.
+  const rampVW = 2;
+  const q = Math.max(0, Math.min(1, (-rightEdge) / rampVW)); // 0 → 1 as rightEdge goes 0 → -2
+  const blackAlpha  = q;        // Early Black Stack opacity
+  const whiteAlpha  = 1 - q;    // mix-blend label opacity (white feel) holds until the exact trade-off
 
   return createPortal(
     <>
@@ -121,8 +122,8 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
         </div>
       </div>
 
-      {/* “LAMEBOY, USA” — white over color, black over white via difference */}
-      <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10000, pointerEvents:'none' }}>
+      {/* “LAMEBOY, USA” — stays *visually white* via difference until the violet has exited (whiteAlpha→0 then) */}
+      <div aria-hidden style={{ position:'fixed', inset:0, zIndex:10000, pointerEvents:'none', opacity:whiteAlpha, transition:'opacity .06s linear' }}>
         <div style={{ position:'absolute', left:'50%', top:'50%', transform: labelTransform }}>
           <span style={{
             color:'#fff',
@@ -135,14 +136,14 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
         </div>
       </div>
 
-      {/* === Early Black Stack (on top) =================================== */}
+      {/* Early Black Stack (appears ONLY once violet has fully cleared; crossfades over ~2vw) */}
       <div
         aria-hidden
         style={{
           position:'fixed', inset:0, zIndex:10002, pointerEvents:'none',
           display:'grid', placeItems:'center',
-          opacity: showBlack ? blackAlpha : 0,
-          transition: 'opacity .08s linear',  // very snappy
+          opacity: blackAlpha,
+          transition: 'opacity .06s linear',
         }}
       >
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
@@ -191,7 +192,6 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform }) {
           </span>
         </div>
       </div>
-      {/* ================================================================== */}
     </>,
     document.body
   );
@@ -291,16 +291,20 @@ function WhiteCurtain({ onDone }) {
 export default function LandingGate({ onCascadeComplete }) {
   // phases: idle → cascade → curtain → done
   const [phase, setPhase] = useState('idle');
-  const [hovered, setHovered] = useState(false);
   const labelRef = useRef(null);
   const locked = useRef(false);
   const pressTimer = useRef(null);
   const { vh, micro } = useShift();
 
-  // Begin in "gate" mode to prevent background flashes
+  // HARD GATE: hide shop UI to prevent grid flash until we're fully done.
   useEffect(() => {
-    try { document.documentElement.setAttribute('data-mode', 'gate'); } catch {}
-    return () => { try { document.documentElement.removeAttribute('data-mode'); } catch {} };
+    const r = document.documentElement;
+    r.setAttribute('data-mode', 'gate');
+    r.setAttribute('data-gate-hardblock', '1');
+    return () => {
+      r.removeAttribute('data-mode');
+      r.removeAttribute('data-gate-hardblock');
+    };
   }, []);
 
   useCenter(labelRef);
@@ -313,20 +317,16 @@ export default function LandingGate({ onCascadeComplete }) {
     try { playChakraSequenceRTL(); } catch {}
     try { sessionStorage.setItem('fromCascade', '1'); } catch {}
 
-    // Flip chrome to day/shop right at cascade end; Early Black Stack already visible before this.
+    // Flip chrome to day/shop right at cascade end; Early Black Stack already aligned to violet exit.
     const t1 = setTimeout(() => {
       finishCascadeToDayShop();
       setPhase('curtain');
     }, CASCADE_MS);
 
-    const t2 = setTimeout(() => {
-      // curtain will listen for lb:shop-ready or auto-timeout
-    }, CASCADE_MS + WHITE_HOLD_MS);
+    const t2 = setTimeout(() => { /* curtain will listen for lb:shop-ready or auto-timeout */ }, CASCADE_MS + WHITE_HOLD_MS);
 
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
-
-  const STACK_GAP = 6;
 
   return (
     <div
@@ -337,14 +337,14 @@ export default function LandingGate({ onCascadeComplete }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: STACK_GAP,
+        gap: 6,
         padding: '1.5rem',
         position: 'relative',
         // Hide base stack once animation starts; overlays/curtain handle visuals
         visibility: phase === 'idle' ? 'visible' : 'hidden',
       }}
     >
-      {/* CASCADE overlay (now includes Early Black Stack) */}
+      {/* CASCADE overlay (with violet-exit-locked trade-off) */}
       {phase === 'cascade' && (
         <CascadeOverlay
           durationMs={CASCADE_MS}
@@ -358,101 +358,106 @@ export default function LandingGate({ onCascadeComplete }) {
           onDone={() => {
             setPhase('done');
             try { onCascadeComplete?.(); } catch {}
+            // Release hardblock only when we’re truly done.
+            try { document.documentElement.removeAttribute('data-gate-hardblock'); } catch {}
           }}
         />
       )}
 
-      {/* ORB — enter (supports click, long-press, and double-click like BannedLogin) */}
-      <button
-        type="button"
-        onClick={runCascade}
-        onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-        onMouseUp={() => clearTimeout(pressTimer.current)}
-        onMouseLeave={() => clearTimeout(pressTimer.current)}
-        onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
-        onTouchEnd={() => clearTimeout(pressTimer.current)}
-        onDoubleClick={runCascade}
-        title="Enter"
-        aria-label="Enter"
-        style={{
-          position: 'relative',
-          zIndex: 10004,
-          lineHeight: 0,
-          padding: 0,
-          margin: 0,
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-        }}
-      >
-        <BlueOrbCross3D
-          rpm={44}
-          color={SEAFOAM}
-          geomScale={1.12}
-          glow
-          glowOpacity={0.95}
-          includeZAxis
-          height="88px"
-          interactive={false}
-        />
-      </button>
-
-      {/* TIME — white (clickable) */}
+      {/* ORB — enter (click, long-press, double-click) */}
       {phase === 'idle' && (
-        <button
-          type="button"
-          onClick={runCascade}
-          title="Enter"
-          aria-label="Enter"
-          style={{
-            background: 'transparent',
-            border: 0,
-            cursor: 'pointer',
-            color: '#fff',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            fontFamily: 'inherit',
-            lineHeight: 1.2,
-          }}
-        >
-          <ClockNaples />
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={runCascade}
+            onMouseDown={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+            onMouseUp={() => clearTimeout(pressTimer.current)}
+            onMouseLeave={() => clearTimeout(pressTimer.current)}
+            onTouchStart={() => { clearTimeout(pressTimer.current); pressTimer.current = setTimeout(runCascade, 650); }}
+            onTouchEnd={() => clearTimeout(pressTimer.current)}
+            onDoubleClick={runCascade}
+            title="Enter"
+            aria-label="Enter"
+            style={{
+              position: 'relative',
+              zIndex: 10004,
+              lineHeight: 0,
+              padding: 0,
+              margin: 0,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <BlueOrbCross3D
+              rpm={44}
+              color={SEAFOAM}
+              geomScale={1.12}
+              glow
+              glowOpacity={0.95}
+              includeZAxis
+              height="88px"
+              interactive={false}
+            />
+          </button>
+
+          {/* TIME */}
+          <button
+            type="button"
+            onClick={runCascade}
+            title="Enter"
+            aria-label="Enter"
+            style={{
+              background: 'transparent',
+              border: 0,
+              cursor: 'pointer',
+              color: '#fff',
+              fontWeight: 800,
+              letterSpacing: '.06em',
+              fontSize: 'clamp(12px,1.3vw,14px)',
+              fontFamily: 'inherit',
+              lineHeight: 1.2,
+            }}
+          >
+            <ClockNaples />
+          </button>
+
+          {/* Florida label */}
+          <button
+            ref={labelRef}
+            type="button"
+            onClick={runCascade}
+            title="Enter"
+            style={{
+              background: 'transparent',
+              border: 0,
+              cursor: 'pointer',
+              fontWeight: 800,
+              letterSpacing: '.06em',
+              fontSize: 'clamp(12px,1.3vw,14px)',
+              fontFamily: 'inherit',
+              color: '#ffffff',
+              textShadow: `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
+              marginTop: 0,
+            }}
+          >
+            Florida, USA
+          </button>
+        </>
       )}
 
-      {/* Florida label — white (hover = neon yellow) */}
-      <button
-        ref={labelRef}
-        type="button"
-        onClick={runCascade}
-        title="Enter"
-        style={{
-          visibility: phase === 'idle' ? 'visible' : 'hidden',
-          background: 'transparent',
-          border: 0,
-          cursor: 'pointer',
-          fontWeight: 800,
-          letterSpacing: '.06em',
-          fontSize: 'clamp(12px,1.3vw,14px)',
-          fontFamily: 'inherit',
-          color: '#ffffff',
-          textShadow: `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
-          marginTop: 0,
-        }}
-        onMouseEnter={( ) => {}}
-      >
-        Florida, USA
-      </button>
-
-      {/* Safety: ensure bands fill height in gate mode */}
+      {/* Safety styles */}
       <style jsx>{`
         :global(:root[data-mode="gate"]) .chakra-band { min-height: 100%; }
+        /* Hard-block shop UI while in gate to prevent grid flash */
+        :global(:root[data-gate-hardblock]) [data-shop-root] { visibility: hidden !important; }
+        :global(:root[data-gate-hardblock]) header[role="banner"] { visibility: hidden !important; }
       `}</style>
     </div>
   );
 }
 
-/** Naples clock (America/New_York) — text only; parent/curtain control rendering */
+/** Naples clock (America/New_York) */
 function ClockNaples() {
   const [now, setNow] = useState('');
   useEffect(() => {
