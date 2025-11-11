@@ -18,8 +18,8 @@ function OrbCross({
   onActivate = null,
   overrideAllColor = null,
   overrideGlowOpacity,
-  interactive = false,        // ← unified prop
-  haloTint = null,            // tint halos only (green/red pulse)
+  interactive = false,
+  haloTint = null,
 }) {
   const group = useRef();
 
@@ -181,7 +181,6 @@ function OrbCross({
             <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />
           ))}
 
-          {/* Outer halos for strong pulse */}
           {(overrideAllColor || haloTint) && (
             <>
               {centers.map((p, i) => (
@@ -271,7 +270,7 @@ export default function BlueOrbCross3D({
           onActivate={interactive ? onActivate : null}
           overrideAllColor={overrideAllColor}
           overrideGlowOpacity={overrideGlowOpacity}
-          interactive={interactive}     {/* ← unified */}
+          interactive={interactive}
           haloTint={haloTint}
         />
       </Canvas>
