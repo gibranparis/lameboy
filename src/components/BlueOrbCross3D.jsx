@@ -18,8 +18,8 @@ function OrbCross({
   onActivate = null,
   overrideAllColor = null,
   overrideGlowOpacity,
-  __interactive = false,
-  haloTint = null,               // tint halos only (green/red pulse)
+  interactive = false,        // ← unified prop
+  haloTint = null,            // tint halos only (green/red pulse)
 }) {
   const group = useRef();
 
@@ -150,15 +150,15 @@ function OrbCross({
     };
   }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat]);
 
-  const handlePointerDown = __interactive ? (e) => { e.stopPropagation(); onActivate && onActivate(); } : undefined;
-  const handleKeyDown     = __interactive ? (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } } : undefined;
+  const handlePointerDown = interactive ? (e) => { e.stopPropagation(); onActivate && onActivate(); } : undefined;
+  const handleKeyDown     = interactive ? (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onActivate && onActivate(); } } : undefined;
 
   return (
     <group
       ref={group}
       onPointerDown={handlePointerDown}
       onKeyDown={handleKeyDown}
-      tabIndex={__interactive ? 0 : -1}
+      tabIndex={interactive ? 0 : -1}
     >
       {/* Bars */}
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
@@ -181,7 +181,7 @@ function OrbCross({
             <mesh key={`halo-${i}`} geometry={sphereGeo} material={sphereHaloMats[i]} position={p} scale={glowScale} />
           ))}
 
-          {/* IMPORTANT: render outer halos when haloTint is present (strong pulse like BANNED) */}
+          {/* Outer halos for strong pulse */}
           {(overrideAllColor || haloTint) && (
             <>
               {centers.map((p, i) => (
@@ -271,7 +271,7 @@ export default function BlueOrbCross3D({
           onActivate={interactive ? onActivate : null}
           overrideAllColor={overrideAllColor}
           overrideGlowOpacity={overrideGlowOpacity}
-          __interactive={interactive}
+          interactive={interactive}     {/* ← unified */}
           haloTint={haloTint}
         />
       </Canvas>
