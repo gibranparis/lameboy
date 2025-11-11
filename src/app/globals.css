@@ -66,7 +66,7 @@ html,body{
   background:#000 !important;
 }
 :root[data-mode="gate"] *{
-  transition-property: none !important;  /* prevent bg/color cross-fade flashes */
+  transition-property: none !important;
 }
 
 /* Prevent background scroll while a product overlay is open */
@@ -225,7 +225,7 @@ html:has([data-shop-root]) .logo-3d{ display:none!important; }
 :root[data-mode="shop"] header[role="banner"] .cart-fab{
   position:static!important; width:auto; height:var(--header-ctrl); padding:6px 8px; display:inline-grid; place-items:center; border-radius:0!important;
 }
-:root[data-mode="shop"] header[role="banner"] .cart-fab .cart-img-wrap{ width:28px !important; height:28px !important; } /* force 28px icon */
+:root[data-mode="shop"] header[role="banner"] .cart-fab .cart-img-wrap{ width:28px !important; height:28px !important; }
 :root[data-mode="shop"][data-theme="day"]   header[role="banner"] .cart-fab{ color:#111; }
 :root[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
 :root[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform:translateY(-1px); }
@@ -255,7 +255,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 /* ========== Product overlay ============================================= */
 .product-hero-overlay{
   position:fixed; inset:0; z-index:420;
-  background:transparent;          /* no gray fade */
+  background:transparent;
   color:var(--text);
   display:flex; align-items:center; justify-content:center; padding:20px;
 }
@@ -266,6 +266,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 .product-hero-img{ width:100%; max-height:70vh; object-fit:contain; }
 .product-hero-title{ font-weight:800; font-size:clamp(14px,2vw,20px); text-align:center; }
 .product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
+
 .product-hero-close{
   position:absolute; top:10px; right:10px; display:inline-grid!important; place-items:center;
   width:28px; height:28px; line-height:0; font-weight:900; font-size:16px; border-radius:9999px;
@@ -300,7 +301,7 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 :root[data-mode="shop"] header [data-orb="density"] canvas{
   display:block !important;
   opacity:1 !important;
-  visibility:visible !重要;
+  visibility:visible !important;
   pointer-events:auto !important;
 }
 
@@ -393,6 +394,24 @@ html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:au
 .florida-link:hover{
   color:#ffe600;
   text-shadow: 0 0 6px rgba(255,230,0,.85), 0 0 16px rgba(255,230,0,.55), 0 0 28px rgba(255,230,0,.35);
+}
+
+/* TIME link — white glow on hover/click */
+.time-link{
+  font-weight:800;
+  color:inherit;
+  transition: color .15s ease, text-shadow .15s ease, filter .15s ease;
+}
+.time-link:hover,
+.time-link:focus-visible,
+.time-link:active,
+.time-link.is-hot{
+  color:#fff;
+  text-shadow:
+    0 0 6px rgba(255,255,255,.85),
+    0 0 16px rgba(255,255,255,.55),
+    0 0 28px rgba(255,255,255,.35);
+  filter: saturate(1.05);
 }
 
 /* ====================================================================== */
