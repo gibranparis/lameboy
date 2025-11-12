@@ -1,12 +1,13 @@
+// src/components/ChakraOrbButton.jsx
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import BlueOrbCross3D from '@/components/BlueOrbCross3D';
 
 export default function ChakraOrbButton({
-  size = 72,              // universal orb size (matches BANNED)
-  rpm = 44,               // match BANNED
-  color = '#32ffc7',      // base seafoam
+  size = 72,
+  rpm = 44,
+  color = '#32ffc7',
   geomScale = 1.12,
   offsetFactor = 2.25,
   armRatio = 0.35,
@@ -36,14 +37,12 @@ export default function ChakraOrbButton({
     return () => mo.disconnect();
   }, []);
 
-  // predict next in/out based on density
   useEffect(() => {
     const onDensity = (e) => {
       const d = Number(e?.detail?.density ?? e?.detail?.value);
       if (!Number.isFinite(d)) return;
-      if (d <= MIN) setNextDir('out');   // at 1 → next should back OUT
-      else if (d >= MAX) setNextDir('in'); // at 5 → next should go IN
-      // else leave whatever the user last did (feels natural)
+      if (d <= MIN) setNextDir('out');
+      else if (d >= MAX) setNextDir('in');
     };
     document.addEventListener('lb:grid-density', onDensity);
     return () => document.removeEventListener('lb:grid-density', onDensity);
@@ -54,7 +53,7 @@ export default function ChakraOrbButton({
 
   const pulse = useCallback((c) => {
     setPressColor(c);
-    const t = setTimeout(() => setPressColor(null), 420);
+    const t = setTimeout(() => setPressColor(null), 210); // shorter pulse
     return () => clearTimeout(t);
   }, []);
 
@@ -66,16 +65,12 @@ export default function ChakraOrbButton({
     pulse(dir === 'in' ? GREEN : RED);
 
     const detail = { step: 1, dir };
-    // modern events
     document.dispatchEvent(new CustomEvent('lb:zoom', { detail }));
     document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }));
-    // legacy name (harmless if nobody listens)
-    document.dispatchEvent(new CustomEvent('grid-density', { detail }));
-    // remember user intent between middling densities
+    document.dispatchEvent(new CustomEvent('grid-density', { detail })); // legacy
     setNextDir(dir);
   }, [pulse]);
 
-  // mirror external zoom pulses
   useEffect(() => {
     const onExternal = (ev) => {
       const d = ev?.detail || {};
@@ -95,7 +90,6 @@ export default function ChakraOrbButton({
     else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); fireZoom('out'); }
   };
   const onWheel = (e) => {
-    // natural feel: scroll up = zoom IN, down = OUT
     e.preventDefault();
     const y = e.deltaY;
     if (y < 0) fireZoom('in');
@@ -165,6 +159,7 @@ export default function ChakraOrbButton({
           onActivate={onClick}
           overrideAllColor={pressColor || null}
           haloTint={pressColor || null}
+          flashDecayMs={140}
         />
       </button>
     </div>

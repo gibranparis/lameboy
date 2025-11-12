@@ -20,8 +20,8 @@ function OrbCross({
   overrideGlowOpacity,
   interactive = false,
   haloTint = null,
-  /** NEW: how long the click flash should persist (ms) */
-  flashDecayMs = 210,
+  /** shorter by default so flashes never “linger” */
+  flashDecayMs = 140,
 }) {
   const group = useRef();
 
@@ -41,23 +41,16 @@ function OrbCross({
     const flashing = u.flashUntil && now < u.flashUntil;
 
     if (glow && u?.pulse) {
-      // Normal idle pulse speed
       let pulseSpeed = 3.6;
-      // During flash window, make it feel snappy (double speed)
       if (flashing) pulseSpeed = 7.2;
 
       const t = state.clock.getElapsedTime();
       const pulse = 0.85 + Math.sin(t * pulseSpeed) * 0.15;
 
-      // Base halo level
       let b = u.base * pulse;
-
-      // During flash: emphasize the first ~half of the window, then
-      // quickly settle so it never "lingers" looking laggy
       if (flashing) {
         const remain = Math.max(0, u.flashUntil - now);
-        const k = Math.min(1, remain / flashDecayMs); // 1→0 over the window
-        // Quick rise, quick fall: slightly clamp + ease
+        const k = Math.min(1, remain / flashDecayMs);
         b = Math.min(1, b * (0.85 + 0.3 * k));
       }
 
@@ -259,8 +252,7 @@ export default function BlueOrbCross3D({
   interactive = false,
   respectReducedMotion = false,
   haloTint = null,
-  /** NEW: forward flash duration control */
-  flashDecayMs = 210,
+  flashDecayMs = 140, // new default
 }) {
   const [maxDpr, setMaxDpr] = useState(2);
   const [reduced, setReduced] = useState(false);

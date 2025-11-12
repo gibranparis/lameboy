@@ -9,11 +9,21 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio';
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false });
 
 /* =============================== Timings ================================ */
-export const CASCADE_MS = 2400;                    // visual travel time for the band pack
-const WHITE_HOLD_MS     = 520;                     // minimal hold; curtain will fade away on shop-ready
+export const CASCADE_MS = 2400; // visual travel time for the band pack
+const WHITE_HOLD_MS     = 520;  // keep the same overall structure
 const SEAFOAM           = '#32ffc7';
 
-/* === shared stack geometry so all labels align perfectly === */
+/* Anti-bulldozer: add a gentle pre-blend and a finalize tail */
+const CURTAIN_IN_MS        = 360; // soft ease-in
+const CURTAIN_PREBLEND_MS  = 120; // overlay “exists” but doesn’t shove yet
+const CURTAIN_FINALIZE_MS  = 160; // tiny close to 1.0 after exits are done
+
+/* Exit cadence so content leaves without being yanked */
+const ORB_EXIT_MS        = 260;
+const TEXT_EXIT_MS       = 220;
+const TEXT_EXIT_DELAY_MS = 60;
+
+/* shared stack geometry so all labels align perfectly */
 const ORB_PX     = 88;   // matches --orb-px
 const STACK_GAP  = 6;
 const LABEL_SHIFT_PX = Math.round(ORB_PX / 2 + STACK_GAP + 8); // baseline-align to “Florida, USA”
@@ -74,7 +84,7 @@ function finishCascadeToDayShop(){
   } catch {}
 }
 
-/* ====================== BannedLogin-style CASCADE ======================= */
+/* ====================== RAF CASCADE ==================================== */
 function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress }) {
   const [mounted, setMounted] = useState(true);
   const [p, setP] = useState(0);
@@ -145,28 +155,61 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
 }
 
 /* ============================ White curtain ============================= */
-/* Solid white + black ORB + black clock + black LAMEBOY, USA.
-   Visibility is controlled by phase; we don't delay—phase flips at p>=P_SWITCH. */
+/* Phases: 'enter' (0→.94), 'finalize' (.94→1), 'done' (fade out & unmount) */
 function WhiteCurtain({ onDone }) {
-  const [visible, setVisible] = useState(true);
+  const [phase, setPhase] = useState('enter');       // enter → finalize → done
+  const [opacity, setOpacity] = useState(0);         // drives smoothness
+  const [exiting, setExiting] = useState(false);     // content exit flags
 
   useEffect(() => {
-    let finished = false;
+    let t1, t2, t3, t4;
+
+    // 1) PRE-BLEND: start existing without forcing exits
+    t1 = setTimeout(() => {
+      setOpacity(0.94); // glide to near-full
+      setPhase('enter'); // semantic
+    }, 0); // mount tick
+
+    // 2) After pre-blend, begin exits (orb first, text slightly after)
+    t2 = setTimeout(() => {
+      setExiting(true); // adds exit classes via CSS-in-JS below
+    }, CURTAIN_PREBLEND_MS);
+
+    // 3) When exits are effectively done, nudge overlay to 1.0 imperceptibly
+    t3 = setTimeout(() => {
+      setPhase('finalize');
+      setOpacity(1);
+    }, CURTAIN_PREBLEND_MS + Math.max(ORB_EXIT_MS, TEXT_EXIT_MS + TEXT_EXIT_DELAY_MS) + 16);
+
+    // 4) When the shop is ready, fade the curtain away and unmount
     const finish = () => {
-      if (finished) return;
-      finished = true;
-      setVisible(false);
-      setTimeout(() => onDone?.(), 260);
+      setPhase('done');
+      setOpacity(0);
+      t4 = setTimeout(() => onDone?.(), 260);
     };
 
+    // honor explicit readiness signal from LandingGate
     const onReady = () => finish();
     window.addEventListener('lb:shop-ready', onReady, { once: true });
 
-    const t = setTimeout(finish, 2400);
-    return () => { clearTimeout(t); window.removeEventListener('lb:shop-ready', onReady); };
-  }, [onDone]);
+    // escape hatch if nothing ever signals readiness
+    const guard = setTimeout(finish, CASCADE_MS);
 
-  if (!visible) return null;
+    return () => {
+      [t1,t2,t3,t4].forEach((x)=> x && clearTimeout(x));
+      clearTimeout(guard);
+      window.removeEventListener('lb:shop-ready', onReady);
+    };
+  }, []);
+
+  // Exit styles (soft, non-shove)
+  const exitStyle = exiting
+    ? {
+        '--orb-exit-tr': `transform ${ORB_EXIT_MS}ms cubic-bezier(.22,1,.36,1), opacity ${ORB_EXIT_MS}ms cubic-bezier(.22,1,.36,1)`,
+        '--text-exit-tr': `opacity ${TEXT_EXIT_MS}ms cubic-bezier(.22,1,.36,1)`,
+        '--text-exit-delay': `${TEXT_EXIT_DELAY_MS}ms`,
+      }
+    : {};
 
   return createPortal(
     <div
@@ -174,19 +217,30 @@ function WhiteCurtain({ onDone }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#fff',
         zIndex: 10003,
         pointerEvents: 'none',
-        opacity: 1,
-        transition: 'opacity .26s ease',
+        background: '#fff',
         display: 'grid',
         placeItems: 'center',
+        transition: `opacity ${phase==='enter' ? CURTAIN_IN_MS : CURTAIN_FINALIZE_MS}ms ${phase==='enter' ? 'cubic-bezier(.22,1,.36,1)' : 'linear'}`,
+        opacity,
       }}
     >
-      {/* Centered stack */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'none' }}>
-        {/* ORB — black override */}
-        <div style={{ lineHeight: 0 }}>
+      {/* Centered stack (black on white) */}
+      <div
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'none',
+        }}
+      >
+        {/* ORB — black override, exits with a tiny coast */}
+        <div
+          style={{
+            lineHeight: 0,
+            transition: 'var(--orb-exit-tr, none)',
+            transform: exiting ? 'scale(0.96)' : 'none',
+            opacity: exiting ? 0 : 1,
+          }}
+        >
           <BlueOrbCross3D
             rpm={44}
             color={SEAFOAM}
@@ -197,6 +251,7 @@ function WhiteCurtain({ onDone }) {
             height="88px"
             interactive={false}
             overrideAllColor="#000000"
+            flashDecayMs={140} // halve perceived linger on any flash
           />
         </div>
 
@@ -209,6 +264,9 @@ function WhiteCurtain({ onDone }) {
             fontSize: 'clamp(12px,1.3vw,14px)',
             fontFamily: 'inherit',
             lineHeight: 1.2,
+            transition: 'var(--text-exit-tr, none)',
+            transitionDelay: 'var(--text-exit-delay, 0ms)',
+            opacity: exiting ? 0 : 1,
           }}
         >
           <ClockNaples />
@@ -224,6 +282,9 @@ function WhiteCurtain({ onDone }) {
             fontFamily: 'inherit',
             lineHeight: 1.2,
             textTransform: 'uppercase',
+            transition: 'var(--text-exit-tr, none)',
+            transitionDelay: 'var(--text-exit-delay, 0ms)',
+            opacity: exiting ? 0 : 1,
           }}
         >
           LAMEBOY, USA
@@ -277,7 +338,8 @@ export default function LandingGate({ onCascadeComplete }) {
       // set page chrome to day/shop and show curtain immediately
       finishCascadeToDayShop();
       setPhase('curtain');
-      // small optional hold before we allow shop to fade in (curtain manages exit)
+
+      // small hold before we announce shop-ready; curtain manages exits now
       window.setTimeout(() => {
         try {
           const evt = new CustomEvent('lb:shop-ready');
@@ -314,7 +376,7 @@ export default function LandingGate({ onCascadeComplete }) {
         />
       )}
 
-      {/* CURTAIN — white bg + black orb/time/label */}
+      {/* CURTAIN — white bg + black orb/time/label (now with pre-blend + stagger) */}
       {phase === 'curtain' && (
         <WhiteCurtain onDone={onCurtainDone} />
       )}
@@ -351,6 +413,7 @@ export default function LandingGate({ onCascadeComplete }) {
           includeZAxis
           height="88px"
           interactive={false}
+          flashDecayMs={140}
         />
       </button>
 
