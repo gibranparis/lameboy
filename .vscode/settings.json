@@ -1,4 +1,22 @@
 {
+  // 🖥️ Theme & layout
+  "workbench.colorTheme": "Default High Contrast",
+  "workbench.iconTheme": "vs-seti",
+  "window.autoDetectColorScheme": false,
+  "workbench.preferredHighContrastColorTheme": "Dark High Contrast",
+  "workbench.preferredDarkColorTheme": "Dark High Contrast",
+  "window.zoomLevel": 1,
+
+  // ✍️ Editor typography
+  "editor.fontFamily": "Menlo, Monaco, 'Courier New', monospace",
+  "editor.fontSize": 16,
+  "editor.lineHeight": 22,
+  "editor.letterSpacing": 0.2,
+  "editor.cursorBlinking": "smooth",
+  "editor.smoothScrolling": true,
+  "editor.minimap.enabled": false,
+
+  // ⚙️ Formatting & linting
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.codeActionsOnSave": {
