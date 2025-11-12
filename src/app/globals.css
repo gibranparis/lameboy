@@ -1,58 +1,62 @@
 @import "tailwindcss";
 
-/* ========== Tokens ======================================================= */
+/* ==========================================================================
+   0) TOKENS / VARIABLES
+   ========================================================================== */
 :root{
+  /* Typography */
   --mono: Menlo, Monaco, Consolas, "SFMono-Regular", "Liberation Mono", "Courier New", ui-monospace, monospace;
 
-  /* app shell (dark by default) */
+  /* Shell (dark by default) */
   --bg:#000; --panel:#1e1e1e; --text:#fff; --muted:#b3b3b3;
 
-  /* accents */
+  /* Accents */
   --accent:#1991ff; --focus-orange:#f7a02d;
   --hover-green:#0bf05f; --seafoam:#2ee6b8; --purple:#a855f7;
 
-  /* code tokens (night defaults) */
+  /* Code token colors (night defaults) */
   --comment:var(--seafoam); --string:#ce9178; --keyword:#9cdcfe;
   --var:#dcdcaa; --punct:#ffffff; --op:#ffffff;
 
+  /* Radii */
   --radius-xl:14px;
 
-  /* shop palette */
+  /* Shop palette */
   --shop-offwhite:#F7F7F2;
 
-  /* header controls (toggle/cart) */
+  /* Header controls (toggle/cart) */
   --header-ctrl:64px;
-  --header-pad-x:16px;
+  --header-pad-x:16px;   /* left padding */
+  --header-pad-r:8px;    /* right padding (tighter corner) */
 
-  /* universal orb size (matches BANNED) */
+  /* Orb size parity with BANNED */
   --orb-px:88px;
 
-  /* product grid columns (1..5) */
+  /* Product grid columns (1..5) */
   --grid-cols:5;
 
-  /* neon colors */
+  /* Neon + misc */
   --banned-neon:#ff073a;
 
   /* Safe-area variables for iOS notch/home-bar */
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
 
-  /* circle UI colors to match arrow buttons */
-  --circle-day:#ffffff;
-  --circle-night:#0b0c10;
-  --ring-day:rgba(0,0,0,.08);
-  --ring-night:rgba(255,255,255,.12);
-  --glyph-day:#0f1115;
-  --glyph-night:#ffffff;
+  /* Circle UI colors (match arrow buttons) */
+  --circle-day:#ffffff;  --circle-night:#0b0c10;
+  --ring-day:rgba(0,0,0,.08); --ring-night:rgba(255,255,255,.12);
+  --glyph-day:#0f1115;   --glyph-night:#ffffff;
 }
 
 /* Theme hint for native form controls */
 :root[data-theme="day"]  { color-scheme: light; }
 :root[data-theme="night"]{ color-scheme: dark;  }
 
-/* ========== Base ========================================================= */
+/* ==========================================================================
+   1) BASE / GLOBAL RESETS
+   ========================================================================== */
 html,body{
   margin:0; padding:0;
   min-height:100%;
@@ -62,31 +66,49 @@ html,body{
   -moz-osx-font-smoothing:grayscale;
 }
 
-/* HARDEN GATE so no white flashes before cascade */
+/* Motion safety */
+@media (prefers-reduced-motion: reduce){
+  *{
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.001ms!important;
+    scroll-behavior:auto!important;
+  }
+}
+
+/* Prevent background scroll while a product overlay is open */
+html[data-overlay-open]{ overflow:hidden; }
+
+/* ==========================================================================
+   2) MODES / THEMES
+   ========================================================================== */
+/* Gate mode hardening (no white flashes) */
 :root[data-mode="gate"]{
   --bg:#000; --text:#fff;
   background:#000 !important;
 }
 :root[data-mode="gate"] *{ transition-property:none !important; }
 
-/* Prevent background scroll while a product overlay is open */
-html[data-overlay-open]{ overflow:hidden; }
+/* Shop theme variants */
+:root[data-mode="shop"][data-theme="day"]   { --bg:var(--shop-offwhite); --panel:var(--shop-offwhite); --text:#111; }
+:root[data-mode="shop"][data-theme="night"] { --bg:#000;               --panel:#000;               --text:#fff; }
 
-/* Motion safety */
-@media (prefers-reduced-motion: reduce){
-  *{ animation-duration:.001ms!important; animation-iteration-count:1!important; transition-duration:.001ms!important; scroll-behavior:auto!important; }
+:root[data-mode="shop"]{
+  background:var(--bg); color:var(--text);
+  transition:background-color .35s ease, color .35s ease;
 }
 
-/* ========== Helpers (viewport + bottom fill) ============================ */
+/* ==========================================================================
+   3) LAYOUT HELPERS
+   ========================================================================== */
 .lb-screen{ min-height:100svh; min-height:100dvh; min-height:100vh; background:var(--bg); }
-
 .page-center{ min-height:100svh; display:grid; place-items:center; gap:18px; padding:2rem; }
-
 .row-nowrap{ display:flex; align-items:center; gap:14px; flex-wrap:nowrap; }
 .florida-inline{ display:block!important; text-align:center!important; margin-left:auto!important; margin-right:auto!important; }
 
-/* Runner pinned to bottom */
+/* Chakra runner pinned to bottom + safe-area fill */
 .lb-chakra-runner{ position:fixed; left:0; right:0; bottom:0; z-index:50; pointer-events:none; }
+.lb-chakra-runner > *{ pointer-events:auto; }
 .lb-bottom-fill{
   position:fixed; left:0; right:0; bottom:0;
   height: var(--safe-bottom);
@@ -94,45 +116,264 @@ html[data-overlay-open]{ overflow:hidden; }
   z-index: 1;
   pointer-events: none;
 }
-.lb-chakra-runner > *{ pointer-events:auto; }
 
-/* ========== Neon card (legacy) ========================================= */
-.vscode-card{
-  background:var(--panel);
-  border:2px solid var(--accent);
-  border-radius:var(--radius-xl);
-  box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12);
-  transition:transform .28s ease, box-shadow .28s ease, opacity .28s ease;
+/* ==========================================================================
+   4) HEADER (SHOP) + CART
+   ========================================================================== */
+:root[data-mode="shop"] header[role="banner"]{
+  z-index: 500 !important;
+  background:transparent!important; box-shadow:none!important; border:0!important;
+  height: var(--header-ctrl);
+  display:grid;
+  grid-template-columns: var(--header-ctrl) 1fr var(--header-ctrl);
+  align-items:center;
+
+  /* split L/R padding (safe-area aware) */
+  padding-inline-start: calc(var(--header-pad-x) + var(--safe-left));
+  padding-inline-end:   calc(var(--header-pad-r) + var(--safe-right));
+
+  overflow:visible;   /* orb can be larger than header height */
 }
-.card-ultra-tight{ padding:6px 8px; }
-.login-card{ position:relative; display:inline-flex; flex-direction:column; gap:2px; width:fit-content; max-width:92vw; }
+:root[data-mode="shop"] header[role="banner"] > *:first-child  { justify-self:start;  }
+:root[data-mode="shop"] header[role="banner"] > *:nth-child(2) { justify-self:center; }
+:root[data-mode="shop"] header[role="banner"] > *:last-child   { justify-self:end;    }
 
-.bubble-button{ cursor:pointer; }
-.bubble-button:hover{ box-shadow:0 0 0 1px rgba(25,145,255,.25), 0 0 24px rgba(25,145,255,.22), 0 0 50px rgba(25,145,255,.25); }
-@keyframes bubblePulseBlue{
-  0%{ box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12) }
-  35%{ box-shadow:0 0 0 1px rgba(25,145,255,.25), 0 0 28px rgba(25,145,255,.28), 0 0 56px rgba(25,145,255,.32) }
-  100%{ box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12) }
+/* Cart button */
+.cart-fab{
+  position:relative; display:inline-flex; align-items:center; justify-content:center;
+  width:64px; height:64px; padding:0; border:0; background:transparent; cursor:pointer;
+  transform:translateZ(0); z-index:2;
 }
-.bubble-glow-blue{ animation:bubblePulseBlue .85s ease-out; }
-.lameboy-glow{ color:var(--seafoam); font-weight:900; text-shadow:0 0 10px rgba(46,230,184,.50), 0 0 20px rgba(46,230,184,.35); }
+.cart-fab.bump{ animation:cart-bump 350ms ease; }
+@keyframes cart-bump{ 0%{transform:scale(1)} 30%{transform:scale(1.08)} 100%{transform:scale(1)} }
 
-.ticker-viewport{ display:inline-block; vertical-align:bottom; width:min(32ch,72vw); overflow:hidden; white-space:nowrap; }
-.ticker-track{ display:inline-block; padding-left:100%; will-change:transform; animation:lb-marquee 22s linear infinite; }
-@keyframes lb-marquee{ 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-100%,0,0)} }
+.cart-img-wrap{ display:inline-block; width:100%; height:100%; aspect-ratio:1/1; line-height:0; }
+.cart-img-wrap img{ width:100%; height:100%; object-fit:contain; pointer-events:none; }
 
-.logo-3d{ position:fixed; inset:0; z-index:8; pointer-events:none; }
-@media (prefers-reduced-motion: reduce){ .logo-3d{ display:none } }
-.login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.14ch; }
+.cart-badge{
+  position:absolute; top:0; right:0; transform:translate(35%, -35%);
+  min-width:18px; height:18px; padding:0 5px; border-radius:999px; font-size:11px; line-height:18px; text-align:center;
+  color:#000; background:var(--hover-green,#0bf05f); box-shadow:0 0 0 1px rgba(0,0,0,.25); pointer-events:none;
+}
 
-/* ================== RAF CASCADE ======================================== */
+:root[data-mode="shop"] header[role="banner"] .cart-fab{
+  position:static!important; width:auto; height:var(--header-ctrl);
+  padding:0; display:inline-grid; place-items:center; border-radius:0!important;
+}
+:root[data-mode="shop"] header[role="banner"] .cart-fab .cart-img-wrap{
+  width:32px !important; height:32px !important;
+}
+:root[data-mode="shop"][data-theme="day"]   header[role="banner"] .cart-fab{ color:#111; }
+:root[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
+:root[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform:translateY(-1px); }
+
+@keyframes cartPulse{ 0%{box-shadow:0 0 0 0 rgba(11,240,95,.55)} 70%{box-shadow:0 0 0 12px rgba(11,240,95,0)} 100%{box-shadow:0 0 0 0 rgba(11,240,95,0)} }
+.cart-fab.cart-pulse{ animation:cartPulse .42s ease; }
+
+/* ==========================================================================
+   5) GRID & PRODUCT TILES
+   ========================================================================== */
+.shop-wrap{ padding: 18px var(--header-pad-x) 56px; }
+
+.shop-grid{
+  --gap: clamp(10px, 1.2vw, 18px);
+  display:grid;
+  grid-template-columns: repeat(var(--grid-cols,5), minmax(0,1fr));
+  gap:var(--gap);
+}
+@media (max-width:640px){ .shop-grid{ --gap:12px; } }
+
+.product-tile{ display:block; color:inherit; text-decoration:none; }
+.product-box{ aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:transparent; border:none; }
+.product-img{ width:88%; height:88%; object-fit:contain; }
+html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:auto; }
+
+.product-meta{ padding:6px 2px 0; letter-spacing:.02em; font-weight:800; text-align:center; font-size:clamp(12px,1.7vw,18px); line-height:1.05; }
+
+/* Remove stray whites in shop */
+:root[data-mode="shop"] .shop-page,
+:root[data-mode="shop"] .shop-wrap,
+:root[data-mode="shop"] .shop-grid,
+:root[data-mode="shop"] .product-box,
+:root[data-mode="shop"] .product-hero-overlay,
+:root[data-mode="shop"] .product-hero,
+:root[data-mode="shop"] .product-img,
+:root[data-mode="shop"] [class*="page"],
+:root[data-mode="shop"] [class*="container"]{ background:transparent!important; color:inherit; }
+
+:root[data-mode="shop"] .product-meta{ color:var(--text); }
+html:has([data-shop-root]) .logo-3d{ display:none!important; }
+:root[data-mode="shop"] .vscode-card{ box-shadow:none!important; border-color:rgba(255,255,255,.12)!important; }
+:root[data-mode="shop"] .bubble-button:hover{ box-shadow:none!important; }
+:root[data-mode="shop"] .bubble-glow-blue{ animation:none!important; }
+
+/* ==========================================================================
+   6) PRODUCT OVERLAY
+   ========================================================================== */
+.product-hero-overlay{
+  position:fixed; inset:0; z-index:420;
+  background:transparent; color:var(--text);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.product-hero{
+  width:min(92vw,1000px); max-height:86vh;
+  display:flex; flex-direction:column; align-items:center; gap:14px; position:relative;
+}
+.product-hero-img{ width:100%; max-height:70vh; object-fit:contain; }
+.product-hero-title{ font-weight:800; font-size:clamp(14px,2vw,20px); text-align:center; }
+.product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
+
+.product-hero-close{
+  position:absolute; top:10px; right:10px; display:inline-grid!important; place-items:center;
+  width:28px; height:28px; line-height:0; font-weight:900; font-size:16px; border-radius:9999px;
+  border:1px solid rgba(0,0,0,.14); background:#fff; color:#111; box-shadow: inset 0 0 0 1px rgba(255,255,255,.6);
+}
+
+/* Overlay/animation guards */
+:root[data-overlay-open] .shop-grid{ visibility:hidden; pointer-events:none; }
+:root[data-cascade-active="1"] .shop-grid{ visibility:hidden !important; opacity:0 !important; }
+
+/* ==========================================================================
+   7) ORB (HEADER DENSITY BUTTON)
+   ========================================================================== */
+:root[data-mode="shop"] header [data-orb="density"]{
+  padding:0!important; margin:0!important; border:0!important; background:transparent!important; line-height:0!important;
+  border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
+  position:relative; zIndex:600 !important;
+}
+[data-orb="density"], [data-orb="density"] *{ outline:0!important; box-shadow:none!important; }
+:root[data-mode="shop"] header [data-orb="density"]:focus,
+:root[data-mode="shop"] header [data-orb="density"]:focus-visible,
+[data-orb="density"]:focus,
+[data-orb="density"]:focus-visible{ outline:0!important; box-shadow:none!important; }
+:root[data-mode="shop"] header [data-orb="density"] canvas{
+  display:block !important; opacity:1 !important; visibility:visible !important; pointer-events:auto !important;
+}
+
+/* ==========================================================================
+   8) CODE LEGIBILITY + NEON TEXT
+   ========================================================================== */
+.code-tight{ color: var(--text); }
+.code-comment{ color: var(--comment); }
+.code-string{  color: var(--string); }
+.code-keyword{  color: var(--keyword); }
+.code-var{      color: var(--var); }
+.code-punc{     color: var(--punct); }
+.code-op{       color: var(--op); }
+
+:root[data-theme="day"]{
+  --text:#111;
+  --comment:#111; --string:#111; --keyword:#111; --var:#111; --punct:#111; --op:#111;
+}
+:root[data-theme="day"] .neon-glow{ text-shadow:none !important; }
+.neon-black{ color:#000; text-shadow: 0 0 2px rgba(0,0,0,.6), 0 0 8px rgba(0,0,0,.35); }
+.banned-neon{
+  color: var(--banned-neon,#ff073a);
+  text-shadow: 0 0 4px currentColor, 0 0 10px currentColor, 0 0 18px currentColor;
+  font-weight:800; letter-spacing:.04em;
+}
+
+/* Gate-only white lock */
+:root[data-mode="gate"] .gate-white{
+  color:#fff !important;
+  text-shadow: 0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30);
+}
+
+/* Links: Florida + Time */
+.florida-link{
+  font-weight:800; color:#fff;
+  transition: filter .15s ease, text-shadow .15s ease, color .15s ease;
+}
+:root[data-theme="day"] .florida-link{ color:#111; }
+.florida-link.is-hot,
+.florida-link:hover{
+  color:#ffe600;
+  text-shadow: 0 0 6px rgba(255,230,0,.85), 0 0 16px rgba(255,230,0,.55), 0 0 28px rgba(255,230,0,.35);
+}
+
+.time-link{
+  font-weight:800; color:inherit;
+  transition: color .15s ease, text-shadow .15s ease, filter .15s ease;
+}
+.time-link:hover,
+.time-link:focus-visible,
+.time-link:active,
+.time-link.is-hot{
+  color:#fff;
+  text-shadow: 0 0 6px rgba(255,255,255,.85), 0 0 16px rgba(255,255,255,.55), 0 0 28px rgba(255,255,255,.35);
+  filter: saturate(1.05);
+}
+
+/* Arrow flash */
+.arrow-pill.is-hot > div{
+  background: var(--hover-green) !important;
+  color:#000 !important;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12) !important;
+}
+
+/* ==========================================================================
+   9) PILLS / DOTS
+   ========================================================================== */
+.pill{ display:inline-grid; place-items:center; border:none; font-weight:800;
+  transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease; }
+
+/* Plus pill (open/close) */
+.plus-pill{
+  width:28px; height:28px; border-radius:9999px; line-height:1; font-size:18px;
+  background:var(--circle-day); color:var(--glyph-day);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
+}
+:root[data-theme="night"] .plus-pill{
+  background:var(--circle-night); color:var(--glyph-night);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
+}
+.plus-pill.is-ready{
+  background:var(--circle-day); color:var(--glyph-day);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
+}
+:root[data-theme="night"] .plus-pill.is-ready{
+  background:var(--circle-night); color:var(--glyph-night);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
+}
+/* green flash override */
+.plus-pill.is-hot,
+.plus-pill.is-hot.is-ready{
+  background: var(--hover-green) !important;
+  color:#000 !important;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12) !important;
+}
+
+/* Size pills */
+.size-pill{
+  width:28px; height:28px; border-radius:9999px; font-size:12px;
+  background:var(--circle-day); color:var(--glyph-day);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
+}
+:root[data-theme="night"] .size-pill{
+  background:var(--circle-night); color:var(--glyph-night);
+  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
+}
+.size-pill.is-selected{
+  background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+}
+
+/* Image dots */
+.dot-pill{ border-radius:9999px; padding:0; width:18px; height:18px; background:#ececec; }
+:root[data-theme="night"] .dot-pill{ background:#111; }
+.dot-pill.is-active{ background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
+
+@keyframes flashGreen{ 0%{filter:saturate(1)} 50%{filter:saturate(1.4)} 100%{filter:saturate(1)} }
+.flash-green{ animation:flashGreen .22s ease; }
+
+/* ==========================================================================
+   10) CHAKRA CASCADE (RAF)
+   ========================================================================== */
 .chakra-overlay{
   position:fixed; inset:0; z-index:10001;
   display:grid; grid-template-columns:repeat(7,1fr);
   pointer-events:none;
   direction:rtl; isolation:isolate;
-  /* KEY: solid black backing kills any white flash */
-  background:#000;
+  background:#000; /* solid black backing kills any white flash */
 }
 .chakra-band{
   position:relative;
@@ -162,268 +403,38 @@ html[data-overlay-open]{ overflow:hidden; }
 .chakra-overlay[data-js-cascade="raf"] .chakra-band{ animation:none!important; }
 :root[data-theme="day"] .chakra-band::before{ opacity:.95; filter:blur(26px); }
 
-/* ========== SHOP MODE ONLY ============================================= */
-:root[data-mode="shop"][data-theme="day"]   { --bg:var(--shop-offwhite); --panel:var(--shop-offwhite); --text:#111; }
-:root[data-mode="shop"][data-theme="night"] { --bg:#000;               --panel:#000;               --text:#fff; }
-
-:root[data-mode="shop"]{
-  background:var(--bg); color:var(--text);
-  transition:background-color .35s ease, color .35s ease;
+/* ==========================================================================
+   11) LEGACY / NEON CARD / LOGO
+   ========================================================================== */
+.vscode-card{
+  background:var(--panel);
+  border:2px solid var(--accent);
+  border-radius:var(--radius-xl);
+  box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12);
+  transition:transform .28s ease, box-shadow .28s ease, opacity .28s ease;
 }
-
-/* Header above overlays */
-:root[data-mode="shop"] header[role="banner"]{
-  z-index: 500 !important;
-  background:transparent!important; box-shadow:none!important; border:0!important;
-  height: var(--header-ctrl);
-  display:grid;
-  grid-template-columns: var(--header-ctrl) 1fr var(--header-ctrl);
-  align-items:center;
-  padding: 0 var(--header-pad-x);
-  overflow:visible;   /* orb can be larger than header height */
+.card-ultra-tight{ padding:6px 8px; }
+.login-card{ position:relative; display:inline-flex; flex-direction:column; gap:2px; width:fit-content; max-width:92vw; }
+.bubble-button{ cursor:pointer; }
+.bubble-button:hover{ box-shadow:0 0 0 1px rgba(25,145,255,.25), 0 0 24px rgba(25,145,255,.22), 0 0 50px rgba(25,145,255,.25); }
+@keyframes bubblePulseBlue{
+  0%{ box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12) }
+  35%{ box-shadow:0 0 0 1px rgba(25,145,255,.25), 0 0 28px rgba(25,145,255,.28), 0 0 56px rgba(25,145,255,.32) }
+  100%{ box-shadow:0 0 0 1px rgba(25,145,255,.15), 0 0 24px rgba(25,145,255,.12) }
 }
-:root[data-mode="shop"] header[role="banner"] > *:first-child  { justify-self:start;  }
-:root[data-mode="shop"] header[role="banner"] > *:nth-child(2) { justify-self:center; }
-:root[data-mode="shop"] header[role="banner"] > *:last-child   { justify-self:end;    }
+.lameboy-glow{ color:var(--seafoam); font-weight:900; text-shadow:0 0 10px rgba(46,230,184,.50), 0 0 20px rgba(46,230,184,.35); }
 
-/* Remove stray whites */
-:root[data-mode="shop"] .shop-page,
-:root[data-mode="shop"] .shop-wrap,
-:root[data-mode="shop"] .shop-grid,
-:root[data-mode="shop"] .product-box,
-:root[data-mode="shop"] .product-hero-overlay,
-:root[data-mode="shop"] .product-hero,
-:root[data-mode="shop"] .product-img,
-:root[data-mode="shop"] [class*="page"],
-:root[data-mode="shop"] [class*="container"]{ background:transparent!important; color:inherit; }
+.ticker-viewport{ display:inline-block; vertical-align:bottom; width:min(32ch,72vw); overflow:hidden; white-space:nowrap; }
+.ticker-track{ display:inline-block; padding-left:100%; will-change:transform; animation:lb-marquee 22s linear infinite; }
+@keyframes lb-marquee{ 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-100%,0,0)} }
 
-:root[data-mode="shop"] .product-meta{ color:var(--text); }
-html:has([data-shop-root]) .logo-3d{ display:none!important; }
-:root[data-mode="shop"] .vscode-card{ box-shadow:none!important; border-color:rgba(255,255,255,.12)!important; }
-:root[data-mode="shop"] .bubble-button:hover{ box-shadow:none!important; }
-:root[data-mode="shop"] .bubble-glow-blue{ animation:none!important; }
+.logo-3d{ position:fixed; inset:0; z-index:8; pointer-events:none; }
+@media (prefers-reduced-motion: reduce){ .logo-3d{ display:none } }
+.login-card pre.code-tight{ letter-spacing:0; word-spacing:-0.14ch; }
 
-/* ========== Cart (header) ============================================== */
-.cart-fab{
-  position:relative; display:inline-flex; align-items:center; justify-content:center;
-  width:64px; height:64px; padding:0; border:0; background:transparent; cursor:pointer;
-  transform:translateZ(0); z-index:2;
-}
-.cart-fab.bump{ animation:cart-bump 350ms ease; }
-@keyframes cart-bump{ 0%{transform:scale(1)} 30%{transform:scale(1.08)} 100%{transform:scale(1)} }
-.cart-img-wrap{ display:inline-block; width:100%; height:100%; aspect-ratio:1/1; line-height:0; }
-.cart-img-wrap img{ width:100%; height:100%; object-fit:contain; pointer-events:none; }
-.cart-badge{
-  position:absolute; top:0; right:0; transform:translate(35%, -35%);
-  min-width:18px; height:18px; padding:0 5px; border-radius:999px; font-size:11px; line-height:18px; text-align:center;
-  color:#000; background:var(--hover-green,#0bf05f); box-shadow:0 0 0 1px rgba(0,0,0,.25); pointer-events:none;
-}
-:root[data-mode="shop"] header[role="banner"] .cart-fab{
-  position:static!important; width:auto; height:var(--header-ctrl);
-  padding:0; display:inline-grid; place-items:center; border-radius:0!important;
-}
-:root[data-mode="shop"] header[role="banner"] .cart-fab .cart-img-wrap{ width:32px !important; height:32px !important; }
-:root[data-mode="shop"][data-theme="day"]   header[role="banner"] .cart-fab{ color:#111; }
-:root[data-mode="shop"][data-theme="night"] header[role="banner"] .cart-fab{ color:#fff; }
-:root[data-mode="shop"] header[role="banner"] .cart-fab:hover{ transform:translateY(-1px); }
-@keyframes cartPulse{ 0%{box-shadow:0 0 0 0 rgba(11,240,95,.55)} 70%{box-shadow:0 0 0 12px rgba(11,240,95,0)} 100%{box-shadow:0 0 0 0 rgba(11,240,95,0)} }
-.cart-fab.cart-pulse{ animation:cartPulse .42s ease; }
-
-/* ========== Grid & tiles ================================================ */
-.shop-wrap{ padding: 18px var(--header-pad-x) 56px; }
-
-.shop-grid{
-  --gap: clamp(10px, 1.2vw, 18px);
-  display:grid;
-  grid-template-columns: repeat(var(--grid-cols,5), minmax(0,1fr));
-  gap:var(--gap);
-}
-@media (max-width:640px){ .shop-grid{ --gap:12px; } }
-
-.product-tile{ display:block; color:inherit; text-decoration:none; }
-.product-box{ aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:transparent; border:none; }
-.product-img{ width:88%; height:88%; object-fit:contain; }
-html:has(.shop-grid[style*="--grid-cols: 5"]) .product-img{ width:96%; height:auto; }
-
-.product-meta{ padding:6px 2px 0; letter-spacing:.02em; font-weight:800; text-align:center; font-size:clamp(12px,1.7vw,18px); line-height:1.05; }
-
-/* ========== Product overlay ============================================= */
-.product-hero-overlay{
-  position:fixed; inset:0; z-index:420;
-  background:transparent; color:var(--text);
-  display:flex; align-items:center; justify-content:center; padding:20px;
-}
-.product-hero{
-  width:min(92vw,1000px); max-height:86vh;
-  display:flex; flex-direction:column; align-items:center; gap:14px; position:relative;
-}
-.product-hero-img{ width:100%; max-height:70vh; object-fit:contain; }
-.product-hero-title{ font-weight:800; font-size:clamp(14px,2vw,20px); text-align:center; }
-.product-hero-price{ font-weight:700; font-size:clamp(13px,1.8vw,18px); text-align:center; opacity:.9; }
-
-.product-hero-close{
-  position:absolute; top:10px; right:10px; display:inline-grid!important; place-items:center;
-  width:28px; height:28px; line-height:0; font-weight:900; font-size:16px; border-radius:9999px;
-  border:1px solid rgba(0,0,0,.14); background:#fff; color:#111; box-shadow: inset 0 0 0 1px rgba(255,255,255,.6);
-}
-
-/* Hide clicks on grid while overlay open */
-:root[data-overlay-open] .shop-grid{ visibility:hidden; pointer-events:none; }
-
-/* HARD hide grid while cascade active to prevent any flash */
-:root[data-cascade-active="1"] .shop-grid{ visibility:hidden !important; opacity:0 !important; }
-
-/* ========== ORB ========================================================= */
-:root[data-mode="shop"] header [data-orb="density"]{
-  padding:0!important; margin:0!important; border:0!important; background:transparent!important; line-height:0!important;
-  border-radius:9999px; overflow:hidden; clip-path:circle(50% at 50% 50%);
-  position:relative; zIndex:600 !important;
-}
-[data-orb="density"], [data-orb="density"] *{ outline:0!important; box-shadow:none!important; }
-:root[data-mode="shop"] header [data-orb="density"]:focus,
-:root[data-mode="shop"] header [data-orb="density"]:focus-visible,
-[data-orb="density"]:focus,
-[data-orb="density"]:focus-visible{ outline:0!important; box-shadow:none!important; }
-:root[data-mode="shop"] header [data-orb="density"] canvas{
-  display:block !important; opacity:1 !important; visibility:visible !important; pointer-events:auto !important;
-}
-
-/* Code weight accents */
-.code-keyword,.code-var,.code-string,.code-comment{ font-weight:800; }
-
-/* Gate wrap */
-:root[data-mode="gate"] .login-card{ max-width:min(92vw,720px)!important; }
-:root[data-mode="gate"] .login-card pre,
-:root[data-mode="gate"] .login-card code{ white-space:pre-wrap!important; word-break:break-word!important; overflow-wrap:anywhere!important; }
-
-/* ===== Pills – circle match to arrow buttons ============================ */
-.pill{ display:inline-grid; place-items:center; border:none; font-weight:800;
-  transition: background .14s ease, color .14s ease, transform .06s ease, box-shadow .14s ease; }
-
-/* + open/close (28x28 circle) */
-.plus-pill{
-  width:28px; height:28px; border-radius:9999px; line-height:1; font-size:18px;
-  background:var(--circle-day); color:var(--glyph-day);
-  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
-}
-:root[data-theme="night"] .plus-pill{
-  background:var(--circle-night); color:var(--glyph-night);
-  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
-}
-.plus-pill.is-ready{
-  /* grey state when open; never turns green */
-  background:var(--circle-day); color:var(--glyph-day);
-  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
-}
-:root[data-theme="night"] .plus-pill.is-ready{
-  background:var(--circle-night); color:var(--glyph-night);
-  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
-}
-
-/* ✅ Force the same green flash language as arrows (overrides .is-ready) */
-.plus-pill.is-hot,
-.plus-pill.is-hot.is-ready{
-  background: var(--hover-green) !important;
-  color:#000 !important;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12) !important;
-}
-
-/* size pills (28x28) */
-.size-pill{
-  width:28px; height:28px; border-radius:9999px; font-size:12px;
-  background:var(--circle-day); color:var(--glyph-day);
-  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-day);
-}
-:root[data-theme="night"] .size-pill{
-  background:var(--circle-night); color:var(--glyph-night);
-  box-shadow:0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--ring-night);
-}
-.size-pill.is-selected{
-  background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
-}
-
-/* image dots */
-.dot-pill{ border-radius:9999px; padding:0; width:18px; height:18px; background:#ececec; }
-:root[data-theme="night"] .dot-pill{ background:#111; }
-.dot-pill.is-active{ background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
-
-@keyframes flashGreen{ 0%{filter:saturate(1)} 50%{filter:saturate(1.4)} 100%{filter:saturate(1)} }
-.flash-green{ animation:flashGreen .22s ease; }
-
-/* ====================================================================== */
-/* ================= Day console legibility + neon styles =============== */
-/* ====================================================================== */
-.code-tight{ color: var(--text); }
-.code-comment{ color: var(--comment); }
-.code-string{  color: var(--string); }
-.code-keyword{  color: var(--keyword); }
-.code-var{      color: var(--var); }
-.code-punc{     color: var(--punct); }
-.code-op{       color: var(--op); }
-
-:root[data-theme="day"]{
-  --text:#111;
-  --comment:#111; --string:#111; --keyword:#111; --var:#111; --punct:#111; --op:#111;
-}
-:root[data-theme="day"] .neon-glow{ text-shadow:none !important; }
-
-/* “neon black” wordmark */
-.neon-black{ color:#000; text-shadow: 0 0 2px rgba(0,0,0,.6), 0 0 8px rgba(0,0,0,.35); }
-
-/* Always-on neon for “banned” */
-.banned-neon{
-  color: var(--banned-neon,#ff073a);
-  text-shadow: 0 0 4px currentColor, 0 0 10px currentColor, 0 0 18px currentColor;
-  font-weight:800; letter-spacing:.04em;
-}
-
-/* Florida + time lock to white in GATE (prevents accidental black) */
-:root[data-mode="gate"] .gate-white{
-  color:#fff !important;
-  text-shadow:
-    0 0 8px rgba(255,255,255,.45),
-    0 0 16px rgba(255,255,255,.30);
-}
-
-/* Florida link (true yellow on hover) */
-.florida-link{
-  font-weight:800; color:#fff;
-  transition: filter .15s ease, text-shadow .15s ease, color .15s ease;
-}
-:root[data-theme="day"] .florida-link{ color:#111; }
-.florida-link.is-hot,
-.florida-link:hover{
-  color:#ffe600;
-  text-shadow: 0 0 6px rgba(255,230,0,.85), 0 0 16px rgba(255,230,0,.55), 0 0 28px rgba(255,230,0,.35);
-}
-
-/* TIME link — white glow on hover/click */
-.time-link{
-  font-weight:800; color:inherit;
-  transition: color .15s ease, text-shadow .15s ease, filter .15s ease;
-}
-.time-link:hover,
-.time-link:focus-visible,
-.time-link:active,
-.time-link.is-hot{
-  color:#fff;
-  text-shadow:
-    0 0 6px rgba(255,255,255,.85),
-    0 0 16px rgba(255,255,255,.55),
-    0 0 28px rgba(255,255,255,.35);
-  filter: saturate(1.05);
-}
-
-/* Arrow flash class */
-.arrow-pill.is-hot > div{
-  background: var(--hover-green) !important;
-  color:#000 !important;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 10px rgba(0,0,0,.12) !important;
-}
-
-/* ====================================================================== */
-/* ================= ❤️ HEART ========================================== */
-/* ====================================================================== */
+/* ==========================================================================
+   12) ❤️ HEART (FAB)
+   ========================================================================== */
 .heart-submit{
   position: fixed;
   right: max(var(--header-pad-x), env(safe-area-inset-right));
