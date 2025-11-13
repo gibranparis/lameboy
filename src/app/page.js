@@ -174,7 +174,7 @@ export default function Page() {
 
   /* ----- start showing white before we flip to shop (called by Gate) ----- */
   const onWhiteStart = () => {
-    setLoaderShow(true) // show white enlightenment immediately
+    setLoaderShow(true) // show white NOW and keep above everything
     setVeilGrid(true) // ensure grid stays hidden
   }
 

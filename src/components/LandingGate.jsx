@@ -61,10 +61,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
 
   return createPortal(
     <>
-      {/* Solid black floor to avoid any page flashes under bands */}
-      <div aria-hidden style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 9997 }} />
-
-      {/* COLOR band pack */}
+      {/* COLOR band pack (no black floor) */}
       <div
         aria-hidden
         style={{
@@ -155,10 +152,17 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
   useCenter(labelRef)
 
+  const clearTimers = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current)
+      pressTimer.current = null
+    }
+  }
+
   const reallyStart = useCallback(() => {
     const now = performance.now()
     if (locked.current) return
-    if (now - lastStartAt.current < 2500) return // 1-run per 2.5s safety
+    if (now - lastStartAt.current < 2500) return // single-run safety
     locked.current = true
     lastStartAt.current = now
 
@@ -167,20 +171,18 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     } catch {}
     setPhase('cascade')
 
+    // ⬇⬇⬇ Show WHITE immediately so there is never a black frame between gate → shop
+    try {
+      onCascadeWhite?.()
+    } catch {}
+
     try {
       playChakraSequenceRTL()
     } catch {}
     try {
       sessionStorage.setItem('fromCascade', '1')
     } catch {}
-  }, [])
-
-  const clearTimers = () => {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current)
-      pressTimer.current = null
-    }
-  }
+  }, [onCascadeWhite])
 
   const runCascade = useCallback(
     e => {
@@ -191,13 +193,9 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     [reallyStart]
   )
 
-  // When the last violet band is near center, start white enlightenment;
-  // when fully past center, hand off to the Shop.
+  // Progress: only do the handoff; white already shown at start
   const onCascadeProgress = useCallback(
     p => {
-      if (p >= P_SWITCH - 0.035 && phase === 'cascade') {
-        onCascadeWhite?.() // show white NOW (keeps white above any black)
-      }
       if (p >= P_SWITCH && phase === 'cascade') {
         setPhase('done')
         setTimeout(() => {
@@ -207,7 +205,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         }, 40)
       }
     },
-    [phase, onCascadeWhite, onCascadeComplete]
+    [phase, onCascadeComplete]
   )
 
   return (
