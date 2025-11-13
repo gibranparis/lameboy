@@ -219,10 +219,8 @@ html[data-overlay-open] {
   display: grid;
   grid-template-columns: var(--header-ctrl) 1fr var(--header-ctrl);
   align-items: center;
-
   padding-inline-start: calc(var(--header-pad-x) + var(--safe-left));
   padding-inline-end: calc(var(--header-pad-r) + var(--safe-right));
-
   overflow: visible;
 }
 :root[data-mode='shop'] header[role='banner'] > *:first-child {
