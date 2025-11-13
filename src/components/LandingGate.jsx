@@ -1,4 +1,3 @@
-// src/components/LandingGate.jsx
 'use client'
 
 import nextDynamic from 'next/dynamic'
@@ -11,13 +10,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 /* =============================== Timings ================================ */
 export const CASCADE_MS = 2400 // visual travel time for the band pack
 const SEAFOAM = '#32ffc7'
-
-/* Exit cadence so content leaves without being yanked (kept for gate stack) */
 const ORB_PX = 88
-const STACK_GAP = 6
-
-/* The exact moment the last (violet) band’s right edge crosses center (50vw) */
-const P_SWITCH = 0.77273
+const P_SWITCH = 0.77273 // violet crossing center
 
 /* ---------------- helpers ---------------- */
 function useCenter(ref) {
@@ -37,7 +31,7 @@ function useCenter(ref) {
 }
 
 /* ====================== RAF CASCADE ==================================== */
-function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress, onDone }) {
+function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress }) {
   const [mounted, setMounted] = useState(true)
   const [p, setP] = useState(0)
 
@@ -51,18 +45,14 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress, o
       setP(eased)
       onProgress?.(eased)
       if (raw < 1) rafId = requestAnimationFrame(step)
-      else
-        doneId = setTimeout(() => {
-          setMounted(false)
-          onDone?.()
-        }, 80)
+      else doneId = setTimeout(() => setMounted(false), 100)
     }
     rafId = requestAnimationFrame(step)
     return () => {
       if (rafId) cancelAnimationFrame(rafId)
       if (doneId) clearTimeout(doneId)
     }
-  }, [durationMs, onProgress, onDone])
+  }, [durationMs, onProgress])
 
   if (!mounted) return null
 
@@ -71,10 +61,10 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress, o
 
   return createPortal(
     <>
-      {/* Solid black floor so no white flicker behind bands */}
+      {/* Solid black floor to avoid any page flashes under bands */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 9997 }} />
 
-      {/* COLOR band pack (no white underlay) */}
+      {/* COLOR band pack */}
       <div
         aria-hidden
         style={{
@@ -115,19 +105,12 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress, o
         </div>
       </div>
 
-      {/* “LAMEBOY, USA” — white over color via blend; stays on black fine */}
+      {/* “LAMEBOY, USA” over bands */}
       <div
         aria-hidden
         style={{ position: 'fixed', inset: 0, zIndex: 10001, pointerEvents: 'none' }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: labelTransform,
-          }}
-        >
+        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: labelTransform }}>
           <span
             style={{
               color: '#fff',
@@ -148,12 +131,15 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress, o
 }
 
 /* =============================== Component ============================== */
-export default function LandingGate({ onSwitchPoint, onCascadeDone }) {
-  // phases: idle → cascade
+export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
+  // phases: idle → cascade → done
   const [phase, setPhase] = useState('idle')
   const labelRef = useRef(null)
+
+  // hard, global lock against double-triggers across input types
   const locked = useRef(false)
   const pressTimer = useRef(null)
+  const lastStartAt = useRef(0)
 
   // Begin in "gate" mode
   useEffect(() => {
@@ -169,25 +155,59 @@ export default function LandingGate({ onSwitchPoint, onCascadeDone }) {
 
   useCenter(labelRef)
 
-  const runCascade = useCallback(() => {
+  const reallyStart = useCallback(() => {
+    const now = performance.now()
     if (locked.current) return
+    if (now - lastStartAt.current < 2500) return // 1-run per 2.5s safety
     locked.current = true
+    lastStartAt.current = now
+
     try {
       document.documentElement.setAttribute('data-cascade-active', '1')
-      sessionStorage.setItem('fromCascade', '1')
     } catch {}
     setPhase('cascade')
+
     try {
       playChakraSequenceRTL()
     } catch {}
+    try {
+      sessionStorage.setItem('fromCascade', '1')
+    } catch {}
   }, [])
 
-  // When the last violet band crosses center, notify (no shop flip yet)
+  const clearTimers = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current)
+      pressTimer.current = null
+    }
+  }
+
+  const runCascade = useCallback(
+    e => {
+      e?.preventDefault?.()
+      clearTimers()
+      reallyStart()
+    },
+    [reallyStart]
+  )
+
+  // When the last violet band is near center, start white enlightenment;
+  // when fully past center, hand off to the Shop.
   const onCascadeProgress = useCallback(
     p => {
-      if (p >= P_SWITCH) onSwitchPoint?.()
+      if (p >= P_SWITCH - 0.035 && phase === 'cascade') {
+        onCascadeWhite?.() // show white NOW (keeps white above any black)
+      }
+      if (p >= P_SWITCH && phase === 'cascade') {
+        setPhase('done')
+        setTimeout(() => {
+          try {
+            onCascadeComplete?.()
+          } catch {}
+        }, 40)
+      }
     },
-    [onSwitchPoint]
+    [phase, onCascadeWhite, onCascadeComplete]
   )
 
   return (
@@ -202,113 +222,111 @@ export default function LandingGate({ onSwitchPoint, onCascadeDone }) {
         gap: 6,
         padding: '1.5rem',
         position: 'relative',
+        visibility: phase === 'idle' ? 'visible' : 'hidden',
       }}
     >
+      {/* CASCADE */}
       {phase === 'cascade' && (
         <CascadeOverlay
           durationMs={CASCADE_MS}
-          labelTransform={`translate(-50%, calc(-50% + ${Math.round(
-            ORB_PX / 2 + STACK_GAP + 8
-          )}px))`}
+          labelTransform={`translate(-50%, calc(-50% + ${Math.round(ORB_PX / 2 + 6 + 8)}px))`}
           onProgress={onCascadeProgress}
-          onDone={() => {
-            try {
-              document.documentElement.removeAttribute('data-cascade-active')
-            } catch {}
-            onCascadeDone?.()
-          }}
         />
       )}
 
       {/* ORB — enter */}
+      <button
+        type="button"
+        onClick={runCascade}
+        onMouseDown={() => {
+          clearTimers()
+          pressTimer.current = setTimeout(reallyStart, 650)
+        }}
+        onMouseUp={clearTimers}
+        onMouseLeave={clearTimers}
+        onTouchStart={() => {
+          clearTimers()
+          pressTimer.current = setTimeout(reallyStart, 650)
+        }}
+        onTouchEnd={clearTimers}
+        title="Enter"
+        aria-label="Enter"
+        style={{
+          position: 'relative',
+          zIndex: 10004,
+          lineHeight: 0,
+          padding: 0,
+          margin: 0,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+        }}
+      >
+        <BlueOrbCross3D
+          rpm={44}
+          color={SEAFOAM}
+          geomScale={1.12}
+          glow
+          glowOpacity={0.95}
+          includeZAxis
+          height="88px"
+          interactive={false}
+          flashDecayMs={140}
+        />
+      </button>
+
+      {/* TIME — white (clickable in gate) */}
       {phase === 'idle' && (
-        <>
-          <button
-            type="button"
-            onClick={runCascade}
-            onMouseDown={() => {
-              clearTimeout(pressTimer.current)
-              pressTimer.current = setTimeout(runCascade, 650)
-            }}
-            onMouseUp={() => clearTimeout(pressTimer.current)}
-            onMouseLeave={() => clearTimeout(pressTimer.current)}
-            onTouchStart={() => {
-              clearTimeout(pressTimer.current)
-              pressTimer.current = setTimeout(runCascade, 650)
-            }}
-            onTouchEnd={() => clearTimeout(pressTimer.current)}
-            onDoubleClick={runCascade}
-            title="Enter"
-            aria-label="Enter"
-            style={{
-              position: 'relative',
-              zIndex: 10004,
-              lineHeight: 0,
-              padding: 0,
-              margin: 0,
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <BlueOrbCross3D
-              rpm={44}
-              color={SEAFOAM}
-              geomScale={1.12}
-              glow
-              glowOpacity={0.95}
-              includeZAxis
-              height="88px"
-              interactive={false}
-              flashDecayMs={140}
-            />
-          </button>
-
-          {/* TIME — white (clickable in gate) */}
-          <button
-            type="button"
-            onClick={runCascade}
-            title="Enter"
-            aria-label="Enter"
-            className="gate-white"
-            style={{
-              background: 'transparent',
-              border: 0,
-              cursor: 'pointer',
-              color: '#fff',
-              fontWeight: 800,
-              letterSpacing: '.06em',
-              fontSize: 'clamp(12px,1.3vw,14px)',
-              fontFamily: 'inherit',
-              lineHeight: 1.2,
-            }}
-          >
-            <ClockNaples />
-          </button>
-
-          {/* Florida label — white (hover = neon yellow) */}
-          <button
-            ref={labelRef}
-            type="button"
-            className="gate-white"
-            onClick={runCascade}
-            title="Enter"
-            style={{
-              background: 'transparent',
-              border: 0,
-              cursor: 'pointer',
-              fontWeight: 800,
-              letterSpacing: '.06em',
-              fontSize: 'clamp(12px,1.3vw,14px)',
-              fontFamily: 'inherit',
-              color: '#ffffff',
-              textShadow: `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
-            }}
-          >
-            Florida, USA
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={runCascade}
+          className="gate-white"
+          title="Enter"
+          aria-label="Enter"
+          style={{
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+            color: '#fff',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            fontFamily: 'inherit',
+            lineHeight: 1.2,
+          }}
+        >
+          <ClockNaples />
+        </button>
       )}
+
+      {/* Florida label — white (hover = neon yellow) */}
+      <button
+        ref={labelRef}
+        type="button"
+        className="gate-white"
+        onClick={runCascade}
+        title="Enter"
+        style={{
+          visibility: phase === 'idle' ? 'visible' : 'hidden',
+          background: 'transparent',
+          border: 0,
+          cursor: 'pointer',
+          fontWeight: 800,
+          letterSpacing: '.06em',
+          fontSize: 'clamp(12px,1.3vw,14px)',
+          fontFamily: 'inherit',
+          color: '#ffffff',
+          textShadow: `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
+        }}
+      >
+        Florida, USA
+      </button>
+
+      <style jsx>{`
+        :global(:root[data-mode='gate']) .chakra-band {
+          min-height: 100%;
+        }
+      `}</style>
     </div>
   )
 }

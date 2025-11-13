@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-static'
+
 import nextDynamic from 'next/dynamic'
 import React, { useEffect, useMemo, useState } from 'react'
 import products from '@/lib/products'
@@ -124,12 +126,13 @@ export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
   const [theme, setTheme] = useState('day')
   const [isShop, setIsShop] = useState(false)
-  const [veil, setVeil] = useState(false)
-  const [loginOpen, setLoginOpen] = useState(false)
 
-  // enlightenment loader
+  // enlightenment overlay
   const [loaderShow, setLoaderShow] = useState(false)
-  const [shopMounted, setShopMounted] = useState(false)
+  // keep grid hidden until ProductOverlay mounts
+  const [veilGrid, setVeilGrid] = useState(true)
+
+  const [loginOpen, setLoginOpen] = useState(false)
 
   /* ----- base tokens that don’t change the background themselves ----- */
   useEffect(() => {
@@ -148,7 +151,6 @@ export default function Page() {
     } else {
       root.removeAttribute('data-shop-root')
       root.removeAttribute('data-shop-mounted')
-      setShopMounted(false)
     }
   }, [theme, isShop])
 
@@ -159,7 +161,7 @@ export default function Page() {
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  /* ----- listen for theme-change events from the toggle ----- */
+  /* theme-change events from toggle */
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -170,24 +172,16 @@ export default function Page() {
     }
   }, [])
 
-  /* ========== GATE → SHOP handoff ==========
-     We now wait for the *overlay to finish unmounting* (`onCascadeDone`)
-     before we show the white loader and flip to shop. This removes
-     the flash-to-black between rainbow and white.                 */
-  const onCascadeSwitch = () => {
-    // optional: one-frame black veil safety under the loader
-    try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
-        setVeil(true)
-        sessionStorage.removeItem('fromCascade')
-      }
-    } catch {}
+  /* ----- start showing white before we flip to shop (called by Gate) ----- */
+  const onWhiteStart = () => {
+    setLoaderShow(true) // show white enlightenment immediately
+    setVeilGrid(true) // ensure grid stays hidden
   }
 
-  const onCascadeDone = () => {
-    // show white enlightenment overlay and then mount the shop
-    setLoaderShow(true)
-    setIsShop(true)
+  /* ----- enter shop after cascade (called by Gate) ----- */
+  const enterShop = () => {
+    setLoaderShow(true) // keep white up during mount
+    setIsShop(true) // switch to shop mode
   }
 
   /* ----- mark first paint of the shop and then allow bg flip ----- */
@@ -195,19 +189,29 @@ export default function Page() {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
-      root.setAttribute('data-shop-mounted', '1') // allow bg to become off-white
-      setShopMounted(true)
-      root.setAttribute('data-theme', 'day') // force day on shop enter
+      root.setAttribute('data-shop-mounted', '1') // allows off-white
+      root.setAttribute('data-theme', 'day') // force day at unveil
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
-  /* ----- once mounted, fade the white loader away ----- */
+  /* ----- when ProductOverlay mounts, drop the grid veil; then fade out white ----- */
   useEffect(() => {
-    if (!shopMounted) return
-    const t = setTimeout(() => setLoaderShow(false), 60)
-    return () => clearTimeout(t)
-  }, [shopMounted])
+    const onOverlayMounted = () => {
+      setVeilGrid(false) // reveal product view (not grid)
+      setTimeout(() => setLoaderShow(false), 120) // fade white after overlay is up
+    }
+    const onOverlayClosed = () => {
+      // if user closes overlay later, grid can be shown again
+      setVeilGrid(false)
+    }
+    window.addEventListener('lb:overlay-mounted', onOverlayMounted)
+    window.addEventListener('lb:overlay-closed', onOverlayClosed)
+    return () => {
+      window.removeEventListener('lb:overlay-mounted', onOverlayMounted)
+      window.removeEventListener('lb:overlay-closed', onOverlayClosed)
+    }
+  }, [])
 
   const headerStyle = useMemo(
     () => ({
@@ -227,6 +231,13 @@ export default function Page() {
 
   const onHeart = () => setLoginOpen(v => !v)
 
+  // reflect veil state to CSS
+  useEffect(() => {
+    const root = document.documentElement
+    if (veilGrid) root.setAttribute('data-grid-veil', '1')
+    else root.removeAttribute('data-grid-veil')
+  }, [veilGrid])
+
   return (
     <div
       className="lb-screen w-full"
@@ -234,7 +245,7 @@ export default function Page() {
     >
       {!isShop ? (
         <main className="lb-screen">
-          <LandingGate onSwitchPoint={onCascadeSwitch} onCascadeDone={onCascadeDone} />
+          <LandingGate onCascadeWhite={onWhiteStart} onCascadeComplete={enterShop} />
         </main>
       ) : (
         <>
@@ -272,7 +283,7 @@ export default function Page() {
             </div>
           </header>
 
-          {/* Shop content lives under the loader; background flips only after [data-shop-mounted] */}
+          {/* Shop content under the loader; grid remains veiled until overlay mounts */}
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
             <HeartBeatButton
@@ -309,31 +320,8 @@ export default function Page() {
         </>
       )}
 
-      {/* White loading overlay drives the “enlightenment” step */}
+      {/* Enlightenment overlay */}
       <WhiteLoader show={loaderShow} />
-
-      {/* Optional black veil (under loader) for one-frame safety on mobile */}
-      {veil && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: '#000',
-            opacity: 1,
-            transition: 'opacity .32s ease-out',
-            zIndex: 200,
-            pointerEvents: 'none',
-          }}
-          ref={el => {
-            if (el)
-              requestAnimationFrame(() => {
-                el.style.opacity = '0'
-              })
-          }}
-          onTransitionEnd={() => setVeil(false)}
-        />
-      )}
     </div>
   )
 }

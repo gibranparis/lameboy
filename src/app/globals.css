@@ -372,6 +372,12 @@ html:has(.shop-grid[style*='--grid-cols: 5']) .product-img {
   line-height: 1.05;
 }
 
+/* Keep grid hidden until ProductOverlay announces it's mounted */
+:root[data-mode='shop'][data-grid-veil='1'] .shop-grid {
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
 /* Remove stray whites in shop */
 :root[data-mode='shop'] .shop-page,
 :root[data-mode='shop'] .shop-wrap,
