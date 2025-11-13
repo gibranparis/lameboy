@@ -700,7 +700,7 @@ html:has([data-shop-root]) .logo-3d {
 }
 
 /* ==========================================================================
-   10) CHAKRA CASCADE (RAF)
+   10) CHAKRA CASCADE (RAF) — NO BLACK FLOOR
    ========================================================================== */
 .chakra-overlay {
   position: fixed;
@@ -711,7 +711,7 @@ html:has([data-shop-root]) .logo-3d {
   pointer-events: none;
   direction: rtl;
   isolation: isolate;
-  background: #000; /* solid black backing kills any white flash */
+  background: transparent !important; /* <-- was #000; force transparent */
 }
 .chakra-band {
   position: relative;

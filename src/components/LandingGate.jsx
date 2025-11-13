@@ -32,7 +32,7 @@ function useCenter(ref) {
 }
 
 /* ====================== RAF CASCADE ==================================== */
-function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress }) {
+function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress, whiteOn }) {
   const [mounted, setMounted] = useState(true)
   const rafRef = useRef(0)
   const doneRef = useRef(0)
@@ -64,8 +64,17 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
 
   return createPortal(
     <>
-      {/* Solid black floor to ensure no flashes under bands */}
-      <div aria-hidden style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 9997 }} />
+      {/* Floor becomes WHITE as soon as white phase is armed */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: whiteOn ? '#fff' : '#000',
+          zIndex: 9997,
+          transition: 'background 120ms linear',
+        }}
+      />
 
       {/* COLOR band pack (RTL sweep) */}
       <div
@@ -141,13 +150,15 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
 export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   // phases: idle → cascade → done
   const [phase, setPhase] = useState('idle')
+  const [whiteOn, setWhiteOn] = useState(false) // NEW: track when white is armed
   const labelRef = useRef(null)
 
   // hard, global lock against double-triggers across input types
   const locked = useRef(false)
   const pressTimer = useRef(null)
   const lastStartAt = useRef(0)
-  const safetyTimer = useRef(0)
+  const safetyTimer1 = useRef(0)
+  const safetyTimer2 = useRef(0)
 
   // Begin in "gate" mode
   useEffect(() => {
@@ -163,22 +174,27 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
   useCenter(labelRef)
 
-  const cleanupTimers = () => {
+  const clearPress = () => {
     if (pressTimer.current) {
       clearTimeout(pressTimer.current)
       pressTimer.current = null
     }
-    if (safetyTimer.current) {
-      clearTimeout(safetyTimer.current)
-      safetyTimer.current = 0
+  }
+  const clearSafeties = () => {
+    if (safetyTimer1.current) {
+      clearTimeout(safetyTimer1.current)
+      safetyTimer1.current = 0
+    }
+    if (safetyTimer2.current) {
+      clearTimeout(safetyTimer2.current)
+      safetyTimer2.current = 0
     }
   }
 
   const reallyStart = useCallback(() => {
     const now = performance.now()
     if (locked.current) return
-    // one run per 2.5s in case of double input
-    if (now - lastStartAt.current < 2500) return
+    if (now - lastStartAt.current < 2500) return // once per 2.5s
 
     locked.current = true
     lastStartAt.current = now
@@ -195,19 +211,16 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       sessionStorage.setItem('fromCascade', '1')
     } catch {}
 
-    // SAFETY: if RAF cascade stalls for any reason, fire white → shop anyway
-    // 1) kick white a bit earlier
-    safetyTimer.current = window.setTimeout(() => {
+    // SAFETY: arm white a little before the switch; then hard-advance to shop
+    safetyTimer1.current = window.setTimeout(() => {
+      setWhiteOn(true)
       try {
         onCascadeWhite?.()
       } catch {}
-    }, Math.max(0, P_SWITCH * CASCADE_MS - 200))
+    }, Math.max(0, P_SWITCH * CASCADE_MS - 260 /* earlier arm */))
 
-    // 2) ensure we actually enter shop
-    safetyTimer.current = window.setTimeout(() => {
-      try {
-        setPhase('done')
-      } catch {}
+    safetyTimer2.current = window.setTimeout(() => {
+      setPhase('done')
       try {
         onCascadeComplete?.()
       } catch {}
@@ -217,7 +230,8 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const runCascade = useCallback(
     e => {
       e?.preventDefault?.()
-      cleanupTimers()
+      clearPress()
+      clearSafeties()
       reallyStart()
     },
     [reallyStart]
@@ -226,31 +240,31 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   // When the bands cross center, call white → then shop
   const onCascadeProgress = useCallback(
     p => {
-      // Slight hysteresis: kick white just before switch to keep it on top
-      if (p >= P_SWITCH - 0.035 && phase === 'cascade') {
+      // Arm white *earlier* to avoid any black tail under bands.
+      if (!whiteOn && p >= P_SWITCH - 0.1 && phase === 'cascade') {
+        setWhiteOn(true)
         try {
           onCascadeWhite?.()
         } catch {}
       }
       if (p >= P_SWITCH && phase === 'cascade') {
         setPhase('done')
-        // brief hand-off delay to avoid tearing
         setTimeout(() => {
           try {
             onCascadeComplete?.()
           } catch {}
         }, 40)
-        cleanupTimers() // cancel safety timers once we’ve handed off
+        clearSafeties()
       }
 
-      // move the bands with CSS var (in case you want to inspect visually)
+      // move bands for sanity/inspection
       const COLOR_VW = 120
       const x = ((1 - p) * (100 + COLOR_VW) - COLOR_VW).toFixed(3) + 'vw'
       try {
         document.getElementById('lb-bands')?.style.setProperty('--bands-x', `${x}`)
       } catch {}
     },
-    [phase, onCascadeWhite, onCascadeComplete]
+    [phase, whiteOn, onCascadeWhite, onCascadeComplete]
   )
 
   return (
@@ -274,6 +288,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           durationMs={CASCADE_MS}
           labelTransform={`translate(-50%, calc(-50% + ${Math.round(ORB_PX / 2 + 6 + 8)}px))`}
           onProgress={onCascadeProgress}
+          whiteOn={whiteOn} /* <- floor flips to white here */
         />
       )}
 
@@ -282,16 +297,16 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         type="button"
         onClick={runCascade}
         onMouseDown={() => {
-          cleanupTimers()
+          clearPress()
           pressTimer.current = setTimeout(reallyStart, 650)
         }}
-        onMouseUp={cleanupTimers}
-        onMouseLeave={cleanupTimers}
+        onMouseUp={clearPress}
+        onMouseLeave={clearPress}
         onTouchStart={() => {
-          cleanupTimers()
+          clearPress()
           pressTimer.current = setTimeout(reallyStart, 650)
         }}
-        onTouchEnd={cleanupTimers}
+        onTouchEnd={clearPress}
         title="Enter"
         aria-label="Enter"
         style={{
@@ -318,7 +333,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         />
       </button>
 
-      {/* TIME — white (clickable in gate) */}
+      {/* TIME (white, clickable in gate) */}
       {phase === 'idle' && (
         <button
           type="button"
