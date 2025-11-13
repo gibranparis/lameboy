@@ -1,4 +1,3 @@
-// src/components/ProductOverlay.jsx
 'use client';
 
 import Image from 'next/image';
@@ -68,20 +67,13 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
 
   const pick = (sz) => {
     setPicked(sz);
+    try { window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }})); } catch {}
 
-    try {
-      window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail:{ size:sz, count:1 }}));
-    } catch {}
-
-    // flash the size pill (like arrows)
     setHotSize(sz);
-
-    // flash the + pill (same language as arrows)
     setPlusHot(true);
     clearTimeout(timers.current.plusHot);
     timers.current.plusHot = setTimeout(()=>setPlusHot(false), 220);
 
-    // collapse and show "Added"
     clearTimeout(timers.current.flashClose);
     timers.current.flashClose = setTimeout(() => {
       setOpen(false);
@@ -116,17 +108,16 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
           'plus-pill',
           open ? 'is-ready' : '',
           plusHot ? 'is-hot' : '',
-          showAdded ? 'is-hidden' : ''   // FULLY HIDE during "Added" (no ghost circle)
+          showAdded ? 'is-hidden' : ''
         ].join(' ').trim()}
         onClick={onToggle}
         aria-label={open ? 'Close sizes' : (showAdded ? 'Added' : 'Choose size')}
         title={open ? 'Close sizes' : (showAdded ? 'Added' : 'Choose size')}
       >
-        {/* hide glyph if needed (kept for safety) */}
         <span aria-hidden style={{ opacity: showAdded ? 0 : 1 }}>{glyph}</span>
       </button>
 
-      {/* “Added” label — sits over the + spot */}
+      {/* “Added” label — over the + spot */}
       {showAdded && (
         <span
           aria-live="polite"
@@ -195,7 +186,7 @@ function PlusSizesInline({ sizes=['OS','S','M','L','XL'], priceStyle }) {
   );
 }
 
-/* ------ SWIPE ENGINE (unchanged) ------ */
+/* ------ SWIPE ENGINE ------ */
 function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash }) {
   const state = useRef({ active:false, lastX:0, lastY:0, ax:0, ay:0, lastT:0, vx:0, vy:0 });
   const coarse =
@@ -272,13 +263,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const [imgIdx, setImgIdx] = useState(0);
   const clampedImgIdx = useMemo(()=>clamp(imgIdx, 0, Math.max(0, imgs.length-1)), [imgIdx, imgs.length]);
 
-  /* signal mount for grid-flash guard */
   useEffect(() => {
     try { window.dispatchEvent(new Event('lb:overlay-open')); } catch {}
     return () => {};
   }, []);
 
-  /* close on orb zoom */
   useEffect(() => {
     const h = () => onClose?.();
     ['lb:zoom','lb:zoom/grid-density'].forEach(n=>{
@@ -289,7 +278,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     });
   }, [onClose]);
 
-  /* keyboard */
   useEffect(() => {
     const onKey = (e) => {
       if (e.key==='Escape') return onClose?.();
@@ -306,7 +294,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('keydown', onKey);
   }, [imgs.length, products.length, index, onIndexChange, onClose]);
 
-  /* wheel flash parity */
   const lastWheel = useRef(0);
   useEffect(() => {
     const onWheel = (e) => {
@@ -326,15 +313,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   const onDirFlash = useCallback((dir)=> {
     flash(document.querySelector(dir==='down' ? '[data-ui="img-down"]' : '[data-ui="img-up"]'));
   }, []);
-
-  const swipe = useSwipe({
-    imgsLen: imgs.length,
-    prodsLen: products.length,
-    index,
-    setImgIdx,
-    onIndexChange,
-    onDirFlash,
-  });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open','1');
@@ -452,7 +430,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         .dot-pill{ border-radius:9999px; padding:0; width:18px; height:18px; background:#ececec; }
         :root[data-theme="night"] .dot-pill{ background:#111; }
         .dot-pill.is-active{ background:var(--hover-green); color:#000; box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); }
-      `}</style>
+      </style>
     </>
   );
 }

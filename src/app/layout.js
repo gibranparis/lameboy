@@ -20,8 +20,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        {' '}
-        {/* no bg here — global stays black until shop mounts */}
+        {/* keep background black here; shop flips after mount via data-shop-mounted */}
         <SilentWarmup />
         <CartProvider>{children}</CartProvider>
       </body>
