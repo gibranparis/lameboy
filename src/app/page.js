@@ -20,6 +20,9 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 
+// must match LandingGate LAYERS.WHITE - 1
+const WHITE_Z = 10002
+
 /* ---------------- White Loading Overlay (black orb/time/label) ---------------- */
 function WhiteLoader({ show, onFadeOutEnd }) {
   const [visible, setVisible] = useState(show)
@@ -48,13 +51,15 @@ function WhiteLoader({ show, onFadeOutEnd }) {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 10002 /* < cascade bands (10006) */,
+        zIndex: WHITE_Z,
         pointerEvents: 'none',
         background: '#fff',
         display: 'grid',
         placeItems: 'center',
         transition: 'opacity 260ms ease',
         opacity,
+        mixBlendMode: 'normal',
+        contain: 'layout paint style',
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
@@ -68,7 +73,7 @@ function WhiteLoader({ show, onFadeOutEnd }) {
             includeZAxis
             height="88px"
             interactive={false}
-            overrideAllColor="#000000" /* black orb on white */
+            overrideAllColor="#000000"
             flashDecayMs={140}
           />
         </div>
@@ -128,18 +133,16 @@ export default function Page() {
   const [theme, setTheme] = useState('day')
   const [isShop, setIsShop] = useState(false)
 
-  const [loaderShow, setLoaderShow] = useState(false) // white enlightenment
-  const [veilGrid, setVeilGrid] = useState(true) // keep grid hidden until overlay mounts
+  const [loaderShow, setLoaderShow] = useState(false)
+  const [veilGrid, setVeilGrid] = useState(true)
   const [loginOpen, setLoginOpen] = useState(false)
 
-  /* base tokens */
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  /* reflect mode/theme; off-white allowed only after mounted */
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
@@ -152,14 +155,12 @@ export default function Page() {
     }
   }, [theme, isShop])
 
-  /* overlay flag to CSS */
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  /* theme-change events */
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -170,9 +171,9 @@ export default function Page() {
     }
   }, [])
 
-  /* Gate callbacks */
+  /* Gate → Shop handoff */
   const onWhiteStart = () => {
-    setLoaderShow(true) // shows white, but bands render above via z-index
+    setLoaderShow(true) // white appears; bands render above via z-index
     setVeilGrid(true)
   }
   const enterShop = () => {
@@ -180,18 +181,16 @@ export default function Page() {
     setIsShop(true)
   }
 
-  /* allow off-white once shop first-paints */
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
       root.setAttribute('data-shop-mounted', '1')
-      root.setAttribute('data-theme', 'day') // unveil in day
+      root.setAttribute('data-theme', 'day')
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
-  /* listen for overlay ready/open to drop veil + fade white */
   useEffect(() => {
     const onReady = () => {
       setVeilGrid(false)
@@ -210,7 +209,6 @@ export default function Page() {
     }
   }, [])
 
-  /* reflect veil state to CSS */
   useEffect(() => {
     const root = document.documentElement
     if (veilGrid) root.setAttribute('data-grid-veil', '1')
@@ -280,7 +278,6 @@ export default function Page() {
             </div>
           </header>
 
-          {/* Shop content under the loader; grid remains veiled until overlay mounts */}
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
             <HeartBeatButton
@@ -317,13 +314,12 @@ export default function Page() {
         </>
       )}
 
-      {/* Enlightenment overlay (below bands; above shop/gate) */}
+      {/* Enlightenment overlay (below bands; above gate/shop) */}
       <WhiteLoader show={loaderShow} />
     </div>
   )
 }
 
-/* Shared: Naples clock */
 function ClockNaples() {
   const [now, setNow] = useState('')
   useEffect(() => {
