@@ -12,12 +12,11 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 export const CASCADE_MS = 2400 // visual travel time for the band pack
 const SEAFOAM = '#32ffc7'
 
-/* Exit cadence so content leaves without being yanked (kept for gate stack) */
+/* Geometry for center labels */
 const ORB_PX = 88
 const STACK_GAP = 6
-const LABEL_SHIFT_PX = Math.round(ORB_PX / 2 + STACK_GAP + 8)
 
-/* The exact moment the last (violet) band’s right edge crosses center (50vw) */
+/* Violet band crossing the center (50vw) */
 const P_SWITCH = 0.77273
 
 /* ---------------- helpers ---------------- */
@@ -136,7 +135,14 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
         aria-hidden
         style={{ position: 'fixed', inset: 0, zIndex: 10001, pointerEvents: 'none' }}
       >
-        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: labelTransform }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: labelTransform,
+          }}
+        >
           <span
             style={{
               color: '#fff',
@@ -164,7 +170,8 @@ export default function LandingGate({ onCascadeComplete }) {
   const labelRef = useRef(null)
   const locked = useRef(false)
   const pressTimer = useRef(null)
-  const { micro } = useShift()
+  useShift() // keep viewport-aware density options available
+  useCenter(labelRef)
 
   // Begin in "gate" mode and mark cascade-guard states
   useEffect(() => {
@@ -177,8 +184,6 @@ export default function LandingGate({ onCascadeComplete }) {
       } catch {}
     }
   }, [])
-
-  useCenter(labelRef)
 
   const runCascade = useCallback(() => {
     if (locked.current) return
@@ -200,7 +205,10 @@ export default function LandingGate({ onCascadeComplete }) {
     p => {
       if (p >= P_SWITCH && phase === 'cascade') {
         setPhase('done') // overlay will unmount shortly
-        // handoff to SPA shell — it will guard background until mounted
+        // Clean up the cascade guard and hand off to Page
+        try {
+          document.documentElement.removeAttribute('data-cascade-active')
+        } catch {}
         setTimeout(() => {
           try {
             onCascadeComplete?.()
@@ -230,7 +238,9 @@ export default function LandingGate({ onCascadeComplete }) {
       {phase === 'cascade' && (
         <CascadeOverlay
           durationMs={CASCADE_MS}
-          labelTransform={`translate(-50%, calc(-50% + ${Math.round(ORB_PX / 2 + 6 + 8)}px))`}
+          labelTransform={`translate(-50%, calc(-50% + ${Math.round(
+            ORB_PX / 2 + STACK_GAP + 8
+          )}px))`}
           onProgress={onCascadeProgress}
         />
       )}
@@ -324,8 +334,11 @@ export default function LandingGate({ onCascadeComplete }) {
           fontFamily: 'inherit',
           color: hovered ? '#ffe600' : '#ffffff',
           textShadow: hovered
-            ? `0 0 8px rgba(255,230,0,.95), 0 0 18px rgba(255,210,0,.70), 0 0 28px rgba(255,200,0,.45)`
-            : `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
+            ? `0 0 8px rgba(255,230,0,.95),
+               0 0 18px rgba(255,210,0,.70),
+               0 0 28px rgba(255,200,0,.45)`
+            : `0 0 8px rgba(255,255,255,.45),
+               0 0 16px rgba(255,255,255,.30)`,
         }}
       >
         Florida, USA

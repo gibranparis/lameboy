@@ -20,7 +20,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 
-/* ---------------- White Loading Overlay ---------------- */
+/* ---------------- White Loading Overlay (controls reveal) ---------------- */
 function WhiteLoader({ show, onFadeOutEnd }) {
   const [visible, setVisible] = useState(show)
   const [opacity, setOpacity] = useState(show ? 1 : 0)
@@ -28,15 +28,13 @@ function WhiteLoader({ show, onFadeOutEnd }) {
   useEffect(() => {
     if (show) {
       setVisible(true)
-      // ensure we’re fully opaque when shown
-      requestAnimationFrame(() => setOpacity(1))
+      requestAnimationFrame(() => setOpacity(1)) // ensure fully opaque
     } else if (visible) {
-      // fade out
-      setOpacity(0)
+      setOpacity(0) // fade out
       const t = setTimeout(() => {
         setVisible(false)
         onFadeOutEnd?.()
-      }, 260) // fade duration
+      }, 260)
       return () => clearTimeout(t)
     }
   }, [show, visible, onFadeOutEnd])
@@ -180,6 +178,10 @@ export default function Page() {
     setLoaderShow(true)
     setIsShop(true)
     try {
+      // ensure any cascade guard from the gate is cleared (we control visibility now)
+      document.documentElement.removeAttribute('data-cascade-active')
+    } catch {}
+    try {
       if (sessionStorage.getItem('fromCascade') === '1') {
         setVeil(true) // optional: black veil under loader for one frame (harmless)
         sessionStorage.removeItem('fromCascade')
@@ -202,11 +204,10 @@ export default function Page() {
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
-  /* ----- once mounted, fade the white loader away ----- */
+  /* ----- once mounted, fade the white loader away (give bg a breath) ----- */
   useEffect(() => {
     if (!shopMounted) return
-    // give the page a breath (a tick) then fade loader
-    const t = setTimeout(() => setLoaderShow(false), 60)
+    const t = setTimeout(() => setLoaderShow(false), 300) // was 60ms; 300ms = smoother
     return () => clearTimeout(t)
   }, [shopMounted])
 
@@ -240,6 +241,7 @@ export default function Page() {
       ) : (
         <>
           <header role="banner" style={headerStyle}>
+            {/* LEFT: Day/Night Toggle */}
             <div
               style={{
                 height: ctrlPx,
@@ -254,6 +256,8 @@ export default function Page() {
                 moonImages={['/toggle/moon-red.png', '/toggle/moon-blue.png']}
               />
             </div>
+
+            {/* CENTER: Chakra Orb */}
             <div style={{ display: 'grid', placeItems: 'center', pointerEvents: 'auto' }}>
               <ChakraOrbButton
                 size={72}
@@ -261,6 +265,8 @@ export default function Page() {
                 style={{ display: 'grid', placeItems: 'center' }}
               />
             </div>
+
+            {/* RIGHT: Cart */}
             <div
               style={{
                 height: ctrlPx,
@@ -276,11 +282,13 @@ export default function Page() {
           {/* Shop content lives under the loader; background flips only after [data-shop-mounted] */}
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
+
             <HeartBeatButton
               className="heart-submit"
               aria-label={loginOpen ? 'Close login' : 'Open login'}
               onClick={onHeart}
             />
+
             {loginOpen && (
               <div
                 role="dialog"
@@ -291,7 +299,7 @@ export default function Page() {
                   zIndex: 540,
                   display: 'grid',
                   placeItems: 'center',
-                  background: '#000',
+                  background: '#000' /* KEY: opaque black — no transparency on mobile */,
                 }}
                 onClick={e => {
                   if (e.target === e.currentTarget) setLoginOpen(false)
@@ -304,6 +312,7 @@ export default function Page() {
             )}
           </main>
 
+          {/* Runner pinned */}
           <div className="lb-chakra-runner">
             <ChakraBottomRunner height={RUNNER_H} speedSec={12} />
           </div>
@@ -314,7 +323,7 @@ export default function Page() {
       <WhiteLoader
         show={loaderShow}
         onFadeOutEnd={() => {
-          // no-op; overlay is fully gone
+          /* no-op */
         }}
       />
 
