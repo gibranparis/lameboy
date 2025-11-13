@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-static'
-
 import nextDynamic from 'next/dynamic'
 import React, { useEffect, useMemo, useState } from 'react'
 import products from '@/lib/products'
@@ -20,7 +18,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 
-/* ---------------- White Loading Overlay (black orb/time/text) ---------------- */
+/* ---------------- White Loading Overlay ---------------- */
 function WhiteLoader({ show, onFadeOutEnd }) {
   const [visible, setVisible] = useState(show)
   const [opacity, setOpacity] = useState(show ? 1 : 0)
@@ -101,7 +99,7 @@ function WhiteLoader({ show, onFadeOutEnd }) {
   )
 }
 
-function useHeaderCtrlPx(defaultPx = 56) {
+function useHeaderCtrlPx(defaultPx = 64) {
   const [px, setPx] = useState(defaultPx)
   useEffect(() => {
     const read = () => {
@@ -129,18 +127,18 @@ export default function Page() {
   const [veil, setVeil] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
 
-  // white loader state
+  // enlightenment loader
   const [loaderShow, setLoaderShow] = useState(false)
-  const [shopMounted, setShopMounted] = useState(false) // first-paint guard
+  const [shopMounted, setShopMounted] = useState(false)
 
-  /* ----- base tokens ----- */
+  /* ----- base tokens that don’t change the background themselves ----- */
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  /* ----- reflect mode/theme; bg flips only when [data-shop-mounted] exists ----- */
+  /* ----- reflect mode/theme; bg flips only when [data-shop-mounted] is present ----- */
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
@@ -154,14 +152,14 @@ export default function Page() {
     }
   }, [theme, isShop])
 
-  /* ----- overlay flag (locks background scroll) ----- */
+  /* ----- overlay flag to CSS (locks scroll + styles) ----- */
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  /* ----- listen for theme-change events ----- */
+  /* ----- listen for theme-change events from the toggle ----- */
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -172,26 +170,34 @@ export default function Page() {
     }
   }, [])
 
-  /* ----- enter shop callback (from LandingGate) → show white loader ----- */
-  const enterShop = () => {
-    setLoaderShow(true)
-    setIsShop(true)
+  /* ========== GATE → SHOP handoff ==========
+     We now wait for the *overlay to finish unmounting* (`onCascadeDone`)
+     before we show the white loader and flip to shop. This removes
+     the flash-to-black between rainbow and white.                 */
+  const onCascadeSwitch = () => {
+    // optional: one-frame black veil safety under the loader
     try {
       if (sessionStorage.getItem('fromCascade') === '1') {
-        setVeil(true) // black veil under loader for one frame
+        setVeil(true)
         sessionStorage.removeItem('fromCascade')
       }
     } catch {}
   }
 
-  /* ----- mark first paint of the shop, then allow bg flip to off-white ----- */
+  const onCascadeDone = () => {
+    // show white enlightenment overlay and then mount the shop
+    setLoaderShow(true)
+    setIsShop(true)
+  }
+
+  /* ----- mark first paint of the shop and then allow bg flip ----- */
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
-      root.setAttribute('data-shop-mounted', '1')
+      root.setAttribute('data-shop-mounted', '1') // allow bg to become off-white
       setShopMounted(true)
-      root.setAttribute('data-theme', 'day') // force day on shop reveal
+      root.setAttribute('data-theme', 'day') // force day on shop enter
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
@@ -228,7 +234,7 @@ export default function Page() {
     >
       {!isShop ? (
         <main className="lb-screen">
-          <LandingGate onCascadeComplete={enterShop} />
+          <LandingGate onSwitchPoint={onCascadeSwitch} onCascadeDone={onCascadeDone} />
         </main>
       ) : (
         <>
@@ -266,7 +272,7 @@ export default function Page() {
             </div>
           </header>
 
-          {/* shop content sits beneath the loader; bg flips only after [data-shop-mounted] */}
+          {/* Shop content lives under the loader; background flips only after [data-shop-mounted] */}
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
             <HeartBeatButton
@@ -303,10 +309,10 @@ export default function Page() {
         </>
       )}
 
-      {/* White enlightenment loader */}
-      <WhiteLoader show={loaderShow} onFadeOutEnd={() => {}} />
+      {/* White loading overlay drives the “enlightenment” step */}
+      <WhiteLoader show={loaderShow} />
 
-      {/* Optional black veil under loader for mobile safety */}
+      {/* Optional black veil (under loader) for one-frame safety on mobile */}
       {veil && (
         <div
           aria-hidden="true"
