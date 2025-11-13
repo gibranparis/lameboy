@@ -20,7 +20,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 
-/* ---------------- White Loading Overlay ---------------- */
+/* ---------------- White Loading Overlay (with BLACK orb/time/label) ---------------- */
 function WhiteLoader({ show, onFadeOutEnd }) {
   const [visible, setVisible] = useState(show)
   const [opacity, setOpacity] = useState(show ? 1 : 0)
@@ -66,39 +66,26 @@ function WhiteLoader({ show, onFadeOutEnd }) {
             glowOpacity={1.0}
             includeZAxis
             height="88px"
-            interactive={false}
-            overrideAllColor="#000000" /* black orb on white */
+            __interactive={false}
+            overrideAllColor="#000000" /* BLACK orb on WHITE screen */
             flashDecayMs={140}
           />
         </div>
-
-        <span
-          style={{
-            color: '#000',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            lineHeight: 1.2,
-          }}
-        >
+        <span style={LABEL_BLACK}>
           <ClockNaples />
         </span>
-
-        <span
-          style={{
-            color: '#000',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            lineHeight: 1.2,
-            textTransform: 'uppercase',
-          }}
-        >
-          LAMEBOY, USA
-        </span>
+        <span style={{ ...LABEL_BLACK, textTransform: 'uppercase' }}>LAMEBOY, USA</span>
       </div>
     </div>
   )
+}
+
+const LABEL_BLACK = {
+  color: '#000',
+  fontWeight: 800,
+  letterSpacing: '.06em',
+  fontSize: 'clamp(12px,1.3vw,14px)',
+  lineHeight: 1.2,
 }
 
 function useHeaderCtrlPx(defaultPx = 64) {
@@ -127,9 +114,9 @@ export default function Page() {
   const [theme, setTheme] = useState('day')
   const [isShop, setIsShop] = useState(false)
 
-  // enlightenment overlay
+  // white enlightenment overlay
   const [loaderShow, setLoaderShow] = useState(false)
-  // keep grid hidden until ProductOverlay mounts
+  // hide grid until overlay (product view) announces mounted
   const [veilGrid, setVeilGrid] = useState(true)
 
   const [loginOpen, setLoginOpen] = useState(false)
@@ -141,7 +128,7 @@ export default function Page() {
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  /* ----- reflect mode/theme; bg flips only when [data-shop-mounted] is present ----- */
+  /* ----- reflect mode/theme; bg flips to off-white only when [data-shop-mounted] ----- */
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
@@ -154,7 +141,7 @@ export default function Page() {
     }
   }, [theme, isShop])
 
-  /* ----- overlay flag to CSS (locks scroll + styles) ----- */
+  /* overlay flag to CSS (locks scroll + styles) */
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
@@ -172,46 +159,59 @@ export default function Page() {
     }
   }, [])
 
-  /* ----- start showing white before we flip to shop (called by Gate) ----- */
+  /* ----- called by Gate *just before* switching to shop (start white) ----- */
   const onWhiteStart = () => {
-    setLoaderShow(true) // show white NOW and keep above everything
-    setVeilGrid(true) // ensure grid stays hidden
+    setLoaderShow(true) // show white immediately (stays above everything)
+    setVeilGrid(true) // keep grid hidden until overlay claims mounted
   }
 
-  /* ----- enter shop after cascade (called by Gate) ----- */
+  /* ----- called by Gate *after* bands cross center (enter shop) ----- */
   const enterShop = () => {
-    setLoaderShow(true) // keep white up during mount
+    setLoaderShow(true) // keep white up during shop mount
     setIsShop(true) // switch to shop mode
   }
 
-  /* ----- mark first paint of the shop and then allow bg flip ----- */
+  /* ----- mark first paint of the shop and then allow bg flip (to off-white) ----- */
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
-      root.setAttribute('data-shop-mounted', '1') // allows off-white
+      root.setAttribute('data-shop-mounted', '1') // allows off-white bg
       root.setAttribute('data-theme', 'day') // force day at unveil
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
-  /* ----- when ProductOverlay mounts, drop the grid veil; then fade out white ----- */
+  /* ----- listen for overlay ready/open to drop the grid veil + fade white ----- */
   useEffect(() => {
-    const onOverlayMounted = () => {
-      setVeilGrid(false) // reveal product view (not grid)
-      setTimeout(() => setLoaderShow(false), 120) // fade white after overlay is up
+    const onReady = () => {
+      setVeilGrid(false) // show product view (not the grid)
+      setTimeout(() => setLoaderShow(false), 120) // fade white after overlay present
     }
-    const onOverlayClosed = () => {
-      // if user closes overlay later, grid can be shown again
-      setVeilGrid(false)
-    }
-    window.addEventListener('lb:overlay-mounted', onOverlayMounted)
-    window.addEventListener('lb:overlay-closed', onOverlayClosed)
+
+    // We accept multiple possible signals from your components:
+    const handlers = [
+      ['lb:overlay-mounted', onReady],
+      ['lb:overlay-open', onReady],
+      ['lb:shop-ready', onReady], // ShopGrid’s “ready” event
+    ]
+
+    handlers.forEach(([n, h]) => window.addEventListener(n, h))
+    // Fallback: if nothing fires in time, force it after 3s
+    const safety = setTimeout(onReady, 3000)
+
     return () => {
-      window.removeEventListener('lb:overlay-mounted', onOverlayMounted)
-      window.removeEventListener('lb:overlay-closed', onOverlayClosed)
+      handlers.forEach(([n, h]) => window.removeEventListener(n, h))
+      clearTimeout(safety)
     }
   }, [])
+
+  // reflect veil state to CSS
+  useEffect(() => {
+    const root = document.documentElement
+    if (veilGrid) root.setAttribute('data-grid-veil', '1')
+    else root.removeAttribute('data-grid-veil')
+  }, [veilGrid])
 
   const headerStyle = useMemo(
     () => ({
@@ -230,13 +230,6 @@ export default function Page() {
   )
 
   const onHeart = () => setLoginOpen(v => !v)
-
-  // reflect veil state to CSS
-  useEffect(() => {
-    const root = document.documentElement
-    if (veilGrid) root.setAttribute('data-grid-veil', '1')
-    else root.removeAttribute('data-grid-veil')
-  }, [veilGrid])
 
   return (
     <div
@@ -326,7 +319,7 @@ export default function Page() {
   )
 }
 
-/* Shared: Naples clock */
+/* Naples clock (EST) */
 function ClockNaples() {
   const [now, setNow] = useState('')
   useEffect(() => {

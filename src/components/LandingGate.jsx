@@ -8,10 +8,11 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio'
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 /* =============================== Timings ================================ */
-export const CASCADE_MS = 2400 // visual travel time for the band pack
+export const CASCADE_MS = 2400 // visual travel time
 const SEAFOAM = '#32ffc7'
 const ORB_PX = 88
 const P_SWITCH = 0.77273 // violet crossing center
+const SAFETY_ADVANCE_MS = 2600 // hard fallback if RAF throttles
 
 /* ---------------- helpers ---------------- */
 function useCenter(ref) {
@@ -33,73 +34,82 @@ function useCenter(ref) {
 /* ====================== RAF CASCADE ==================================== */
 function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress }) {
   const [mounted, setMounted] = useState(true)
-  const [p, setP] = useState(0)
+  const rafRef = useRef(0)
+  const doneRef = useRef(0)
 
   useEffect(() => {
-    let start, rafId, doneId
+    let start
     const ease = t => 1 - Math.pow(1 - t, 3)
     const step = t => {
       if (start == null) start = t
       const raw = Math.min(1, (t - start) / durationMs)
       const eased = ease(raw)
-      setP(eased)
       onProgress?.(eased)
-      if (raw < 1) rafId = requestAnimationFrame(step)
-      else doneId = setTimeout(() => setMounted(false), 100)
+      if (raw < 1) {
+        rafRef.current = requestAnimationFrame(step)
+      } else {
+        doneRef.current = window.setTimeout(() => setMounted(false), 100)
+      }
     }
-    rafId = requestAnimationFrame(step)
+    rafRef.current = requestAnimationFrame(step)
     return () => {
-      if (rafId) cancelAnimationFrame(rafId)
-      if (doneId) clearTimeout(doneId)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      if (doneRef.current) clearTimeout(doneRef.current)
     }
   }, [durationMs, onProgress])
 
   if (!mounted) return null
 
   const COLOR_VW = 120
-  const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW
 
   return createPortal(
     <>
-      {/* COLOR band pack (no black floor) */}
+      {/* Solid black floor to ensure no flashes under bands */}
+      <div aria-hidden style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 9997 }} />
+
+      {/* COLOR band pack (RTL sweep) */}
       <div
         aria-hidden
         style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          height: '100vh',
-          width: `${COLOR_VW}vw`,
-          transform: `translate3d(${bandsTx}vw,0,0)`,
+          inset: 0,
           zIndex: 9999,
           pointerEvents: 'none',
           willChange: 'transform',
+          display: 'grid',
+          gridTemplateColumns: `minmax(0, ${COLOR_VW}vw) 1fr`,
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7,1fr)',
-          }}
-        >
-          {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map(
-            (c, i) => (
-              <div key={i} style={{ position: 'relative', background: c }}>
-                <span
-                  style={{
-                    position: 'absolute',
-                    inset: -18,
-                    background: c,
-                    filter: 'blur(28px)',
-                    opacity: 0.95,
-                  }}
-                />
-              </div>
-            )
-          )}
+        <div style={{ position: 'relative' }}>
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7,1fr)',
+              transform: 'translate3d(var(--bands-x,0),0,0)',
+              transition: 'none',
+            }}
+            id="lb-bands"
+          >
+            {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map(
+              (c, i) => (
+                <div key={i} style={{ position: 'relative', background: c }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      inset: -18,
+                      background: c,
+                      filter: 'blur(28px)',
+                      opacity: 0.95,
+                    }}
+                  />
+                </div>
+              )
+            )}
+          </div>
         </div>
+        <div />
       </div>
 
       {/* “LAMEBOY, USA” over bands */}
@@ -137,6 +147,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const locked = useRef(false)
   const pressTimer = useRef(null)
   const lastStartAt = useRef(0)
+  const safetyTimer = useRef(0)
 
   // Begin in "gate" mode
   useEffect(() => {
@@ -152,17 +163,23 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
   useCenter(labelRef)
 
-  const clearTimers = () => {
+  const cleanupTimers = () => {
     if (pressTimer.current) {
       clearTimeout(pressTimer.current)
       pressTimer.current = null
+    }
+    if (safetyTimer.current) {
+      clearTimeout(safetyTimer.current)
+      safetyTimer.current = 0
     }
   }
 
   const reallyStart = useCallback(() => {
     const now = performance.now()
     if (locked.current) return
-    if (now - lastStartAt.current < 2500) return // single-run safety
+    // one run per 2.5s in case of double input
+    if (now - lastStartAt.current < 2500) return
+
     locked.current = true
     lastStartAt.current = now
 
@@ -171,41 +188,69 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     } catch {}
     setPhase('cascade')
 
-    // ⬇⬇⬇ Show WHITE immediately so there is never a black frame between gate → shop
-    try {
-      onCascadeWhite?.()
-    } catch {}
-
     try {
       playChakraSequenceRTL()
     } catch {}
     try {
       sessionStorage.setItem('fromCascade', '1')
     } catch {}
-  }, [onCascadeWhite])
+
+    // SAFETY: if RAF cascade stalls for any reason, fire white → shop anyway
+    // 1) kick white a bit earlier
+    safetyTimer.current = window.setTimeout(() => {
+      try {
+        onCascadeWhite?.()
+      } catch {}
+    }, Math.max(0, P_SWITCH * CASCADE_MS - 200))
+
+    // 2) ensure we actually enter shop
+    safetyTimer.current = window.setTimeout(() => {
+      try {
+        setPhase('done')
+      } catch {}
+      try {
+        onCascadeComplete?.()
+      } catch {}
+    }, SAFETY_ADVANCE_MS)
+  }, [onCascadeWhite, onCascadeComplete])
 
   const runCascade = useCallback(
     e => {
       e?.preventDefault?.()
-      clearTimers()
+      cleanupTimers()
       reallyStart()
     },
     [reallyStart]
   )
 
-  // Progress: only do the handoff; white already shown at start
+  // When the bands cross center, call white → then shop
   const onCascadeProgress = useCallback(
     p => {
+      // Slight hysteresis: kick white just before switch to keep it on top
+      if (p >= P_SWITCH - 0.035 && phase === 'cascade') {
+        try {
+          onCascadeWhite?.()
+        } catch {}
+      }
       if (p >= P_SWITCH && phase === 'cascade') {
         setPhase('done')
+        // brief hand-off delay to avoid tearing
         setTimeout(() => {
           try {
             onCascadeComplete?.()
           } catch {}
         }, 40)
+        cleanupTimers() // cancel safety timers once we’ve handed off
       }
+
+      // move the bands with CSS var (in case you want to inspect visually)
+      const COLOR_VW = 120
+      const x = ((1 - p) * (100 + COLOR_VW) - COLOR_VW).toFixed(3) + 'vw'
+      try {
+        document.getElementById('lb-bands')?.style.setProperty('--bands-x', `${x}`)
+      } catch {}
     },
-    [phase, onCascadeComplete]
+    [phase, onCascadeWhite, onCascadeComplete]
   )
 
   return (
@@ -237,16 +282,16 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         type="button"
         onClick={runCascade}
         onMouseDown={() => {
-          clearTimers()
+          cleanupTimers()
           pressTimer.current = setTimeout(reallyStart, 650)
         }}
-        onMouseUp={clearTimers}
-        onMouseLeave={clearTimers}
+        onMouseUp={cleanupTimers}
+        onMouseLeave={cleanupTimers}
         onTouchStart={() => {
-          clearTimers()
+          cleanupTimers()
           pressTimer.current = setTimeout(reallyStart, 650)
         }}
-        onTouchEnd={clearTimers}
+        onTouchEnd={cleanupTimers}
         title="Enter"
         aria-label="Enter"
         style={{
@@ -268,7 +313,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           glowOpacity={0.95}
           includeZAxis
           height="88px"
-          interactive={false}
+          __interactive={false}
           flashDecayMs={140}
         />
       </button>
