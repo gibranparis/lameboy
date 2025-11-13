@@ -20,7 +20,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 
-/* ---------------- White Loading Overlay (controls reveal) ---------------- */
+/* ---------------- White Loading Overlay (black orb/time/text) ---------------- */
 function WhiteLoader({ show, onFadeOutEnd }) {
   const [visible, setVisible] = useState(show)
   const [opacity, setOpacity] = useState(show ? 1 : 0)
@@ -28,9 +28,9 @@ function WhiteLoader({ show, onFadeOutEnd }) {
   useEffect(() => {
     if (show) {
       setVisible(true)
-      requestAnimationFrame(() => setOpacity(1)) // ensure fully opaque
+      requestAnimationFrame(() => setOpacity(1))
     } else if (visible) {
-      setOpacity(0) // fade out
+      setOpacity(0)
       const t = setTimeout(() => {
         setVisible(false)
         onFadeOutEnd?.()
@@ -129,18 +129,18 @@ export default function Page() {
   const [veil, setVeil] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
 
-  // loader state
-  const [loaderShow, setLoaderShow] = useState(false) // white overlay visible?
-  const [shopMounted, setShopMounted] = useState(false) // first paint guard
+  // white loader state
+  const [loaderShow, setLoaderShow] = useState(false)
+  const [shopMounted, setShopMounted] = useState(false) // first-paint guard
 
-  /* ----- base tokens that don’t change the background themselves ----- */
+  /* ----- base tokens ----- */
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  /* ----- reflect mode/theme; bg flips only when [data-shop-mounted] is present ----- */
+  /* ----- reflect mode/theme; bg flips only when [data-shop-mounted] exists ----- */
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
@@ -154,14 +154,14 @@ export default function Page() {
     }
   }, [theme, isShop])
 
-  /* ----- overlay flag to CSS (locks scroll + styles) ----- */
+  /* ----- overlay flag (locks background scroll) ----- */
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  /* ----- listen for theme-change events from the toggle ----- */
+  /* ----- listen for theme-change events ----- */
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -172,42 +172,34 @@ export default function Page() {
     }
   }, [])
 
-  /* ----- enter shop callback (from LandingGate) ----- */
+  /* ----- enter shop callback (from LandingGate) → show white loader ----- */
   const enterShop = () => {
-    // show white loader immediately as we flip to shop
     setLoaderShow(true)
     setIsShop(true)
     try {
-      // ensure any cascade guard from the gate is cleared (we control visibility now)
-      document.documentElement.removeAttribute('data-cascade-active')
-    } catch {}
-    try {
       if (sessionStorage.getItem('fromCascade') === '1') {
-        setVeil(true) // optional: black veil under loader for one frame (harmless)
+        setVeil(true) // black veil under loader for one frame
         sessionStorage.removeItem('fromCascade')
       }
     } catch {}
   }
 
-  /* ----- mark first paint of the shop and then allow bg flip ----- */
+  /* ----- mark first paint of the shop, then allow bg flip to off-white ----- */
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
-
     const id = requestAnimationFrame(() => {
-      // First paint achieved; allow bg to become off-white but keep loader on top
       root.setAttribute('data-shop-mounted', '1')
       setShopMounted(true)
-      // Force day theme now that we’re in shop
-      root.setAttribute('data-theme', 'day')
+      root.setAttribute('data-theme', 'day') // force day on shop reveal
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
-  /* ----- once mounted, fade the white loader away (give bg a breath) ----- */
+  /* ----- once mounted, fade the white loader away ----- */
   useEffect(() => {
     if (!shopMounted) return
-    const t = setTimeout(() => setLoaderShow(false), 300) // was 60ms; 300ms = smoother
+    const t = setTimeout(() => setLoaderShow(false), 60)
     return () => clearTimeout(t)
   }, [shopMounted])
 
@@ -241,7 +233,6 @@ export default function Page() {
       ) : (
         <>
           <header role="banner" style={headerStyle}>
-            {/* LEFT: Day/Night Toggle */}
             <div
               style={{
                 height: ctrlPx,
@@ -256,8 +247,6 @@ export default function Page() {
                 moonImages={['/toggle/moon-red.png', '/toggle/moon-blue.png']}
               />
             </div>
-
-            {/* CENTER: Chakra Orb */}
             <div style={{ display: 'grid', placeItems: 'center', pointerEvents: 'auto' }}>
               <ChakraOrbButton
                 size={72}
@@ -265,8 +254,6 @@ export default function Page() {
                 style={{ display: 'grid', placeItems: 'center' }}
               />
             </div>
-
-            {/* RIGHT: Cart */}
             <div
               style={{
                 height: ctrlPx,
@@ -279,16 +266,14 @@ export default function Page() {
             </div>
           </header>
 
-          {/* Shop content lives under the loader; background flips only after [data-shop-mounted] */}
+          {/* shop content sits beneath the loader; bg flips only after [data-shop-mounted] */}
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
-
             <HeartBeatButton
               className="heart-submit"
               aria-label={loginOpen ? 'Close login' : 'Open login'}
               onClick={onHeart}
             />
-
             {loginOpen && (
               <div
                 role="dialog"
@@ -299,7 +284,7 @@ export default function Page() {
                   zIndex: 540,
                   display: 'grid',
                   placeItems: 'center',
-                  background: '#000' /* KEY: opaque black — no transparency on mobile */,
+                  background: '#000',
                 }}
                 onClick={e => {
                   if (e.target === e.currentTarget) setLoginOpen(false)
@@ -312,22 +297,16 @@ export default function Page() {
             )}
           </main>
 
-          {/* Runner pinned */}
           <div className="lb-chakra-runner">
             <ChakraBottomRunner height={RUNNER_H} speedSec={12} />
           </div>
         </>
       )}
 
-      {/* White loading overlay drives the “enlightenment” step */}
-      <WhiteLoader
-        show={loaderShow}
-        onFadeOutEnd={() => {
-          /* no-op */
-        }}
-      />
+      {/* White enlightenment loader */}
+      <WhiteLoader show={loaderShow} onFadeOutEnd={() => {}} />
 
-      {/* Optional black veil (under loader) for one-frame safety on mobile */}
+      {/* Optional black veil under loader for mobile safety */}
       {veil && (
         <div
           aria-hidden="true"

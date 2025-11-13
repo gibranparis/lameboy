@@ -12,33 +12,14 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 export const CASCADE_MS = 2400 // visual travel time for the band pack
 const SEAFOAM = '#32ffc7'
 
-/* Geometry for center labels */
+/* sizes for stack offset */
 const ORB_PX = 88
 const STACK_GAP = 6
 
-/* Violet band crossing the center (50vw) */
+/* The instant the last (violet) band’s right edge crosses center (50vw) */
 const P_SWITCH = 0.77273
 
 /* ---------------- helpers ---------------- */
-function useShift() {
-  const calc = () => {
-    const h = typeof window !== 'undefined' ? window.innerHeight : 800
-    const isPhone = h < 760
-    return {
-      vh: isPhone ? 4 : 3.5,
-      micro: Math.round(Math.max(2, Math.min(10, h * 0.012))),
-      gap: 6,
-    }
-  }
-  const [s, setS] = useState(calc)
-  useEffect(() => {
-    const onR = () => setS(calc())
-    window.addEventListener('resize', onR)
-    return () => window.removeEventListener('resize', onR)
-  }, [])
-  return s
-}
-
 function useCenter(ref) {
   const measure = useCallback(() => {
     void ref?.current
@@ -89,7 +70,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
       {/* Solid black floor so no white flicker behind bands */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 9997 }} />
 
-      {/* COLOR band pack (no white underlay) */}
+      {/* Rainbow band pack */}
       <div
         aria-hidden
         style={{
@@ -130,19 +111,12 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
         </div>
       </div>
 
-      {/* “LAMEBOY, USA” — white over color via blend; stays on black fine */}
+      {/* “LAMEBOY, USA” — white over color via difference; stays white on black */}
       <div
         aria-hidden
         style={{ position: 'fixed', inset: 0, zIndex: 10001, pointerEvents: 'none' }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: labelTransform,
-          }}
-        >
+        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: labelTransform }}>
           <span
             style={{
               color: '#fff',
@@ -170,10 +144,8 @@ export default function LandingGate({ onCascadeComplete }) {
   const labelRef = useRef(null)
   const locked = useRef(false)
   const pressTimer = useRef(null)
-  useShift() // keep viewport-aware density options available
-  useCenter(labelRef)
 
-  // Begin in "gate" mode and mark cascade-guard states
+  // Begin in "gate" mode
   useEffect(() => {
     try {
       document.documentElement.setAttribute('data-mode', 'gate')
@@ -184,6 +156,8 @@ export default function LandingGate({ onCascadeComplete }) {
       } catch {}
     }
   }, [])
+
+  useCenter(labelRef)
 
   const runCascade = useCallback(() => {
     if (locked.current) return
@@ -200,15 +174,11 @@ export default function LandingGate({ onCascadeComplete }) {
     } catch {}
   }, [])
 
-  // When the last violet band crosses center, complete to shop
+  // when the last violet band crosses center, hand off to shop
   const onCascadeProgress = useCallback(
     p => {
       if (p >= P_SWITCH && phase === 'cascade') {
-        setPhase('done') // overlay will unmount shortly
-        // Clean up the cascade guard and hand off to Page
-        try {
-          document.documentElement.removeAttribute('data-cascade-active')
-        } catch {}
+        setPhase('done')
         setTimeout(() => {
           try {
             onCascadeComplete?.()
@@ -311,7 +281,7 @@ export default function LandingGate({ onCascadeComplete }) {
         </button>
       )}
 
-      {/* Florida label — white (hover = neon yellow) */}
+      {/* Florida label — white; hover = neon yellow */}
       <button
         ref={labelRef}
         type="button"
@@ -334,11 +304,8 @@ export default function LandingGate({ onCascadeComplete }) {
           fontFamily: 'inherit',
           color: hovered ? '#ffe600' : '#ffffff',
           textShadow: hovered
-            ? `0 0 8px rgba(255,230,0,.95),
-               0 0 18px rgba(255,210,0,.70),
-               0 0 28px rgba(255,200,0,.45)`
-            : `0 0 8px rgba(255,255,255,.45),
-               0 0 16px rgba(255,255,255,.30)`,
+            ? `0 0 8px rgba(255,230,0,.95), 0 0 18px rgba(255,210,0,.70), 0 0 28px rgba(255,200,0,.45)`
+            : `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
         }}
       >
         Florida, USA
