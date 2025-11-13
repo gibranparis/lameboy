@@ -45,7 +45,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
       setP(eased)
       onProgress?.(eased)
       if (raw < 1) rafId = requestAnimationFrame(step)
-      else doneId = setTimeout(() => setMounted(false), 60)
+      else doneId = setTimeout(() => setMounted(false), 100)
     }
     rafId = requestAnimationFrame(step)
     return () => {
@@ -56,12 +56,14 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
 
   if (!mounted) return null
 
+  // move bands from right to left; show them ABOVE white enlightenment
   const COLOR_VW = 120
   const bandsTx = (1 - p) * (100 + COLOR_VW) - COLOR_VW
 
   return createPortal(
     <>
-      {/* NO BLACK FLOOR! Only the colored bands. */}
+      {/* NO black floor; we rely on CSS (transparent) */}
+      {/* COLOR band pack (above white) */}
       <div
         aria-hidden
         style={{
@@ -71,10 +73,9 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
           height: '100vh',
           width: `${COLOR_VW}vw`,
           transform: `translate3d(${bandsTx}vw,0,0)`,
-          zIndex: 10010, // below the white enlightenment we draw from Page
+          zIndex: 10006 /* > WhiteLoader */,
           pointerEvents: 'none',
           willChange: 'transform',
-          background: 'transparent',
         }}
       >
         <div
@@ -103,10 +104,10 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
         </div>
       </div>
 
-      {/* “LAMEBOY, USA” over bands (mix-blend keeps it legible) */}
+      {/* “LAMEBOY, USA” over bands */}
       <div
         aria-hidden
-        style={{ position: 'fixed', inset: 0, zIndex: 10012, pointerEvents: 'none' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 10007, pointerEvents: 'none' }}
       >
         <div style={{ position: 'absolute', left: '50%', top: '50%', transform: labelTransform }}>
           <span
@@ -130,13 +131,16 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
 
 /* =============================== Component ============================== */
 export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
+  // phases: idle → cascade → done
   const [phase, setPhase] = useState('idle')
   const labelRef = useRef(null)
 
-  // Single-run lock (no double triggers)
+  // hard, global lock against double-triggers across input types
   const locked = useRef(false)
+  const pressTimer = useRef(null)
   const lastStartAt = useRef(0)
 
+  // Begin in "gate" mode
   useEffect(() => {
     try {
       document.documentElement.setAttribute('data-mode', 'gate')
@@ -144,6 +148,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     return () => {
       try {
         document.documentElement.removeAttribute('data-mode')
+        document.documentElement.removeAttribute('data-cascade-active')
       } catch {}
     }
   }, [])
@@ -153,32 +158,45 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const reallyStart = useCallback(() => {
     const now = performance.now()
     if (locked.current) return
-    if (now - lastStartAt.current < 2200) return // safety window
+    if (now - lastStartAt.current < 2000) return // 1-run per 2s safety to stop double-shoot
     locked.current = true
     lastStartAt.current = now
 
-    // Immediately announce cascade to CSS (hide grids etc.)
     try {
       document.documentElement.setAttribute('data-cascade-active', '1')
-      sessionStorage.setItem('fromCascade', '1')
     } catch {}
+    setPhase('cascade')
 
-    // Raise WHITE first so there is never a black tail visible.
-    try {
-      onCascadeWhite?.()
-    } catch {}
-
-    // Kick SFX (non-blocking)
     try {
       playChakraSequenceRTL()
     } catch {}
+    try {
+      sessionStorage.setItem('fromCascade', '1')
+    } catch {}
+  }, [])
 
-    setPhase('cascade')
-  }, [onCascadeWhite])
+  const clearTimers = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current)
+      pressTimer.current = null
+    }
+  }
 
-  // When the last violet band is near center, hand off to the Shop.
+  const runCascade = useCallback(
+    e => {
+      e?.preventDefault?.()
+      clearTimers()
+      reallyStart()
+    },
+    [reallyStart]
+  )
+
+  // When near center, bring up white (but keep bands above). Then handoff.
   const onCascadeProgress = useCallback(
     p => {
+      if (p >= P_SWITCH - 0.06 && phase === 'cascade') {
+        onCascadeWhite?.() // show white early
+      }
       if (p >= P_SWITCH && phase === 'cascade') {
         setPhase('done')
         setTimeout(() => {
@@ -188,15 +206,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         }, 40)
       }
     },
-    [phase, onCascadeComplete]
-  )
-
-  const runCascade = useCallback(
-    e => {
-      e?.preventDefault?.()
-      reallyStart()
-    },
-    [reallyStart]
+    [phase, onCascadeWhite, onCascadeComplete]
   )
 
   return (
@@ -211,6 +221,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         gap: 6,
         padding: '1.5rem',
         position: 'relative',
+        visibility: phase === 'idle' ? 'visible' : 'hidden',
       }}
     >
       {/* CASCADE */}
@@ -222,15 +233,26 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         />
       )}
 
-      {/* ORB — single click to enter (no long-press timers that can double-fire) */}
+      {/* ORB — enter */}
       <button
         type="button"
         onClick={runCascade}
+        onMouseDown={() => {
+          clearTimers()
+          pressTimer.current = setTimeout(reallyStart, 650)
+        }}
+        onMouseUp={clearTimers}
+        onMouseLeave={clearTimers}
+        onTouchStart={() => {
+          clearTimers()
+          pressTimer.current = setTimeout(reallyStart, 650)
+        }}
+        onTouchEnd={clearTimers}
         title="Enter"
         aria-label="Enter"
         style={{
           position: 'relative',
-          zIndex: 10014,
+          zIndex: 10004,
           lineHeight: 0,
           padding: 0,
           margin: 0,
@@ -247,12 +269,12 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           glowOpacity={0.95}
           includeZAxis
           height="88px"
-          __interactive={false}
+          interactive={false}
           flashDecayMs={140}
         />
       </button>
 
-      {/* TIME — visible in gate */}
+      {/* TIME — white (clickable in gate) */}
       {phase === 'idle' && (
         <button
           type="button"
@@ -280,9 +302,11 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       <button
         ref={labelRef}
         type="button"
+        className="gate-white"
         onClick={runCascade}
         title="Enter"
         style={{
+          visibility: phase === 'idle' ? 'visible' : 'hidden',
           background: 'transparent',
           border: 0,
           cursor: 'pointer',
@@ -298,9 +322,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       </button>
 
       <style jsx>{`
-        :global(.chakra-overlay) {
-          background: transparent !important;
-        }
         :global(:root[data-mode='gate']) .chakra-band {
           min-height: 100%;
         }

@@ -20,8 +20,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 
-/* -------- White enlightenment overlay (WHITE bg + BLACK orb/time/label) -------- */
-function WhiteLoader({ show }) {
+/* ---------------- White Loading Overlay (black orb/time/label) ---------------- */
+function WhiteLoader({ show, onFadeOutEnd }) {
   const [visible, setVisible] = useState(show)
   const [opacity, setOpacity] = useState(show ? 1 : 0)
 
@@ -31,25 +31,29 @@ function WhiteLoader({ show }) {
       requestAnimationFrame(() => setOpacity(1))
     } else if (visible) {
       setOpacity(0)
-      const t = setTimeout(() => setVisible(false), 240)
+      const t = setTimeout(() => {
+        setVisible(false)
+        onFadeOutEnd?.()
+      }, 260)
       return () => clearTimeout(t)
     }
-  }, [show, visible])
+  }, [show, visible, onFadeOutEnd])
 
   if (!visible) return null
 
   return (
     <div
+      className="white-loader"
       aria-hidden
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 10020, // ABOVE cascade (which is 10010..10012)
+        zIndex: 10002 /* < cascade bands (10006) */,
         pointerEvents: 'none',
         background: '#fff',
         display: 'grid',
         placeItems: 'center',
-        transition: 'opacity 240ms ease',
+        transition: 'opacity 260ms ease',
         opacity,
       }}
     >
@@ -60,28 +64,42 @@ function WhiteLoader({ show }) {
             color="#32ffc7"
             geomScale={1.12}
             glow
-            glowOpacity={1}
+            glowOpacity={1.0}
             includeZAxis
             height="88px"
-            __interactive={false}
-            overrideAllColor="#000000" // BLACK orb on WHITE
+            interactive={false}
+            overrideAllColor="#000000" /* black orb on white */
             flashDecayMs={140}
           />
         </div>
-        <span style={LABEL_BLACK}>
+
+        <span
+          style={{
+            color: '#000',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            lineHeight: 1.2,
+          }}
+        >
           <ClockNaples />
         </span>
-        <span style={{ ...LABEL_BLACK, textTransform: 'uppercase' }}>LAMEBOY, USA</span>
+
+        <span
+          style={{
+            color: '#000',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            lineHeight: 1.2,
+            textTransform: 'uppercase',
+          }}
+        >
+          LAMEBOY, USA
+        </span>
       </div>
     </div>
   )
-}
-const LABEL_BLACK = {
-  color: '#000',
-  fontWeight: 800,
-  letterSpacing: '.06em',
-  fontSize: 'clamp(12px,1.3vw,14px)',
-  lineHeight: 1.2,
 }
 
 function useHeaderCtrlPx(defaultPx = 64) {
@@ -105,47 +123,23 @@ function useHeaderCtrlPx(defaultPx = 64) {
   return px
 }
 
-/* Naples clock (EST) used in loader */
-function ClockNaples() {
-  const [now, setNow] = useState('')
-  useEffect(() => {
-    const fmt = () =>
-      setNow(
-        new Intl.DateTimeFormat('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-          timeZone: 'America/New_York',
-        }).format(new Date())
-      )
-    fmt()
-    const id = setInterval(fmt, 1000)
-    return () => clearInterval(id)
-  }, [])
-  return <span>{now}</span>
-}
-
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
   const [theme, setTheme] = useState('day')
   const [isShop, setIsShop] = useState(false)
 
-  // white enlightenment overlay
-  const [loaderShow, setLoaderShow] = useState(false)
-  // keep grid hidden until product overlay mounts
-  const [veilGrid, setVeilGrid] = useState(true)
-
+  const [loaderShow, setLoaderShow] = useState(false) // white enlightenment
+  const [veilGrid, setVeilGrid] = useState(true) // keep grid hidden until overlay mounts
   const [loginOpen, setLoginOpen] = useState(false)
 
-  // base tokens
+  /* base tokens */
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  // reflect mode/theme; bg flips to off-white only when [data-shop-mounted]
+  /* reflect mode/theme; off-white allowed only after mounted */
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
@@ -158,14 +152,14 @@ export default function Page() {
     }
   }, [theme, isShop])
 
-  // overlay flag to CSS (locks scroll for modal)
+  /* overlay flag to CSS */
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  // theme-change events from toggle
+  /* theme-change events */
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -176,54 +170,47 @@ export default function Page() {
     }
   }, [])
 
-  /* ----- called by Gate *just before* bands start (raise WHITE) ----- */
+  /* Gate callbacks */
   const onWhiteStart = () => {
-    setLoaderShow(true) // WHITE above everything
-    setVeilGrid(true) // grid hidden
-    try {
-      document.documentElement.setAttribute('data-cascade-active', '1')
-    } catch {}
+    setLoaderShow(true) // shows white, but bands render above via z-index
+    setVeilGrid(true)
   }
-
-  /* ----- called by Gate when bands pass center (enter shop) ----- */
   const enterShop = () => {
-    setLoaderShow(true) // keep WHITE up during mount
-    setIsShop(true) // switch to shop mode
+    setLoaderShow(true)
+    setIsShop(true)
   }
 
-  // mark first paint of the shop and then allow bg flip (to off-white)
+  /* allow off-white once shop first-paints */
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
       root.setAttribute('data-shop-mounted', '1')
-      root.setAttribute('data-theme', 'day') // force day at unveil
+      root.setAttribute('data-theme', 'day') // unveil in day
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
-  // overlay ready signals → reveal product + fade white
+  /* listen for overlay ready/open to drop veil + fade white */
   useEffect(() => {
     const onReady = () => {
-      setVeilGrid(false) // show product view (not grid)
-      setTimeout(() => setLoaderShow(false), 120) // fade WHITE after overlay present
+      setVeilGrid(false)
+      setTimeout(() => setLoaderShow(false), 120)
     }
-
     const handlers = [
       ['lb:overlay-mounted', onReady],
       ['lb:overlay-open', onReady],
       ['lb:shop-ready', onReady],
     ]
     handlers.forEach(([n, h]) => window.addEventListener(n, h))
-    const safety = setTimeout(onReady, 3000) // fallback
-
+    const safety = setTimeout(onReady, 3000)
     return () => {
       handlers.forEach(([n, h]) => window.removeEventListener(n, h))
       clearTimeout(safety)
     }
   }, [])
 
-  // reflect veil state to CSS
+  /* reflect veil state to CSS */
   useEffect(() => {
     const root = document.documentElement
     if (veilGrid) root.setAttribute('data-grid-veil', '1')
@@ -330,8 +317,29 @@ export default function Page() {
         </>
       )}
 
-      {/* Enlightenment overlay (white, above cascade) */}
+      {/* Enlightenment overlay (below bands; above shop/gate) */}
       <WhiteLoader show={loaderShow} />
     </div>
   )
+}
+
+/* Shared: Naples clock */
+function ClockNaples() {
+  const [now, setNow] = useState('')
+  useEffect(() => {
+    const fmt = () =>
+      setNow(
+        new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+          timeZone: 'America/New_York',
+        }).format(new Date())
+      )
+    fmt()
+    const id = setInterval(fmt, 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <span>{now}</span>
 }
