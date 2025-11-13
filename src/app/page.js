@@ -20,8 +20,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 
-/* ---------------- White Loading Overlay (with BLACK orb/time/label) ---------------- */
-function WhiteLoader({ show, onFadeOutEnd }) {
+/* -------- White enlightenment overlay (WHITE bg + BLACK orb/time/label) -------- */
+function WhiteLoader({ show }) {
   const [visible, setVisible] = useState(show)
   const [opacity, setOpacity] = useState(show ? 1 : 0)
 
@@ -31,13 +31,10 @@ function WhiteLoader({ show, onFadeOutEnd }) {
       requestAnimationFrame(() => setOpacity(1))
     } else if (visible) {
       setOpacity(0)
-      const t = setTimeout(() => {
-        setVisible(false)
-        onFadeOutEnd?.()
-      }, 260)
+      const t = setTimeout(() => setVisible(false), 240)
       return () => clearTimeout(t)
     }
-  }, [show, visible, onFadeOutEnd])
+  }, [show, visible])
 
   if (!visible) return null
 
@@ -47,12 +44,12 @@ function WhiteLoader({ show, onFadeOutEnd }) {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 10003,
+        zIndex: 10020, // ABOVE cascade (which is 10010..10012)
         pointerEvents: 'none',
         background: '#fff',
         display: 'grid',
         placeItems: 'center',
-        transition: 'opacity 260ms ease',
+        transition: 'opacity 240ms ease',
         opacity,
       }}
     >
@@ -63,11 +60,11 @@ function WhiteLoader({ show, onFadeOutEnd }) {
             color="#32ffc7"
             geomScale={1.12}
             glow
-            glowOpacity={1.0}
+            glowOpacity={1}
             includeZAxis
             height="88px"
             __interactive={false}
-            overrideAllColor="#000000" /* BLACK orb on WHITE screen */
+            overrideAllColor="#000000" // BLACK orb on WHITE
             flashDecayMs={140}
           />
         </div>
@@ -79,7 +76,6 @@ function WhiteLoader({ show, onFadeOutEnd }) {
     </div>
   )
 }
-
 const LABEL_BLACK = {
   color: '#000',
   fontWeight: 800,
@@ -109,6 +105,27 @@ function useHeaderCtrlPx(defaultPx = 64) {
   return px
 }
 
+/* Naples clock (EST) used in loader */
+function ClockNaples() {
+  const [now, setNow] = useState('')
+  useEffect(() => {
+    const fmt = () =>
+      setNow(
+        new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+          timeZone: 'America/New_York',
+        }).format(new Date())
+      )
+    fmt()
+    const id = setInterval(fmt, 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <span>{now}</span>
+}
+
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
   const [theme, setTheme] = useState('day')
@@ -116,19 +133,19 @@ export default function Page() {
 
   // white enlightenment overlay
   const [loaderShow, setLoaderShow] = useState(false)
-  // hide grid until overlay (product view) announces mounted
+  // keep grid hidden until product overlay mounts
   const [veilGrid, setVeilGrid] = useState(true)
 
   const [loginOpen, setLoginOpen] = useState(false)
 
-  /* ----- base tokens that don’t change the background themselves ----- */
+  // base tokens
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  /* ----- reflect mode/theme; bg flips to off-white only when [data-shop-mounted] ----- */
+  // reflect mode/theme; bg flips to off-white only when [data-shop-mounted]
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
@@ -141,14 +158,14 @@ export default function Page() {
     }
   }, [theme, isShop])
 
-  /* overlay flag to CSS (locks scroll + styles) */
+  // overlay flag to CSS (locks scroll for modal)
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  /* theme-change events from toggle */
+  // theme-change events from toggle
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -159,46 +176,46 @@ export default function Page() {
     }
   }, [])
 
-  /* ----- called by Gate *just before* switching to shop (start white) ----- */
+  /* ----- called by Gate *just before* bands start (raise WHITE) ----- */
   const onWhiteStart = () => {
-    setLoaderShow(true) // show white immediately (stays above everything)
-    setVeilGrid(true) // keep grid hidden until overlay claims mounted
+    setLoaderShow(true) // WHITE above everything
+    setVeilGrid(true) // grid hidden
+    try {
+      document.documentElement.setAttribute('data-cascade-active', '1')
+    } catch {}
   }
 
-  /* ----- called by Gate *after* bands cross center (enter shop) ----- */
+  /* ----- called by Gate when bands pass center (enter shop) ----- */
   const enterShop = () => {
-    setLoaderShow(true) // keep white up during shop mount
+    setLoaderShow(true) // keep WHITE up during mount
     setIsShop(true) // switch to shop mode
   }
 
-  /* ----- mark first paint of the shop and then allow bg flip (to off-white) ----- */
+  // mark first paint of the shop and then allow bg flip (to off-white)
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
-      root.setAttribute('data-shop-mounted', '1') // allows off-white bg
+      root.setAttribute('data-shop-mounted', '1')
       root.setAttribute('data-theme', 'day') // force day at unveil
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
-  /* ----- listen for overlay ready/open to drop the grid veil + fade white ----- */
+  // overlay ready signals → reveal product + fade white
   useEffect(() => {
     const onReady = () => {
-      setVeilGrid(false) // show product view (not the grid)
-      setTimeout(() => setLoaderShow(false), 120) // fade white after overlay present
+      setVeilGrid(false) // show product view (not grid)
+      setTimeout(() => setLoaderShow(false), 120) // fade WHITE after overlay present
     }
 
-    // We accept multiple possible signals from your components:
     const handlers = [
       ['lb:overlay-mounted', onReady],
       ['lb:overlay-open', onReady],
-      ['lb:shop-ready', onReady], // ShopGrid’s “ready” event
+      ['lb:shop-ready', onReady],
     ]
-
     handlers.forEach(([n, h]) => window.addEventListener(n, h))
-    // Fallback: if nothing fires in time, force it after 3s
-    const safety = setTimeout(onReady, 3000)
+    const safety = setTimeout(onReady, 3000) // fallback
 
     return () => {
       handlers.forEach(([n, h]) => window.removeEventListener(n, h))
@@ -313,29 +330,8 @@ export default function Page() {
         </>
       )}
 
-      {/* Enlightenment overlay */}
+      {/* Enlightenment overlay (white, above cascade) */}
       <WhiteLoader show={loaderShow} />
     </div>
   )
-}
-
-/* Naples clock (EST) */
-function ClockNaples() {
-  const [now, setNow] = useState('')
-  useEffect(() => {
-    const fmt = () =>
-      setNow(
-        new Intl.DateTimeFormat('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-          timeZone: 'America/New_York',
-        }).format(new Date())
-      )
-    fmt()
-    const id = setInterval(fmt, 1000)
-    return () => clearInterval(id)
-  }, [])
-  return <span>{now}</span>
 }

@@ -910,3 +910,14 @@ html:has([data-shop-root]) .logo-3d {
 .plus-pill.pulse-green {
   /* intentionally no-op */
 }
+/* Belt-and-suspenders: if any legacy overlay slips through */
+.chakra-overlay,
+:root[data-mode='gate'] .chakra-overlay {
+  background: transparent !important;
+}
+
+/* Ensure nothing undercuts the enlightenment layer while it's visible */
+.white-loader,
+.white-loader * {
+  pointer-events: none !important;
+}
