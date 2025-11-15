@@ -7,13 +7,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 /**
- * One-shot cascade gate:
- * - Shows BLACK gate with orb + time + "Florida, USA"
- * - On tap/click: plays sweep once, calls onCascadeWhite near the end, then hides itself
- * - No sessionStorage auto-hide (that caused the black-screen)
+ * One-shot cascade gate (BLACK):
+ * - Orb + time + “Florida, USA”
+ * - Vertical sweep (top → bottom) across horizontal bands
+ * - Calls onCascadeWhite near the end; then hides itself
  */
-export const CASCADE_MS = 2400 // total sweep duration
-const WHITE_CALL_MS = 2100 // when to notify parent to show WHITE + mount shop
+export const CASCADE_MS = 2800 // slightly slower so it reads
+const STAGGER_MS_PER_BAND = 36 // small stagger so bands clearly lead
+const WHITE_CALL_MS = 2400 // notify parent before sweep fully clears
+
+// Change this to 'horizontal' if you want columns (left → right) instead of rows.
+const BANDS_ORIENT: 'vertical' | 'horizontal' = 'vertical'
 
 export default function LandingGate({
   onCascadeWhite, // () => void
@@ -25,7 +29,6 @@ export default function LandingGate({
   const lockRef = useRef(false)
   const timersRef = useRef({})
 
-  /* cleanup */
   useEffect(() => {
     return () => {
       Object.values(timersRef.current).forEach(id => clearTimeout(id))
@@ -38,14 +41,14 @@ export default function LandingGate({
     lockRef.current = true
     setRunning(true)
 
-    // Tell the app to bring up WHITE and mount Shop just before the sweep ends
+    // Bring up WHITE + mount Shop right before the sweep ends.
     timersRef.current.white = setTimeout(() => {
       try {
         onCascadeWhite?.()
       } catch {}
     }, WHITE_CALL_MS)
 
-    // End: hide the gate so WHITE + Shop can be seen
+    // Hide the gate after the sweep completes.
     timersRef.current.end = setTimeout(() => {
       setRunning(false)
       setHidden(true)
@@ -55,7 +58,7 @@ export default function LandingGate({
     }, CASCADE_MS)
   }, [hidden, running, onCascadeWhite, onCascadeComplete])
 
-  // keyboard accessibility (Enter/Space)
+  // Keyboard a11y.
   useEffect(() => {
     const onKey = e => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -68,6 +71,9 @@ export default function LandingGate({
   }, [kick])
 
   if (hidden) return null
+
+  // 7-color chakra set.
+  const COLORS = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc']
 
   return (
     <div
@@ -85,10 +91,9 @@ export default function LandingGate({
         overflow: 'hidden',
         isolation: 'isolate',
       }}
-      // Any click on the gate starts the sweep
       onPointerUp={kick}
     >
-      {/* Center column: Orb, time, Florida, USA */}
+      {/* Center content */}
       <div style={{ display: 'grid', gap: 8, placeItems: 'center', lineHeight: 1.2 }}>
         <div style={{ lineHeight: 0 }}>
           <BlueOrbCross3D
@@ -100,14 +105,13 @@ export default function LandingGate({
             includeZAxis
             height="88px"
             interactive={false}
-            // faster flash so it doesn’t look laggy
             flashDecayMs={70}
           />
         </div>
+
         <button
           type="button"
           onPointerUp={kick}
-          className="gate-time"
           aria-label="Enter"
           style={{
             background: 'transparent',
@@ -121,10 +125,10 @@ export default function LandingGate({
         >
           <ClockNaples />
         </button>
+
         <button
           type="button"
           onPointerUp={kick}
-          className="gate-florida"
           aria-label="Enter"
           style={{
             background: 'transparent',
@@ -151,8 +155,7 @@ export default function LandingGate({
         </button>
       </div>
 
-      {/* PRESENTATIONAL sweep (right→left). We don’t render the white plane;
-         your Page shows WhiteLoader when we call onCascadeWhite. */}
+      {/* Sweep layer */}
       <div
         aria-hidden
         style={{
@@ -163,37 +166,68 @@ export default function LandingGate({
           transition: 'opacity 120ms ease',
         }}
       >
-        {/* 7 chakra bands */}
-        {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map(
-          (c, i) => (
+        {COLORS.map((c, i) => {
+          const common = {
+            position: 'absolute',
+            background: c,
+            filter: 'blur(18px)',
+            opacity: 0.92,
+            mixBlendMode: 'screen',
+          }
+
+          // For horizontal rows, we animate translateY (top→bottom).
+          if (BANDS_ORIENT === 'vertical') {
+            const bandH = 110 / COLORS.length // a hair taller to overlap
+            return (
+              <span
+                key={i}
+                style={{
+                  ...common,
+                  left: '-4vw',
+                  width: '108vw',
+                  height: `${bandH}vh`,
+                  top: `${(i * 100) / COLORS.length}%`,
+                  transform: 'translateY(-22%)',
+                  animation: running
+                    ? `lbSweepY ${CASCADE_MS}ms cubic-bezier(.22,.61,.21,.99) forwards`
+                    : 'none',
+                  animationDelay: `${i * STAGGER_MS_PER_BAND}ms`,
+                }}
+              />
+            )
+          }
+
+          // For vertical columns, animate translateX (left→right).
+          const bandW = 110 / COLORS.length
+          return (
             <span
               key={i}
               style={{
-                position: 'absolute',
-                top: `${(i * 100) / 7}%`,
-                left: '-30vw',
-                width: '160vw',
-                height: `${110 / 7}vh`,
-                transform: 'translateX(-18%)',
-                background: c,
-                filter: 'blur(18px)',
-                opacity: 0.92,
-                mixBlendMode: 'screen',
+                ...common,
+                top: '-6vh',
+                height: '112vh',
+                width: `${bandW}vw`,
+                left: `${(i * 100) / COLORS.length}%`,
+                transform: 'translateX(-22%)',
                 animation: running
-                  ? `lbSweep ${CASCADE_MS}ms cubic-bezier(.22,.61,.21,.99) forwards`
+                  ? `lbSweepX ${CASCADE_MS}ms cubic-bezier(.22,.61,.21,.99) forwards`
                   : 'none',
-                animationDelay: `${i * 18}ms`,
+                animationDelay: `${i * STAGGER_MS_PER_BAND}ms`,
               }}
             />
           )
-        )}
-        {/* LAMEBOY, USA overlay tracking the Florida line */}
+        })}
+
+        {/* Tracking label during sweep (kept subtle) */}
         <div
           style={{
             position: 'absolute',
             left: '50%',
             top: '50%',
-            transform: 'translate(-50%, calc(-50% + 56px))',
+            transform:
+              BANDS_ORIENT === 'vertical'
+                ? 'translate(-50%, calc(-50% + 56px))'
+                : 'translate(calc(-50% + 0px), calc(-50% + 56px))',
             color: '#fff',
             fontWeight: 800,
             letterSpacing: '.08em',
@@ -208,12 +242,28 @@ export default function LandingGate({
       </div>
 
       <style jsx>{`
-        @keyframes lbSweep {
+        @keyframes lbSweepY {
           0% {
-            transform: translateX(-18%);
+            transform: translateY(-22%);
             opacity: 0;
           }
-          6% {
+          8% {
+            opacity: 0.95;
+          }
+          92% {
+            opacity: 0.95;
+          }
+          100% {
+            transform: translateY(118%);
+            opacity: 0;
+          }
+        }
+        @keyframes lbSweepX {
+          0% {
+            transform: translateX(-22%);
+            opacity: 0;
+          }
+          8% {
             opacity: 0.95;
           }
           92% {
