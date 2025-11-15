@@ -1,7 +1,8 @@
 // src/components/HeartBeatButton.jsx
-'use client';
+// @ts-check
+'use client'
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react'
 
 /**
  * Pure heart FAB — no circle background.
@@ -10,20 +11,70 @@ import React, { useRef, useEffect } from 'react';
  */
 export default function HeartBeatButton({
   onClick,
-  size = 44,                  // heart SVG size in px
+  size = 44, // heart SVG size in px
   title = 'submit',
   ariaLabel = 'submit',
+  className = '', // pass "heart-submit" from caller
   style,
-  className = '',             // pass "heart-submit" from caller
+  bpm = 66, // base beats per minute (controls pulse speed)
+  boostMs = 520, // how long the temporary boost lasts
+  pauseOnOverlay = false, // set true if you want to freeze while overlay open
 }) {
-  const btnRef = useRef(null);
+  const btnRef = useRef(null)
+  const [paused, setPaused] = useState(false)
+  const [boosted, setBoosted] = useState(false)
+
+  // clamp BPM and compute period
+  const clampedBpm = Math.min(140, Math.max(40, bpm | 0))
+  const beatMs = useMemo(() => 60000 / clampedBpm, [clampedBpm])
 
   useEffect(() => {
-    if (!btnRef.current) return;
-    // ensure no parent styles add a circle or border
-    btnRef.current.style.background = 'transparent';
-    btnRef.current.style.border = 'none';
-  }, []);
+    if (!btnRef.current) return
+    // harden against inherited backgrounds/borders
+    btnRef.current.style.background = 'transparent'
+    btnRef.current.style.border = 'none'
+  }, [])
+
+  // Visibility pause to avoid janky catch-up when tab returns
+  useEffect(() => {
+    const onVis = () => setPaused(document.hidden)
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
+
+  // Optional overlay pause (listen for your existing event)
+  useEffect(() => {
+    if (!pauseOnOverlay) return
+    const onOpen = () => setPaused(true)
+    const onClose = () => setPaused(false)
+    document.addEventListener('lb:overlay-open', onOpen)
+    document.addEventListener('lb:overlay-close', onClose)
+    return () => {
+      document.removeEventListener('lb:overlay-open', onOpen)
+      document.removeEventListener('lb:overlay-close', onClose)
+    }
+  }, [pauseOnOverlay])
+
+  // External boost hook: dispatch new CustomEvent('lb:heart:boost')
+  useEffect(() => {
+    let to = 0
+    const onBoost = () => {
+      setBoosted(true)
+      clearTimeout(to)
+      to = window.setTimeout(() => setBoosted(false), boostMs)
+    }
+    document.addEventListener('lb:heart:boost', onBoost)
+    return () => {
+      document.removeEventListener('lb:heart:boost', onBoost)
+      clearTimeout(to)
+    }
+  }, [boostMs])
+
+  // Local hover/click micro-boost
+  const microBoost = () => {
+    setBoosted(true)
+    window.setTimeout(() => setBoosted(false), Math.min(360, boostMs))
+  }
 
   return (
     <button
@@ -31,14 +82,17 @@ export default function HeartBeatButton({
       type="button"
       aria-label={ariaLabel}
       title={title}
-      onClick={onClick}
+      onClick={e => {
+        microBoost()
+        onClick?.(e)
+      }}
+      onMouseDown={microBoost}
+      onMouseEnter={microBoost}
       className={[
         'hb',
-        // Do NOT force positioning here; let .heart-submit handle it.
-        // Keep interaction/visual basics only.
         'p-0 m-0 border-0 outline-none',
         'cursor-pointer select-none bg-transparent',
-        'active:scale-[0.97]',
+        'active:scale-[0.98]',
         className,
       ].join(' ')}
       style={{
@@ -59,6 +113,8 @@ export default function HeartBeatButton({
         height={size}
         aria-hidden="true"
         className="lb-heart"
+        data-paused={paused ? '1' : '0'}
+        data-boost={boosted ? '1' : '0'}
         style={{ display: 'block', pointerEvents: 'none' }}
       >
         <defs>
@@ -76,33 +132,69 @@ export default function HeartBeatButton({
 
       <style jsx>{`
         .lb-heart {
-          animation: lbBeat 1.15s ease-in-out infinite;
-          filter:
-            drop-shadow(0 0 6px var(--heart-neon, #ff2a4f))
-            drop-shadow(0 0 14px var(--heart-neon, #ff2a4f));
-        }
-        @keyframes lbBeat {
-          0%, 100% { transform: scale(1); }
-          15%      { transform: scale(1.12); }
-          30%      { transform: scale(1.03); }
-          45%      { transform: scale(1.14); }
-          60%      { transform: scale(1.02); }
-          75%      { transform: scale(1.08); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .lb-heart { animation: none; }
+          --hb-duration: ${beatMs}ms; /* base tempo from bpm */
+          --hb-scale-a: 1.1; /* first thump */
+          --hb-scale-b: 1.04; /* aftershock */
+          --hb-glow1: var(--heart-neon, #ff2a4f);
+          --hb-glow2: rgba(255, 42, 79, 0.55);
+
+          /* Tighter glow: no big red bubble, just a crisp neon edge */
+          filter: drop-shadow(0 0 6px var(--hb-glow1)) drop-shadow(0 0 12px var(--hb-glow2));
+
+          animation: lbBeat var(--hb-duration) ease-in-out infinite;
+          transform-origin: 50% 58%;
         }
 
-        /* focus ring for keyboard users */
+        /* Boost = slightly faster & a hair brighter, no oversized scale */
+        .lb-heart[data-boost='1'] {
+          --hb-duration: calc(${beatMs}ms * 0.82);
+          filter: drop-shadow(0 0 7px var(--hb-glow1)) drop-shadow(0 0 16px var(--hb-glow2));
+        }
+
+        /* Pause animation cleanly (visibility or overlay) */
+        .lb-heart[data-paused='1'] {
+          animation-play-state: paused;
+          filter: drop-shadow(0 0 4px var(--hb-glow1)) drop-shadow(0 0 8px var(--hb-glow2));
+        }
+
+        @keyframes lbBeat {
+          0%,
+          100% {
+            transform: scale(1);
+          }
+          16% {
+            transform: scale(var(--hb-scale-a));
+          }
+          32% {
+            transform: scale(1.02);
+          }
+          48% {
+            transform: scale(var(--hb-scale-b));
+          }
+          64% {
+            transform: scale(1.01);
+          }
+          80% {
+            transform: scale(1.03);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .lb-heart {
+            animation: none !important;
+          }
+        }
+
+        /* keyboard focus ring */
         .hb:focus-visible {
-          outline: 2px solid rgba(255, 255, 255, .85);
+          outline: 2px solid rgba(255, 255, 255, 0.9);
           outline-offset: 4px;
           border-radius: 12px;
         }
-        :global(html[data-theme="day"]) .hb:focus-visible {
-          outline-color: rgba(0, 0, 0, .85);
+        :global(html[data-theme='day']) .hb:focus-visible {
+          outline-color: rgba(0, 0, 0, 0.9);
         }
       `}</style>
     </button>
-  );
+  )
 }

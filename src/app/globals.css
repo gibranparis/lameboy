@@ -37,8 +37,8 @@
 
   /* Header controls (toggle/cart) */
   --header-ctrl: 64px;
-  --header-pad-x: 16px; /* left padding */
-  --header-pad-r: 8px; /* right padding (tighter corner) */
+  --header-pad-x: 16px;
+  --header-pad-r: 8px;
 
   /* Orb size parity with BANNED */
   --orb-px: 88px;
@@ -49,25 +49,17 @@
   /* Neon + misc */
   --banned-neon: #ff073a;
 
-  /* Safe-area variables for iOS notch/home-bar */
+  /* Safe-area variables */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
 
-  /* Circle UI colors (match arrow buttons) */
-  --circle-day: #ffffff;
-  --circle-night: #0b0c10;
-  --ring-day: rgba(0, 0, 0, 0.08);
-  --ring-night: rgba(255, 255, 255, 0.12);
-  --glyph-day: #0f1115;
-  --glyph-night: #ffffff;
-
   /* Cascade stack tokens */
   --z-white: 10002; /* white enlightenment */
   --z-bands: 10006; /* color bands */
-  --z-bands-label: 10007; /* “LAMEBOY, USA” over bands */
 }
+
 /* enforce stacking with your existing class hooks */
 .white-loader {
   z-index: var(--z-white) !important;
@@ -75,11 +67,8 @@
 .chakra-overlay {
   z-index: var(--z-bands) !important;
 }
-.chakra-label {
-  z-index: var(--z-bands-label) !important;
-}
 
-/* Theme hint for native form controls */
+/* Theme hint */
 :root[data-theme='day'] {
   color-scheme: light;
 }
@@ -95,14 +84,13 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100%;
-  background: #000; /* IMPORTANT: dark fallback — prevents white flash between states */
+  background: #000; /* prevents white flash between states */
   color: var(--text);
   font-family: var(--mono);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Motion safety */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
@@ -112,7 +100,6 @@ body {
   }
 }
 
-/* Prevent background scroll while a product overlay is open */
 html[data-overlay-open] {
   overflow: hidden;
 }
@@ -120,7 +107,7 @@ html[data-overlay-open] {
 /* ==========================================================================
    2) MODES / THEMES
    ========================================================================== */
-/* Gate mode hardening (no white flashes) */
+/* Gate mode */
 :root[data-mode='gate'] {
   --bg: #000;
   --text: #fff;
@@ -130,7 +117,7 @@ html[data-overlay-open] {
   transition-property: none !important;
 }
 
-/* Shop theme tokens */
+/* Shop tokens */
 :root[data-mode='shop'][data-theme='day'] {
   --bg: var(--shop-offwhite);
   --panel: var(--shop-offwhite);
@@ -142,13 +129,13 @@ html[data-overlay-open] {
   --text: #fff;
 }
 
-/* CRITICAL: do not allow off-white to show until the shop has mounted */
+/* Do not allow off-white to show until the shop has mounted */
 :root[data-mode='shop']:not([data-shop-mounted]) {
   --bg: #000;
   --text: #fff;
 }
 
-/* Apply background using token — safe because of guard above */
+/* Apply background/text via tokens */
 :root[data-mode='shop'] {
   background: var(--bg);
   color: var(--text);
@@ -184,7 +171,7 @@ html[data-overlay-open] {
   margin-right: auto !important;
 }
 
-/* Chakra runner pinned to bottom + safe-area fill */
+/* Runner */
 .lb-chakra-runner {
   position: fixed;
   left: 0;
@@ -233,7 +220,6 @@ html[data-overlay-open] {
   justify-self: end;
 }
 
-/* Cart button */
 .cart-fab {
   position: relative;
   display: inline-flex;
@@ -314,7 +300,6 @@ html[data-overlay-open] {
 :root[data-mode='shop'] header[role='banner'] .cart-fab:hover {
   transform: translateY(-1px);
 }
-
 @keyframes cartPulse {
   0% {
     box-shadow: 0 0 0 0 rgba(11, 240, 95, 0.55);
@@ -336,7 +321,6 @@ html[data-overlay-open] {
 .shop-wrap {
   padding: 18px var(--header-pad-x) 56px;
 }
-
 .shop-grid {
   --gap: clamp(10px, 1.2vw, 18px);
   display: grid;
@@ -382,13 +366,13 @@ html:has(.shop-grid[style*='--grid-cols: 5']) .product-img {
   line-height: 1.05;
 }
 
-/* Keep grid hidden until ProductOverlay announces it's mounted */
+/* Keep grid hidden until ProductOverlay/Shop ready */
 :root[data-mode='shop'][data-grid-veil='1'] .shop-grid {
   visibility: hidden !important;
   opacity: 0 !important;
 }
 
-/* Remove stray whites in shop */
+/* Clean backgrounds */
 :root[data-mode='shop'] .shop-page,
 :root[data-mode='shop'] .shop-wrap,
 :root[data-mode='shop'] .shop-grid,
@@ -459,24 +443,6 @@ html:has([data-shop-root]) .logo-3d {
   opacity: 0.9;
 }
 
-.product-hero-close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: inline-grid !important;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  line-height: 0;
-  font-weight: 900;
-  font-size: 16px;
-  border-radius: 9999px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  background: #fff;
-  color: #111;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
-}
-
 /* Overlay/animation guards */
 :root[data-overlay-open] .shop-grid {
   visibility: hidden;
@@ -500,7 +466,7 @@ html:has([data-shop-root]) .logo-3d {
   overflow: hidden;
   clip-path: circle(50% at 50% 50%);
   position: relative;
-  z-index: 600 !important; /* <-- fixed (z-index) */
+  z-index: 600 !important;
 }
 [data-orb='density'],
 [data-orb='density'] * {
@@ -575,7 +541,7 @@ html:has([data-shop-root]) .logo-3d {
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.45), 0 0 16px rgba(255, 255, 255, 0.3);
 }
 
-/* Links: Florida + Time */
+/* Links */
 .florida-link {
   font-weight: 800;
   color: #fff;
@@ -606,13 +572,6 @@ html:has([data-shop-root]) .logo-3d {
   filter: saturate(1.05);
 }
 
-/* Arrow flash */
-.arrow-pill.is-hot > div {
-  background: var(--hover-green) !important;
-  color: #000 !important;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.12) !important;
-}
-
 /* ==========================================================================
    9) PILLS / DOTS
    ========================================================================== */
@@ -629,45 +588,34 @@ html:has([data-shop-root]) .logo-3d {
   border-radius: 9999px;
   line-height: 1;
   font-size: 18px;
-  background: var(--circle-day);
-  color: var(--glyph-day);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px var(--ring-day);
+  background: #fff;
+  color: #0f1115;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 :root[data-theme='night'] .plus-pill {
-  background: var(--circle-night);
-  color: var(--glyph-night);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px var(--ring-night);
+  background: #0b0c10;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
-.plus-pill.is-ready {
-  background: var(--circle-day);
-  color: var(--glyph-day);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px var(--ring-day);
-}
-:root[data-theme='night'] .plus-pill.is-ready {
-  background: var(--circle-night);
-  color: var(--glyph-night);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px var(--ring-night);
-}
-/* green flash override */
-.plus-pill.is-hot,
-.plus-pill.is-hot.is-ready {
+.plus-pill.is-hot {
   background: var(--hover-green) !important;
   color: #000 !important;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.12) !important;
 }
+
 .size-pill {
   width: 28px;
   height: 28px;
   border-radius: 9999px;
   font-size: 12px;
-  background: var(--circle-day);
-  color: var(--glyph-day);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px var(--ring-day);
+  background: #fff;
+  color: #0f1115;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 :root[data-theme='night'] .size-pill {
-  background: var(--circle-night);
-  color: var(--glyph-night);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px var(--ring-night);
+  background: #0b0c10;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 .size-pill.is-selected {
   background: var(--hover-green);
@@ -675,7 +623,7 @@ html:has([data-shop-root]) .logo-3d {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 
-/* Image dots */
+/* Dots */
 .dot-pill {
   border-radius: 9999px;
   padding: 0;
@@ -692,27 +640,11 @@ html:has([data-shop-root]) .logo-3d {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 
-@keyframes flashGreen {
-  0% {
-    filter: saturate(1);
-  }
-  50% {
-    filter: saturate(1.4);
-  }
-  100% {
-    filter: saturate(1);
-  }
-}
-.flash-green {
-  animation: flashGreen 0.22s ease;
-}
-
 /* ==========================================================================
-   10) CHAKRA CASCADE (RAF) — NO BLACK FLOOR + SINGLE PASS
+   10) CHAKRA CASCADE — single pass, no black floor
    ========================================================================== */
-/* Default: bands OFF unless active */
 .chakra-overlay {
-  display: none; /* <- hard off unless we’re in the active phase */
+  display: none;
   position: fixed;
   inset: 0;
   z-index: var(--z-bands) !important;
@@ -720,13 +652,16 @@ html:has([data-shop-root]) .logo-3d {
   pointer-events: none;
   direction: rtl;
   isolation: isolate;
-  background: transparent !important; /* force transparent — no black floor */
+  background: transparent !important;
 }
-/* Only show bands while cascade is active */
 :root[data-cascade-active='1'] .chakra-overlay {
   display: grid;
 }
+.chakra-overlay[data-js-cascade='raf'] .chakra-band {
+  animation: none !important;
+}
 
+/* Bands (if you reuse this class) */
 .chakra-band {
   position: relative;
   opacity: 1;
@@ -743,50 +678,18 @@ html:has([data-shop-root]) .logo-3d {
   opacity: 0.55;
   pointer-events: none;
 }
-
-/* Color map */
-.chakra-root {
-  --c: #ff0000;
-  background: #ff0000;
-}
-.chakra-sacral {
-  --c: #ff7f00;
-  background: #ff7f00;
-}
-.chakra-plexus {
-  --c: #ffff00;
-  background: #ffff00;
-}
-.chakra-heart {
-  --c: #00ff00;
-  background: #00ff00;
-}
-.chakra-throat {
-  --c: #0000ff;
-  background: #0000ff;
-}
-.chakra-thirdeye {
-  --c: #4b0082;
-  background: #4b0082;
-}
-.chakra-crown {
-  --c: #ff00c8;
-  background: #ff00c8;
-}
-
-/* If using RAF, ensure CSS keyframes never kick in */
-.chakra-overlay[data-js-cascade='raf'] .chakra-band {
-  animation: none !important;
-}
-
-/* Day looks brighter */
 :root[data-theme='day'] .chakra-band::before {
   opacity: 0.95;
   filter: blur(26px);
 }
 
+/* After done, never show bands */
+:root[data-cascade-done='1'] .chakra-overlay {
+  display: none !important;
+}
+
 /* ==========================================================================
-   11) LEGACY / NEON CARD / LOGO
+   11) LEGACY / LOGO, etc.
    ========================================================================== */
 .vscode-card {
   background: var(--panel);
@@ -922,36 +825,4 @@ html:has([data-shop-root]) .logo-3d {
   75% {
     transform: scale(1.08);
   }
-}
-/* (+) should never turn green itself */
-.plus-pill.pulse-green {
-  /* intentionally no-op */
-}
-
-/* ==========================================================================
-   13) HARD GUARDS FOR SINGLE-PASS VISIBILITY
-   ========================================================================== */
-/* White enlightenment layer only shown while data-white="1" */
-.white-loader {
-  display: none;
-}
-:root[data-white='1'] .white-loader {
-  display: block;
-}
-
-/* Bands never show after cascade is done */
-:root[data-cascade-done='1'] .chakra-overlay {
-  display: none !important;
-}
-
-/* Belt-and-suspenders: legacy overlay must always be transparent */
-.chakra-overlay,
-:root[data-mode='gate'] .chakra-overlay {
-  background: transparent !important;
-}
-
-/* Ensure nothing undercuts the enlightenment layer while it's visible */
-.white-loader,
-.white-loader * {
-  pointer-events: none !important;
 }

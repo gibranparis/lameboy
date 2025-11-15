@@ -1,3 +1,4 @@
+// src/app/page.js
 'use client'
 
 export const dynamic = 'force-static'
@@ -19,8 +20,6 @@ const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton')
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 const RUNNER_H = 14
-
-// must match LandingGate LAYERS.WHITE - 1
 const WHITE_Z = 10002
 
 /* ---------------- White Loading Overlay (black orb/time/label) ---------------- */
@@ -173,7 +172,7 @@ export default function Page() {
 
   /* Gate → Shop handoff */
   const onWhiteStart = () => {
-    setLoaderShow(true) // white appears; bands render above via z-index
+    setLoaderShow(true) // WHITE appears; bands render above via z-index
     setVeilGrid(true)
   }
   const enterShop = () => {
