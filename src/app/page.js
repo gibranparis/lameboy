@@ -4,7 +4,7 @@
 export const dynamic = 'force-static'
 
 import nextDynamic from 'next/dynamic'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import products from '@/lib/products'
 
 const LandingGate = nextDynamic(() => import('@/components/LandingGate'), { ssr: false })
@@ -21,6 +21,21 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 const WHITE_Z = 10002
+
+/* ---------------- helpers ---------------- */
+function applyTheme(theme /* 'day' | 'night' */) {
+  try {
+    const root = document.documentElement
+    root.setAttribute('data-theme', theme)
+    root.classList.toggle('dark', theme === 'night')
+    try {
+      localStorage.setItem('lb:theme', theme)
+    } catch {}
+    const evt = new CustomEvent('theme-change', { detail: { theme } })
+    document.dispatchEvent(evt)
+    window.dispatchEvent?.(evt)
+  } catch {}
+}
 
 /* ---- WHITE overlay (black orb/time/label) appears ONLY after cascade ends ---- */
 function WhiteLoader({ show, onFadeOutEnd }) {
@@ -127,14 +142,23 @@ function useHeaderCtrlPx(defaultPx = 64) {
   return px
 }
 
+/* ---------------- page ---------------- */
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
-  const [theme, setTheme] = useState('day')
-  const [isShop, setIsShop] = useState(false)
 
+  // theme state mirrors html; we also listen for external theme-change from the toggle
+  const [theme, setTheme] = useState('day')
+
+  // gate/shop state
+  const [isShop, setIsShop] = useState(false)
   const [whiteShow, setWhiteShow] = useState(false)
   const [veilGrid, setVeilGrid] = useState(true)
   const [loginOpen, setLoginOpen] = useState(false)
+
+  // guards to prevent duplicate cascade & duplicate reveal
+  const didWhiteStart = useRef(false)
+  const didReveal = useRef(false)
+  const safetyTimer = useRef(null)
 
   /* tokens */
   useEffect(() => {
@@ -143,18 +167,21 @@ export default function Page() {
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  /* gate/shop mode */
+  /* reflect mode + theme on html */
   useEffect(() => {
     const root = document.documentElement
-    root.setAttribute('data-theme', theme)
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate')
-    if (isShop) {
-      root.setAttribute('data-shop-root', '')
-    } else {
+    if (isShop) root.setAttribute('data-shop-root', '')
+    else {
       root.removeAttribute('data-shop-root')
       root.removeAttribute('data-shop-mounted')
     }
-  }, [theme, isShop])
+  }, [isShop])
+
+  useEffect(() => {
+    // keep theme attribute/class synced to state (covers SSR→CSR and external changes)
+    applyTheme(theme)
+  }, [theme])
 
   /* overlay-open flag for banned/login */
   useEffect(() => {
@@ -163,7 +190,7 @@ export default function Page() {
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  /* listen for day/night */
+  /* listen for day/night from toggle */
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -176,49 +203,62 @@ export default function Page() {
 
   /* —— Gate → Shop choreography —— */
 
-  // 1) LANDING signals WHITE at the very end of the sweep:
+  // 1) LANDING signals WHITE at the very end of the sweep
   const onCascadeWhite = () => {
-    // show WHITE; switch to shop behind it; keep grid veiled until ready
+    // guard: prevent double-trigger (some gates can emit twice)
+    if (didWhiteStart.current) return
+    didWhiteStart.current = true
+    document.documentElement.setAttribute('data-cascade-lock', '1')
+
+    // Force DAY **before** mounting shop so first paint is Day
+    setTheme('day')
+    applyTheme('day')
+
+    // show WHITE, mount shop behind it, keep grid veiled
     setWhiteShow(true)
     setVeilGrid(true)
     setIsShop(true)
   }
 
-  // 2) Mark shop "mounted" next frame so off-white can take over tokens safely
+  // 2) set shop-mounted flag on next frame (lets off-white/shop tokens take over)
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
       root.setAttribute('data-shop-mounted', '1')
-      // default day on entry (matches your spec)
-      root.setAttribute('data-theme', 'day')
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
-  // 3) shop readiness → un-veil grid + fade WHITE out
+  // 3) one-shot "reveal" when shop/overlay is ready; also a safety fallback
   useEffect(() => {
-    const onReady = () => {
+    const revealOnce = () => {
+      if (didReveal.current) return
+      didReveal.current = true
       setVeilGrid(false)
-      // small delay so the grid is visible under WHITE before it fades
+      // allow a beat so grid is visible under WHITE, then fade WHITE out
       setTimeout(() => setWhiteShow(false), 120)
+      if (safetyTimer.current) {
+        clearTimeout(safetyTimer.current)
+        safetyTimer.current = null
+      }
     }
-    const handlers = [
-      ['lb:overlay-mounted', onReady],
-      ['lb:overlay-open', onReady],
-      ['lb:shop-ready', onReady],
-    ]
-    handlers.forEach(([n, h]) => window.addEventListener(n, h))
-    const safety = setTimeout(onReady, 3000)
+
+    const onReady = () => revealOnce()
+    const names = ['lb:overlay-mounted', 'lb:overlay-open', 'lb:shop-ready']
+
+    names.forEach(n => window.addEventListener(n, onReady))
+    safetyTimer.current = setTimeout(revealOnce, 3000) // graceful fallback
+
     return () => {
-      handlers.forEach(([n, h]) => window.removeEventListener(n, h))
-      clearTimeout(safety)
+      names.forEach(n => window.removeEventListener(n, onReady))
+      if (safetyTimer.current) clearTimeout(safetyTimer.current)
     }
   }, [])
 
-  // 4) cascade complete hook (no-op here; kept for clarity/metrics)
+  // 4) (optional) end-of-cascade callback for analytics clarity
   const onCascadeComplete = () => {
-    // nothing required — WHITE already showing and shop already spinning up
+    // no-op: WHITE already active and shop spin-up in progress
   }
 
   /* grid veil attr */
@@ -291,12 +331,7 @@ export default function Page() {
 
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
-            <HeartBeatButton
-              className="heart-submit"
-              aria-label="Open login"
-              onClick={() => {}}
-              // keep heartbeat visual without opening modal for now
-            />
+            <HeartBeatButton className="heart-submit" aria-label="Open login" onClick={() => {}} />
           </main>
 
           <div className="lb-chakra-runner">

@@ -18,6 +18,37 @@ function flash(el, klass = 'is-hot', ms = 220) {
   window.setTimeout(() => el.classList.remove(klass), ms)
 }
 
+/* ---------------- theme hook (reactive) ---------------- */
+function useTheme() {
+  const read = () => {
+    if (typeof document === 'undefined') return { night: false }
+    const root = document.documentElement
+    const isNight = root.dataset.theme === 'night' || root.classList.contains('dark')
+    return { night: isNight }
+  }
+  const [{ night }, setState] = useState(read)
+
+  useEffect(() => {
+    const onTheme = e => {
+      const t = e?.detail?.theme
+      if (t === 'night') setState({ night: true })
+      else if (t === 'day') setState({ night: false })
+      else setState(read())
+    }
+    // initialize once (covers SSR→CSR and any missed event)
+    setState(read())
+    window.addEventListener('theme-change', onTheme)
+    document.addEventListener('theme-change', onTheme)
+    return () => {
+      window.removeEventListener('theme-change', onTheme)
+      document.removeEventListener('theme-change', onTheme)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return night
+}
+
 /* ---------------- arrow buttons ---------------- */
 function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
   const baseBg = night ? '#000000' : '#ffffff'
@@ -47,8 +78,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
           transition: 'background .12s ease, box-shadow .12s ease, transform .08s ease',
         }}
       >
-        {/* If you want to swap to your custom glyphs later, set CSS vars:
-            --arrow-up-url / --arrow-down-url as mask-image */}
+        {/* mask-capable glyph */}
         <span
           style={{
             display: 'inline-block',
@@ -63,7 +93,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
             backgroundColor: glyph,
           }}
         />
-        {/* Fallback to inline SVG if no mask is provided */}
+        {/* fallback SVG */}
         <svg
           width="14"
           height="14"
@@ -400,10 +430,7 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
 
 /* ---------------- component ---------------- */
 export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
-  const night =
-    typeof document !== 'undefined' &&
-    (document.documentElement.dataset.theme === 'night' ||
-      document.documentElement.classList.contains('dark'))
+  const night = useTheme()
 
   const product = products[index]
   const imgs = useMemo(() => {
