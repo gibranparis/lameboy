@@ -708,19 +708,25 @@ html:has([data-shop-root]) .logo-3d {
 }
 
 /* ==========================================================================
-   10) CHAKRA CASCADE (RAF) — NO BLACK FLOOR
+   10) CHAKRA CASCADE (RAF) — NO BLACK FLOOR + SINGLE PASS
    ========================================================================== */
+/* Default: bands OFF unless active */
 .chakra-overlay {
+  display: none; /* <- hard off unless we’re in the active phase */
   position: fixed;
   inset: 0;
-  z-index: var(--z-bands) !important; /* use token; keeps bands above white layer */
-  display: grid;
+  z-index: var(--z-bands) !important;
   grid-template-columns: repeat(7, 1fr);
   pointer-events: none;
   direction: rtl;
   isolation: isolate;
   background: transparent !important; /* force transparent — no black floor */
 }
+/* Only show bands while cascade is active */
+:root[data-cascade-active='1'] .chakra-overlay {
+  display: grid;
+}
+
 .chakra-band {
   position: relative;
   opacity: 1;
@@ -768,9 +774,12 @@ html:has([data-shop-root]) .logo-3d {
   background: #ff00c8;
 }
 
+/* If using RAF, ensure CSS keyframes never kick in */
 .chakra-overlay[data-js-cascade='raf'] .chakra-band {
   animation: none !important;
 }
+
+/* Day looks brighter */
 :root[data-theme='day'] .chakra-band::before {
   opacity: 0.95;
   filter: blur(26px);
@@ -919,7 +928,23 @@ html:has([data-shop-root]) .logo-3d {
   /* intentionally no-op */
 }
 
-/* Belt-and-suspenders: if any legacy overlay slips through */
+/* ==========================================================================
+   13) HARD GUARDS FOR SINGLE-PASS VISIBILITY
+   ========================================================================== */
+/* White enlightenment layer only shown while data-white="1" */
+.white-loader {
+  display: none;
+}
+:root[data-white='1'] .white-loader {
+  display: block;
+}
+
+/* Bands never show after cascade is done */
+:root[data-cascade-done='1'] .chakra-overlay {
+  display: none !important;
+}
+
+/* Belt-and-suspenders: legacy overlay must always be transparent */
 .chakra-overlay,
 :root[data-mode='gate'] .chakra-overlay {
   background: transparent !important;
