@@ -20,8 +20,8 @@ function flash(el, klass = 'is-hot', ms = 220) {
 
 /* ---------------- arrow buttons ---------------- */
 function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
-  const baseBg = night ? '#0b0c10' : '#ffffff'
-  const ring = night ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)'
+  const baseBg = night ? '#000000' : '#ffffff'
+  const ring = night ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.10)'
   const glyph = night ? '#ffffff' : '#0f1115'
 
   return (
@@ -44,10 +44,34 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
           placeItems: 'center',
           background: baseBg,
           boxShadow: `0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}`,
-          transition: 'background .12s ease',
+          transition: 'background .12s ease, box-shadow .12s ease, transform .08s ease',
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        {/* If you want to swap to your custom glyphs later, set CSS vars:
+            --arrow-up-url / --arrow-down-url as mask-image */}
+        <span
+          style={{
+            display: 'inline-block',
+            width: 14,
+            height: 14,
+            WebkitMaskImage: `var(--arrow-${dir}-url, none)`,
+            maskImage: `var(--arrow-${dir}-url, none)`,
+            WebkitMaskSize: 'contain',
+            maskSize: 'contain',
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+            backgroundColor: glyph,
+          }}
+        />
+        {/* Fallback to inline SVG if no mask is provided */}
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          focusable="false"
+          aria-hidden="true"
+          style={{ position: 'absolute', opacity: 'var(--arrow-fallback,1)' }}
+        >
           {dir === 'up' ? (
             <path
               d="M6 14l6-6 6 6"
@@ -86,6 +110,9 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
   const onToggle = () => {
     if (showAdded) return
     setOpen(v => !v)
+    setPlusHot(true)
+    clearTimeout(timers.current.plusTick)
+    timers.current.plusTick = setTimeout(() => setPlusHot(false), 160)
   }
 
   const pick = sz => {
@@ -96,7 +123,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
     setHotSize(sz)
     setPlusHot(true)
     clearTimeout(timers.current.plus)
-    timers.current.plus = setTimeout(() => setPlusHot(false), 220)
+    timers.current.plus = setTimeout(() => setPlusHot(false), 180)
 
     clearTimeout(timers.current.close)
     timers.current.close = setTimeout(() => {
@@ -105,7 +132,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
       setAdded(true)
       clearTimeout(timers.current.hide)
       timers.current.hide = setTimeout(() => setAdded(false), 900)
-    }, 420)
+    }, 380)
   }
 
   useEffect(() => () => Object.values(timers.current).forEach(t => clearTimeout(t)), [])
@@ -129,12 +156,10 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
         className={[
           'pill',
           'plus-pill',
-          open ? 'is-ready' : '',
+          open ? 'is-open' : '',
           plusHot ? 'is-hot' : '',
           showAdded ? 'is-hidden' : '',
-        ]
-          .join(' ')
-          .trim()}
+        ].join(' ')}
         onClick={onToggle}
         aria-label={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
         title={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
@@ -176,9 +201,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
               'size-pill',
               picked === sz ? 'is-selected' : '',
               hotSize === sz ? 'is-hot' : '',
-            ]
-              .join(' ')
-              .trim()}
+            ].join(' ')}
             data-size={sz}
             onClick={() => pick(sz)}
             aria-label={`Size ${sz}`}
@@ -190,16 +213,67 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
       </div>
 
       <style jsx>{`
+        .plus-pill {
+          width: 44px;
+          height: 44px;
+          border-radius: 9999px;
+          display: grid;
+          place-items: center;
+          font-size: 28px;
+          line-height: 1;
+          font-weight: 800;
+          color: #0f1115;
+          background: #fff;
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
+          transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease,
+            color 0.12s ease;
+        }
+        :root[data-theme='night'] .plus-pill {
+          color: #fff;
+          background: #000;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .plus-pill.is-open,
+        .plus-pill.is-hot {
+          background: var(--hover-green, #0bf05f);
+          color: #000;
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.12);
+          transform: translateZ(0) scale(1.02);
+        }
+
         .size-panel {
           overflow: hidden;
           max-height: 0;
-          transition: max-height 0.28s ease;
+          transition: max-height 0.26s ease;
           display: flex;
           flex-wrap: nowrap;
           justify-content: center;
         }
         .size-panel.is-open {
           max-height: 68px;
+        }
+        .size-pill {
+          height: 36px;
+          min-width: 44px;
+          padding: 0 12px;
+          border-radius: 9999px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          background: #fff;
+          color: #0f1115;
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+          transition: transform 0.08s ease, box-shadow 0.2s ease, background 0.12s ease,
+            color 0.12s ease;
+        }
+        :root[data-theme='night'] .size-pill {
+          background: #000;
+          color: #fff;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+        }
+        .size-pill.is-selected {
+          background: var(--hover-green, #0bf05f);
+          color: #000;
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
         }
         .size-pill.is-hot {
           transform: scale(1.06);
@@ -217,6 +291,27 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
             box-shadow: 0 0 0 10px rgba(11, 240, 95, 0), inset 0 0 0 1px rgba(11, 240, 95, 0.2);
           }
         }
+
+        .arrow-pill.is-hot > div {
+          background: var(--hover-green, #0bf05f) !important;
+          color: #000 !important;
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.12) !important;
+        }
+        .dot-pill {
+          border-radius: 9999px;
+          padding: 0;
+          width: 18px;
+          height: 18px;
+          background: #ececec;
+        }
+        :root[data-theme='night'] .dot-pill {
+          background: #111;
+        }
+        .dot-pill.is-active {
+          background: var(--hover-green, #0bf05f);
+          color: #000;
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+        }
       `}</style>
     </div>
   )
@@ -230,9 +325,9 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
     window.matchMedia &&
     window.matchMedia('(pointer:coarse)').matches
 
-  const STEP_X = coarse ? 90 : 50
-  const STEP_Y = coarse ? 120 : 70
-  const FLICK_V_BONUS = coarse ? 0.2 : 0.35
+  const STEP_X = coarse ? 88 : 48
+  const STEP_Y = coarse ? 110 : 64
+  const FLICK_V_BONUS = coarse ? 0.22 : 0.35
 
   const onDown = useCallback(e => {
     const p = e.touches ? e.touches[0] : e
@@ -327,7 +422,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     try {
       window.dispatchEvent(new Event('lb:overlay-open'))
     } catch {}
-    return () => {}
   }, [])
 
   /* close on orb zoom */
@@ -448,15 +542,10 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           display: 'grid',
           placeItems: 'center',
           background: 'transparent',
-          pointerEvents: 'none',
+          pointerEvents: 'none', // overlay click-away works; hero handles interactions
           overscrollBehavior: 'contain',
-          touchAction: 'none',
           cursor: 'default',
         }}
-        onPointerDown={swipe.onDown}
-        onPointerMove={swipe.onMove}
-        onPointerUp={swipe.onUp}
-        onPointerCancel={swipe.onUp}
       >
         {/* click-away */}
         <div
@@ -477,7 +566,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
         <div
           className="product-hero"
-          style={{ pointerEvents: 'auto', textAlign: 'center', zIndex: 521 }}
+          style={{ pointerEvents: 'auto', textAlign: 'center', zIndex: 521, touchAction: 'none' }}
+          onPointerDown={swipe.onDown}
+          onPointerMove={swipe.onMove}
+          onPointerUp={swipe.onUp}
+          onPointerCancel={swipe.onUp}
         >
           {/* side arrows */}
           {products.length > 1 && (
@@ -567,11 +660,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
       {/* tiny helpers for arrow/dot states */}
       <style jsx>{`
-        .arrow-pill.is-hot > div {
-          background: var(--hover-green) !important;
-          color: #000 !important;
-          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.12) !important;
-        }
         .dot-pill {
           border-radius: 9999px;
           padding: 0;
@@ -583,7 +671,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           background: #111;
         }
         .dot-pill.is-active {
-          background: var(--hover-green);
+          background: var(--hover-green, #0bf05f);
           color: #000;
           box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
         }

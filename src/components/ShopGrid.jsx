@@ -6,6 +6,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ProductOverlay from '@/components/ProductOverlay'
 import { PRODUCTS, logMissingAssets } from '@/lib/products'
 
+/** Storage key for saved grid density */
+const KEY_DENSITY = 'lb:grid-cols'
+
 export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   /* ---------------- Seed products ---------------- */
   const seed = useMemo(() => {
@@ -51,8 +54,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   /* ---------------- Overlay state ---------------- */
   const [overlayIdx, setOverlayIdx] = useState(/** @type {number|null} */ null)
   const overlayOpen = overlayIdx != null
-  const open = i => setOverlayIdx(i)
-  const close = () => setOverlayIdx(null)
+  const open = useCallback(i => setOverlayIdx(i), [])
+  const close = useCallback(() => setOverlayIdx(null), [])
 
   // Auto-open first product on mount (slight delay to allow layout)
   useEffect(() => {
@@ -65,7 +68,17 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   /* ---------------- Grid density via orb ---------------- */
   const MIN_COLS = 1
   const MAX_COLS = 5
-  const [cols, setCols] = useState(MAX_COLS)
+
+  const readSavedCols = () => {
+    try {
+      const v = Number(sessionStorage.getItem(KEY_DENSITY) || '')
+      return Number.isFinite(v) ? v : MAX_COLS
+    } catch {
+      return MAX_COLS
+    }
+  }
+
+  const [cols, setCols] = useState(readSavedCols)
 
   const broadcastDensity = useCallback(density => {
     const detail = { density, value: density }
@@ -77,30 +90,51 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     } catch {}
   }, [])
 
+  const syncCssTokens = useCallback(n => {
+    try {
+      const root = document.documentElement
+      root.style.setProperty('--grid-cols', String(n))
+      root.setAttribute('data-grid-cols', String(n))
+    } catch {}
+  }, [])
+
   const applyCols = useCallback(
-    next => {
+    (next, { broadcast = true, persist = true } = {}) => {
       const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, next | 0))
       setCols(clamped)
-      try {
-        document.documentElement.style.setProperty('--grid-cols', String(clamped))
-      } catch {}
-      broadcastDensity(clamped)
+      if (persist) {
+        try {
+          sessionStorage.setItem(KEY_DENSITY, String(clamped))
+        } catch {}
+      }
+      syncCssTokens(clamped)
+      if (broadcast) broadcastDensity(clamped)
     },
-    [broadcastDensity]
+    [broadcastDensity, syncCssTokens]
   )
 
+  // On mount: apply saved, sync CSS, broadcast once
   useEffect(() => {
-    applyCols(cols)
+    applyCols(readSavedCols(), { broadcast: true, persist: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Listen for zoom/density events from the orb/header
   useEffect(() => {
     const onZoom = e => {
+      // If overlay is open, close it first (keeps the “single page” interaction clean)
       if (overlayIdx != null) {
         setOverlayIdx(null)
         return
       }
       const d = e?.detail || {}
+      // If an explicit value is provided, prefer it (direct set)
+      const explicit = Number(d.value)
+      if (Number.isFinite(explicit) && explicit >= MIN_COLS && explicit <= MAX_COLS) {
+        applyCols(explicit)
+        return
+      }
+
       const step = Math.max(1, Math.min(3, Number(d.step) || 1))
       const dir = typeof d.dir === 'string' ? d.dir : null
 
@@ -120,6 +154,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         })
         return
       }
+      // Toggle one step by default
       setCols(p => {
         const goingIn = p > MIN_COLS
         const n = goingIn ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1)
@@ -128,12 +163,13 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       })
     }
 
-    ;['lb:zoom'].forEach(n => {
+    const names = ['lb:zoom', 'lb:zoom/grid-density']
+    names.forEach(n => {
       window.addEventListener(n, onZoom)
       document.addEventListener(n, onZoom)
     })
     return () => {
-      ;['lb:zoom'].forEach(n => {
+      names.forEach(n => {
         window.removeEventListener(n, onZoom)
         document.removeEventListener(n, onZoom)
       })
@@ -182,12 +218,23 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   )
 
   /* ---------------- Render ---------------- */
+  const firstTileRef = useRef(null)
+
   return (
-    <div className="shop-wrap" data-shop-root style={{ ['--grid-cols']: String(cols) }}>
+    <div
+      className="shop-wrap"
+      data-shop-root
+      style={{
+        ['--grid-cols']: String(cols),
+        background: 'var(--shop-offwhite, #F7F7F2)',
+        minHeight: '100dvh',
+      }}
+    >
       <div className="shop-grid">
         {seed.map((p, idx) => (
           <a
             key={p.id ?? idx}
+            ref={idx === 0 ? firstTileRef : undefined}
             className="product-tile lb-tile"
             role="button"
             tabIndex={0}
@@ -221,6 +268,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 }}
                 onError={e => {
                   const img = e.currentTarget
+                  // two-step fallback: thumb -> image -> brown.png
                   if (img.dataset.fallback === 'hero') {
                     img.src = '/products/brown.png'
                     img.dataset.fallback = 'final'
@@ -244,6 +292,46 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           onClose={close}
         />
       )}
+
+      <style jsx>{`
+        .shop-wrap {
+          width: 100%;
+        }
+        .shop-grid {
+          display: grid;
+          grid-template-columns: repeat(var(--grid-cols, 5), minmax(0, 1fr));
+          gap: clamp(10px, 2vw, 18px);
+          padding: clamp(10px, 3vw, 24px);
+        }
+        .product-box {
+          aspect-ratio: 1 / 1;
+          background: #fff;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+        }
+        .product-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .product-tile {
+          text-decoration: none;
+          color: inherit;
+          outline: none;
+        }
+        .product-tile:focus-visible .product-box {
+          box-shadow: 0 0 0 2px #000, 0 1px 6px rgba(0, 0, 0, 0.08);
+        }
+        .product-meta {
+          font-size: 0.9rem;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          margin-top: 8px;
+          text-align: center;
+        }
+      `}</style>
     </div>
   )
 }
