@@ -16,13 +16,10 @@ export const CASCADE_MS = 2800 // slightly slower so it reads
 const STAGGER_MS_PER_BAND = 36 // small stagger so bands clearly lead
 const WHITE_CALL_MS = 2400 // notify parent before sweep fully clears
 
-// Change this to 'horizontal' if you want columns (left → right) instead of rows.
-const BANDS_ORIENT: 'vertical' | 'horizontal' = 'vertical'
+// Set to 'horizontal' if you want columns (left → right) instead of rows.
+const BANDS_ORIENT = 'vertical'
 
-export default function LandingGate({
-  onCascadeWhite, // () => void
-  onCascadeComplete, // () => void
-}) {
+export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const [running, setRunning] = useState(false)
   const [hidden, setHidden] = useState(false)
 
@@ -44,7 +41,7 @@ export default function LandingGate({
     // Bring up WHITE + mount Shop right before the sweep ends.
     timersRef.current.white = setTimeout(() => {
       try {
-        onCascadeWhite?.()
+        onCascadeWhite && onCascadeWhite()
       } catch {}
     }, WHITE_CALL_MS)
 
@@ -53,7 +50,7 @@ export default function LandingGate({
       setRunning(false)
       setHidden(true)
       try {
-        onCascadeComplete?.()
+        onCascadeComplete && onCascadeComplete()
       } catch {}
     }, CASCADE_MS)
   }, [hidden, running, onCascadeWhite, onCascadeComplete])
@@ -92,6 +89,7 @@ export default function LandingGate({
         isolation: 'isolate',
       }}
       onPointerUp={kick}
+      onClick={kick}
     >
       {/* Center content */}
       <div style={{ display: 'grid', gap: 8, placeItems: 'center', lineHeight: 1.2 }}>
@@ -175,7 +173,7 @@ export default function LandingGate({
             mixBlendMode: 'screen',
           }
 
-          // For horizontal rows, we animate translateY (top→bottom).
+          // For horizontal rows, animate translateY (top→bottom).
           if (BANDS_ORIENT === 'vertical') {
             const bandH = 110 / COLORS.length // a hair taller to overlap
             return (
