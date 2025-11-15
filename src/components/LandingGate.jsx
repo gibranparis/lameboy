@@ -1,24 +1,31 @@
 // src/components/LandingGate.jsx
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import nextDynamic from 'next/dynamic'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-const CASCADE_MS = 2400 // total sweep
-const BANDS_LEAD_MS = 320 // bands lead before white curtain (visual only)
-const WHITE_CALL_MS = 2100 // when we tell app to show White (just before sweep ends)
+const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
+
+/**
+ * One-shot cascade gate:
+ * - Shows BLACK gate with orb + time + "Florida, USA"
+ * - On tap/click: plays sweep once, calls onCascadeWhite near the end, then hides itself
+ * - No sessionStorage auto-hide (that caused the black-screen)
+ */
+export const CASCADE_MS = 2400 // total sweep duration
+const WHITE_CALL_MS = 2100 // when to notify parent to show WHITE + mount shop
 
 export default function LandingGate({
-  className = '',
-  onCascadeWhite, // () => void  — show White + mount shop
-  onCascadeComplete, // () => void  — optional telemetry
+  onCascadeWhite, // () => void
+  onCascadeComplete, // () => void
 }) {
   const [running, setRunning] = useState(false)
-  const [hidden, setHidden] = useState(false) // once true, gate unmounts visually
+  const [hidden, setHidden] = useState(false)
 
   const lockRef = useRef(false)
   const timersRef = useRef({})
 
-  // Cleanup
+  /* cleanup */
   useEffect(() => {
     return () => {
       Object.values(timersRef.current).forEach(id => clearTimeout(id))
@@ -26,88 +33,126 @@ export default function LandingGate({
     }
   }, [])
 
-  const kick = () => {
+  const kick = useCallback(() => {
     if (lockRef.current || running || hidden) return
     lockRef.current = true
     setRunning(true)
-    // small state mark for downstream (optional)
-    try {
-      sessionStorage.setItem('fromCascade', '1')
-    } catch {}
 
-    // 1) Visual bands lead (CSS handles look; JS schedules handoff)
-    // 2) Tell app to show White + mount Shop *before* the sweep fully finishes
+    // Tell the app to bring up WHITE and mount Shop just before the sweep ends
     timersRef.current.white = setTimeout(() => {
-      // One-shot guard
       try {
-        if (typeof onCascadeWhite === 'function') onCascadeWhite()
+        onCascadeWhite?.()
       } catch {}
-    }, Math.max(0, WHITE_CALL_MS))
+    }, WHITE_CALL_MS)
 
-    // 3) End of sweep → hide gate completely so it cannot render over Shop
+    // End: hide the gate so WHITE + Shop can be seen
     timersRef.current.end = setTimeout(() => {
-      setHidden(true)
       setRunning(false)
+      setHidden(true)
       try {
-        if (typeof onCascadeComplete === 'function') onCascadeComplete()
+        onCascadeComplete?.()
       } catch {}
-    }, Math.max(WHITE_CALL_MS + (CASCADE_MS - WHITE_CALL_MS), CASCADE_MS))
-  }
+    }, CASCADE_MS)
+  }, [hidden, running, onCascadeWhite, onCascadeComplete])
 
-  // If we already handed off in a previous navigation (rare), stay hidden
+  // keyboard accessibility (Enter/Space)
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem('fromCascade') === '1') {
-        setHidden(true)
+    const onKey = e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        kick()
       }
-    } catch {}
-  }, [])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [kick])
 
   if (hidden) return null
 
   return (
     <div
-      className={['landing-gate', running ? 'is-running' : '', className].join(' ')}
+      role="dialog"
+      aria-label="Landing"
+      className="landing-gate"
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 400, // Below the White loader (which uses ~10002)
-        background: '#000', // Gate is black
+        zIndex: 400, // below WHITE (10002)
+        background: '#000',
         color: '#fff',
         display: 'grid',
         placeItems: 'center',
         overflow: 'hidden',
         isolation: 'isolate',
       }}
+      // Any click on the gate starts the sweep
+      onPointerUp={kick}
     >
-      {/* Center stack */}
-      <div style={{ display: 'grid', gap: 14, placeItems: 'center' }}>
-        {/* Your orb/title can live here if desired */}
-
+      {/* Center column: Orb, time, Florida, USA */}
+      <div style={{ display: 'grid', gap: 8, placeItems: 'center', lineHeight: 1.2 }}>
+        <div style={{ lineHeight: 0 }}>
+          <BlueOrbCross3D
+            rpm={44}
+            color="#32ffc7"
+            geomScale={1.12}
+            glow
+            glowOpacity={0.95}
+            includeZAxis
+            height="88px"
+            interactive={false}
+            // faster flash so it doesn’t look laggy
+            flashDecayMs={70}
+          />
+        </div>
         <button
           type="button"
-          onClick={kick}
+          onPointerUp={kick}
+          className="gate-time"
           aria-label="Enter"
           style={{
-            appearance: 'none',
-            border: 'none',
-            borderRadius: 9999,
-            background: '#fff',
-            color: '#000',
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+            color: '#fff',
             fontWeight: 800,
             letterSpacing: '.06em',
-            padding: '10px 18px',
-            cursor: 'pointer',
-            boxShadow: '0 2px 12px rgba(0,0,0,.35)',
+            fontSize: 'clamp(12px,1.3vw,14px)',
           }}
         >
-          ENTER
+          <ClockNaples />
+        </button>
+        <button
+          type="button"
+          onPointerUp={kick}
+          className="gate-florida"
+          aria-label="Enter"
+          style={{
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+            fontWeight: 800,
+            letterSpacing: '.06em',
+            fontSize: 'clamp(12px,1.3vw,14px)',
+            color: '#fff',
+            textShadow: '0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = '#faff00'
+            e.currentTarget.style.textShadow =
+              '0 0 10px rgba(250,255,0,.45), 0 0 18px rgba(250,255,0,.30)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = '#fff'
+            e.currentTarget.style.textShadow =
+              '0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)'
+          }}
+        >
+          Florida, USA
         </button>
       </div>
 
-      {/* ---- Visual sweep layers (purely presentational) ---- */}
-      {/* Bands lead the sweep, then an implied “white curtain” would cover;
-          We don’t actually render the white cover here; Page shows WhiteLoader. */}
+      {/* PRESENTATIONAL sweep (right→left). We don’t render the white plane;
+         your Page shows WhiteLoader when we call onCascadeWhite. */}
       <div
         aria-hidden
         style={{
@@ -118,63 +163,88 @@ export default function LandingGate({
           transition: 'opacity 120ms ease',
         }}
       >
-        {/* Two diagonal bands, you can tune colors / angles */}
-        <span
+        {/* 7 chakra bands */}
+        {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map(
+          (c, i) => (
+            <span
+              key={i}
+              style={{
+                position: 'absolute',
+                top: `${(i * 100) / 7}%`,
+                left: '-30vw',
+                width: '160vw',
+                height: `${110 / 7}vh`,
+                transform: 'translateX(-18%)',
+                background: c,
+                filter: 'blur(18px)',
+                opacity: 0.92,
+                mixBlendMode: 'screen',
+                animation: running
+                  ? `lbSweep ${CASCADE_MS}ms cubic-bezier(.22,.61,.21,.99) forwards`
+                  : 'none',
+                animationDelay: `${i * 18}ms`,
+              }}
+            />
+          )
+        )}
+        {/* LAMEBOY, USA overlay tracking the Florida line */}
+        <div
           style={{
             position: 'absolute',
-            left: '-20%',
-            top: '-30%',
-            width: '140%',
-            height: '40%',
-            transform: 'rotate(8deg)',
-            background:
-              'linear-gradient(90deg, rgba(50,255,199,.0) 0%, rgba(50,255,199,.75) 40%, rgba(50,255,199,.0) 100%)',
-            filter: 'blur(2px)',
-            mixBlendMode: 'screen',
-            animation: running
-              ? `bandLead ${CASCADE_MS - BANDS_LEAD_MS}ms cubic-bezier(.22,.61,.21,.99) forwards`
-              : 'none',
-            animationDelay: running ? `${BANDS_LEAD_MS}ms` : '0ms',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, calc(-50% + 56px))',
+            color: '#fff',
+            fontWeight: 800,
+            letterSpacing: '.08em',
+            textTransform: 'uppercase',
+            fontSize: 'clamp(11px,1.3vw,14px)',
+            mixBlendMode: 'difference',
+            opacity: running ? 1 : 0,
           }}
-        />
-        <span
-          style={{
-            position: 'absolute',
-            left: '-30%',
-            top: '55%',
-            width: '160%',
-            height: '48%',
-            transform: 'rotate(-6deg)',
-            background:
-              'linear-gradient(90deg, rgba(11,240,95,.0) 0%, rgba(11,240,95,.55) 38%, rgba(11,240,95,.0) 100%)',
-            filter: 'blur(2px)',
-            mixBlendMode: 'screen',
-            animation: running
-              ? `bandLead ${CASCADE_MS - BANDS_LEAD_MS}ms cubic-bezier(.22,.61,.21,.99) forwards`
-              : 'none',
-            animationDelay: running ? `${BANDS_LEAD_MS + 60}ms` : '0ms',
-          }}
-        />
+        >
+          LAMEBOY, USA
+        </div>
       </div>
 
       <style jsx>{`
-        @keyframes bandLead {
+        @keyframes lbSweep {
           0% {
-            transform: translateX(-18%) rotate(var(--rot, 0deg));
+            transform: translateX(-18%);
             opacity: 0;
           }
-          8% {
-            opacity: 0.9;
+          6% {
+            opacity: 0.95;
           }
           92% {
-            opacity: 0.9;
+            opacity: 0.95;
           }
           100% {
-            transform: translateX(118%) rotate(var(--rot, 0deg));
+            transform: translateX(118%);
             opacity: 0;
           }
         }
       `}</style>
     </div>
   )
+}
+
+function ClockNaples() {
+  const [now, setNow] = useState('')
+  useEffect(() => {
+    const fmt = () =>
+      setNow(
+        new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+          timeZone: 'America/New_York',
+        }).format(new Date())
+      )
+    fmt()
+    const id = setInterval(fmt, 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <span>{now}</span>
 }
