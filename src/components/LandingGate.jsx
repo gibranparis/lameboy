@@ -12,16 +12,20 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 export const CASCADE_MS = 2400
 const LAYERS = {
   BASE: 10000, // gate content
-  WHITE: 10002, // white enlightenment (black orb/time/label live here)
+  WHITE: 10002, // white enlightenment (black orb/time/label live here via .gate-white)
   BANDS: 10006, // color bands container
   BANDS_LABEL: 10007, // "LAMEBOY, USA" over bands
 }
+
 const SEAFOAM = '#32ffc7'
-const ORB_PX = 88
+const ORB_PX = 88 // visual orb height
+const GAP_BELOW_ORB_PX = 12 // vertical rhythm under the orb
+const LABEL_TRACK_Y = Math.round(ORB_PX / 2 + GAP_BELOW_ORB_PX + 8) // keep LAMEBOY & Florida aligned
 const P_SWITCH = 0.77273 // violet crosses center
 
 /* ---------------- helpers ---------------- */
 function useCenter(ref) {
+  // Keep in place in case we want to re-measure, but no layout reads needed right now.
   const measure = useCallback(() => {
     void ref?.current
   }, [ref])
@@ -50,7 +54,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
   const doneIdRef = useRef(null)
 
   useEffect(() => {
-    if (started.current) return // prevent StrictMode double-run
+    if (started.current) return
     started.current = true
 
     let startTs
@@ -77,8 +81,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
   if (!mounted) return null
 
   const COLOR_VW = 120
-  // travel right -> left
-  const tx = t => (1 - t) * (100 + COLOR_VW) - COLOR_VW
+  const tx = t => (1 - t) * (100 + COLOR_VW) - COLOR_VW // travel right -> left
 
   return createPortal(
     <>
@@ -99,7 +102,6 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
         }}
         ref={el => {
           if (!el) return
-          // StrictMode-safe RAF: track local started flag
           let startedLocal = false
           let start, id
           const ease = t => 1 - Math.pow(1 - t, 3)
@@ -143,12 +145,19 @@ function CascadeOverlay({ durationMs = CASCADE_MS, labelTransform, onProgress })
         </div>
       </div>
 
-      {/* “LAMEBOY, USA” above bands */}
+      {/* “LAMEBOY, USA” above bands — vertically matched to Florida label track */}
       <div
         aria-hidden
         style={{ position: 'fixed', inset: 0, zIndex: LAYERS.BANDS_LABEL, pointerEvents: 'none' }}
       >
-        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: labelTransform }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: `translate(-50%, calc(-50% + ${LABEL_TRACK_Y}px))`,
+          }}
+        >
           <span
             className="chakra-label"
             style={{
@@ -178,13 +187,12 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   // singleton locks
   const global = getGlobal()
   if (!global.__lb) global.__lb = {}
-  // true while a cascade is running anywhere
   const cascadeActiveRef = useRef(Boolean(global.__lb.cascadeActive))
   const pressedRef = useRef(false)
   const longPressFiredRef = useRef(false)
   const timerRef = useRef(null)
   const startedAtRef = useRef(0)
-  const whiteDispatchedRef = useRef(false) // ensure onCascadeWhite only once
+  const whiteDispatchedRef = useRef(false)
   const cleanupDoneRef = useRef(false)
 
   /* Set "gate" mode */
@@ -201,7 +209,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
   const reallyStart = useCallback(() => {
     const now = performance.now()
-    if (cascadeActiveRef.current || global.__lb.cascadeActive) return // global singleton
+    if (cascadeActiveRef.current || global.__lb.cascadeActive) return
     if (now - startedAtRef.current < 1200) return // debounce
     startedAtRef.current = now
 
@@ -250,7 +258,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       const wasLong = longPressFiredRef.current
       longPressFiredRef.current = false
       clearTimers()
-      // short tap starts (if long already fired, do nothing)
       if (!wasLong) {
         e.preventDefault()
         if (!cascadeActiveRef.current) reallyStart()
@@ -274,7 +281,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       }
       if (p >= P_SWITCH && phase === 'cascade') {
         setPhase('done')
-        // release the global + data attr after the white has mounted
         setTimeout(() => {
           if (cleanupDoneRef.current) return
           cleanupDoneRef.current = true
@@ -304,16 +310,16 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         zIndex: LAYERS.BASE,
       }}
     >
-      {/* Bands */}
+      {/* Bands during cascade */}
       {phase === 'cascade' && (
         <CascadeOverlay
           durationMs={CASCADE_MS}
-          labelTransform={`translate(-50%, calc(-50% + ${Math.round(ORB_PX / 2 + 6 + 8)}px))`}
+          labelTransform={`translate(-50%, calc(-50% + ${LABEL_TRACK_Y}px))`}
           onProgress={onCascadeProgress}
         />
       )}
 
-      {/* ORB */}
+      {/* ORB (lives visually in the white layer via surrounding context) */}
       <button
         type="button"
         onPointerDown={onPointerDown}
@@ -340,13 +346,14 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           glow
           glowOpacity={0.95}
           includeZAxis
-          height="88px"
+          height={`${ORB_PX}px`}
           interactive={false}
-          flashDecayMs={140}
+          /* Halved (was 140) to remove “laggy” look on red/green flash */
+          flashDecayMs={70}
         />
       </button>
 
-      {/* TIME (clickable) */}
+      {/* TIME (clickable) — tracks the orb’s vertical rhythm */}
       {phase === 'idle' && (
         <button
           type="button"
@@ -366,6 +373,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
             fontSize: 'clamp(12px,1.3vw,14px)',
             fontFamily: 'inherit',
             lineHeight: 1.2,
+            marginTop: 8, // keep consistent spacing under orb
             touchAction: 'manipulation',
           }}
         >
@@ -373,7 +381,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         </button>
       )}
 
-      {/* Florida label */}
+      {/* Florida label — same track height as LAMEBOY over bands */}
       <button
         ref={labelRef}
         type="button"
@@ -394,6 +402,19 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           color: '#ffffff',
           textShadow: `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
           touchAction: 'manipulation',
+          marginTop: 6, // keep the same rhythm under the time
+          transition: 'color .12s linear, text-shadow .12s linear',
+          mixBlendMode: 'difference', // stays readable when white passes
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.color = '#faff00' // neon yellow hover
+          e.currentTarget.style.textShadow =
+            '0 0 10px rgba(250, 255, 0, .45), 0 0 18px rgba(250, 255, 0, .30)'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.color = '#ffffff'
+          e.currentTarget.style.textShadow =
+            '0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)'
         }}
       >
         Florida, USA
