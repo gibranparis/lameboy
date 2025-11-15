@@ -22,7 +22,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const RUNNER_H = 14
 const WHITE_Z = 10002
 
-/* ---------------- White Loading Overlay (black orb/time/label) ---------------- */
+/* ---- WHITE overlay (black orb/time/label) appears ONLY after cascade ends ---- */
 function WhiteLoader({ show, onFadeOutEnd }) {
   const [visible, setVisible] = useState(show)
   const [opacity, setOpacity] = useState(show ? 1 : 0)
@@ -132,16 +132,18 @@ export default function Page() {
   const [theme, setTheme] = useState('day')
   const [isShop, setIsShop] = useState(false)
 
-  const [loaderShow, setLoaderShow] = useState(false)
+  const [whiteShow, setWhiteShow] = useState(false)
   const [veilGrid, setVeilGrid] = useState(true)
   const [loginOpen, setLoginOpen] = useState(false)
 
+  /* tokens */
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
+  /* gate/shop mode */
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
@@ -154,12 +156,14 @@ export default function Page() {
     }
   }, [theme, isShop])
 
+  /* overlay-open flag for banned/login */
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
+  /* listen for day/night */
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -170,30 +174,34 @@ export default function Page() {
     }
   }, [])
 
-  /* Gate → Shop handoff */
-  const onWhiteStart = () => {
-    setLoaderShow(true) // WHITE appears; bands render above via z-index
+  /* —— Gate → Shop choreography —— */
+
+  // 1) LANDING signals WHITE at the very end of the sweep:
+  const onCascadeWhite = () => {
+    // show WHITE; switch to shop behind it; keep grid veiled until ready
+    setWhiteShow(true)
     setVeilGrid(true)
-  }
-  const enterShop = () => {
-    setLoaderShow(true)
     setIsShop(true)
   }
 
+  // 2) Mark shop "mounted" next frame so off-white can take over tokens safely
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
       root.setAttribute('data-shop-mounted', '1')
+      // default day on entry (matches your spec)
       root.setAttribute('data-theme', 'day')
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
+  // 3) shop readiness → un-veil grid + fade WHITE out
   useEffect(() => {
     const onReady = () => {
       setVeilGrid(false)
-      setTimeout(() => setLoaderShow(false), 120)
+      // small delay so the grid is visible under WHITE before it fades
+      setTimeout(() => setWhiteShow(false), 120)
     }
     const handlers = [
       ['lb:overlay-mounted', onReady],
@@ -208,6 +216,12 @@ export default function Page() {
     }
   }, [])
 
+  // 4) cascade complete hook (no-op here; kept for clarity/metrics)
+  const onCascadeComplete = () => {
+    // nothing required — WHITE already showing and shop already spinning up
+  }
+
+  /* grid veil attr */
   useEffect(() => {
     const root = document.documentElement
     if (veilGrid) root.setAttribute('data-grid-veil', '1')
@@ -230,8 +244,6 @@ export default function Page() {
     [ctrlPx]
   )
 
-  const onHeart = () => setLoginOpen(v => !v)
-
   return (
     <div
       className="lb-screen w-full"
@@ -239,7 +251,7 @@ export default function Page() {
     >
       {!isShop ? (
         <main className="lb-screen">
-          <LandingGate onCascadeWhite={onWhiteStart} onCascadeComplete={enterShop} />
+          <LandingGate onCascadeWhite={onCascadeWhite} onCascadeComplete={onCascadeComplete} />
         </main>
       ) : (
         <>
@@ -281,30 +293,10 @@ export default function Page() {
             <ShopGrid products={products} autoOpenFirstOnMount />
             <HeartBeatButton
               className="heart-submit"
-              aria-label={loginOpen ? 'Close login' : 'Open login'}
-              onClick={onHeart}
+              aria-label="Open login"
+              onClick={() => {}}
+              // keep heartbeat visual without opening modal for now
             />
-            {loginOpen && (
-              <div
-                role="dialog"
-                aria-modal="true"
-                style={{
-                  position: 'fixed',
-                  inset: 0,
-                  zIndex: 540,
-                  display: 'grid',
-                  placeItems: 'center',
-                  background: '#000',
-                }}
-                onClick={e => {
-                  if (e.target === e.currentTarget) setLoginOpen(false)
-                }}
-              >
-                <div style={{ outline: 'none' }}>
-                  <BannedLogin onProceed={() => setLoginOpen(false)} startView="login" />
-                </div>
-              </div>
-            )}
           </main>
 
           <div className="lb-chakra-runner">
@@ -313,8 +305,8 @@ export default function Page() {
         </>
       )}
 
-      {/* Enlightenment overlay (below bands; above gate/shop) */}
-      <WhiteLoader show={loaderShow} />
+      {/* WHITE appears ONLY after cascade finishes; fades out once shop ready */}
+      <WhiteLoader show={whiteShow} />
     </div>
   )
 }

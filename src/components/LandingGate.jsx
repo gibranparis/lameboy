@@ -11,22 +11,26 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 /* =============================== Layers & Timings =============================== */
 export const CASCADE_MS = 2400
 const LAYERS = {
-  BASE: 10000, // gate content
-  WHITE: 10002, // white enlightenment (black orb/time/label live here via WhiteLoader in Page)
+  BASE: 10000, // gate content (black)
+  WHITE: 10002, // white enlightenment (lives in Page via WhiteLoader)
   BANDS: 10006, // color bands container
 }
 
 const SEAFOAM = '#32ffc7'
-const ORB_PX = 88 // visual orb height
-const GAP_BELOW_ORB_PX = 12 // vertical rhythm under the orb
-const LABEL_TRACK_Y = Math.round(ORB_PX / 2 + GAP_BELOW_ORB_PX + 8) // keep LAMEBOY & Florida aligned
-const P_DONE = 0.995 // consider cascade finished only when it has fully exited
+const ORB_PX = 88
+const GAP_BELOW_ORB_PX = 12
+const LABEL_TRACK_Y = Math.round(ORB_PX / 2 + GAP_BELOW_ORB_PX + 8)
+
+/**
+ * We trigger WHITE at the very end (after the bands have fully crossed).
+ * Choose a conservative threshold to avoid early “peek”:
+ */
+const P_WHITE = 0.998 // reveal WHITE only when sweep is effectively finished
+const P_DONE = 1.0 // done when 100% (RAF clamps to 1)
 
 /* ---------------- helpers ---------------- */
 function useCenter(ref) {
-  const measure = useCallback(() => {
-    void ref?.current
-  }, [ref])
+  const measure = useCallback(() => void ref?.current, [ref])
   useLayoutEffect(() => {
     measure()
     const onResize = () => measure()
@@ -65,7 +69,7 @@ function CascadeOverlay({ durationMs = CASCADE_MS, onProgress }) {
       if (raw < 1) {
         frameRef.current = requestAnimationFrame(step)
       } else {
-        doneIdRef.current = setTimeout(() => setMounted(false), 80)
+        doneIdRef.current = setTimeout(() => setMounted(false), 60)
       }
     }
     frameRef.current = requestAnimationFrame(step)
@@ -79,70 +83,63 @@ function CascadeOverlay({ durationMs = CASCADE_MS, onProgress }) {
   if (!mounted) return null
 
   const COLOR_VW = 120
-  const tx = t => (1 - t) * (100 + COLOR_VW) - COLOR_VW // travel right -> left
+  const tx = t => (1 - t) * (100 + COLOR_VW) - COLOR_VW // right → left
 
   return createPortal(
-    <>
-      {/* Color pack – sits ABOVE white enlightenment */}
+    <div
+      aria-hidden
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        height: '100vh',
+        width: `${COLOR_VW}vw`,
+        transform: `translate3d(${tx(0)}vw,0,0)`,
+        zIndex: LAYERS.BANDS,
+        pointerEvents: 'none',
+        willChange: 'transform',
+        background: 'transparent',
+      }}
+      ref={el => {
+        if (!el) return
+        let start, id
+        const ease = t => 1 - Math.pow(1 - t, 3)
+        const step = ts => {
+          if (start == null) start = ts
+          const raw = Math.min(1, (ts - start) / durationMs)
+          const p = ease(raw)
+          el.style.transform = `translate3d(${tx(p)}vw,0,0)`
+          if (raw < 1) id = requestAnimationFrame(step)
+        }
+        id = requestAnimationFrame(step)
+        return () => cancelAnimationFrame(id)
+      }}
+    >
       <div
-        aria-hidden
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          height: '100vh',
-          width: `${COLOR_VW}vw`,
-          transform: `translate3d(${tx(0)}vw,0,0)`,
-          zIndex: LAYERS.BANDS,
-          pointerEvents: 'none',
-          willChange: 'transform',
-          background: 'transparent',
-        }}
-        ref={el => {
-          if (!el) return
-          let startedLocal = false
-          let start, id
-          const ease = t => 1 - Math.pow(1 - t, 3)
-          const step = ts => {
-            if (start == null) start = ts
-            const raw = Math.min(1, (ts - start) / durationMs)
-            const p = ease(raw)
-            el.style.transform = `translate3d(${tx(p)}vw,0,0)`
-            if (raw < 1) id = requestAnimationFrame(step)
-          }
-          if (!startedLocal) {
-            startedLocal = true
-            id = requestAnimationFrame(step)
-          }
-          return () => cancelAnimationFrame(id)
+          position: 'absolute',
+          inset: 0,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7,1fr)',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7,1fr)',
-          }}
-        >
-          {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map(
-            (c, i) => (
-              <div key={i} style={{ position: 'relative', background: c }}>
-                <span
-                  style={{
-                    position: 'absolute',
-                    inset: -18,
-                    background: c,
-                    filter: 'blur(28px)',
-                    opacity: 0.95,
-                  }}
-                />
-              </div>
-            )
-          )}
-        </div>
+        {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map(
+          (c, i) => (
+            <div key={i} style={{ position: 'relative', background: c }}>
+              <span
+                style={{
+                  position: 'absolute',
+                  inset: -18,
+                  background: c,
+                  filter: 'blur(28px)',
+                  opacity: 0.95,
+                }}
+              />
+            </div>
+          )
+        )}
       </div>
-    </>,
+    </div>,
     document.body
   )
 }
@@ -153,17 +150,19 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const [phase, setPhase] = useState('idle')
   const labelRef = useRef(null)
 
-  // singleton locks
+  // global locks to kill double-fires (touch+mouse, StrictMode remount, etc.)
   const global = getGlobal()
   if (!global.__lb) global.__lb = {}
-  const cascadeActiveRef = useRef(Boolean(global.__lb.cascadeActive))
+  const startedRef = useRef(Boolean(global.__lb.cascadeStarted))
+  const activeRef = useRef(Boolean(global.__lb.cascadeActive))
   const pressedRef = useRef(false)
   const longPressFiredRef = useRef(false)
   const timerRef = useRef(null)
-  const startedAtRef = useRef(0)
-  const cleanupDoneRef = useRef(false)
+  const lastStartAt = useRef(0)
+  const whiteSentRef = useRef(false)
+  const doneSentRef = useRef(false)
 
-  /* Set "gate" mode */
+  /* Gate mode */
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-mode', 'gate')
@@ -178,20 +177,20 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
   const reallyStart = useCallback(() => {
     const now = performance.now()
-    if (cascadeActiveRef.current || global.__lb.cascadeActive) return
-    if (now - startedAtRef.current < 1200) return // debounce
-    startedAtRef.current = now
 
-    cascadeActiveRef.current = true
+    // hard one-shot guard
+    if (startedRef.current || global.__lb.cascadeStarted) return
+    if (activeRef.current || global.__lb.cascadeActive) return
+    if (now - lastStartAt.current < 900) return
+    lastStartAt.current = now
+
+    startedRef.current = true
+    global.__lb.cascadeStarted = true
+    activeRef.current = true
     global.__lb.cascadeActive = true
 
-    // mark active so CSS guards can hide shop grid etc.
+    // mark active (bands visible via CSS; WHITE still hidden at this point)
     document.documentElement.setAttribute('data-cascade-active', '1')
-
-    // show WHITE immediately so the bands reveal it as they sweep
-    try {
-      onCascadeWhite?.()
-    } catch {}
 
     setPhase('cascade')
 
@@ -202,7 +201,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     try {
       sessionStorage.setItem('fromCascade', '1')
     } catch {}
-  }, [global, onCascadeWhite])
+  }, [global])
 
   const clearTimers = () => {
     if (timerRef.current) {
@@ -211,17 +210,16 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     }
   }
 
-  /* Unified pointer handling prevents touch→mouse double-firing */
+  /* unified pointer to avoid touch→mouse duplicate start */
   const onPointerDown = useCallback(
     e => {
       if (e.pointerType === 'mouse' && e.button !== 0) return
       longPressFiredRef.current = false
       pressedRef.current = true
-
       clearTimers()
       timerRef.current = setTimeout(() => {
         longPressFiredRef.current = true
-        if (!cascadeActiveRef.current) reallyStart()
+        if (!activeRef.current) reallyStart()
       }, 650)
     },
     [reallyStart]
@@ -236,7 +234,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       clearTimers()
       if (!wasLong) {
         e.preventDefault()
-        if (!cascadeActiveRef.current) reallyStart()
+        if (!activeRef.current) reallyStart()
       }
     },
     [reallyStart]
@@ -248,25 +246,33 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     clearTimers()
   }, [])
 
-  // cascade → finish only at the very end
+  // cascade → send WHITE only at the very end; finish when fully complete
   const onCascadeProgress = useCallback(
     p => {
-      if (p >= P_DONE && phase === 'cascade') {
+      if (!whiteSentRef.current && p >= P_WHITE && phase === 'cascade') {
+        whiteSentRef.current = true
+        // WHITE appears now (bands just finished sweeping)
+        try {
+          onCascadeWhite?.()
+        } catch {}
+      }
+
+      if (!doneSentRef.current && p >= P_DONE && phase === 'cascade') {
+        doneSentRef.current = true
         setPhase('done')
         setTimeout(() => {
-          if (cleanupDoneRef.current) return
-          cleanupDoneRef.current = true
           const root = document.documentElement
           root.removeAttribute('data-cascade-active')
-          root.setAttribute('data-ccascade-done', '1') // harmless if CSS doesn’t use it
-          root.setAttribute('data-cascade-done', '1') // used by your CSS
-          cascadeActiveRef.current = false
+          root.setAttribute('data-cascade-done', '1')
+          activeRef.current = false
           global.__lb.cascadeActive = false
-          onCascadeComplete?.()
-        }, 60)
+          try {
+            onCascadeComplete?.()
+          } catch {}
+        }, 40)
       }
     },
-    [phase, onCascadeComplete, global]
+    [phase, onCascadeWhite, onCascadeComplete, global]
   )
 
   return (
@@ -281,16 +287,17 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         gap: 6,
         padding: '1.5rem',
         position: 'relative',
-        visibility: phase === 'idle' ? 'visible' : 'hidden',
+        // keep the landing content visible in idle and cascade (BLACK) — only hidden once we’re done
+        visibility: phase === 'done' ? 'hidden' : 'visible',
         zIndex: LAYERS.BASE,
       }}
     >
-      {/* Bands during cascade */}
+      {/* Bands only during cascade (over the black landing; UNDER the future WHITE) */}
       {phase === 'cascade' && (
         <CascadeOverlay durationMs={CASCADE_MS} onProgress={onCascadeProgress} />
       )}
 
-      {/* ORB (click to start) */}
+      {/* ORB (landing enter button) */}
       <button
         type="button"
         onPointerDown={onPointerDown}
@@ -323,8 +330,8 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         />
       </button>
 
-      {/* TIME (clickable) — tracks the orb’s vertical rhythm */}
-      {phase === 'idle' && (
+      {/* TIME */}
+      {(phase === 'idle' || phase === 'cascade') && (
         <button
           type="button"
           onPointerDown={onPointerDown}
@@ -351,7 +358,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         </button>
       )}
 
-      {/* Florida label — same track height as bands label track */}
+      {/* Florida label */}
       <button
         ref={labelRef}
         type="button"
@@ -361,7 +368,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         onPointerCancel={onPointerCancel}
         title="Enter"
         style={{
-          visibility: phase === 'idle' ? 'visible' : 'hidden',
+          visibility: phase === 'done' ? 'hidden' : 'visible',
           background: 'transparent',
           border: 0,
           cursor: 'pointer',
@@ -389,12 +396,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       >
         Florida, USA
       </button>
-
-      <style jsx>{`
-        :global(:root[data-mode='gate']) .chakra-band {
-          min-height: 100%;
-        }
-      `}</style>
     </div>
   )
 }
