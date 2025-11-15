@@ -22,6 +22,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const RUNNER_H = 14
 const WHITE_Z = 10002
 
+/* ---- WHITE overlay (black orb/time/label) appears ONLY after cascade ends ---- */
 function WhiteLoader({ show, onFadeOutEnd }) {
   const [visible, setVisible] = useState(show)
   const [opacity, setOpacity] = useState(show ? 1 : 0)
@@ -75,6 +76,7 @@ function WhiteLoader({ show, onFadeOutEnd }) {
             flashDecayMs={140}
           />
         </div>
+
         <span
           style={{
             color: '#000',
@@ -86,6 +88,7 @@ function WhiteLoader({ show, onFadeOutEnd }) {
         >
           <ClockNaples />
         </span>
+
         <span
           style={{
             color: '#000',
@@ -133,33 +136,34 @@ export default function Page() {
   const [veilGrid, setVeilGrid] = useState(true)
   const [loginOpen, setLoginOpen] = useState(false)
 
-  // tokens
+  /* tokens */
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  // mode/theme tokens
+  /* mode/theme tokens */
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate')
-    if (isShop) root.setAttribute('data-shop-root', '')
-    else {
+    if (isShop) {
+      root.setAttribute('data-shop-root', '')
+    } else {
       root.removeAttribute('data-shop-root')
       root.removeAttribute('data-shop-mounted')
     }
   }, [theme, isShop])
 
-  // overlay-open flag (banned/login)
+  /* overlay-open flag for banned/login */
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  // listen for global theme toggle
+  /* listen for day/night */
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -172,21 +176,28 @@ export default function Page() {
 
   /* ---------- Gate → Shop choreography ---------- */
 
-  // Called by LandingGate near the end of the sweep.
+  // Called by LandingGate very late in the sweep
   const onCascadeWhite = () => {
-    // Show White and mount Shop behind it, in DAY mode per your spec.
+    // show WHITE; mount Shop behind it; default to DAY on reveal
     setWhiteShow(true)
     setVeilGrid(true)
     setIsShop(true)
   }
 
-  // When Shop mounts, allow off-white tokens to apply safely
+  // Mark white phase while WHITE is visible so LandingGate can fade its base
+  useEffect(() => {
+    const root = document.documentElement
+    if (whiteShow) root.setAttribute('data-white-phase', '1')
+    else root.removeAttribute('data-white-phase')
+  }, [whiteShow])
+
+  // When Shop mounts, allow off-white tokens to apply safely and ensure day
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
       root.setAttribute('data-shop-mounted', '1')
-      root.setAttribute('data-theme', 'day') // ensure day on reveal
+      root.setAttribute('data-theme', 'day') // ensure day on entry
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
@@ -273,6 +284,7 @@ export default function Page() {
 
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
+            {/* keep heartbeat visual without opening modal for now */}
             <HeartBeatButton className="heart-submit" aria-label="Open login" onClick={() => {}} />
           </main>
 
@@ -282,7 +294,7 @@ export default function Page() {
         </>
       )}
 
-      {/* WHITE overlay (black orb/time/label) — only while Shop spins up */}
+      {/* WHITE appears ONLY after cascade finishes; fades out once shop ready */}
       <WhiteLoader show={whiteShow} />
     </div>
   )

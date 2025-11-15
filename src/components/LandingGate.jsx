@@ -10,10 +10,10 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
-const WHITE_CALL_PCT = 0.985 // call white near the very end (after the pack clears)
+const WHITE_CALL_PCT = 0.985 // call WHITE near the end, after the pack essentially clears
 const LAYERS = {
   BASE: 10000,
-  WHITE: 10002, // white enlightenment lives above content, bands sit above this
+  WHITE: 10002, // WHITE page (black orb, labels) lives above base; bands sit above WHITE
   BANDS: 10006,
   BANDS_LABEL: 10007,
 }
@@ -37,8 +37,7 @@ function useNoLayoutMeasure(ref) {
 /* ========================== Right→Left sweep ========================== */
 /**
  * A single moving "pack" of 7 vertical columns (chakra colors) that travels
- * from right → left across the whole viewport. We drive it with RAF using
- * a cubic ease, so it matches your old feel and is jank-free on mobile.
+ * from right → left across the whole viewport. Driven by RAF with a smooth ease.
  */
 function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
   const startedRef = useRef(false)
@@ -49,7 +48,7 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
     if (startedRef.current) return
     startedRef.current = true
 
-    const ease = t => 1 - Math.pow(1 - t, 3)
+    const ease = t => 1 - Math.pow(1 - t, 3) // cubic ease-out
     let t0
 
     const COLOR_VW = 120 // pack width so it fully covers the screen
@@ -73,7 +72,7 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
     return () => cancelAnimationFrame(rafRef.current)
   }, [durationMs, onProgress])
 
-  // Render the moving pack in a fixed container
+  // Render the moving pack in a fixed container above WHITE
   return createPortal(
     <div
       ref={rootRef}
@@ -206,7 +205,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     clearTimers()
   }, [])
 
-  /* Sweep progress → call white very late, then finish */
+  /* Sweep progress → call WHITE very late, then finish */
   const handleProgress = useCallback(
     p => {
       if (!whiteCalledRef.current && p >= WHITE_CALL_PCT && phase === 'cascade') {
@@ -244,15 +243,13 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         padding: '1.5rem',
         position: 'relative',
         zIndex: LAYERS.BASE,
-        // While the sweep runs, keep landing content visible (your spec),
-        // the pack visually covers it because it sits on higher z-index.
-        visibility: 'visible',
+        visibility: 'visible', // base stays visible while bands sweep above
       }}
     >
       {/* Moving right→left pack (only during cascade) */}
       {phase === 'cascade' && <ChakraSweep durationMs={CASCADE_MS} onProgress={handleProgress} />}
 
-      {/* “LAMEBOY, USA” label riding with the pack (difference blend for legibility) */}
+      {/* “LAMEBOY, USA” label riding above bands (difference blend for legibility) */}
       {phase === 'cascade' &&
         createPortal(
           <div
@@ -384,6 +381,23 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       >
         Florida, USA
       </button>
+
+      <style jsx>{`
+        /* z-index ladder:
+           base (landing): ${LAYERS.BASE}
+           WHITE loader  : ${LAYERS.WHITE}
+           bands         : ${LAYERS.BANDS}
+           bands label   : ${LAYERS.BANDS_LABEL}
+        */
+
+        /* Fade the landing base when WHITE shows so WHITE is revealed under the sweep */
+        .page-center {
+          transition: opacity 220ms ease;
+        }
+        :root[data-white-phase] .page-center {
+          opacity: 0;
+        }
+      `}</style>
     </div>
   )
 }
