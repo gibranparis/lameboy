@@ -10,10 +10,11 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
-const WHITE_CALL_PCT = 0.985 // call WHITE near the end, after the pack essentially clears
+// Call WHITE a touch earlier so it’s already present under the final bars
+const WHITE_CALL_PCT = 0.93
 const LAYERS = {
   BASE: 10000,
-  WHITE: 10002, // WHITE page (black orb, labels) lives above base; bands sit above WHITE
+  WHITE: 10002, // white page (black orb) lives above base; bands sit above WHITE
   BANDS: 10006,
   BANDS_LABEL: 10007,
 }
@@ -26,19 +27,13 @@ function getGlobal() {
   if (typeof window !== 'undefined') return window
   return globalThis
 }
-
 function useNoLayoutMeasure(ref) {
-  // keep for future layout reads; currently a no-op (prevents extra reflows)
   useLayoutEffect(() => {
     void ref?.current
   }, [ref])
 }
 
 /* ========================== Right→Left sweep ========================== */
-/**
- * A single moving "pack" of 7 vertical columns (chakra colors) that travels
- * from right → left across the whole viewport. Driven by RAF with a smooth ease.
- */
 function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
   const startedRef = useRef(false)
   const rafRef = useRef(0)
@@ -51,28 +46,24 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
     const ease = t => 1 - Math.pow(1 - t, 3) // cubic ease-out
     let t0
 
-    const COLOR_VW = 120 // pack width so it fully covers the screen
-    const tx = p => (1 - p) * (100 + COLOR_VW) - COLOR_VW // 120vw → -20vw
+    // Wider pack → guarantees complete coverage; prevents visual stall near end
+    const COLOR_VW = 160
+    const tx = p => (1 - p) * (100 + COLOR_VW) - COLOR_VW // 160vw → -60vw
 
     const step = ts => {
       if (t0 == null) t0 = ts
       const raw = Math.min(1, (ts - t0) / durationMs)
       const p = ease(raw)
       const el = rootRef.current
-      if (el) {
-        el.style.transform = `translate3d(${tx(p)}vw,0,0)`
-      }
+      if (el) el.style.transform = `translate3d(${tx(p)}vw,0,0)`
       onProgress?.(p)
-      if (raw < 1) {
-        rafRef.current = requestAnimationFrame(step)
-      }
+      if (raw < 1) rafRef.current = requestAnimationFrame(step)
     }
 
     rafRef.current = requestAnimationFrame(step)
     return () => cancelAnimationFrame(rafRef.current)
   }, [durationMs, onProgress])
 
-  // Render the moving pack in a fixed container above WHITE
   return createPortal(
     <div
       ref={rootRef}
@@ -81,14 +72,14 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
         position: 'fixed',
         inset: '0 auto 0 0',
         height: '100vh',
-        width: '120vw',
+        width: '160vw',
         zIndex: LAYERS.BANDS,
         pointerEvents: 'none',
         willChange: 'transform',
-        transform: 'translate3d(120vw,0,0)', // start fully off-screen on the right
+        transform: 'translate3d(160vw,0,0)',
         background: 'transparent',
         display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)', // vertical columns
+        gridTemplateColumns: 'repeat(7, 1fr)',
       }}
     >
       {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map((c, i) => (
@@ -96,9 +87,9 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
           <span
             style={{
               position: 'absolute',
-              inset: -20,
+              inset: -24,
               background: c,
-              filter: 'blur(26px)',
+              filter: 'blur(28px)',
               opacity: 0.85,
               pointerEvents: 'none',
             }}
@@ -116,12 +107,12 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const labelRef = useRef(null)
   useNoLayoutMeasure(labelRef)
 
-  // singleton lock to prevent double starts
+  // singleton lock
   const global = getGlobal()
   if (!global.__lb) global.__lb = {}
   const localLockRef = useRef(Boolean(global.__lb.cascadeActive))
 
-  // press handling (tap or long press)
+  // presses
   const pressedRef = useRef(false)
   const longPressRef = useRef(false)
   const timerRef = useRef(null)
@@ -129,7 +120,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const whiteCalledRef = useRef(false)
   const cleanedRef = useRef(false)
 
-  /* Mode tokens */
+  // tokens
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-mode', 'gate')
@@ -143,21 +134,18 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const reallyStart = useCallback(() => {
     const now = performance.now()
     if (localLockRef.current || global.__lb.cascadeActive) return
-    if (now - startedAtRef.current < 800) return // debounce
+    if (now - startedAtRef.current < 800) return
     startedAtRef.current = now
 
     localLockRef.current = true
     global.__lb.cascadeActive = true
 
-    const root = document.documentElement
-    root.setAttribute('data-cascade-active', '1')
-
+    document.documentElement.setAttribute('data-cascade-active', '1')
     setPhase('cascade')
 
     try {
       playChakraSequenceRTL()
     } catch {}
-
     try {
       sessionStorage.setItem('fromCascade', '1')
     } catch {}
@@ -205,19 +193,23 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     clearTimers()
   }, [])
 
-  /* Sweep progress → call WHITE very late, then finish */
+  // Sweep progress
   const handleProgress = useCallback(
     p => {
+      // Show WHITE under bands & hide landing immediately
       if (!whiteCalledRef.current && p >= WHITE_CALL_PCT && phase === 'cascade') {
         whiteCalledRef.current = true
-        onCascadeWhite?.() // parent shows WHITE & flips shop to day behind it
+        try {
+          document.documentElement.setAttribute('data-white-phase', '1')
+        } catch {}
+        onCascadeWhite?.()
       }
+      // End
       if (p >= 1 && phase === 'cascade') {
         setPhase('done')
         const root = document.documentElement
         root.removeAttribute('data-cascade-active')
         root.setAttribute('data-cascade-done', '1')
-        // small async tick so DOM attributes settle
         setTimeout(() => {
           if (cleanedRef.current) return
           cleanedRef.current = true
@@ -243,13 +235,11 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         padding: '1.5rem',
         position: 'relative',
         zIndex: LAYERS.BASE,
-        visibility: 'visible', // base stays visible while bands sweep above
+        visibility: 'visible',
       }}
     >
-      {/* Moving right→left pack (only during cascade) */}
       {phase === 'cascade' && <ChakraSweep durationMs={CASCADE_MS} onProgress={handleProgress} />}
 
-      {/* “LAMEBOY, USA” label riding above bands (difference blend for legibility) */}
       {phase === 'cascade' &&
         createPortal(
           <div
@@ -270,7 +260,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
               }}
             >
               <span
-                className="chakra-label"
                 style={{
                   color: '#fff',
                   mixBlendMode: 'difference',
@@ -287,7 +276,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           document.body
         )}
 
-      {/* ORB button (landing) */}
+      {/* ORB */}
       <button
         type="button"
         onPointerDown={onPointerDown}
@@ -361,8 +350,8 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           letterSpacing: '.06em',
           fontSize: 'clamp(12px,1.3vw,14px)',
           fontFamily: 'inherit',
-          color: '#ffffff',
-          textShadow: `0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)`,
+          color: '#fff',
+          textShadow: '0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)',
           touchAction: 'manipulation',
           marginTop: 6,
           transition: 'color .12s linear, text-shadow .12s linear',
@@ -371,7 +360,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         onMouseEnter={e => {
           e.currentTarget.style.color = '#faff00'
           e.currentTarget.style.textShadow =
-            '0 0 10px rgba(250, 255, 0, .45), 0 0 18px rgba(250, 255, 0, .30)'
+            '0 0 10px rgba(250,255,0,.45), 0 0 18px rgba(250,255,0,.30)'
         }}
         onMouseLeave={e => {
           e.currentTarget.style.color = '#ffffff'
@@ -383,19 +372,13 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       </button>
 
       <style jsx>{`
-        /* z-index ladder:
-           base (landing): ${LAYERS.BASE}
-           WHITE loader  : ${LAYERS.WHITE}
-           bands         : ${LAYERS.BANDS}
-           bands label   : ${LAYERS.BANDS_LABEL}
-        */
-
-        /* Fade the landing base when WHITE shows so WHITE is revealed under the sweep */
+        /* When WHITE is up, instantly hide the landing base so WHITE is revealed under the sweep */
         .page-center {
-          transition: opacity 220ms ease;
+          transition: opacity 140ms ease;
         }
         :root[data-white-phase] .page-center {
           opacity: 0;
+          visibility: hidden;
         }
       `}</style>
     </div>

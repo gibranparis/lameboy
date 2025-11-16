@@ -22,7 +22,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 const RUNNER_H = 14
 const WHITE_Z = 10002
 
-/* ---- WHITE overlay (black orb/time/label) appears ONLY after cascade ends ---- */
+/* WHITE overlay (black orb page) */
 function WhiteLoader({ show, onFadeOutEnd }) {
   const [visible, setVisible] = useState(show)
   const [opacity, setOpacity] = useState(show ? 1 : 0)
@@ -45,7 +45,6 @@ function WhiteLoader({ show, onFadeOutEnd }) {
 
   return (
     <div
-      className="white-loader"
       aria-hidden
       style={{
         position: 'fixed',
@@ -57,7 +56,6 @@ function WhiteLoader({ show, onFadeOutEnd }) {
         placeItems: 'center',
         transition: 'opacity 260ms ease',
         opacity,
-        mixBlendMode: 'normal',
         contain: 'layout paint style',
       }}
     >
@@ -68,15 +66,14 @@ function WhiteLoader({ show, onFadeOutEnd }) {
             color="#32ffc7"
             geomScale={1.12}
             glow
-            glowOpacity={1.0}
+            glowOpacity={1}
             includeZAxis
             height="88px"
             interactive={false}
-            overrideAllColor="#000000"
+            overrideAllColor="#000"
             flashDecayMs={140}
           />
         </div>
-
         <span
           style={{
             color: '#000',
@@ -88,7 +85,6 @@ function WhiteLoader({ show, onFadeOutEnd }) {
         >
           <ClockNaples />
         </span>
-
         <span
           style={{
             color: '#000',
@@ -136,34 +132,33 @@ export default function Page() {
   const [veilGrid, setVeilGrid] = useState(true)
   const [loginOpen, setLoginOpen] = useState(false)
 
-  /* tokens */
+  // tokens
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  /* mode/theme tokens */
+  // mode & theme
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate')
-    if (isShop) {
-      root.setAttribute('data-shop-root', '')
-    } else {
+    if (isShop) root.setAttribute('data-shop-root', '')
+    else {
       root.removeAttribute('data-shop-root')
       root.removeAttribute('data-shop-mounted')
     }
   }, [theme, isShop])
 
-  /* overlay-open flag for banned/login */
+  // overlay-open flag (banned/login)
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  /* listen for day/night */
+  // listen for theme changes
   useEffect(() => {
     const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -176,33 +171,32 @@ export default function Page() {
 
   /* ---------- Gate → Shop choreography ---------- */
 
-  // Called by LandingGate very late in the sweep
+  // Called late in the sweep (from LandingGate)
   const onCascadeWhite = () => {
-    // show WHITE; mount Shop behind it; default to DAY on reveal
-    setWhiteShow(true)
+    setWhiteShow(true) // mount WHITE under bands
     setVeilGrid(true)
-    setIsShop(true)
+    setIsShop(true) // begin spinning up shop behind WHITE (day mode on mount)
   }
 
-  // Mark white phase while WHITE is visible so LandingGate can fade its base
+  // Mirror the "white phase" attr so LandingGate can hard-hide base
   useEffect(() => {
     const root = document.documentElement
     if (whiteShow) root.setAttribute('data-white-phase', '1')
     else root.removeAttribute('data-white-phase')
   }, [whiteShow])
 
-  // When Shop mounts, allow off-white tokens to apply safely and ensure day
+  // When Shop mounts, allow off-white tokens & ensure DAY on entry
   useEffect(() => {
     if (!isShop) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
       root.setAttribute('data-shop-mounted', '1')
-      root.setAttribute('data-theme', 'day') // ensure day on entry
+      root.setAttribute('data-theme', 'day')
     })
     return () => cancelAnimationFrame(id)
   }, [isShop])
 
-  // Unveil and fade White out when shop signals ready (or after safety)
+  // Unveil grid + fade WHITE out when ready (or after safety)
   useEffect(() => {
     const onReady = () => {
       setVeilGrid(false)
@@ -284,7 +278,6 @@ export default function Page() {
 
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
-            {/* keep heartbeat visual without opening modal for now */}
             <HeartBeatButton className="heart-submit" aria-label="Open login" onClick={() => {}} />
           </main>
 
@@ -294,7 +287,7 @@ export default function Page() {
         </>
       )}
 
-      {/* WHITE appears ONLY after cascade finishes; fades out once shop ready */}
+      {/* WHITE under bands; disappears only after shop is ready */}
       <WhiteLoader show={whiteShow} />
     </div>
   )
