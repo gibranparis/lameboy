@@ -60,10 +60,18 @@
   --z-bands: 10006; /* color bands */
 }
 
-/* enforce stacking with your existing class hooks */
+/* enforce stacking + white curtain */
 .white-loader {
+  position: fixed;
+  inset: 0;
+  background: #fff;
   z-index: var(--z-white) !important;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 160ms ease;
 }
+
 .chakra-overlay {
   z-index: var(--z-bands) !important;
 }
@@ -681,6 +689,16 @@ html:has([data-shop-root]) .logo-3d {
 :root[data-theme='day'] .chakra-band::before {
   opacity: 0.95;
   filter: blur(26px);
+}
+
+/* Full white curtain driven by LandingGate attrs */
+:root[data-white-phase='1'] .white-loader {
+  opacity: 1;
+  visibility: visible;
+}
+:root[data-cascade-done='1'] .white-loader {
+  opacity: 0;
+  visibility: hidden;
 }
 
 /* After done, never show bands */
