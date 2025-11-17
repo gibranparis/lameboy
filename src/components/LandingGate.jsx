@@ -33,6 +33,17 @@ function useNoLayoutMeasure(ref) {
   }, [ref])
 }
 
+// defensively wrap callbacks so they can’t kill the sweep
+function safeCall(fn, label) {
+  if (typeof fn !== 'function') return
+  try {
+    fn()
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(`[LandingGate] ${label} error`, err)
+  }
+}
+
 /* ========================== Right→Left sweep ========================== */
 function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
   const startedRef = useRef(false)
@@ -56,8 +67,18 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
       const p = ease(raw)
       const el = rootRef.current
       if (el) el.style.transform = `translate3d(${tx(p)}vw,0,0)`
-      onProgress?.(p)
-      if (raw < 1) rafRef.current = requestAnimationFrame(step)
+
+      // guard against user callback throwing
+      try {
+        onProgress?.(p)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[LandingGate] onProgress error', err)
+      }
+
+      if (raw < 1) {
+        rafRef.current = requestAnimationFrame(step)
+      }
     }
 
     rafRef.current = requestAnimationFrame(step)
@@ -128,6 +149,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       root.removeAttribute('data-mode')
       root.removeAttribute('data-cascade-active')
       root.removeAttribute('data-cascade-done')
+      root.removeAttribute('data-white-phase')
     }
   }, [])
 
@@ -202,7 +224,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         try {
           document.documentElement.setAttribute('data-white-phase', '1')
         } catch {}
-        onCascadeWhite?.()
+        safeCall(onCascadeWhite, 'onCascadeWhite')
       }
       // End
       if (p >= 1 && phase === 'cascade') {
@@ -215,12 +237,25 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           cleanedRef.current = true
           localLockRef.current = false
           global.__lb.cascadeActive = false
-          onCascadeComplete?.()
+          safeCall(onCascadeComplete, 'onCascadeComplete')
         }, 40)
       }
     },
     [phase, onCascadeWhite, onCascadeComplete, global]
   )
+
+  // 🔐 Hard fallback: if for any reason the rAF loop dies,
+  // force-complete the cascade after CASCADE_MS + buffer.
+  useEffect(() => {
+    if (phase !== 'cascade') return
+    const id = setTimeout(() => {
+      // still in cascade? force finish
+      if (phase === 'cascade') {
+        handleProgress(1)
+      }
+    }, CASCADE_MS + 600)
+    return () => clearTimeout(id)
+  }, [phase, handleProgress])
 
   return (
     <div
