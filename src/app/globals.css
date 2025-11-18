@@ -380,16 +380,13 @@ html:has(.shop-grid[style*='--grid-cols: 5']) .product-img {
   opacity: 0 !important;
 }
 
-/* Clean backgrounds */
+/* Clean backgrounds – only on high-level wrappers so icons/arrows keep their bg */
 :root[data-mode='shop'] .shop-page,
 :root[data-mode='shop'] .shop-wrap,
 :root[data-mode='shop'] .shop-grid,
 :root[data-mode='shop'] .product-box,
 :root[data-mode='shop'] .product-hero-overlay,
-:root[data-mode='shop'] .product-hero,
-:root[data-mode='shop'] .product-img,
-:root[data-mode='shop'] [class*='page'],
-:root[data-mode='shop'] [class*='container'] {
+:root[data-mode='shop'] .product-hero {
   background: transparent !important;
   color: inherit;
 }
@@ -590,20 +587,22 @@ html:has([data-shop-root]) .logo-3d {
   font-weight: 800;
   transition: background 0.14s ease, color 0.14s ease, transform 0.06s ease, box-shadow 0.14s ease;
 }
+
+/* Smaller plus for size toggle / product tile */
 .plus-pill {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border-radius: 9999px;
   line-height: 1;
-  font-size: 18px;
+  font-size: 14px;
   background: #fff;
   color: #0f1115;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 :root[data-theme='night'] .plus-pill {
   background: #0b0c10;
   color: #fff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 .plus-pill.is-hot {
   background: var(--hover-green) !important;
