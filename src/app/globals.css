@@ -35,7 +35,7 @@
   /* Shop palette */
   --shop-offwhite: #f7f7f2;
 
-  /* Header controls (toggle/cart) */
+  /* Header controls (toggle/cart/orb) */
   --header-ctrl: 64px;
   --header-pad-x: 16px;
   --header-pad-r: 8px;
@@ -60,7 +60,7 @@
   --z-bands: 10006; /* color bands */
 }
 
-/* enforce stacking + white curtain */
+/* Full white curtain used by LandingGate */
 .white-loader {
   position: fixed;
   inset: 0;
@@ -72,8 +72,17 @@
   transition: opacity 160ms ease;
 }
 
+/* Chakra bands live above base content */
 .chakra-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
   z-index: var(--z-bands) !important;
+  grid-template-columns: repeat(7, 1fr);
+  pointer-events: none;
+  direction: rtl;
+  isolation: isolate;
+  background: transparent !important;
 }
 
 /* Theme hint */
@@ -380,11 +389,19 @@ html:has(.shop-grid[style*='--grid-cols: 5']) .product-img {
   opacity: 0 !important;
 }
 
+/* Make grid items float (no white card containers) */
+:root[data-mode='shop'] .product-tile,
+:root[data-mode='shop'] .product-box {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
 /* Clean backgrounds – only on high-level wrappers so icons/arrows keep their bg */
 :root[data-mode='shop'] .shop-page,
 :root[data-mode='shop'] .shop-wrap,
 :root[data-mode='shop'] .shop-grid,
-:root[data-mode='shop'] .product-box,
 :root[data-mode='shop'] .product-hero-overlay,
 :root[data-mode='shop'] .product-hero {
   background: transparent !important;
@@ -578,7 +595,7 @@ html:has([data-shop-root]) .logo-3d {
 }
 
 /* ==========================================================================
-   9) PILLS / DOTS
+   9) PILLS / DOTS (PLUS, SIZES, ARROWS)
    ========================================================================== */
 .pill {
   display: inline-grid;
@@ -588,7 +605,7 @@ html:has([data-shop-root]) .logo-3d {
   transition: background 0.14s ease, color 0.14s ease, transform 0.06s ease, box-shadow 0.14s ease;
 }
 
-/* Smaller plus for size toggle / product tile */
+/* smaller plus for tiles / global */
 .plus-pill {
   width: 22px;
   height: 22px;
@@ -610,6 +627,7 @@ html:has([data-shop-root]) .logo-3d {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.12) !important;
 }
 
+/* size chips */
 .size-pill {
   width: 28px;
   height: 28px;
@@ -630,7 +648,28 @@ html:has([data-shop-root]) .logo-3d {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 
-/* Dots */
+/* navigation arrows (overlay) */
+.arrow-pill {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+.arrow-pill > div {
+  position: relative; /* keep fallback SVG inside the circle */
+}
+.arrow-pill svg {
+  opacity: 1 !important;
+  display: block !important;
+  position: static !important;
+}
+:root[data-theme='day'] .arrow-pill svg path {
+  stroke: #111 !important;
+}
+:root[data-theme='night'] .arrow-pill svg path {
+  stroke: #ffffff !important;
+}
+
+/* Dots (image pager) */
 .dot-pill {
   border-radius: 9999px;
   padding: 0;
@@ -650,25 +689,11 @@ html:has([data-shop-root]) .logo-3d {
 /* ==========================================================================
    10) CHAKRA CASCADE — single pass, no black floor
    ========================================================================== */
-.chakra-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-bands) !important;
-  grid-template-columns: repeat(7, 1fr);
-  pointer-events: none;
-  direction: rtl;
-  isolation: isolate;
-  background: transparent !important;
-}
-:root[data-cascade-active='1'] .chakra-overlay {
-  display: grid;
-}
 .chakra-overlay[data-js-cascade='raf'] .chakra-band {
   animation: none !important;
 }
 
-/* Bands (if you reuse this class) */
+/* Bands */
 .chakra-band {
   position: relative;
   opacity: 1;
@@ -690,7 +715,7 @@ html:has([data-shop-root]) .logo-3d {
   filter: blur(26px);
 }
 
-/* Full white curtain driven by LandingGate attrs */
+/* white curtain flags */
 :root[data-white-phase='1'] .white-loader {
   opacity: 1;
   visibility: visible;
