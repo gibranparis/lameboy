@@ -68,6 +68,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
       <div
         aria-hidden
         style={{
+          position: 'relative', // <-- keeps fallback SVG inside the pill
           width: 28,
           height: 28,
           borderRadius: '50%',
@@ -93,7 +94,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
             backgroundColor: glyph,
           }}
         />
-        {/* fallback SVG */}
+        {/* fallback SVG (shows when mask URL not wired) */}
         <svg
           width="14"
           height="14"
@@ -243,13 +244,14 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
       </div>
 
       <style jsx>{`
+        /* smaller, tighter plus pill to match the site scale */
         .plus-pill {
-          width: 44px;
-          height: 44px;
+          width: 32px;
+          height: 32px;
           border-radius: 9999px;
           display: grid;
           place-items: center;
-          font-size: 28px;
+          font-size: 20px;
           line-height: 1;
           font-weight: 800;
           color: #0f1115;
@@ -685,7 +687,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         </div>
       </div>
 
-      {/* tiny helpers for arrow/dot states */}
+      {/* tiny helpers for arrow/dot states (duplicate-safe) */}
       <style jsx>{`
         .dot-pill {
           border-radius: 9999px;
