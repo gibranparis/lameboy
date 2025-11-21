@@ -4,7 +4,7 @@
 export const dynamic = 'force-static'
 
 import nextDynamic from 'next/dynamic'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import products from '@/lib/products'
 
 const LandingGate = nextDynamic(() => import('@/components/LandingGate'), { ssr: false })
@@ -127,10 +127,13 @@ export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
   const [theme, setTheme] = useState('day')
   const [isShop, setIsShop] = useState(false)
+  const [gateHold, setGateHold] = useState(false) // keep gate mounted through cascade finish
 
   const [whiteShow, setWhiteShow] = useState(false)
   const [veilGrid, setVeilGrid] = useState(true)
   const [loginOpen, setLoginOpen] = useState(false)
+
+  const showGate = !isShop || gateHold
 
   // tokens
   useEffect(() => {
@@ -175,8 +178,11 @@ export default function Page() {
   const onCascadeWhite = () => {
     setWhiteShow(true) // mount WHITE under bands
     setVeilGrid(true)
+    setGateHold(true)
     setIsShop(true) // begin spinning up shop behind WHITE (day mode on mount)
   }
+
+  const onCascadeComplete = useCallback(() => setGateHold(false), [])
 
   // Mirror the "white phase" attr so LandingGate can hard-hide base
   useEffect(() => {
@@ -236,11 +242,13 @@ export default function Page() {
       className="lb-screen w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
-      {!isShop ? (
+      {showGate && (
         <main className="lb-screen">
-          <LandingGate onCascadeWhite={onCascadeWhite} onCascadeComplete={() => {}} />
+          <LandingGate onCascadeWhite={onCascadeWhite} onCascadeComplete={onCascadeComplete} />
         </main>
-      ) : (
+      )}
+
+      {isShop && (
         <>
           <header role="banner" style={headerStyle}>
             <div
