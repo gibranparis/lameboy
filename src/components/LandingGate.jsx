@@ -10,8 +10,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
-// Call WHITE a touch earlier so it’s already present under the final bars
-const WHITE_CALL_PCT = 0.93
+// Call WHITE near the very end so it’s already present under the final bars
+const WHITE_CALL_PCT = 0.985
 const LAYERS = {
   BASE: 10000,
   WHITE: 10002, // white page (black orb) lives above base; bands sit above WHITE
@@ -124,7 +124,15 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
 
 /* =============================== Component ============================== */
 export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
-  const [phase, setPhase] = useState('idle') // 'idle' | 'cascade' | 'done'
+  // phase in state + ref to avoid stale closures in callbacks used by ChakraSweep
+  const phaseRef = useRef('idle')
+  const [phaseState, setPhaseState] = useState('idle')
+  const setPhase = useCallback(next => {
+    const value = typeof next === 'function' ? next(phaseRef.current) : next
+    phaseRef.current = value
+    setPhaseState(value)
+  }, [])
+
   const labelRef = useRef(null)
   useNoLayoutMeasure(labelRef)
 
@@ -153,6 +161,13 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     }
   }, [])
 
+  const clearTimers = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
   const reallyStart = useCallback(() => {
     const now = performance.now()
     if (localLockRef.current || global.__lb.cascadeActive) return
@@ -171,14 +186,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     try {
       sessionStorage.setItem('fromCascade', '1')
     } catch {}
-  }, [global])
-
-  const clearTimers = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-  }
+  }, [global, setPhase])
 
   const onPointerDown = useCallback(
     e => {
@@ -215,9 +223,11 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     clearTimers()
   }, [])
 
-  // Sweep progress
+  // Sweep progress — use phaseRef so we always see the live phase inside rAF
   const handleProgress = useCallback(
     p => {
+      const phase = phaseRef.current
+
       // Show WHITE under bands & hide landing immediately
       if (!whiteCalledRef.current && p >= WHITE_CALL_PCT && phase === 'cascade') {
         whiteCalledRef.current = true
@@ -241,21 +251,20 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         }, 40)
       }
     },
-    [phase, onCascadeWhite, onCascadeComplete, global]
+    [onCascadeWhite, onCascadeComplete, setPhase, global]
   )
 
   // 🔐 Hard fallback: if for any reason the rAF loop dies,
   // force-complete the cascade after CASCADE_MS + buffer.
   useEffect(() => {
-    if (phase !== 'cascade') return
+    if (phaseState !== 'cascade') return
     const id = setTimeout(() => {
-      // still in cascade? force finish
-      if (phase === 'cascade') {
+      if (phaseRef.current === 'cascade') {
         handleProgress(1)
       }
     }, CASCADE_MS + 600)
     return () => clearTimeout(id)
-  }, [phase, handleProgress])
+  }, [phaseState, handleProgress])
 
   return (
     <div
@@ -273,9 +282,11 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         visibility: 'visible',
       }}
     >
-      {phase === 'cascade' && <ChakraSweep durationMs={CASCADE_MS} onProgress={handleProgress} />}
+      {phaseState === 'cascade' && (
+        <ChakraSweep durationMs={CASCADE_MS} onProgress={handleProgress} />
+      )}
 
-      {phase === 'cascade' &&
+      {phaseState === 'cascade' &&
         createPortal(
           <div
             aria-hidden
