@@ -10,8 +10,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
-// Call WHITE near the very end so it’s already present under the final bars
-const WHITE_CALL_PCT = 0.985
+// Call WHITE near the very end as a guard, but we also kick it immediately on start
+const WHITE_CALL_PCT = 0.72
 const LAYERS = {
   BASE: 10000,
   WHITE: 10002, // white page (black orb) lives above base; bands sit above WHITE
@@ -148,13 +148,19 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const startedAtRef = useRef(0)
   const whiteCalledRef = useRef(false)
   const cleanedRef = useRef(false)
+  const callWhitePhase = useCallback(() => {
+    if (whiteCalledRef.current) return
+    whiteCalledRef.current = true
+    try {
+      document.documentElement.setAttribute('data-white-phase', '1')
+    } catch {}
+    safeCall(onCascadeWhite, 'onCascadeWhite')
+  }, [onCascadeWhite])
 
   // tokens
   useEffect(() => {
     const root = document.documentElement
-    root.setAttribute('data-mode', 'gate')
     return () => {
-      root.removeAttribute('data-mode')
       root.removeAttribute('data-cascade-active')
       root.removeAttribute('data-cascade-done')
       root.removeAttribute('data-white-phase')
@@ -179,6 +185,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
     document.documentElement.setAttribute('data-cascade-active', '1')
     setPhase('cascade')
+    callWhitePhase() // show white + mount shop immediately so the orb isn’t late
 
     try {
       playChakraSequenceRTL()
@@ -230,11 +237,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
       // Show WHITE under bands & hide landing immediately
       if (!whiteCalledRef.current && p >= WHITE_CALL_PCT && phase === 'cascade') {
-        whiteCalledRef.current = true
-        try {
-          document.documentElement.setAttribute('data-white-phase', '1')
-        } catch {}
-        safeCall(onCascadeWhite, 'onCascadeWhite')
+        callWhitePhase()
       }
       // End
       if (p >= 1 && phase === 'cascade') {

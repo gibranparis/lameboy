@@ -74,6 +74,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
           borderRadius: '50%',
           display: 'grid',
           placeItems: 'center',
+          overflow: 'hidden',
           background: baseBg,
           boxShadow: `0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}`,
           transition: 'background .12s ease, box-shadow .12s ease, transform .08s ease',

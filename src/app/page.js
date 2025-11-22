@@ -6,6 +6,7 @@ export const dynamic = 'force-static'
 import nextDynamic from 'next/dynamic'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import products from '@/lib/products'
+import { CASCADE_MS } from '@/components/LandingGate'
 
 const LandingGate = nextDynamic(() => import('@/components/LandingGate'), { ssr: false })
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
@@ -183,6 +184,11 @@ export default function Page() {
   }
 
   const onCascadeComplete = useCallback(() => setGateHold(false), [])
+  useEffect(() => {
+    if (!isShop) return
+    const id = setTimeout(() => setGateHold(false), CASCADE_MS + 900)
+    return () => clearTimeout(id)
+  }, [isShop])
 
   // Mirror the "white phase" attr so LandingGate can hard-hide base
   useEffect(() => {
