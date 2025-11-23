@@ -235,7 +235,7 @@ export default function Page() {
         }
         tick()
       }
-      setTimeout(hideWhiteWhenReady, 260)
+      setTimeout(hideWhiteWhenReady, 360)
     }
 
     const onReady = () => {
