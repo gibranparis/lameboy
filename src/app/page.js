@@ -205,6 +205,9 @@ export default function Page() {
     const id = requestAnimationFrame(() => {
       root.setAttribute('data-shop-mounted', '1')
       root.setAttribute('data-theme', 'day')
+      try {
+        localStorage.setItem('lb:theme', 'day')
+      } catch {}
       shopMountedRef.current = true
       setShopMounted(true)
     })
