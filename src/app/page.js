@@ -216,6 +216,7 @@ export default function Page() {
       shopMountedRef.current = false
       setShopMounted(false)
       root.removeAttribute('data-shop-mounted')
+      root.setAttribute('data-theme', 'day')
     }
   }, [isShop])
 

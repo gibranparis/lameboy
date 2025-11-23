@@ -434,7 +434,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         .page-center {
           transition: opacity 140ms ease;
         }
-        :root[data-cascade-active='1'] .page-center,
         :root[data-cascade-done='1'] .page-center,
         :root[data-white-phase] .page-center {
           opacity: 0;
