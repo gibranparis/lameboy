@@ -148,6 +148,16 @@ html[data-overlay-open] {
   transition-property: none !important;
 }
 
+/* Gate cascade overrides — keep floor white during sweep/white/done */
+:root[data-mode='gate'][data-cascade-active='1'],
+:root[data-mode='gate'][data-white-phase],
+:root[data-mode='gate'][data-cascade-done='1'] {
+  --bg: #fff;
+  --text: #000;
+  background: #fff !important;
+  color: #000 !important;
+}
+
 /* Shop tokens */
 :root[data-mode='shop'][data-theme='day'] {
   --bg: var(--shop-offwhite);

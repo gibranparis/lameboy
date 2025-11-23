@@ -153,6 +153,8 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     whiteCalledRef.current = true
     try {
       document.documentElement.setAttribute('data-white-phase', '1')
+      document.documentElement.style.background = '#fff'
+      document.body.style.background = '#fff'
     } catch {}
     safeCall(onCascadeWhite, 'onCascadeWhite')
   }, [onCascadeWhite])
@@ -164,6 +166,10 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       root.removeAttribute('data-cascade-active')
       root.removeAttribute('data-cascade-done')
       root.removeAttribute('data-white-phase')
+      try {
+        root.style.background = ''
+        document.body.style.background = ''
+      } catch {}
     }
   }, [])
 
@@ -184,6 +190,10 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     global.__lb.cascadeActive = true
 
     document.documentElement.setAttribute('data-cascade-active', '1')
+    try {
+      document.documentElement.style.background = '#fff'
+      document.body.style.background = '#fff'
+    } catch {}
     setPhase('cascade')
 
     try {
@@ -244,6 +254,10 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         const root = document.documentElement
         root.removeAttribute('data-cascade-active')
         root.setAttribute('data-cascade-done', '1')
+        try {
+          root.style.background = '#fff'
+          document.body.style.background = '#fff'
+        } catch {}
         setTimeout(() => {
           if (cleanedRef.current) return
           cleanedRef.current = true
