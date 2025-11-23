@@ -10,8 +10,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
-// Call WHITE earlier in the sweep so white/black orb is ready before bands exit
-const WHITE_CALL_PCT = 0.5
+// Call WHITE later in the sweep to keep bands moving while prepping orb
+const WHITE_CALL_PCT = 0.72
 const FLASH_MS = 200
 const LAYERS = {
   BASE: 10000,
@@ -257,13 +257,11 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         const root = document.documentElement
         root.removeAttribute('data-cascade-active')
         root.setAttribute('data-cascade-done', '1')
-        setTimeout(() => {
-          if (cleanedRef.current) return
-          cleanedRef.current = true
-          localLockRef.current = false
-          global.__lb.cascadeActive = false
-          safeCall(onCascadeComplete, 'onCascadeComplete')
-        }, 40)
+        if (cleanedRef.current) return
+        cleanedRef.current = true
+        localLockRef.current = false
+        global.__lb.cascadeActive = false
+        safeCall(onCascadeComplete, 'onCascadeComplete')
       }
     },
     [onCascadeWhite, onCascadeComplete, setPhase, global]
