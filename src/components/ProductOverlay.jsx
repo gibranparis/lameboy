@@ -51,8 +51,8 @@ function useTheme() {
 
 /* ---------------- arrow buttons ---------------- */
 function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
-  const baseBg = night ? '#000000' : '#ffffff'
-  const ring = night ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.10)'
+  const baseBg = night ? 'rgba(20,20,24,0.78)' : 'rgba(255,255,255,0.92)'
+  const ring = night ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.12)'
   const glyph = night ? '#ffffff' : '#0f1115'
 
   return (
@@ -76,7 +76,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
           placeItems: 'center',
           overflow: 'hidden',
           background: baseBg,
-          boxShadow: `0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px ${ring}`,
+          boxShadow: `0 2px 10px rgba(0,0,0,.14), inset 0 0 0 1px ${ring}`,
           transition: 'background .12s ease, box-shadow .12s ease, transform .08s ease',
         }}
       >
@@ -102,7 +102,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
           viewBox="0 0 24 24"
           focusable="false"
           aria-hidden="true"
-          style={{ position: 'absolute', opacity: 'var(--arrow-fallback,1)' }}
+          style={{ position: 'absolute', opacity: 'var(--arrow-fallback,0)' }}
         >
           {dir === 'up' ? (
             <path
