@@ -221,7 +221,7 @@ export default function DayNightToggle({
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
-            opacity: isNight ? 0 : 1, transition:'opacity 180ms ease',
+            opacity: isNight ? 1 : 0, transition:'opacity 180ms ease',
             filter:'drop-shadow(0 0 18px rgba(255,210,80,.65))',
           }}
         >
@@ -232,7 +232,7 @@ export default function DayNightToggle({
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
-            opacity: isNight ? 1 : 0, transition:'opacity 180ms ease',
+            opacity: isNight ? 0 : 1, transition:'opacity 180ms ease',
           }}
         >
           <img
