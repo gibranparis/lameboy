@@ -11,7 +11,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
 // Call WHITE mid-sweep (prevents post-cascade black peek without front-loading white)
-const WHITE_CALL_PCT = 0.72
+const WHITE_CALL_PCT = 0.66
 const FLASH_MS = 200
 const LAYERS = {
   BASE: 10000,
@@ -379,21 +379,21 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         title="Enter"
         aria-label="Enter"
         style={{
-          background: 'rgba(102, 153, 255, 0.14)',
-          border: '1px solid rgba(102, 153, 255, 0.42)',
-          borderRadius: 4,
-          padding: '6px 10px',
+          background: 'transparent',
+          border: 'none',
+          padding: '6px 0',
           cursor: 'pointer',
-          color: '#3b6cff',
+          color: '#6ea4ff',
           fontWeight: 800,
-          letterSpacing: '.08em',
+          letterSpacing: '.10em',
           fontSize: '12px',
           fontFamily: GATE_MONO,
           lineHeight: 1.2,
           marginTop: 8,
           touchAction: 'manipulation',
-          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.05)',
           textTransform: 'uppercase',
+          textShadow:
+            '0 1px 0 rgba(255,255,255,0.65), 0 0 8px rgba(110,164,255,0.35), 0 0 14px rgba(110,164,255,0.18)',
         }}
       >
         <ClockNaples />
@@ -410,31 +410,31 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         onPointerCancel={onPointerCancel}
         title="Enter"
         style={{
-          background: 'rgba(102, 153, 255, 0.14)',
-          border: '1px solid rgba(102, 153, 255, 0.42)',
-          borderRadius: 4,
-          padding: '6px 10px',
+          background: 'transparent',
+          border: 'none',
+          padding: '6px 0',
           cursor: 'pointer',
           fontWeight: 800,
-          letterSpacing: '.08em',
+          letterSpacing: '.10em',
           fontSize: '12px',
           fontFamily: GATE_MONO,
-          color: '#3b6cff',
+          color: '#6ea4ff',
           textTransform: 'uppercase',
-          textShadow: '0 1px 0 rgba(255,255,255,0.65)',
+          textShadow:
+            '0 1px 0 rgba(255,255,255,0.65), 0 0 8px rgba(110,164,255,0.35), 0 0 14px rgba(110,164,255,0.18)',
           touchAction: 'manipulation',
           marginTop: 6,
-          transition: 'color .12s linear, border-color .12s linear, box-shadow .12s linear',
+          transition: 'color .12s linear, text-shadow .12s linear',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.color = '#2f5cff'
-          e.currentTarget.style.borderColor = 'rgba(102, 153, 255, 0.58)'
-          e.currentTarget.style.boxShadow = '0 6px 22px rgba(47, 92, 255, 0.08)'
+          e.currentTarget.style.color = '#82b4ff'
+          e.currentTarget.style.textShadow =
+            '0 1px 0 rgba(255,255,255,0.7), 0 0 10px rgba(130,180,255,0.42), 0 0 16px rgba(130,180,255,0.22)'
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.color = '#3b6cff'
-          e.currentTarget.style.borderColor = 'rgba(102, 153, 255, 0.42)'
-          e.currentTarget.style.boxShadow = '0 4px 18px rgba(0, 0, 0, 0.05)'
+          e.currentTarget.style.color = '#6ea4ff'
+          e.currentTarget.style.textShadow =
+            '0 1px 0 rgba(255,255,255,0.65), 0 0 8px rgba(110,164,255,0.35), 0 0 14px rgba(110,164,255,0.18)'
         }}
       >
         Florida, USA
