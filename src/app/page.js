@@ -4,7 +4,7 @@
 export const dynamic = 'force-static'
 
 import nextDynamic from 'next/dynamic'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import products from '@/lib/products'
 
 const LandingGate = nextDynamic(() => import('@/components/LandingGate'), { ssr: false })
@@ -128,6 +128,9 @@ export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
   const [theme, setTheme] = useState('day')
   const [isShop, setIsShop] = useState(false)
+  const [cascadeDone, setCascadeDone] = useState(false)
+  const readyRequestedRef = useRef(false)
+  const readyRanRef = useRef(false)
 
   const [whiteShow, setWhiteShow] = useState(false)
   const [veilGrid, setVeilGrid] = useState(true)
@@ -182,6 +185,8 @@ export default function Page() {
 
   const onCascadeComplete = useCallback(() => {
     setWhiteShow(true) // ensure WHITE stays up through handoff
+    setVeilGrid(true) // keep grid hidden until overlay signals ready
+    setCascadeDone(true)
     setIsShop(true) // begin spinning up shop once cascade is finished
   }, [])
   // Mirror the "white phase" attr so LandingGate can hard-hide base
@@ -204,10 +209,18 @@ export default function Page() {
 
   // Unveil grid + fade WHITE out when ready (or after safety)
   useEffect(() => {
-    const onReady = () => {
+    const runReady = () => {
+      if (readyRanRef.current || !cascadeDone) return
+      readyRanRef.current = true
       setVeilGrid(false)
       setTimeout(() => setWhiteShow(false), 120)
     }
+
+    const onReady = () => {
+      readyRequestedRef.current = true
+      runReady()
+    }
+
     const handlers = [
       ['lb:overlay-mounted', onReady],
       ['lb:overlay-open', onReady],
@@ -215,11 +228,15 @@ export default function Page() {
     ]
     handlers.forEach(([n, h]) => window.addEventListener(n, h))
     const safety = setTimeout(onReady, 3000)
+
+    // If readiness was requested before cascade finished, run once now
+    if (readyRequestedRef.current) runReady()
+
     return () => {
       handlers.forEach(([n, h]) => window.removeEventListener(n, h))
       clearTimeout(safety)
     }
-  }, [])
+  }, [cascadeDone])
 
   const headerStyle = useMemo(
     () => ({
