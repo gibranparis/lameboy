@@ -446,6 +446,17 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     () => clamp(imgIdx, 0, Math.max(0, imgs.length - 1)),
     [imgIdx, imgs.length]
   )
+  const [closing, setClosing] = useState(false)
+  const closingRef = useRef(false)
+  const animateClose = useCallback(
+    (delayMs = 180) => {
+      if (closingRef.current) return
+      closingRef.current = true
+      setClosing(true)
+      setTimeout(() => onClose?.(), delayMs)
+    },
+    [onClose]
+  )
 
   /* signal mount for grid guard */
   useEffect(() => {
@@ -456,7 +467,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   /* close on orb zoom */
   useEffect(() => {
-    const h = () => onClose?.()
+    const h = () => animateClose()
     ;['lb:zoom', 'lb:zoom/grid-density'].forEach(n => {
       window.addEventListener(n, h)
       document.addEventListener(n, h)
@@ -467,12 +478,12 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         document.removeEventListener(n, h)
       })
     }
-  }, [onClose])
+  }, [animateClose])
 
   /* keyboard */
   useEffect(() => {
     const onKey = e => {
-      if (e.key === 'Escape') return onClose?.()
+      if (e.key === 'Escape') return animateClose()
       if (imgs.length) {
         if (e.key === 'ArrowRight') return setImgIdx(i => clamp(i + 1, 0, imgs.length - 1))
         if (e.key === 'ArrowLeft') return setImgIdx(i => clamp(i - 1, 0, imgs.length - 1))
@@ -579,10 +590,10 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       >
         {/* click-away */}
         <div
-          onClick={e => {
-            e.stopPropagation()
-            onClose?.()
-          }}
+        onClick={e => {
+          e.stopPropagation()
+          animateClose()
+        }}
           style={{
             position: 'fixed',
             left: 0,
@@ -596,7 +607,15 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
         <div
           className="product-hero"
-          style={{ pointerEvents: 'auto', textAlign: 'center', zIndex: 521, touchAction: 'none' }}
+          style={{
+            pointerEvents: 'auto',
+            textAlign: 'center',
+            zIndex: 521,
+            touchAction: 'none',
+            transform: closing ? 'scale(0.94)' : 'scale(1)',
+            opacity: closing ? 0.0 : 1,
+            transition: 'transform 160ms ease, opacity 160ms ease',
+          }}
           onPointerDown={swipe.onDown}
           onPointerMove={swipe.onMove}
           onPointerUp={swipe.onUp}
