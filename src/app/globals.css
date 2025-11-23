@@ -93,6 +93,12 @@
   color-scheme: dark;
 }
 
+/* During white phase (handoff), force the floor to stay white to avoid black flashes */
+:root[data-white-phase='1'] {
+  background: #fff !important;
+  color: #000 !important;
+}
+
 /* ==========================================================================
    1) BASE / GLOBAL RESETS
    ========================================================================== */

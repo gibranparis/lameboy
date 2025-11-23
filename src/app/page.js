@@ -212,8 +212,10 @@ export default function Page() {
     const runReady = () => {
       if (readyRanRef.current || !cascadeDone) return
       readyRanRef.current = true
+      setTheme('day') // soften handoff by revealing overlay in day palette
       setVeilGrid(false)
-      setTimeout(() => setWhiteShow(false), 120)
+      // linger white curtain slightly longer to avoid black gap
+      setTimeout(() => setWhiteShow(false), 260)
     }
 
     const onReady = () => {
