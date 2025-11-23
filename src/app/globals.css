@@ -122,6 +122,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-mode='gate'] .gate-flash {
+  color: #000;
+  transition: color 120ms ease, text-shadow 120ms ease;
+}
+:root[data-mode='gate'][data-gate-flash='1'] .gate-flash {
+  color: #faff00;
+  text-shadow: 0 0 10px rgba(250, 255, 0, 0.55), 0 0 18px rgba(250, 255, 0, 0.35);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
@@ -140,9 +149,9 @@ html[data-overlay-open] {
    ========================================================================== */
 /* Gate mode */
 :root[data-mode='gate'] {
-  --bg: #000;
-  --text: #fff;
-  background: #000 !important;
+  --bg: #fff;
+  --text: #000;
+  background: #fff !important;
 }
 :root[data-mode='gate'] * {
   transition-property: none !important;

@@ -12,6 +12,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 export const CASCADE_MS = 2400
 // Call WHITE mid-sweep (prevents post-cascade black peek without front-loading white)
 const WHITE_CALL_PCT = 0.72
+const FLASH_MS = 200
 const LAYERS = {
   BASE: 10000,
   WHITE: 10002, // white page (black orb) lives above base; bands sit above WHITE
@@ -174,6 +175,15 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     }
   }
 
+  const flashGate = useCallback(() => {
+    try {
+      document.documentElement.setAttribute('data-gate-flash', '1')
+      setTimeout(() => {
+        document.documentElement.removeAttribute('data-gate-flash')
+      }, FLASH_MS)
+    } catch {}
+  }, [])
+
   const reallyStart = useCallback(() => {
     const now = performance.now()
     if (localLockRef.current || global.__lb.cascadeActive) return
@@ -184,6 +194,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     global.__lb.cascadeActive = true
 
     document.documentElement.setAttribute('data-cascade-active', '1')
+    flashGate()
     setPhase('cascade')
 
     try {
@@ -310,11 +321,11 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
               <span
                 style={{
                   color: '#fff',
-                  mixBlendMode: 'difference',
                   fontWeight: 800,
                   letterSpacing: '.08em',
                   textTransform: 'uppercase',
                   fontSize: 'clamp(11px,1.3vw,14px)',
+                  textShadow: '0 0 12px rgba(0,0,0,0.35)',
                 }}
               >
                 LAMEBOY, USA
@@ -362,13 +373,14 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         className="gate-white time-link"
+        data-role="gate-text"
         title="Enter"
         aria-label="Enter"
         style={{
           background: 'transparent',
           border: 0,
           cursor: 'pointer',
-          color: '#fff',
+          color: '#000',
           fontWeight: 800,
           letterSpacing: '.06em',
           fontSize: 'clamp(12px,1.3vw,14px)',
@@ -386,6 +398,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         ref={labelRef}
         type="button"
         className="gate-white florida-link"
+        data-role="gate-text"
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
@@ -398,22 +411,19 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           letterSpacing: '.06em',
           fontSize: 'clamp(12px,1.3vw,14px)',
           fontFamily: 'inherit',
-          color: '#fff',
-          textShadow: '0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)',
+          color: '#000',
+          textShadow: '0 0 6px rgba(0,0,0,.15)',
           touchAction: 'manipulation',
           marginTop: 6,
           transition: 'color .12s linear, text-shadow .12s linear',
-          mixBlendMode: 'difference',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.color = '#faff00'
-          e.currentTarget.style.textShadow =
-            '0 0 10px rgba(250,255,0,.45), 0 0 18px rgba(250,255,0,.30)'
+          e.currentTarget.style.color = '#111'
+          e.currentTarget.style.textShadow = '0 0 8px rgba(0,0,0,.20)'
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.color = '#ffffff'
-          e.currentTarget.style.textShadow =
-            '0 0 8px rgba(255,255,255,.45), 0 0 16px rgba(255,255,255,.30)'
+          e.currentTarget.style.color = '#000000'
+          e.currentTarget.style.textShadow = '0 0 6px rgba(0,0,0,.15)'
         }}
       >
         Florida, USA
@@ -429,6 +439,16 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         :root[data-white-phase] .page-center {
           opacity: 0;
           visibility: hidden;
+        }
+        /* Gate text flash neon on trigger */
+        :root[data-mode='gate'] .gate-white,
+        :root[data-mode='gate'] .florida-link {
+          color: #000;
+        }
+        :root[data-mode='gate'][data-gate-flash='1'] .gate-white,
+        :root[data-mode='gate'][data-gate-flash='1'] .florida-link {
+          color: #faff00;
+          text-shadow: 0 0 10px rgba(250, 255, 0, 0.55), 0 0 18px rgba(250, 255, 0, 0.35);
         }
       `}</style>
     </div>
