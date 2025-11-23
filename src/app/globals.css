@@ -9,9 +9,9 @@
     monospace;
 
   /* Shell (dark by default) */
-  --bg: #000;
+  --bg: #f7f7f2;
   --panel: #1e1e1e;
-  --text: #fff;
+  --text: #111;
   --muted: #b3b3b3;
 
   /* Accents */
@@ -162,8 +162,8 @@ html[data-overlay-open] {
 
 /* Do not allow off-white to show until the shop has mounted */
 :root[data-mode='shop']:not([data-shop-mounted]) {
-  --bg: #000;
-  --text: #fff;
+  --bg: #fff;
+  --text: #000;
 }
 
 /* Apply background/text via tokens */

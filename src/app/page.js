@@ -150,7 +150,7 @@ export default function Page() {
   // mode & theme
   useEffect(() => {
     const root = document.documentElement
-    root.setAttribute('data-theme', theme)
+    root.setAttribute('data-theme', theme || 'day')
     root.setAttribute('data-mode', isShop ? 'shop' : 'gate')
     if (isShop) root.setAttribute('data-shop-root', '')
     else {
