@@ -148,8 +148,7 @@ html[data-overlay-open] {
   transition-property: none !important;
 }
 
-/* Gate cascade overrides — keep floor white during sweep/white/done */
-:root[data-mode='gate'][data-cascade-active='1'],
+/* Gate cascade overrides — keep floor white during white/done */
 :root[data-mode='gate'][data-white-phase],
 :root[data-mode='gate'][data-cascade-done='1'] {
   --bg: #fff;
