@@ -10,8 +10,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
-// Call WHITE with a little more runway so the white/orb page is up before the bands fully exit
-const WHITE_CALL_PCT = 0.82
+// Call WHITE earlier so the floor turns white mid-sweep (prevents post-cascade black peek)
+const WHITE_CALL_PCT = 0.6
 const LAYERS = {
   BASE: 10000,
   WHITE: 10002, // white page (black orb) lives above base; bands sit above WHITE
