@@ -51,8 +51,8 @@ function useTheme() {
 
 /* ---------------- arrow buttons ---------------- */
 function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
-  const baseBg = night ? 'rgba(20,20,24,0.78)' : 'rgba(255,255,255,0.92)'
-  const ring = night ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.12)'
+  const baseBg = night ? 'rgba(255,255,255,0.10)' : '#ffffff'
+  const ring = night ? 'rgba(255,255,255,.28)' : 'rgba(0,0,0,.12)'
   const glyph = night ? '#ffffff' : '#0f1115'
 
   return (

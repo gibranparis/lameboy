@@ -589,12 +589,6 @@ html:has([data-shop-root]) .logo-3d {
   letter-spacing: 0.04em;
 }
 
-/* Gate-only white lock */
-:root[data-mode='gate'] .gate-white {
-  color: #fff !important;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.45), 0 0 16px rgba(255, 255, 255, 0.3);
-}
-
 /* Links */
 .florida-link {
   font-weight: 800;
