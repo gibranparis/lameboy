@@ -419,7 +419,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         Florida, USA
       </button>
 
-      <style jsx>{`
+      <style jsx global>{`
         /* When WHITE is up, instantly hide the landing base so WHITE is revealed under the sweep */
         .page-center {
           transition: opacity 140ms ease;
