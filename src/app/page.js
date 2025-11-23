@@ -6,7 +6,6 @@ export const dynamic = 'force-static'
 import nextDynamic from 'next/dynamic'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import products from '@/lib/products'
-import { CASCADE_MS } from '@/components/LandingGate'
 
 const LandingGate = nextDynamic(() => import('@/components/LandingGate'), { ssr: false })
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
@@ -128,13 +127,12 @@ export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
   const [theme, setTheme] = useState('day')
   const [isShop, setIsShop] = useState(false)
-  const [gateHold, setGateHold] = useState(false) // keep gate mounted through cascade finish
 
   const [whiteShow, setWhiteShow] = useState(false)
   const [veilGrid, setVeilGrid] = useState(true)
   const [loginOpen, setLoginOpen] = useState(false)
 
-  const showGate = !isShop || gateHold
+  const showGate = !isShop
 
   // tokens
   useEffect(() => {
@@ -179,17 +177,12 @@ export default function Page() {
   const onCascadeWhite = () => {
     setWhiteShow(true) // mount WHITE under bands
     setVeilGrid(true)
-    setGateHold(true)
-    setIsShop(true) // begin spinning up shop behind WHITE (day mode on mount)
   }
 
-  const onCascadeComplete = useCallback(() => setGateHold(false), [])
-  useEffect(() => {
-    if (!isShop) return
-    const id = setTimeout(() => setGateHold(false), CASCADE_MS + 900)
-    return () => clearTimeout(id)
-  }, [isShop])
-
+  const onCascadeComplete = useCallback(() => {
+    setWhiteShow(true) // ensure WHITE stays up through handoff
+    setIsShop(true) // begin spinning up shop once cascade is finished
+  }, [])
   // Mirror the "white phase" attr so LandingGate can hard-hide base
   useEffect(() => {
     const root = document.documentElement
