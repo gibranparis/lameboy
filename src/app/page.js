@@ -129,8 +129,10 @@ export default function Page() {
   const [theme, setTheme] = useState('day')
   const [isShop, setIsShop] = useState(false)
   const [cascadeDone, setCascadeDone] = useState(false)
+  const [shopMounted, setShopMounted] = useState(false)
   const readyRequestedRef = useRef(false)
   const readyRanRef = useRef(false)
+  const shopMountedRef = useRef(false)
 
   const [whiteShow, setWhiteShow] = useState(false)
   const [veilGrid, setVeilGrid] = useState(true)
@@ -203,8 +205,14 @@ export default function Page() {
     const id = requestAnimationFrame(() => {
       root.setAttribute('data-shop-mounted', '1')
       root.setAttribute('data-theme', 'day')
+      shopMountedRef.current = true
+      setShopMounted(true)
     })
-    return () => cancelAnimationFrame(id)
+    return () => {
+      cancelAnimationFrame(id)
+      shopMountedRef.current = false
+      setShopMounted(false)
+    }
   }, [isShop])
 
   // Unveil grid + fade WHITE out when ready (or after safety)
@@ -214,8 +222,20 @@ export default function Page() {
       readyRanRef.current = true
       setTheme('day') // soften handoff by revealing overlay in day palette
       setVeilGrid(false)
-      // linger white curtain slightly longer to avoid black gap
-      setTimeout(() => setWhiteShow(false), 260)
+      // linger white curtain slightly longer; drop only after shop mounts to avoid black gap
+      const hideWhiteWhenReady = () => {
+        let attempts = 0
+        const tick = () => {
+          if (shopMountedRef.current || attempts > 20) {
+            setWhiteShow(false)
+            return
+          }
+          attempts += 1
+          setTimeout(tick, 30)
+        }
+        tick()
+      }
+      setTimeout(hideWhiteWhenReady, 260)
     }
 
     const onReady = () => {
