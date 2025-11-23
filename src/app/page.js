@@ -46,6 +46,7 @@ function WhiteLoader({ show, onFadeOutEnd }) {
   return (
     <div
       aria-hidden
+      className="white-loader"
       style={{
         position: 'fixed',
         inset: 0,
