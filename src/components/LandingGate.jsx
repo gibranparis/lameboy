@@ -22,6 +22,8 @@ const LAYERS = {
 
 const SEAFOAM = '#32ffc7'
 const ORB_PX = 88
+const GATE_MONO =
+  '"JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace'
 
 /* ========================== Utils / guards ========================== */
 function getGlobal() {
@@ -377,20 +379,21 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         title="Enter"
         aria-label="Enter"
         style={{
-          background: 'rgba(90, 150, 255, 0.12)',
-          border: '1px solid rgba(74, 124, 255, 0.35)',
+          background: 'rgba(102, 153, 255, 0.14)',
+          border: '1px solid rgba(102, 153, 255, 0.42)',
           borderRadius: 4,
           padding: '6px 10px',
           cursor: 'pointer',
-          color: '#4a7cff',
+          color: '#3b6cff',
           fontWeight: 800,
           letterSpacing: '.08em',
           fontSize: '12px',
-          fontFamily: 'var(--mono, "SFMono-Regular", ui-monospace)',
+          fontFamily: GATE_MONO,
           lineHeight: 1.2,
           marginTop: 8,
           touchAction: 'manipulation',
-          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.04)',
+          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.05)',
+          textTransform: 'uppercase',
         }}
       >
         <ClockNaples />
@@ -407,16 +410,16 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         onPointerCancel={onPointerCancel}
         title="Enter"
         style={{
-          background: 'rgba(90, 150, 255, 0.12)',
-          border: '1px solid rgba(74, 124, 255, 0.35)',
+          background: 'rgba(102, 153, 255, 0.14)',
+          border: '1px solid rgba(102, 153, 255, 0.42)',
           borderRadius: 4,
           padding: '6px 10px',
           cursor: 'pointer',
           fontWeight: 800,
           letterSpacing: '.08em',
           fontSize: '12px',
-          fontFamily: 'var(--mono, "SFMono-Regular", ui-monospace)',
-          color: '#4a7cff',
+          fontFamily: GATE_MONO,
+          color: '#3b6cff',
           textTransform: 'uppercase',
           textShadow: '0 1px 0 rgba(255,255,255,0.65)',
           touchAction: 'manipulation',
@@ -424,14 +427,14 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           transition: 'color .12s linear, border-color .12s linear, box-shadow .12s linear',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.color = '#3767ff'
-          e.currentTarget.style.borderColor = 'rgba(74, 124, 255, 0.55)'
-          e.currentTarget.style.boxShadow = '0 6px 22px rgba(55, 103, 255, 0.08)'
+          e.currentTarget.style.color = '#2f5cff'
+          e.currentTarget.style.borderColor = 'rgba(102, 153, 255, 0.58)'
+          e.currentTarget.style.boxShadow = '0 6px 22px rgba(47, 92, 255, 0.08)'
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.color = '#4a7cff'
-          e.currentTarget.style.borderColor = 'rgba(74, 124, 255, 0.35)'
-          e.currentTarget.style.boxShadow = '0 4px 18px rgba(0, 0, 0, 0.04)'
+          e.currentTarget.style.color = '#3b6cff'
+          e.currentTarget.style.borderColor = 'rgba(102, 153, 255, 0.42)'
+          e.currentTarget.style.boxShadow = '0 4px 18px rgba(0, 0, 0, 0.05)'
         }}
       >
         Florida, USA
