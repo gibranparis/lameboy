@@ -10,8 +10,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
-// Call WHITE late so orb/white reveal happens under the sweep, not before
-const WHITE_CALL_PCT = 0.9
+// Call WHITE as late as possible so orb/white reveal happens under the sweep, not before
+const WHITE_CALL_PCT = 0.985
 const LAYERS = {
   BASE: 10000,
   WHITE: 10002, // white page (black orb) lives above base; bands sit above WHITE
@@ -424,6 +424,8 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         .page-center {
           transition: opacity 140ms ease;
         }
+        :root[data-cascade-active='1'] .page-center,
+        :root[data-cascade-done='1'] .page-center,
         :root[data-white-phase] .page-center {
           opacity: 0;
           visibility: hidden;
