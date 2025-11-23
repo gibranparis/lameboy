@@ -720,10 +720,6 @@ html:has([data-shop-root]) .logo-3d {
   opacity: 1;
   visibility: visible;
 }
-:root[data-cascade-done='1'] .white-loader {
-  opacity: 0;
-  visibility: hidden;
-}
 
 /* After done, never show bands */
 :root[data-cascade-done='1'] .chakra-overlay {
