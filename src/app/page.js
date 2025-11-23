@@ -212,6 +212,7 @@ export default function Page() {
       cancelAnimationFrame(id)
       shopMountedRef.current = false
       setShopMounted(false)
+      root.removeAttribute('data-shop-mounted')
     }
   }, [isShop])
 
@@ -226,7 +227,7 @@ export default function Page() {
       const hideWhiteWhenReady = () => {
         let attempts = 0
         const tick = () => {
-          if (shopMountedRef.current || attempts > 20) {
+          if (shopMountedRef.current || attempts > 40) {
             setWhiteShow(false)
             return
           }
@@ -259,6 +260,13 @@ export default function Page() {
       clearTimeout(safety)
     }
   }, [cascadeDone])
+
+  // If cascade finished but shop isn't mounted yet, keep WHITE up to block black gaps
+  useEffect(() => {
+    if (cascadeDone && !shopMounted) {
+      setWhiteShow(true)
+    }
+  }, [cascadeDone, shopMounted])
 
   const headerStyle = useMemo(
     () => ({
