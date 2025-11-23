@@ -10,8 +10,8 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
-// Call WHITE near the very end as a guard, but we also kick it immediately on start
-const WHITE_CALL_PCT = 0.72
+// Call WHITE late so orb/white reveal happens under the sweep, not before
+const WHITE_CALL_PCT = 0.9
 const LAYERS = {
   BASE: 10000,
   WHITE: 10002, // white page (black orb) lives above base; bands sit above WHITE
@@ -185,7 +185,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
     document.documentElement.setAttribute('data-cascade-active', '1')
     setPhase('cascade')
-    callWhitePhase() // show white + mount shop immediately so the orb isn’t late
 
     try {
       playChakraSequenceRTL()
