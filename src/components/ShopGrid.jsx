@@ -109,6 +109,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       }
       syncCssTokens(clamped)
       if (broadcast) broadcastDensity(clamped)
+      try {
+        document.documentElement.style.setProperty('--grid-anim', '1')
+        setTimeout(() => {
+          document.documentElement.style.removeProperty('--grid-anim')
+        }, 280)
+      } catch {}
     },
     [broadcastDensity, syncCssTokens]
   )
