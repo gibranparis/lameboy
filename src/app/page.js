@@ -268,6 +268,27 @@ export default function Page() {
     }
   }, [cascadeDone, shopMounted])
 
+  // While white is showing (or cascade finished but shop not mounted), pin the floor to white to avoid any black flash
+  useEffect(() => {
+    const shouldForceWhite = whiteShow || (cascadeDone && !shopMounted)
+    if (!shouldForceWhite) return
+    const root = document.documentElement
+    const prevRootBg = root.style.background
+    const prevRootColor = root.style.color
+    const prevBodyBg = document.body.style.background
+    const prevBodyColor = document.body.style.color
+    root.style.background = '#fff'
+    root.style.color = '#000'
+    document.body.style.background = '#fff'
+    document.body.style.color = '#000'
+    return () => {
+      root.style.background = prevRootBg
+      root.style.color = prevRootColor
+      document.body.style.background = prevBodyBg
+      document.body.style.color = prevBodyColor
+    }
+  }, [whiteShow, cascadeDone, shopMounted])
+
   const headerStyle = useMemo(
     () => ({
       position: 'fixed',
