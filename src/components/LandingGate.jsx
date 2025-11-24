@@ -381,9 +381,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           border: 'none',
           padding: '6px 0',
           cursor: 'pointer',
-          backgroundImage: 'linear-gradient(90deg, #6ea4ff 0%, #8ccaff 50%, #6ea4ff 100%)',
-          WebkitBackgroundClip: 'text',
-          color: 'transparent',
+          color: '#7c7c84',
           fontWeight: 800,
           letterSpacing: '.10em',
           fontSize: '12px',
@@ -393,7 +391,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           touchAction: 'manipulation',
           textTransform: 'uppercase',
           textShadow:
-            '0 1px 0 rgba(255,255,255,0.65), 0 0 6px rgba(110,164,255,0.32), 0 0 12px rgba(140,200,255,0.22)',
+            '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)',
         }}
       >
         <ClockNaples />
@@ -418,25 +416,23 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           letterSpacing: '.10em',
           fontSize: '12px',
           fontFamily: GATE_MONO,
-          backgroundImage: 'linear-gradient(90deg, #6ea4ff 0%, #8ccaff 50%, #6ea4ff 100%)',
-          WebkitBackgroundClip: 'text',
-          color: 'transparent',
+          color: '#7c7c84',
           textTransform: 'uppercase',
           textShadow:
-            '0 1px 0 rgba(255,255,255,0.65), 0 0 6px rgba(110,164,255,0.32), 0 0 12px rgba(140,200,255,0.22)',
+            '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)',
           touchAction: 'manipulation',
           marginTop: 6,
           transition: 'color .12s linear, text-shadow .12s linear',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.color = 'transparent'
+          e.currentTarget.style.color = '#8a8a92'
           e.currentTarget.style.textShadow =
-            '0 1px 0 rgba(255,255,255,0.7), 0 0 10px rgba(130,180,255,0.42), 0 0 18px rgba(130,180,255,0.26)'
+            '0 1px 0 rgba(255,255,255,0.5), 0 0 10px rgba(140,140,140,0.24), 0 0 18px rgba(140,140,140,0.18)'
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.color = 'transparent'
+          e.currentTarget.style.color = '#7c7c84'
           e.currentTarget.style.textShadow =
-            '0 1px 0 rgba(255,255,255,0.65), 0 0 6px rgba(110,164,255,0.32), 0 0 12px rgba(140,200,255,0.22)'
+            '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)'
         }}
       >
         Florida, USA
