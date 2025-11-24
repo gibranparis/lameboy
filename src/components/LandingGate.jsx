@@ -11,7 +11,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 /* =============================== Timings / Layers =============================== */
 export const CASCADE_MS = 2400
 // Call WHITE later in the sweep to keep bands moving while prepping orb
-const WHITE_CALL_PCT = 0.72
+const WHITE_CALL_PCT = 0.64
 const FLASH_MS = 200
 const LAYERS = {
   BASE: 10000,
@@ -381,7 +381,9 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           border: 'none',
           padding: '6px 0',
           cursor: 'pointer',
-          color: '#6ea4ff',
+          backgroundImage: 'linear-gradient(90deg, #6ea4ff 0%, #8ccaff 50%, #6ea4ff 100%)',
+          WebkitBackgroundClip: 'text',
+          color: 'transparent',
           fontWeight: 800,
           letterSpacing: '.10em',
           fontSize: '12px',
@@ -391,7 +393,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           touchAction: 'manipulation',
           textTransform: 'uppercase',
           textShadow:
-            '0 1px 0 rgba(255,255,255,0.65), 0 0 8px rgba(110,164,255,0.35), 0 0 14px rgba(110,164,255,0.18)',
+            '0 1px 0 rgba(255,255,255,0.65), 0 0 6px rgba(110,164,255,0.32), 0 0 12px rgba(140,200,255,0.22)',
         }}
       >
         <ClockNaples />
@@ -416,23 +418,25 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           letterSpacing: '.10em',
           fontSize: '12px',
           fontFamily: GATE_MONO,
-          color: '#6ea4ff',
+          backgroundImage: 'linear-gradient(90deg, #6ea4ff 0%, #8ccaff 50%, #6ea4ff 100%)',
+          WebkitBackgroundClip: 'text',
+          color: 'transparent',
           textTransform: 'uppercase',
           textShadow:
-            '0 1px 0 rgba(255,255,255,0.65), 0 0 8px rgba(110,164,255,0.35), 0 0 14px rgba(110,164,255,0.18)',
+            '0 1px 0 rgba(255,255,255,0.65), 0 0 6px rgba(110,164,255,0.32), 0 0 12px rgba(140,200,255,0.22)',
           touchAction: 'manipulation',
           marginTop: 6,
           transition: 'color .12s linear, text-shadow .12s linear',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.color = '#82b4ff'
+          e.currentTarget.style.color = 'transparent'
           e.currentTarget.style.textShadow =
-            '0 1px 0 rgba(255,255,255,0.7), 0 0 10px rgba(130,180,255,0.42), 0 0 16px rgba(130,180,255,0.22)'
+            '0 1px 0 rgba(255,255,255,0.7), 0 0 10px rgba(130,180,255,0.42), 0 0 18px rgba(130,180,255,0.26)'
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.color = '#6ea4ff'
+          e.currentTarget.style.color = 'transparent'
           e.currentTarget.style.textShadow =
-            '0 1px 0 rgba(255,255,255,0.65), 0 0 8px rgba(110,164,255,0.35), 0 0 14px rgba(110,164,255,0.18)'
+            '0 1px 0 rgba(255,255,255,0.65), 0 0 6px rgba(110,164,255,0.32), 0 0 12px rgba(140,200,255,0.22)'
         }}
       >
         Florida, USA
@@ -443,7 +447,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         .page-center {
           transition: opacity 140ms ease;
         }
-        :root[data-cascade-active='1'] .page-center,
         :root[data-cascade-done='1'] .page-center,
         :root[data-white-phase] .page-center {
           opacity: 0;

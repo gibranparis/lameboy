@@ -172,13 +172,13 @@ export default function Page() {
   const onCascadeWhite = () => {
     setWhiteShow(true) // mount WHITE under bands
     setVeilGrid(true)
-    setIsShop(true) // begin spinning up shop under white while cascade finishes
   }
 
   const onCascadeComplete = useCallback(() => {
     setWhiteShow(true) // ensure WHITE stays up through handoff
     setVeilGrid(true) // keep grid hidden until overlay signals ready
     setCascadeDone(true)
+    setIsShop(true) // spin up shop once cascade finishes
   }, [])
   // Mirror the "white phase" attr so LandingGate can hard-hide base
   useEffect(() => {
