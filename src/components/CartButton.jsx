@@ -5,6 +5,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 
+const BIRKINS = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png']
+
 /**
  * CartButton
  * Listens for:
@@ -15,18 +17,25 @@ import Image from 'next/image'
 export default function CartButton({ size = 48, inHeader = false, imgSrc, onClick }) {
   const [count, setCount] = useState(0)
   const [pulse, setPulse] = useState(false)
+
+  // If imgSrc is provided, use that exact image.
+  // Otherwise, build a candidate list starting from a random Birkin
+  // so the first one (candidates[0]) cycles between green/royal/sky.
   const candidates = useMemo(() => {
-    const list = []
-    if (imgSrc) list.push(imgSrc)
-    list.push('/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png')
-    return list
+    if (imgSrc) return [imgSrc]
+
+    const start = Math.floor(Math.random() * BIRKINS.length)
+    const ordered = []
+    for (let i = 0; i < BIRKINS.length; i++) {
+      ordered.push(BIRKINS[(start + i) % BIRKINS.length])
+    }
+    return ordered
   }, [imgSrc])
 
-  // prefer first candidate (birkin) and fall back to SVG if everything fails
-  const [resolvedSrc, setResolvedSrc] = useState(
-    () => candidates[0] || fallbackSvg(size)
-  )
+  // Prefer the first candidate (random Birkin) and fall back to SVG if everything fails.
+  const [resolvedSrc, setResolvedSrc] = useState(() => candidates[0] || fallbackSvg(size))
   const fallbackIdx = useRef(0)
+
   useEffect(() => {
     fallbackIdx.current = 0
     setResolvedSrc(candidates[0] || fallbackSvg(size))
@@ -197,17 +206,6 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
       `}</style>
     </>
   )
-}
-
-function probe(src) {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => resolve(true)
-    img.onerror = () => resolve(false)
-    img.decoding = 'async'
-    img.referrerPolicy = 'no-referrer'
-    img.src = src
-  })
 }
 
 function fallbackSvg(size) {
