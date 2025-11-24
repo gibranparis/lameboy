@@ -4,7 +4,7 @@
 export const dynamic = 'force-static'
 
 import nextDynamic from 'next/dynamic'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import products from '@/lib/products'
 
 const LandingGate = nextDynamic(() => import('@/components/LandingGate'), { ssr: false })
@@ -18,17 +18,26 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 const WHITE_Z = 10002
-const GATE_TIMEOUT_MS = 3200 // hard safety: force-complete cascade after this
 
-/* WHITE overlay (black orb page) */
-function WhiteLoader({ show, onFadeOutEnd }) {
-  const opacity = show ? 1 : 0
+/* ========================= White overlay (black-orb page) ========================= */
+
+function WhiteLoader({ show }) {
+  const [visible, setVisible] = useState(show)
+
   useEffect(() => {
-    if (!show) {
-      const t = setTimeout(() => onFadeOutEnd?.(), 260)
+    // when show flips to false, fade out then unmount
+    if (!show && visible) {
+      const t = setTimeout(() => setVisible(false), 260)
       return () => clearTimeout(t)
     }
-  }, [show, onFadeOutEnd])
+    if (show && !visible) {
+      setVisible(true)
+    }
+  }, [show, visible])
+
+  if (!visible) return null
+
+  const opacity = show ? 1 : 0
 
   return (
     <div
@@ -90,6 +99,8 @@ function WhiteLoader({ show, onFadeOutEnd }) {
   )
 }
 
+/* ========================= Header control size ========================= */
+
 function useHeaderCtrlPx(defaultPx = 64) {
   const [px, setPx] = useState(defaultPx)
   useEffect(() => {
@@ -111,48 +122,51 @@ function useHeaderCtrlPx(defaultPx = 64) {
   return px
 }
 
+/* ================================= Page ================================= */
+
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
-  const [theme, setTheme] = useState('day')
-  const [shopActive, setShopActive] = useState(false)
-  const [cascadeDone, setCascadeDone] = useState(false)
-  const [shopMounted, setShopMounted] = useState(false)
-  const readyRequestedRef = useRef(false)
-  const readyRanRef = useRef(false)
-  const shopMountedRef = useRef(false)
 
-  const [whiteShow, setWhiteShow] = useState(false)
-  const [veilGrid, setVeilGrid] = useState(true)
+  const [theme, setTheme] = useState('day')
+  const [shopActive, setShopActive] = useState(false) // shop mounted behind curtain
+  const [cascadeDone, setCascadeDone] = useState(false) // gate finished
+  const [shopMounted, setShopMounted] = useState(false) // shop bundles ready
+  const [whiteShow, setWhiteShow] = useState(false) // white curtain visible
   const [loginOpen, setLoginOpen] = useState(false)
 
-  const showGate = !cascadeDone
+  const shopMountedRef = useRef(false)
 
-  // tokens
+  const showGate = !cascadeDone
+  const mode = cascadeDone ? 'shop' : 'gate'
+
+  /* ---------- root tokens ---------- */
+
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  // mode & theme
   useEffect(() => {
     const root = document.documentElement
-    const mode = shopActive && cascadeDone ? 'shop' : 'gate'
     root.setAttribute('data-theme', theme || 'day')
     root.setAttribute('data-mode', mode)
+
     if (shopActive) root.setAttribute('data-shop-root', '')
     else root.removeAttribute('data-shop-root')
-    if (!shopMounted) root.removeAttribute('data-shop-mounted')
-  }, [theme, shopActive, cascadeDone, shopMounted])
 
-  // overlay-open flag (banned/login)
+    if (shopMounted) root.setAttribute('data-shop-mounted', '1')
+    else root.removeAttribute('data-shop-mounted')
+  }, [theme, mode, shopActive, shopMounted])
+
+  // overlay-open flag (future login / banned, kept for later)
   useEffect(() => {
     const root = document.documentElement
     if (loginOpen) root.setAttribute('data-overlay-open', '1')
     else root.removeAttribute('data-overlay-open')
   }, [loginOpen])
 
-  // listen for theme changes
+  // listen for theme changes from DayNightToggle
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -165,50 +179,44 @@ export default function Page() {
 
   /* ---------- Gate → Shop choreography ---------- */
 
-  // Called late in the sweep (from LandingGate)
+  // Called from LandingGate when bands are ~2/3 across
   const onCascadeWhite = () => {
-    setWhiteShow(true) // mount WHITE under bands
-    setVeilGrid(true)
-    setShopActive(true) // start mounting shop behind the curtain
+    setWhiteShow(true) // mount white curtain under bands
+    setShopActive(true) // start mounting shop behind curtain
   }
 
+  // Called from LandingGate when sweep finishes
   const onCascadeComplete = useCallback(() => {
-    setWhiteShow(true) // ensure WHITE stays up through handoff
-    setVeilGrid(true) // keep grid hidden until overlay signals ready
-    setCascadeDone(true)
-    setShopActive(true)
+    setCascadeDone(true) // gate is done; hide gate React tree
   }, [])
 
-  // Mirror the "white phase" attr so LandingGate can hard-hide base
+  // Mirror the "white phase" attr for CSS
   useEffect(() => {
     const root = document.documentElement
     if (whiteShow) root.setAttribute('data-white-phase', '1')
     else root.removeAttribute('data-white-phase')
   }, [whiteShow])
 
-  // When Shop mounts, allow off-white tokens & ensure DAY on entry
+  // When shop becomes active, mark bundles as mounted on next frame
   useEffect(() => {
-    if (!shopActive) return
+    if (!shopActive) {
+      shopMountedRef.current = false
+      setShopMounted(false)
+      return
+    }
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
-      root.setAttribute('data-shop-mounted', '1')
+      shopMountedRef.current = true
+      setShopMounted(true)
       root.setAttribute('data-theme', 'day')
       try {
         localStorage.setItem('lb:theme', 'day')
       } catch {}
-      shopMountedRef.current = true
-      setShopMounted(true)
     })
-    return () => {
-      cancelAnimationFrame(id)
-      shopMountedRef.current = false
-      setShopMounted(false)
-      root.removeAttribute('data-shop-mounted')
-      root.setAttribute('data-theme', 'day')
-    }
+    return () => cancelAnimationFrame(id)
   }, [shopActive])
 
-  // Prewarm shop bundles while idle to avoid jank at handoff
+  // Pre-warm shop bundles while idle
   useEffect(() => {
     const run = () => {
       import('@/components/HeaderBar')
@@ -227,72 +235,12 @@ export default function Page() {
     }
   }, [])
 
-  // Unveil grid + fade WHITE out when ready (or after safety)
+  // When cascade is done and shop is mounted, drop the white curtain
   useEffect(() => {
-    const runReady = () => {
-      if (readyRanRef.current || !cascadeDone) return
-      readyRanRef.current = true
-      setTheme('day') // soften handoff by revealing overlay in day palette
-      setVeilGrid(false)
-      // linger white curtain slightly longer; drop only after shop mounts to avoid black gap
-      const hideWhiteWhenReady = () => {
-        let attempts = 0
-        const tick = () => {
-          if (shopMountedRef.current || attempts > 40) {
-            setWhiteShow(false)
-            return
-          }
-          attempts += 1
-          setTimeout(tick, 30)
-        }
-        tick()
-      }
-      setTimeout(hideWhiteWhenReady, 360)
-    }
-
-    const onReady = () => {
-      readyRequestedRef.current = true
-      runReady()
-    }
-
-    const handlers = [
-      ['lb:overlay-mounted', onReady],
-      ['lb:overlay-open', onReady],
-      ['lb:shop-ready', onReady],
-    ]
-    handlers.forEach(([n, h]) => window.addEventListener(n, h))
-    const safety = setTimeout(onReady, 3000)
-
-    // If readiness was requested before cascade finished, run once now
-    if (readyRequestedRef.current) runReady()
-
-    return () => {
-      handlers.forEach(([n, h]) => window.removeEventListener(n, h))
-      clearTimeout(safety)
-    }
-  }, [cascadeDone])
-
-  // If cascade finished but shop isn't mounted yet, keep WHITE up to block black gaps
-  useEffect(() => {
-    if (cascadeDone && !shopMounted) {
-      setWhiteShow(true)
-    }
+    if (!cascadeDone || !shopMounted) return
+    const t = setTimeout(() => setWhiteShow(false), 420)
+    return () => clearTimeout(t)
   }, [cascadeDone, shopMounted])
-
-  // 🔒 Global safety: if gate has been visible too long, force-complete cascade
-  useEffect(() => {
-    if (!showGate) return
-    const id = setTimeout(() => {
-      setCascadeDone(true)
-      setShopActive(true)
-      setWhiteShow(false)
-      const root = document.documentElement
-      root.setAttribute('data-cascade-done', '1')
-      root.removeAttribute('data-cascade-active')
-      root.removeAttribute('data-white-phase')
-    }, GATE_TIMEOUT_MS)
-    return () => clearTimeout(id)
-  }, [showGate])
 
   return (
     <div
@@ -320,11 +268,13 @@ export default function Page() {
         </>
       )}
 
-      {/* WHITE under bands; disappears only after shop is ready */}
+      {/* White curtain (black orb page) */}
       <WhiteLoader show={whiteShow} />
     </div>
   )
 }
+
+/* =============================== Clock (shared) =============================== */
 
 function ClockNaples() {
   const [now, setNow] = useState('')
