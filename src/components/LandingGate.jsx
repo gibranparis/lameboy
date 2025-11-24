@@ -30,6 +30,10 @@ function getGlobal() {
   if (typeof window !== 'undefined') return window
   return globalThis
 }
+
+// module-level global so hooks don’t depend on it
+const LB_GLOBAL = getGlobal()
+
 function useNoLayoutMeasure(ref) {
   useLayoutEffect(() => {
     void ref?.current
@@ -57,21 +61,20 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
     if (startedRef.current) return
     startedRef.current = true
 
-    const ease = t => 1 - Math.pow(1 - t, 3) // cubic ease-out
+    const ease = (t) => 1 - Math.pow(1 - t, 3) // cubic ease-out
     let t0
 
     // Wider pack → guarantees complete coverage; prevents visual stall near end
     const COLOR_VW = 160
-    const tx = p => (1 - p) * (100 + COLOR_VW) - COLOR_VW // 160vw → -60vw
+    const tx = (p) => (1 - p) * (100 + COLOR_VW) - COLOR_VW // 160vw → -60vw
 
-    const step = ts => {
+    const step = (ts) => {
       if (t0 == null) t0 = ts
       const raw = Math.min(1, (ts - t0) / durationMs)
       const p = ease(raw)
       const el = rootRef.current
       if (el) el.style.transform = `translate3d(${tx(p)}vw,0,0)`
 
-      // guard against user callback throwing
       try {
         onProgress?.(p)
       } catch (err) {
@@ -130,7 +133,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   // phase in state + ref to avoid stale closures in callbacks used by ChakraSweep
   const phaseRef = useRef('idle')
   const [phaseState, setPhaseState] = useState('idle')
-  const setPhase = useCallback(next => {
+  const setPhase = useCallback((next) => {
     const value = typeof next === 'function' ? next(phaseRef.current) : next
     phaseRef.current = value
     setPhaseState(value)
@@ -139,10 +142,9 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const labelRef = useRef(null)
   useNoLayoutMeasure(labelRef)
 
-  // singleton lock
-  const global = getGlobal()
-  if (!global.__lb) global.__lb = {}
-  const localLockRef = useRef(Boolean(global.__lb.cascadeActive))
+  // singleton lock, using module-level LB_GLOBAL
+  if (!LB_GLOBAL.__lb) LB_GLOBAL.__lb = {}
+  const localLockRef = useRef(Boolean(LB_GLOBAL.__lb.cascadeActive))
 
   // presses
   const pressedRef = useRef(false)
@@ -151,6 +153,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const startedAtRef = useRef(0)
   const whiteCalledRef = useRef(false)
   const cleanedRef = useRef(false)
+
   const callWhitePhase = useCallback(() => {
     if (whiteCalledRef.current) return
     whiteCalledRef.current = true
@@ -170,12 +173,12 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     }
   }, [])
 
-  const clearTimers = () => {
+  const clearTimers = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
-  }
+  }, [])
 
   const flashGate = useCallback(() => {
     try {
@@ -188,12 +191,12 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
   const reallyStart = useCallback(() => {
     const now = performance.now()
-    if (localLockRef.current || global.__lb.cascadeActive) return
+    if (localLockRef.current || LB_GLOBAL.__lb.cascadeActive) return
     if (now - startedAtRef.current < 800) return
     startedAtRef.current = now
 
     localLockRef.current = true
-    global.__lb.cascadeActive = true
+    LB_GLOBAL.__lb.cascadeActive = true
 
     document.documentElement.setAttribute('data-cascade-active', '1')
     flashGate()
@@ -205,10 +208,10 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     try {
       sessionStorage.setItem('fromCascade', '1')
     } catch {}
-  }, [global, setPhase])
+  }, [flashGate, setPhase])
 
   const onPointerDown = useCallback(
-    e => {
+    (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return
       longPressRef.current = false
       pressedRef.current = true
@@ -218,11 +221,11 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         if (!localLockRef.current) reallyStart()
       }, 650)
     },
-    [reallyStart]
+    [clearTimers, reallyStart]
   )
 
   const onPointerUp = useCallback(
-    e => {
+    (e) => {
       if (!pressedRef.current) return
       pressedRef.current = false
       const wasLong = longPressRef.current
@@ -233,18 +236,18 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         if (!localLockRef.current) reallyStart()
       }
     },
-    [reallyStart]
+    [clearTimers, reallyStart]
   )
 
   const onPointerCancel = useCallback(() => {
     pressedRef.current = false
     longPressRef.current = false
     clearTimers()
-  }, [])
+  }, [clearTimers])
 
   // Sweep progress — use phaseRef so we always see the live phase inside rAF
   const handleProgress = useCallback(
-    p => {
+    (p) => {
       const phase = phaseRef.current
 
       // Show WHITE under bands & hide landing immediately
@@ -260,11 +263,11 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         if (cleanedRef.current) return
         cleanedRef.current = true
         localLockRef.current = false
-        global.__lb.cascadeActive = false
+        LB_GLOBAL.__lb.cascadeActive = false
         safeCall(onCascadeComplete, 'onCascadeComplete')
       }
     },
-    [onCascadeWhite, onCascadeComplete, setPhase, global]
+    [callWhitePhase, onCascadeComplete, setPhase]
   )
 
   // 🔐 Hard fallback: if for any reason the rAF loop dies,
@@ -424,12 +427,12 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           marginTop: 6,
           transition: 'color .12s linear, text-shadow .12s linear',
         }}
-        onMouseEnter={e => {
+        onMouseEnter={(e) => {
           e.currentTarget.style.color = '#8a8a92'
           e.currentTarget.style.textShadow =
             '0 1px 0 rgba(255,255,255,0.5), 0 0 10px rgba(140,140,140,0.24), 0 0 18px rgba(140,140,140,0.18)'
         }}
-        onMouseLeave={e => {
+        onMouseLeave={(e) => {
           e.currentTarget.style.color = '#7c7c84'
           e.currentTarget.style.textShadow =
             '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)'
@@ -456,7 +459,9 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         :root[data-mode='gate'][data-gate-flash='1'] .gate-white,
         :root[data-mode='gate'][data-gate-flash='1'] .florida-link {
           color: #faff00;
-          text-shadow: 0 0 10px rgba(250, 255, 0, 0.55), 0 0 18px rgba(250, 255, 0, 0.35);
+          text-shadow:
+            0 0 10px rgba(250, 255, 0, 0.55),
+            0 0 18px rgba(250, 255, 0, 0.35);
         }
       `}</style>
     </div>

@@ -1,7 +1,9 @@
+// src/components/CartButton.jsx
 // @ts-check
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Image from 'next/image'
 
 /**
  * CartButton
@@ -13,7 +15,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 export default function CartButton({ size = 48, inHeader = false, imgSrc, onClick }) {
   const [count, setCount] = useState(0)
   const [pulse, setPulse] = useState(false)
-  const [resolvedSrc, setResolvedSrc] = useState('')
+  // start with SVG so Next/Image never sees an empty src
+  const [resolvedSrc, setResolvedSrc] = useState(() => fallbackSvg(size))
 
   const candidates = useMemo(() => {
     const list = [imgSrc].filter(Boolean)
@@ -33,33 +36,37 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
             setResolvedSrc(src)
             return
           }
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       }
-      if (!cancelled) setResolvedSrc(fallbackSvg(size))
+      // if nothing works we just stay on the SVG fallback
     })()
     return () => {
       cancelled = true
     }
-  }, [candidates, size])
+  }, [candidates])
 
-  const btnRef = useRef(/** @type {HTMLButtonElement|null} */ null)
-  const tPulse = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ null)
-  const tBump = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ null)
+  const btnRef = useRef(/** @type {HTMLButtonElement|null} */ (null))
+  const tPulse = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
+  const tBump = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
 
   useEffect(() => {
     const add = (delta = 1) => {
-      setCount(c => Math.max(0, c + delta))
+      setCount((c) => Math.max(0, c + delta))
       setPulse(true)
       try {
         btnRef.current?.classList.add('lb-bump')
         if (tBump.current) clearTimeout(tBump.current)
         tBump.current = setTimeout(() => btnRef.current?.classList.remove('lb-bump'), 240)
-      } catch {}
+      } catch {
+        /* ignore */
+      }
       if (tPulse.current) clearTimeout(tPulse.current)
       tPulse.current = setTimeout(() => setPulse(false), 360)
     }
-    const onAdd = e => add(Number(e?.detail?.count ?? e?.detail?.qty ?? 1) || 1)
-    const onSet = e => setCount(Math.max(0, Number(e?.detail?.count ?? 0) || 0))
+    const onAdd = (e) => add(Number(e?.detail?.count ?? e?.detail?.qty ?? 1) || 1)
+    const onSet = (e) => setCount(Math.max(0, Number(e?.detail?.count ?? 0) || 0))
     const onClear = () => setCount(0)
 
     for (const target of [window, document]) {
@@ -85,6 +92,8 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
     [count]
   )
 
+  const iconSize = Math.round(size * 0.86)
+
   const S = {
     btn: {
       position: 'relative',
@@ -104,8 +113,8 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
       zIndex: 2,
     },
     imgWrap: {
-      width: Math.round(size * 0.86),
-      height: Math.round(size * 0.86),
+      width: iconSize,
+      height: iconSize,
       display: 'grid',
       placeItems: 'center',
     },
@@ -151,7 +160,14 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
         style={S.btn}
       >
         <span style={S.imgWrap}>
-          <img src={resolvedSrc} alt="" style={S.img} draggable={false} />
+          <Image
+            src={resolvedSrc}
+            alt=""
+            width={iconSize}
+            height={iconSize}
+            style={S.img}
+            priority={inHeader}
+          />
         </span>
         {count > 0 && (
           <span aria-hidden="true" style={S.badge}>
@@ -195,7 +211,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
 }
 
 function probe(src) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const img = new Image()
     img.onload = () => resolve(true)
     img.onerror = () => resolve(false)

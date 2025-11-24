@@ -29,7 +29,7 @@ function useTheme() {
   const [{ night }, setState] = useState(read)
 
   useEffect(() => {
-    const onTheme = e => {
+    const onTheme = (e) => {
       const t = e?.detail?.theme
       if (t === 'night') setState({ night: true })
       else if (t === 'day') setState({ night: false })
@@ -43,6 +43,7 @@ function useTheme() {
       window.removeEventListener('theme-change', onTheme)
       document.removeEventListener('theme-change', onTheme)
     }
+    // we intentionally rely on the initial `read` here
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -139,15 +140,15 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
   const plusRef = useRef(null)
   const timers = useRef({})
 
-  const onToggle = () => {
+  const onToggle = useCallback(() => {
     if (showAdded) return
-    setOpen(v => !v)
+    setOpen((v) => !v)
     setPlusHot(true)
     clearTimeout(timers.current.plusTick)
     timers.current.plusTick = setTimeout(() => setPlusHot(false), 160)
-  }
+  }, [showAdded])
 
-  const pick = sz => {
+  const pick = useCallback((sz) => {
     setPicked(sz)
     try {
       window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail: { size: sz, count: 1 } }))
@@ -165,9 +166,15 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
       clearTimeout(timers.current.hide)
       timers.current.hide = setTimeout(() => setAdded(false), 900)
     }, 380)
-  }
+  }, [])
 
-  useEffect(() => () => Object.values(timers.current).forEach(t => clearTimeout(t)), [])
+  useEffect(
+    () => () =>
+      Object.values(timers.current).forEach((t) => {
+        if (t) clearTimeout(t)
+      }),
+    []
+  )
 
   const glyph = open ? '–' : '+'
   const addedStyle = {
@@ -224,7 +231,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
         hidden={!open}
         style={{ gap: 8 }}
       >
-        {sizes.map(sz => (
+        {sizes.map((sz) => (
           <button
             key={sz}
             type="button"
@@ -257,20 +264,29 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
           font-weight: 800;
           color: #0f1115;
           background: #fff;
-          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
-          transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease,
+          box-shadow:
+            inset 0 0 0 1px rgba(0, 0, 0, 0.12),
+            0 2px 10px rgba(0, 0, 0, 0.08);
+          transition:
+            background 0.12s ease,
+            box-shadow 0.12s ease,
+            transform 0.08s ease,
             color 0.12s ease;
         }
         :root[data-theme='night'] .plus-pill {
           color: #fff;
           background: #000;
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 2px 10px rgba(0, 0, 0, 0.2);
+          box-shadow:
+            inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+            0 2px 10px rgba(0, 0, 0, 0.2);
         }
         .plus-pill.is-open,
         .plus-pill.is-hot {
           background: var(--hover-green, #0bf05f);
           color: #000;
-          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.12);
+          box-shadow:
+            inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+            0 2px 10px rgba(0, 0, 0, 0.12);
           transform: translateZ(0) scale(1.02);
         }
 
@@ -291,11 +307,14 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
           padding: 0 12px;
           border-radius: 9999px;
           font-weight: 700;
-          letter-spacing: 0.04em;
+          letterspacing: 0.04em;
           background: #fff;
           color: #0f1115;
           box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
-          transition: transform 0.08s ease, box-shadow 0.2s ease, background 0.12s ease,
+          transition:
+            transform 0.08s ease,
+            box-shadow 0.2s ease,
+            background 0.12s ease,
             color 0.12s ease;
         }
         :root[data-theme='night'] .size-pill {
@@ -310,25 +329,35 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
         }
         .size-pill.is-hot {
           transform: scale(1.06);
-          box-shadow: 0 0 0 0 rgba(11, 240, 95, 0.42), inset 0 0 0 1px rgba(11, 240, 95, 0.55);
+          box-shadow:
+            0 0 0 0 rgba(11, 240, 95, 0.42),
+            inset 0 0 0 1px rgba(11, 240, 95, 0.55);
           animation: lbPulseShort 420ms ease;
         }
         @keyframes lbPulseShort {
           0% {
-            box-shadow: 0 0 0 0 rgba(11, 240, 95, 0.42), inset 0 0 0 1px rgba(11, 240, 95, 0.55);
+            box-shadow:
+              0 0 0 0 rgba(11, 240, 95, 0.42),
+              inset 0 0 0 1px rgba(11, 240, 95, 0.55);
           }
           70% {
-            box-shadow: 0 0 0 8px rgba(11, 240, 95, 0), inset 0 0 0 1px rgba(11, 240, 95, 0.35);
+            box-shadow:
+              0 0 0 8px rgba(11, 240, 95, 0),
+              inset 0 0 0 1px rgba(11, 240, 95, 0.35);
           }
           100% {
-            box-shadow: 0 0 0 10px rgba(11, 240, 95, 0), inset 0 0 0 1px rgba(11, 240, 95, 0.2);
+            box-shadow:
+              0 0 0 10px rgba(11, 240, 95, 0),
+              inset 0 0 0 1px rgba(11, 240, 95, 0.2);
           }
         }
 
         .arrow-pill.is-hot > div {
           background: var(--hover-green, #0bf05f) !important;
           color: #000 !important;
-          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.12) !important;
+          box-shadow:
+            inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+            0 2px 10px rgba(0, 0, 0, 0.12) !important;
         }
         .dot-pill {
           border-radius: 9999px;
@@ -352,7 +381,16 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
 
 /* ---------------- swipe engine ---------------- */
 function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash }) {
-  const state = useRef({ active: false, lastX: 0, lastY: 0, ax: 0, ay: 0, lastT: 0, vx: 0, vy: 0 })
+  const state = useRef({
+    active: false,
+    lastX: 0,
+    lastY: 0,
+    ax: 0,
+    ay: 0,
+    lastT: 0,
+    vx: 0,
+    vy: 0,
+  })
   const coarse =
     typeof window !== 'undefined' &&
     window.matchMedia &&
@@ -362,7 +400,7 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
   const STEP_Y = coarse ? 110 : 64
   const FLICK_V_BONUS = coarse ? 0.22 : 0.35
 
-  const onDown = useCallback(e => {
+  const onDown = useCallback((e) => {
     const p = e.touches ? e.touches[0] : e
     state.current.active = true
     state.current.lastX = p.clientX
@@ -375,7 +413,7 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
   }, [])
 
   const onMove = useCallback(
-    e => {
+    (e) => {
       if (!state.current.active) return
       if (e.cancelable) e.preventDefault()
 
@@ -399,11 +437,11 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
       if (imgsLen) {
         while (state.current.ax <= -STEP_X) {
           state.current.ax += STEP_X
-          setImgIdx(i => clamp(i + 1, 0, imgsLen - 1))
+          setImgIdx((i) => clamp(i + 1, 0, imgsLen - 1))
         }
         while (state.current.ax >= STEP_X) {
           state.current.ax -= STEP_X
-          setImgIdx(i => clamp(i - 1, 0, imgsLen - 1))
+          setImgIdx((i) => clamp(i - 1, 0, imgsLen - 1))
         }
       }
       if (prodsLen > 1) {
@@ -448,6 +486,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   )
   const [closing, setClosing] = useState(false)
   const closingRef = useRef(false)
+
   const animateClose = useCallback(
     (delayMs = 180) => {
       if (closingRef.current) return
@@ -468,12 +507,13 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
   /* close on orb zoom */
   useEffect(() => {
     const h = () => animateClose()
-    ;['lb:zoom', 'lb:zoom/grid-density'].forEach(n => {
+    const names = ['lb:zoom', 'lb:zoom/grid-density']
+    names.forEach((n) => {
       window.addEventListener(n, h)
       document.addEventListener(n, h)
     })
     return () => {
-      ;['lb:zoom', 'lb:zoom/grid-density'].forEach(n => {
+      names.forEach((n) => {
         window.removeEventListener(n, h)
         document.removeEventListener(n, h)
       })
@@ -482,11 +522,11 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
 
   /* keyboard */
   useEffect(() => {
-    const onKey = e => {
+    const onKey = (e) => {
       if (e.key === 'Escape') return animateClose()
       if (imgs.length) {
-        if (e.key === 'ArrowRight') return setImgIdx(i => clamp(i + 1, 0, imgs.length - 1))
-        if (e.key === 'ArrowLeft') return setImgIdx(i => clamp(i - 1, 0, imgs.length - 1))
+        if (e.key === 'ArrowRight') return setImgIdx((i) => clamp(i + 1, 0, imgs.length - 1))
+        if (e.key === 'ArrowLeft') return setImgIdx((i) => clamp(i - 1, 0, imgs.length - 1))
       }
       if (products.length > 1) {
         if (e.key === 'ArrowDown') {
@@ -503,12 +543,12 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [imgs.length, products.length, index, onIndexChange, onClose])
+  }, [animateClose, imgs.length, products.length, index, onIndexChange])
 
   /* wheel parity */
   const lastWheel = useRef(0)
   useEffect(() => {
-    const onWheel = e => {
+    const onWheel = (e) => {
       const now = performance.now()
       if (now - lastWheel.current < 110) return
       lastWheel.current = now
@@ -516,7 +556,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       const ax = Math.abs(e.deltaX)
       const ay = Math.abs(e.deltaY)
       if (ax > ay && imgs.length) {
-        setImgIdx(i => clamp(i + (e.deltaX > 0 ? 1 : -1), 0, imgs.length - 1))
+        setImgIdx((i) => clamp(i + (e.deltaX > 0 ? 1 : -1), 0, imgs.length - 1))
       } else if (products.length > 1) {
         const dirDown = e.deltaY > 0
         flash(document.querySelector(dirDown ? '[data-ui="img-down"]' : '[data-ui="img-up"]'))
@@ -527,7 +567,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => window.removeEventListener('wheel', onWheel)
   }, [imgs.length, products.length, index, onIndexChange])
 
-  const onDirFlash = useCallback(dir => {
+  const onDirFlash = useCallback((dir) => {
     flash(document.querySelector(dir === 'down' ? '[data-ui="img-down"]' : '[data-ui="img-up"]'))
   }, [])
 
@@ -540,6 +580,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     onDirFlash,
   })
 
+  /* overlay flag */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open', '1')
     return () => document.documentElement.removeAttribute('data-overlay-open')
@@ -590,10 +631,10 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
       >
         {/* click-away */}
         <div
-        onClick={e => {
-          e.stopPropagation()
-          animateClose()
-        }}
+          onClick={(e) => {
+            e.stopPropagation()
+            animateClose()
+          }}
           style={{
             position: 'fixed',
             left: 0,
