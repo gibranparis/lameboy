@@ -18,6 +18,7 @@ const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), 
 
 const RUNNER_H = 14
 const WHITE_Z = 10002
+const GATE_TIMEOUT_MS = 3200 // hard safety: force-complete cascade after this
 
 /* WHITE overlay (black orb page) */
 function WhiteLoader({ show, onFadeOutEnd }) {
@@ -153,7 +154,7 @@ export default function Page() {
 
   // listen for theme changes
   useEffect(() => {
-    const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
+    const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
     document.addEventListener('theme-change', onTheme)
     return () => {
@@ -177,6 +178,7 @@ export default function Page() {
     setCascadeDone(true)
     setShopActive(true)
   }, [])
+
   // Mirror the "white phase" attr so LandingGate can hard-hide base
   useEffect(() => {
     const root = document.documentElement
@@ -276,6 +278,21 @@ export default function Page() {
       setWhiteShow(true)
     }
   }, [cascadeDone, shopMounted])
+
+  // 🔒 Global safety: if gate has been visible too long, force-complete cascade
+  useEffect(() => {
+    if (!showGate) return
+    const id = setTimeout(() => {
+      setCascadeDone(true)
+      setShopActive(true)
+      setWhiteShow(false)
+      const root = document.documentElement
+      root.setAttribute('data-cascade-done', '1')
+      root.removeAttribute('data-cascade-active')
+      root.removeAttribute('data-white-phase')
+    }, GATE_TIMEOUT_MS)
+    return () => clearTimeout(id)
+  }, [showGate])
 
   return (
     <div
