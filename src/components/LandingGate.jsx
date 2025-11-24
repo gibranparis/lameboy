@@ -260,6 +260,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   return (
     <div
       className="page-center"
+      onClick={reallyStart}
       style={{
         minHeight: '100svh',
         display: 'flex',
@@ -271,6 +272,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         position: 'relative',
         zIndex: LAYERS.BASE,
         visibility: 'visible',
+        cursor: 'pointer',
       }}
     >
       {phaseState === 'cascade' && <ChakraSweep />}
@@ -354,19 +356,19 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
             onPointerCancel={onPointerCancel}
             className="gate-white time-link"
             data-role="gate-text"
-            title="Enter"
-            aria-label="Enter"
-            style={{
-              background: 'transparent',
-              border: 'none',
+        title="Enter"
+        aria-label="Enter"
+        style={{
+          background: 'transparent',
+          border: 'none',
               padding: '6px 0',
               cursor: 'pointer',
-              color: '#7c7c84',
-              fontWeight: 800,
-              letterSpacing: '.10em',
-              fontSize: '12px',
-              fontFamily: GATE_MONO,
-              lineHeight: 1.2,
+          color: '#000',
+          fontWeight: 800,
+          letterSpacing: '.10em',
+          fontSize: '12px',
+          fontFamily: GATE_MONO,
+          lineHeight: 1.2,
               marginTop: 8,
               touchAction: 'manipulation',
               textTransform: 'uppercase',
@@ -391,30 +393,30 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
               background: 'transparent',
               border: 'none',
               padding: '6px 0',
-              cursor: 'pointer',
-              fontWeight: 800,
-              letterSpacing: '.10em',
-              fontSize: '12px',
-              fontFamily: GATE_MONO,
-              color: '#7c7c84',
-              textTransform: 'uppercase',
-              textShadow:
-                '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)',
-              touchAction: 'manipulation',
-              marginTop: 6,
+          cursor: 'pointer',
+          fontWeight: 800,
+          letterSpacing: '.10em',
+          fontSize: '12px',
+          fontFamily: GATE_MONO,
+          color: '#000',
+          textTransform: 'uppercase',
+          textShadow:
+            '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)',
+          touchAction: 'manipulation',
+          marginTop: 6,
               transition: 'color .12s linear, text-shadow .12s linear',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#8a8a92'
-              e.currentTarget.style.textShadow =
-                '0 1px 0 rgba(255,255,255,0.5), 0 0 10px rgba(140,140,140,0.24), 0 0 18px rgba(140,140,140,0.18)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = '#7c7c84'
-              e.currentTarget.style.textShadow =
-                '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)'
-            }}
-          >
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = '#111'
+          e.currentTarget.style.textShadow =
+            '0 1px 0 rgba(255,255,255,0.5), 0 0 10px rgba(140,140,140,0.24), 0 0 18px rgba(140,140,140,0.18)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = '#000'
+          e.currentTarget.style.textShadow =
+            '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)'
+        }}
+      >
             Florida, USA
           </button>
         </>
