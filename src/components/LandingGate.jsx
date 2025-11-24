@@ -87,10 +87,14 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
     return () => cancelAnimationFrame(rafRef.current)
   }, [durationMs, onProgress])
 
+  const colors = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc']
+
   return createPortal(
     <div
       ref={rootRef}
       aria-hidden
+      className="chakra-overlay"
+      data-js-cascade="raf"
       style={{
         position: 'fixed',
         inset: '0 auto 0 0',
@@ -105,19 +109,16 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
         gridTemplateColumns: 'repeat(7, 1fr)',
       }}
     >
-      {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map((c, i) => (
-        <div key={i} style={{ position: 'relative', background: c }}>
-          <span
-            style={{
-              position: 'absolute',
-              inset: -24,
-              background: c,
-              filter: 'blur(28px)',
-              opacity: 0.85,
-              pointerEvents: 'none',
-            }}
-          />
-        </div>
+      {colors.map((c, i) => (
+        <div
+          key={i}
+          className="chakra-band"
+          style={{
+            position: 'relative',
+            background: c,
+            '--c': c,
+          }}
+        />
       ))}
     </div>,
     document.body
