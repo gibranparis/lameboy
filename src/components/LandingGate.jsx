@@ -63,7 +63,9 @@ function ChakraSweep() {
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
         willChange: 'transform',
-        // CSS keyframes defined in <style jsx global> below
+        // start fully off-screen to the right
+        transform: 'translate3d(100vw, 0, 0)',
+        // 100vw -> -160vw so it fully exits left
         animation: `lbChakraSweep ${CASCADE_MS}ms cubic-bezier(0.16, 1, 0.3, 1) forwards`,
       }}
     >
@@ -439,13 +441,13 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
             0 0 18px rgba(250, 255, 0, 0.35);
         }
 
-        /* NEW: single-pass chakra sweep */
+        /* UPDATED: single-pass chakra sweep that actually exits the viewport */
         @keyframes lbChakraSweep {
           0% {
-            transform: translate3d(160vw, 0, 0);
+            transform: translate3d(100vw, 0, 0); /* fully off-screen right */
           }
           100% {
-            transform: translate3d(-60vw, 0, 0);
+            transform: translate3d(-160vw, 0, 0); /* fully off-screen left */
           }
         }
       `}</style>
