@@ -113,7 +113,7 @@ function useHeaderCtrlPx(defaultPx = 64) {
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
   const [theme, setTheme] = useState('day')
-  const [isShop, setIsShop] = useState(false)
+  const [shopActive, setShopActive] = useState(false)
   const [cascadeDone, setCascadeDone] = useState(false)
   const [shopMounted, setShopMounted] = useState(false)
   const readyRequestedRef = useRef(false)
@@ -124,7 +124,7 @@ export default function Page() {
   const [veilGrid, setVeilGrid] = useState(true)
   const [loginOpen, setLoginOpen] = useState(false)
 
-  const showGate = !isShop
+  const showGate = !cascadeDone
 
   // tokens
   useEffect(() => {
@@ -136,14 +136,13 @@ export default function Page() {
   // mode & theme
   useEffect(() => {
     const root = document.documentElement
+    const mode = shopActive && cascadeDone ? 'shop' : 'gate'
     root.setAttribute('data-theme', theme || 'day')
-    root.setAttribute('data-mode', isShop ? 'shop' : 'gate')
-    if (isShop) root.setAttribute('data-shop-root', '')
-    else {
-      root.removeAttribute('data-shop-root')
-      root.removeAttribute('data-shop-mounted')
-    }
-  }, [theme, isShop])
+    root.setAttribute('data-mode', mode)
+    if (shopActive) root.setAttribute('data-shop-root', '')
+    else root.removeAttribute('data-shop-root')
+    if (!shopMounted) root.removeAttribute('data-shop-mounted')
+  }, [theme, shopActive, cascadeDone, shopMounted])
 
   // overlay-open flag (banned/login)
   useEffect(() => {
@@ -169,14 +168,14 @@ export default function Page() {
   const onCascadeWhite = () => {
     setWhiteShow(true) // mount WHITE under bands
     setVeilGrid(true)
+    setShopActive(true) // start mounting shop behind the curtain
   }
 
   const onCascadeComplete = useCallback(() => {
     setWhiteShow(true) // ensure WHITE stays up through handoff
     setVeilGrid(true) // keep grid hidden until overlay signals ready
     setCascadeDone(true)
-    // Defer shop mount by a frame so WHITE is fully up before heavy bundles render
-    requestAnimationFrame(() => setIsShop(true))
+    setShopActive(true)
   }, [])
   // Mirror the "white phase" attr so LandingGate can hard-hide base
   useEffect(() => {
@@ -187,7 +186,7 @@ export default function Page() {
 
   // When Shop mounts, allow off-white tokens & ensure DAY on entry
   useEffect(() => {
-    if (!isShop) return
+    if (!shopActive) return
     const root = document.documentElement
     const id = requestAnimationFrame(() => {
       root.setAttribute('data-shop-mounted', '1')
@@ -205,7 +204,7 @@ export default function Page() {
       root.removeAttribute('data-shop-mounted')
       root.setAttribute('data-theme', 'day')
     }
-  }, [isShop])
+  }, [shopActive])
 
   // Prewarm shop bundles while idle to avoid jank at handoff
   useEffect(() => {
@@ -289,7 +288,7 @@ export default function Page() {
         </main>
       )}
 
-      {isShop && (
+      {shopActive && (
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
