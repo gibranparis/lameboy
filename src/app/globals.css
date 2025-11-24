@@ -153,6 +153,9 @@ html[data-overlay-open] {
   --text: #000;
   background: #fff !important;
 }
+:root[data-mode='gate'] .white-loader {
+  transition-property: opacity !important;
+}
 :root[data-mode='gate'] * {
   transition-property: none !important;
 }

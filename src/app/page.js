@@ -178,7 +178,8 @@ export default function Page() {
     setWhiteShow(true) // ensure WHITE stays up through handoff
     setVeilGrid(true) // keep grid hidden until overlay signals ready
     setCascadeDone(true)
-    setIsShop(true) // spin up shop once cascade finishes
+    // Defer shop mount by a frame so WHITE is fully up before heavy bundles render
+    requestAnimationFrame(() => setIsShop(true))
   }, [])
   // Mirror the "white phase" attr so LandingGate can hard-hide base
   useEffect(() => {
@@ -208,6 +209,27 @@ export default function Page() {
       root.setAttribute('data-theme', 'day')
     }
   }, [isShop])
+
+  // Prewarm shop bundles while idle to avoid jank at handoff
+  useEffect(() => {
+    const run = () => {
+      import('@/components/ShopGrid')
+      import('@/components/ChakraOrbButton')
+      import('@/components/CartButton')
+      import('@/components/DayNightToggle')
+      import('@/components/BannedLogin')
+      import('@/components/ChakraBottomRunner')
+      import('@/components/HeartBeatButton')
+    }
+    const id =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback(run, { timeout: 1200 })
+        : setTimeout(run, 180)
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(id)
+      else clearTimeout(id)
+    }
+  }, [])
 
   // Unveil grid + fade WHITE out when ready (or after safety)
   useEffect(() => {
