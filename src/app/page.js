@@ -9,10 +9,7 @@ import products from '@/lib/products'
 
 const LandingGate = nextDynamic(() => import('@/components/LandingGate'), { ssr: false })
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
-const ChakraOrbButton = nextDynamic(() => import('@/components/ChakraOrbButton'), { ssr: false })
-const CartButton = nextDynamic(() => import('@/components/CartButton'), { ssr: false })
-const DayNightToggle = nextDynamic(() => import('@/components/DayNightToggle'), { ssr: false })
-const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
+const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), {
   ssr: false,
 })
@@ -213,10 +210,8 @@ export default function Page() {
   // Prewarm shop bundles while idle to avoid jank at handoff
   useEffect(() => {
     const run = () => {
+      import('@/components/HeaderBar')
       import('@/components/ShopGrid')
-      import('@/components/ChakraOrbButton')
-      import('@/components/CartButton')
-      import('@/components/DayNightToggle')
       import('@/components/BannedLogin')
       import('@/components/ChakraBottomRunner')
       import('@/components/HeartBeatButton')
@@ -283,22 +278,6 @@ export default function Page() {
     }
   }, [cascadeDone, shopMounted])
 
-  const headerStyle = useMemo(
-    () => ({
-      position: 'fixed',
-      inset: '0 0 auto 0',
-      height: ctrlPx,
-      zIndex: 500,
-      display: 'grid',
-      gridTemplateColumns: 'var(--header-ctrl) 1fr var(--header-ctrl)',
-      alignItems: 'center',
-      padding: '0 var(--header-pad-x)',
-      background: 'transparent',
-      overflow: 'visible',
-    }),
-    [ctrlPx]
-  )
-
   return (
     <div
       className="lb-screen w-full"
@@ -312,39 +291,7 @@ export default function Page() {
 
       {isShop && (
         <>
-          <header role="banner" style={headerStyle}>
-            <div
-              style={{
-                height: ctrlPx,
-                width: 'var(--header-ctrl)',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <DayNightToggle
-                circlePx={28}
-                trackPad={1}
-                moonImages={['/toggle/moon-red.png', '/toggle/moon-blue.png']}
-              />
-            </div>
-            <div style={{ display: 'grid', placeItems: 'center', pointerEvents: 'auto' }}>
-              <ChakraOrbButton
-                size={72}
-                className="orb-ring"
-                style={{ display: 'grid', placeItems: 'center' }}
-              />
-            </div>
-            <div
-              style={{
-                height: ctrlPx,
-                width: 'var(--header-ctrl)',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <CartButton size={28} inHeader />
-            </div>
-          </header>
+          <HeaderBar ctrlPx={ctrlPx} />
 
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />

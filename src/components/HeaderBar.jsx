@@ -1,40 +1,24 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo } from 'react'
 import ChakraOrbButton from '@/components/ChakraOrbButton'
 import DayNightToggle from '@/components/DayNightToggle'
 import CartButton from '@/components/CartButton'
 
-export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
-  const ctrlPx = useResponsiveCtrlPx({ desktop: 36, mobile: 32, bp: 520 })
-  const [isNight, setIsNight] = useState(false)
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('lb:theme')
-      if (saved === 'night' || saved === 'day') setIsNight(saved === 'night')
-      else setIsNight(!!window.matchMedia?.('(prefers-color-scheme: dark)')?.matches)
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    try {
-      const root = document.querySelector(rootSelector) || document.documentElement
-      root.setAttribute('data-theme', isNight ? 'night' : 'day')
-      localStorage.setItem('lb:theme', isNight ? 'night' : 'day')
-      document.documentElement.style.setProperty('--header-ctrl', `${ctrlPx}px`)
-      document.documentElement.setAttribute('data-shop-root', '')
-    } catch {}
-  }, [isNight, rootSelector, ctrlPx])
+export default function HeaderBar({ ctrlPx }) {
+  const headerPx = useMemo(() => {
+    const n = Number(ctrlPx)
+    return Number.isFinite(n) && n > 0 ? n : 64
+  }, [ctrlPx])
 
   const sizes = useMemo(
     () => ({
-      box: ctrlPx,
-      toggleDot: 22,
+      box: headerPx,
+      toggleDot: 28,
       cartImg: 28,
-      orb: Math.round(ctrlPx * 1.9),
+      orb: Math.round(headerPx * 1.12),
     }),
-    [ctrlPx]
+    [headerPx]
   )
 
   return (
@@ -45,47 +29,53 @@ export default function HeaderBar({ rootSelector = '[data-shop-root]' }) {
         position: 'fixed',
         inset: '0 0 auto 0',
         zIndex: 500,
-        height: `var(--header-ctrl)`,
+        height: headerPx,
         display: 'grid',
-        gridTemplateColumns: '1fr auto 1fr',
+        gridTemplateColumns: 'var(--header-ctrl) 1fr var(--header-ctrl)',
         alignItems: 'center',
         padding: '0 var(--header-pad-x)',
         background: 'transparent',
+        overflow: 'visible',
       }}
     >
       <div className="flex items-center" style={{ lineHeight: 0 }}>
-        <div style={{ height: sizes.box, width: sizes.box, display: 'grid', placeItems: 'center' }}>
+        <div
+          style={{
+            height: sizes.box,
+            width: 'var(--header-ctrl)',
+            display: 'grid',
+            placeItems: 'center',
+          }}
+        >
           <DayNightToggle
             className="select-none"
             circlePx={sizes.toggleDot}
             trackPad={1}
-            value={isNight ? 'night' : 'day'}
-            onChange={t => setIsNight(t === 'night')}
             moonImages={['/toggle/moon-red.png', '/toggle/moon-blue.png']}
           />
         </div>
       </div>
 
       <div className="flex items-center justify-center" style={{ lineHeight: 0 }}>
-        <ChakraOrbButton size={sizes.orb} />
+        <ChakraOrbButton
+          size={sizes.orb}
+          className="orb-ring"
+          style={{ display: 'grid', placeItems: 'center', pointerEvents: 'auto' }}
+        />
       </div>
 
       <div className="flex items-center justify-end" style={{ lineHeight: 0 }}>
-        <div style={{ height: sizes.box, width: sizes.box, display: 'grid', placeItems: 'center' }}>
+        <div
+          style={{
+            height: sizes.box,
+            width: 'var(--header-ctrl)',
+            display: 'grid',
+            placeItems: 'center',
+          }}
+        >
           <CartButton size={sizes.cartImg} inHeader />
         </div>
       </div>
     </header>
   )
-}
-
-function useResponsiveCtrlPx({ desktop = 36, mobile = 32, bp = 520 } = {}) {
-  const pick = () => (typeof window !== 'undefined' && window.innerWidth <= bp ? mobile : desktop)
-  const [px, setPx] = useState(pick)
-  useEffect(() => {
-    const onResize = () => setPx(pick())
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [bp, desktop, mobile])
-  return px
 }
