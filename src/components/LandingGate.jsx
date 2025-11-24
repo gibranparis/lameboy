@@ -137,6 +137,22 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const labelRef = useRef(null)
   useNoLayoutMeasure(labelRef)
 
+  // put document into "gate" mode while this component is mounted
+  useEffect(() => {
+    const root = document.documentElement
+    const prevMode = root.getAttribute('data-mode')
+
+    root.setAttribute('data-mode', 'gate')
+
+    return () => {
+      // only restore if nothing else changed it
+      if (root.getAttribute('data-mode') === 'gate') {
+        if (prevMode) root.setAttribute('data-mode', prevMode)
+        else root.removeAttribute('data-mode')
+      }
+    }
+  }, [])
+
   // singleton lock
   const global = getGlobal()
   if (!global.__lb) global.__lb = {}
