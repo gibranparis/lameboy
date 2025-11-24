@@ -48,53 +48,11 @@ function safeCall(fn, label) {
 }
 
 /* ========================== Right→Left sweep ========================== */
-function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
-  const startedRef = useRef(false)
-  const rafRef = useRef(0)
-  const rootRef = useRef(null)
-
-  useEffect(() => {
-    if (startedRef.current) return
-    startedRef.current = true
-
-    const ease = (t) => 1 - Math.pow(1 - t, 3) // cubic ease-out
-    let t0
-
-    // Wider pack → guarantees complete coverage; prevents visual stall near end
-    const COLOR_VW = 160
-    const tx = (p) => (1 - p) * (100 + COLOR_VW) - COLOR_VW // 160vw → -60vw
-
-    const step = (ts) => {
-      if (t0 == null) t0 = ts
-      const raw = Math.min(1, (ts - t0) / durationMs)
-      const p = ease(raw)
-      const el = rootRef.current
-      if (el) el.style.transform = `translate3d(${tx(p)}vw,0,0)`
-
-      try {
-        onProgress?.(p)
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[LandingGate] onProgress error', err)
-      }
-
-      if (raw < 1) {
-        rafRef.current = requestAnimationFrame(step)
-      }
-    }
-
-    rafRef.current = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(rafRef.current)
-  }, [durationMs, onProgress])
-
-  const colors = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc']
-
+/** Pure CSS sweep – no rAF, just a one-shot animation */
+function ChakraSweep() {
   return createPortal(
     <div
-      ref={rootRef}
       aria-hidden
-      className="chakra-overlay"
-      data-js-cascade="raf"
       style={{
         position: 'fixed',
         inset: '0 auto 0 0',
@@ -102,23 +60,26 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
         width: '160vw',
         zIndex: LAYERS.BANDS,
         pointerEvents: 'none',
-        willChange: 'transform',
-        transform: 'translate3d(160vw,0,0)',
-        background: 'transparent',
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
+        willChange: 'transform',
+        // CSS keyframes defined in <style jsx global> below
+        animation: `lbChakraSweep ${CASCADE_MS}ms cubic-bezier(0.16, 1, 0.3, 1) forwards`,
       }}
     >
-      {colors.map((c, i) => (
-        <div
-          key={i}
-          className="chakra-band"
-          style={{
-            position: 'relative',
-            background: c,
-            '--c': c,
-          }}
-        />
+      {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map((c, i) => (
+        <div key={i} style={{ position: 'relative', background: c }}>
+          <span
+            style={{
+              position: 'absolute',
+              inset: -24,
+              background: c,
+              filter: 'blur(28px)',
+              opacity: 0.85,
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
       ))}
     </div>,
     document.body
@@ -162,7 +123,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   // presses
   const pressedRef = useRef(false)
   const longPressRef = useRef(false)
-  const timerRef = useRef(null)
+  const timerRef = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
   const startedAtRef = useRef(0)
   const whiteCalledRef = useRef(false)
   const cleanedRef = useRef(false)
@@ -201,6 +162,22 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       }, FLASH_MS)
     } catch {}
   }, [])
+
+  const finishCascade = useCallback(() => {
+    const phase = phaseRef.current
+    if (phase !== 'cascade') return
+
+    setPhase('done')
+    const root = document.documentElement
+    root.removeAttribute('data-cascade-active')
+    root.setAttribute('data-cascade-done', '1')
+
+    if (cleanedRef.current) return
+    cleanedRef.current = true
+    localLockRef.current = false
+    global.__lb.cascadeActive = false
+    safeCall(onCascadeComplete, 'onCascadeComplete')
+  }, [onCascadeComplete, setPhase, global])
 
   const reallyStart = useCallback(() => {
     const now = performance.now()
@@ -258,40 +235,25 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     clearTimers()
   }, [])
 
-  const handleProgress = useCallback(
-    (p) => {
-      const phase = phaseRef.current
-
-      // Show WHITE under bands & hide landing immediately
-      if (!whiteCalledRef.current && p >= WHITE_CALL_PCT && phase === 'cascade') {
-        callWhitePhase()
-      }
-      // End
-      if (p >= 1 && phase === 'cascade') {
-        setPhase('done')
-        const root = document.documentElement
-        root.removeAttribute('data-cascade-active')
-        root.setAttribute('data-cascade-done', '1')
-        if (cleanedRef.current) return
-        cleanedRef.current = true
-        localLockRef.current = false
-        global.__lb.cascadeActive = false
-        safeCall(onCascadeComplete, 'onCascadeComplete')
-      }
-    },
-    [callWhitePhase, onCascadeComplete, setPhase, global]
-  )
-
-  // Hard fallback: if the rAF loop dies, force-complete
+  // Drive WHITE + completion with simple timers once cascade starts
   useEffect(() => {
     if (phaseState !== 'cascade') return
-    const id = setTimeout(() => {
-      if (phaseRef.current === 'cascade') {
-        handleProgress(1)
-      }
-    }, CASCADE_MS + 600)
-    return () => clearTimeout(id)
-  }, [phaseState, handleProgress])
+
+    const whiteTimer = setTimeout(() => {
+      callWhitePhase()
+    }, WHITE_CALL_PCT * CASCADE_MS)
+
+    const doneTimer = setTimeout(() => {
+      finishCascade()
+    }, CASCADE_MS)
+
+    return () => {
+      clearTimeout(whiteTimer)
+      clearTimeout(doneTimer)
+    }
+  }, [phaseState, callWhitePhase, finishCascade])
+
+  const gateContentVisible = phaseState !== 'cascade'
 
   return (
     <div
@@ -309,9 +271,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
         visibility: 'visible',
       }}
     >
-      {phaseState === 'cascade' && (
-        <ChakraSweep durationMs={CASCADE_MS} onProgress={handleProgress} />
-      )}
+      {phaseState === 'cascade' && <ChakraSweep />}
 
       {phaseState === 'cascade' &&
         createPortal(
@@ -329,17 +289,18 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
                 position: 'absolute',
                 left: '50%',
                 top: '50%',
-                transform: 'translate(-50%, calc(-50% + 56px))',
+                transform: 'translate(-50%, -50%)',
               }}
             >
               <span
                 style={{
-                  color: '#fff',
-                  fontWeight: 800,
-                  letterSpacing: '.08em',
+                  color: '#ffffff',
+                  fontWeight: 900,
+                  letterSpacing: '.14em',
                   textTransform: 'uppercase',
-                  fontSize: 'clamp(11px,1.3vw,14px)',
-                  textShadow: '0 0 12px rgba(0,0,0,0.35)',
+                  fontSize: 'clamp(12px,1.4vw,16px)',
+                  textShadow:
+                    '0 0 10px rgba(255,255,255,0.9), 0 0 26px rgba(255,255,255,0.85), 0 0 42px rgba(120,200,255,0.9)',
                 }}
               >
                 LAMEBOY, USA
@@ -349,108 +310,113 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           document.body
         )}
 
-      {/* ORB */}
-      <button
-        type="button"
-        onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerCancel}
-        title="Enter"
-        aria-label="Enter"
-        style={{
-          lineHeight: 0,
-          padding: 0,
-          margin: 0,
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          touchAction: 'manipulation',
-        }}
-      >
-        <BlueOrbCross3D
-          rpm={44}
-          color={SEAFOAM}
-          geomScale={1.12}
-          glow
-          glowOpacity={0.95}
-          includeZAxis
-          height={`${ORB_PX}px`}
-          interactive={false}
-          flashDecayMs={70}
-        />
-      </button>
+      {/* ORB + labels only when not cascading */}
+      {gateContentVisible && (
+        <>
+          {/* ORB */}
+          <button
+            type="button"
+            onPointerDown={onPointerDown}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            title="Enter"
+            aria-label="Enter"
+            style={{
+              lineHeight: 0,
+              padding: 0,
+              margin: 0,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              touchAction: 'manipulation',
+            }}
+          >
+            <BlueOrbCross3D
+              rpm={44}
+              color={SEAFOAM}
+              geomScale={1.12}
+              glow
+              glowOpacity={0.95}
+              includeZAxis
+              height={`${ORB_PX}px`}
+              interactive={false}
+              flashDecayMs={70}
+            />
+          </button>
 
-      {/* TIME */}
-      <button
-        type="button"
-        onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerCancel}
-        className="gate-white time-link"
-        data-role="gate-text"
-        title="Enter"
-        aria-label="Enter"
-        style={{
-          background: 'transparent',
-          border: 'none',
-          padding: '6px 0',
-          cursor: 'pointer',
-          color: '#7c7c84',
-          fontWeight: 800,
-          letterSpacing: '.10em',
-          fontSize: '12px',
-          fontFamily: GATE_MONO,
-          lineHeight: 1.2,
-          marginTop: 8,
-          touchAction: 'manipulation',
-          textTransform: 'uppercase',
-          textShadow:
-            '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)',
-        }}
-      >
-        <ClockNaples />
-      </button>
+          {/* TIME */}
+          <button
+            type="button"
+            onPointerDown={onPointerDown}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            className="gate-white time-link"
+            data-role="gate-text"
+            title="Enter"
+            aria-label="Enter"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '6px 0',
+              cursor: 'pointer',
+              color: '#7c7c84',
+              fontWeight: 800,
+              letterSpacing: '.10em',
+              fontSize: '12px',
+              fontFamily: GATE_MONO,
+              lineHeight: 1.2,
+              marginTop: 8,
+              touchAction: 'manipulation',
+              textTransform: 'uppercase',
+              textShadow:
+                '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)',
+            }}
+          >
+            <ClockNaples />
+          </button>
 
-      {/* Florida label */}
-      <button
-        ref={labelRef}
-        type="button"
-        className="gate-white florida-link"
-        data-role="gate-text"
-        onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerCancel}
-        title="Enter"
-        style={{
-          background: 'transparent',
-          border: 'none',
-          padding: '6px 0',
-          cursor: 'pointer',
-          fontWeight: 800,
-          letterSpacing: '.10em',
-          fontSize: '12px',
-          fontFamily: GATE_MONO,
-          color: '#7c7c84',
-          textTransform: 'uppercase',
-          textShadow:
-            '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)',
-          touchAction: 'manipulation',
-          marginTop: 6,
-          transition: 'color .12s linear, text-shadow .12s linear',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = '#8a8a92'
-          e.currentTarget.style.textShadow =
-            '0 1px 0 rgba(255,255,255,0.5), 0 0 10px rgba(140,140,140,0.24), 0 0 18px rgba(140,140,140,0.18)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = '#7c7c84'
-          e.currentTarget.style.textShadow =
-            '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)'
-        }}
-      >
-        Florida, USA
-      </button>
+          {/* Florida label */}
+          <button
+            ref={labelRef}
+            type="button"
+            className="gate-white florida-link"
+            data-role="gate-text"
+            onPointerDown={onPointerDown}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            title="Enter"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '6px 0',
+              cursor: 'pointer',
+              fontWeight: 800,
+              letterSpacing: '.10em',
+              fontSize: '12px',
+              fontFamily: GATE_MONO,
+              color: '#7c7c84',
+              textTransform: 'uppercase',
+              textShadow:
+                '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)',
+              touchAction: 'manipulation',
+              marginTop: 6,
+              transition: 'color .12s linear, text-shadow .12s linear',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#8a8a92'
+              e.currentTarget.style.textShadow =
+                '0 1px 0 rgba(255,255,255,0.5), 0 0 10px rgba(140,140,140,0.24), 0 0 18px rgba(140,140,140,0.18)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#7c7c84'
+              e.currentTarget.style.textShadow =
+                '0 1px 0 rgba(255,255,255,0.45), 0 0 6px rgba(120,120,120,0.26), 0 0 12px rgba(120,120,120,0.18)'
+            }}
+          >
+            Florida, USA
+          </button>
+        </>
+      )}
 
       <style jsx global>{`
         .page-center {
@@ -471,6 +437,16 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           text-shadow:
             0 0 10px rgba(250, 255, 0, 0.55),
             0 0 18px rgba(250, 255, 0, 0.35);
+        }
+
+        /* NEW: single-pass chakra sweep */
+        @keyframes lbChakraSweep {
+          0% {
+            transform: translate3d(160vw, 0, 0);
+          }
+          100% {
+            transform: translate3d(-60vw, 0, 0);
+          }
         }
       `}</style>
     </div>
