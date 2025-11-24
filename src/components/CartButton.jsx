@@ -15,37 +15,22 @@ import Image from 'next/image'
 export default function CartButton({ size = 48, inHeader = false, imgSrc, onClick }) {
   const [count, setCount] = useState(0)
   const [pulse, setPulse] = useState(false)
-  // start with SVG so Next/Image never sees an empty src
-  const [resolvedSrc, setResolvedSrc] = useState(() => fallbackSvg(size))
-
   const candidates = useMemo(() => {
-    const list = [imgSrc].filter(Boolean)
-    if (!imgSrc)
-      list.push('/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png')
+    const list = []
+    if (imgSrc) list.push(imgSrc)
+    list.push('/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png')
     return list
   }, [imgSrc])
 
+  // prefer first candidate (birkin) and fall back to SVG if everything fails
+  const [resolvedSrc, setResolvedSrc] = useState(
+    () => candidates[0] || fallbackSvg(size)
+  )
+  const fallbackIdx = useRef(0)
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      for (const src of candidates) {
-        if (!src) continue
-        try {
-          const ok = await probe(src)
-          if (ok && !cancelled) {
-            setResolvedSrc(src)
-            return
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-      // if nothing works we just stay on the SVG fallback
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [candidates])
+    fallbackIdx.current = 0
+    setResolvedSrc(candidates[0] || fallbackSvg(size))
+  }, [candidates, size])
 
   const btnRef = useRef(/** @type {HTMLButtonElement|null} */ (null))
   const tPulse = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
@@ -167,6 +152,10 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
             height={iconSize}
             style={S.img}
             priority={inHeader}
+            onError={() => {
+              const next = candidates[++fallbackIdx.current] || fallbackSvg(size)
+              setResolvedSrc(next)
+            }}
           />
         </span>
         {count > 0 && (
