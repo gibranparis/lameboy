@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+.vscode
+.vercel
+dist
+build
+coverage
+*.log
