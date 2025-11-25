@@ -91,33 +91,23 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
     <div
       ref={rootRef}
       aria-hidden
+      className="chakra-overlay"
+      data-js-cascade="raf"
       style={{
-        position: 'fixed',
-        inset: '0 auto 0 0',
-        height: '100vh',
-        width: '160vw',
-        zIndex: LAYERS.BANDS,
-        pointerEvents: 'none',
-        willChange: 'transform',
-        transform: 'translate3d(160vw,0,0)',
-        background: 'transparent',
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
+        transform: 'translate3d(160vw,0,0)',
       }}
     >
       {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map((c, i) => (
-        <div key={i} style={{ position: 'relative', background: c }}>
-          <span
-            style={{
-              position: 'absolute',
-              inset: -24,
-              background: c,
-              filter: 'blur(28px)',
-              opacity: 0.85,
-              pointerEvents: 'none',
-            }}
-          />
-        </div>
+        <div
+          key={i}
+          className="chakra-band"
+          style={{
+            // global CSS uses var(--c) in ::before
+            '--c': c,
+          }}
+        />
       ))}
     </div>,
     document.body
