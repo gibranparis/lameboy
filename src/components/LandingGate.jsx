@@ -9,9 +9,9 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio'
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 /* =============================== Timings / Layers =============================== */
-export const CASCADE_MS = 2800
-// Call WHITE a bit over halfway so black orb is already there as bands exit
-const WHITE_CALL_PCT = 0.54
+export const CASCADE_MS = 2600
+// Call WHITE a bit past halfway so black orb is already there as bands exit
+const WHITE_CALL_PCT = 0.6
 const FLASH_MS = 200
 const LAYERS = {
   BASE: 10000,
@@ -137,7 +137,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const labelRef = useRef(null)
   useNoLayoutMeasure(labelRef)
 
-  // label that rides with bands but fades before the end
   const [labelVisible, setLabelVisible] = useState(true)
 
   // put document into "gate" mode while this component is mounted
@@ -172,10 +171,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const callWhitePhase = useCallback(() => {
     if (whiteCalledRef.current) return
     whiteCalledRef.current = true
-
-    // hide the white LAMEBOY label so it leaves with the pack
-    setLabelVisible(false)
-
     try {
       document.documentElement.setAttribute('data-white-phase', '1')
     } catch {}
@@ -211,12 +206,13 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const reallyStart = useCallback(() => {
     const now = performance.now()
     if (localLockRef.current || global.__lb.cascadeActive) return
-    if (now - startedAtRef.current < 800) return
+    if (now - startedAtRef.current < 400) return
     startedAtRef.current = now
 
     localLockRef.current = true
     global.__lb.cascadeActive = true
-    setLabelVisible(true) // reset for a fresh pass
+    whiteCalledRef.current = false
+    setLabelVisible(true)
 
     document.documentElement.setAttribute('data-cascade-active', '1')
     flashGate()
@@ -269,11 +265,17 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     (p) => {
       const phase = phaseRef.current
 
-      // Show WHITE under bands & hide landing immediately
+      // Show WHITE under bands & start mounting black orb page
       if (!whiteCalledRef.current && p >= WHITE_CALL_PCT && phase === 'cascade') {
         callWhitePhase()
       }
-      // End of sweep
+
+      // Let "LAMEBOY, USA" ride with the pack then disappear before the end
+      if (p >= 0.82 && phase === 'cascade') {
+        setLabelVisible(false)
+      }
+
+      // End
       if (p >= 1 && phase === 'cascade') {
         setPhase('done')
         const root = document.documentElement
