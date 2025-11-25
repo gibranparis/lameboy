@@ -73,9 +73,10 @@
   transition: opacity 160ms ease;
 }
 
-/* Chakra bands live above base content */
+/* Chakra bands live above base content.
+   IMPORTANT: no display:none here – the React inline style sets display:grid
+   when the cascade starts. */
 .chakra-overlay {
-  display: none;
   position: fixed;
   inset: 0;
   z-index: var(--z-bands) !important;

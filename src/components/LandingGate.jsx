@@ -9,13 +9,13 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio'
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 /* =============================== Timings / Layers =============================== */
-export const CASCADE_MS = 2600
-// Call WHITE a bit past halfway so black orb is already there as bands exit
-const WHITE_CALL_PCT = 0.6
+export const CASCADE_MS = 2800
+// Call WHITE around halfway so black orb is already there as bands exit
+const WHITE_CALL_PCT = 0.5
 const FLASH_MS = 200
 const LAYERS = {
   BASE: 10000,
-  WHITE: 10002, // white page (black orb) lives above base; bands sit above WHITE
+  WHITE: 10002,
   BANDS: 10006,
   BANDS_LABEL: 10007,
 }
@@ -36,7 +36,6 @@ function useNoLayoutMeasure(ref) {
   }, [ref])
 }
 
-// defensively wrap callbacks so they can’t kill the sweep
 function safeCall(fn, label) {
   if (typeof fn !== 'function') return
   try {
@@ -60,7 +59,6 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
     const ease = (t) => 1 - Math.pow(1 - t, 3) // cubic ease-out
     let t0
 
-    // Wider pack → guarantees complete coverage; prevents visual stall near end
     const COLOR_VW = 160
     const tx = (p) => (1 - p) * (100 + COLOR_VW) - COLOR_VW // 160vw → -60vw
 
@@ -74,7 +72,6 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
       try {
         onProgress?.(p)
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('[LandingGate] onProgress error', err)
       }
 
@@ -104,7 +101,6 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
           key={i}
           className="chakra-band"
           style={{
-            // global CSS uses var(--c) in ::before
             '--c': c,
           }}
         />
@@ -126,7 +122,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
   const labelRef = useRef(null)
   useNoLayoutMeasure(labelRef)
-
   const [labelVisible, setLabelVisible] = useState(true)
 
   // put document into "gate" mode while this component is mounted
@@ -137,7 +132,6 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     root.setAttribute('data-mode', 'gate')
 
     return () => {
-      // only restore if nothing else changed it
       if (root.getAttribute('data-mode') === 'gate') {
         if (prevMode) root.setAttribute('data-mode', prevMode)
         else root.removeAttribute('data-mode')
@@ -261,7 +255,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       }
 
       // Let "LAMEBOY, USA" ride with the pack then disappear before the end
-      if (p >= 0.82 && phase === 'cascade') {
+      if (p >= 0.8 && phase === 'cascade') {
         setLabelVisible(false)
       }
 
