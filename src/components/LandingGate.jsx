@@ -47,6 +47,11 @@ function safeCall(fn, label) {
 }
 
 /* ========================== Right→Left sweep ========================== */
+/**
+ * ChakraSweep
+ * - Renders 7 blurred color bands that slide right→left.
+ * - Uses inline z-index + background color so they can't "silently disappear".
+ */
 function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
   const startedRef = useRef(false)
   const rafRef = useRef(0)
@@ -59,6 +64,7 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
     const ease = (t) => 1 - Math.pow(1 - t, 3) // cubic ease-out
     let t0
 
+    // Wider pack → guarantees complete coverage; prevents visual stall near end
     const COLOR_VW = 160
     const tx = (p) => (1 - p) * (100 + COLOR_VW) - COLOR_VW // 160vw → -60vw
 
@@ -67,11 +73,14 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
       const raw = Math.min(1, (ts - t0) / durationMs)
       const p = ease(raw)
       const el = rootRef.current
-      if (el) el.style.transform = `translate3d(${tx(p)}vw,0,0)`
+      if (el) {
+        el.style.transform = `translate3d(${tx(p)}vw,0,0)`
+      }
 
       try {
         onProgress?.(p)
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.error('[LandingGate] onProgress error', err)
       }
 
@@ -94,6 +103,8 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
         transform: 'translate3d(160vw,0,0)',
+        zIndex: LAYERS.BANDS, // make sure we’re above white curtain + gate
+        pointerEvents: 'none',
       }}
     >
       {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map((c, i) => (
@@ -102,6 +113,9 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
           className="chakra-band"
           style={{
             '--c': c,
+            // inline background so even if ::before/glow CSS fails,
+            // you still see solid color bands.
+            background: c,
           }}
         />
       ))}
@@ -129,13 +143,24 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     const root = document.documentElement
     const prevMode = root.getAttribute('data-mode')
 
+    // ensure we’re in gate mode
     root.setAttribute('data-mode', 'gate')
 
+    // 🔥 HARD RESET of cascade flags on mount
+    // (prevents leftover data-cascade-done="1" from hiding bands)
+    root.removeAttribute('data-cascade-active')
+    root.removeAttribute('data-cascade-done')
+    root.removeAttribute('data-white-phase')
+
     return () => {
+      // cleanup only if nothing else changed it
       if (root.getAttribute('data-mode') === 'gate') {
         if (prevMode) root.setAttribute('data-mode', prevMode)
         else root.removeAttribute('data-mode')
       }
+      root.removeAttribute('data-cascade-active')
+      root.removeAttribute('data-cascade-done')
+      root.removeAttribute('data-white-phase')
     }
   }, [])
 
@@ -161,7 +186,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     safeCall(onCascadeWhite, 'onCascadeWhite')
   }, [onCascadeWhite])
 
-  // tokens
+  // tokens cleanup (guard)
   useEffect(() => {
     const root = document.documentElement
     return () => {
@@ -198,7 +223,10 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     whiteCalledRef.current = false
     setLabelVisible(true)
 
-    document.documentElement.setAttribute('data-cascade-active', '1')
+    const root = document.documentElement
+    root.setAttribute('data-cascade-active', '1')
+    root.removeAttribute('data-cascade-done')
+
     flashGate()
     setPhase('cascade')
 
