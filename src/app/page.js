@@ -7,97 +7,21 @@ import nextDynamic from 'next/dynamic'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import products from '@/lib/products'
 
-const LandingGate = nextDynamic(() => import('@/components/LandingGate'), { ssr: false })
+const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
+const CascadeOverlay = nextDynamic(() => import('@/components/cascade/CascadeOverlay'), {
+  ssr: false,
+})
+const WhiteLoader = nextDynamic(() => import('@/components/orb/WhiteLoader'), { ssr: false })
+
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), {
   ssr: false,
 })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
-const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 const RUNNER_H = 14
-const WHITE_Z = 10002
-
-/* ========================= White overlay (black-orb page) ========================= */
-
-function WhiteLoader({ show }) {
-  const [visible, setVisible] = useState(show)
-
-  useEffect(() => {
-    // when show flips to false, fade out then unmount
-    if (!show && visible) {
-      const t = setTimeout(() => setVisible(false), 260)
-      return () => clearTimeout(t)
-    }
-    if (show && !visible) {
-      setVisible(true)
-    }
-  }, [show, visible])
-
-  if (!visible) return null
-
-  const opacity = show ? 1 : 0
-
-  return (
-    <div
-      aria-hidden
-      className="white-loader"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: WHITE_Z,
-        pointerEvents: 'none',
-        background: '#fff',
-        display: 'grid',
-        placeItems: 'center',
-        transition: 'opacity 260ms ease',
-        opacity,
-        contain: 'layout paint style',
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <div style={{ lineHeight: 0 }}>
-          <BlueOrbCross3D
-            rpm={44}
-            color="#32ffc7"
-            geomScale={1.12}
-            glow
-            glowOpacity={1}
-            includeZAxis
-            height="88px"
-            interactive={false}
-            overrideAllColor="#000"
-            flashDecayMs={140}
-          />
-        </div>
-        <span
-          style={{
-            color: '#000',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            lineHeight: 1.2,
-          }}
-        >
-          <ClockNaples />
-        </span>
-        <span
-          style={{
-            color: '#000',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            lineHeight: 1.2,
-            textTransform: 'uppercase',
-          }}
-        >
-          LAMEBOY, USA
-        </span>
-      </div>
-    </div>
-  )
-}
+const CASCADE_MS = 2400
 
 /* ========================= Header control size ========================= */
 
@@ -128,16 +52,18 @@ export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
 
   const [theme, setTheme] = useState('day')
+  const [phase, setPhase] = useState('gate') // 'gate' | 'cascade' | 'shop'
+
   const [shopActive, setShopActive] = useState(false) // shop mounted behind curtain
-  const [cascadeDone, setCascadeDone] = useState(false) // gate finished
   const [shopMounted, setShopMounted] = useState(false) // shop bundles ready
-  const [whiteShow, setWhiteShow] = useState(false) // white curtain visible
+  const [whiteShow, setWhiteShow] = useState(false) // white curtain with orb visible
   const [loginOpen, setLoginOpen] = useState(false)
 
   const shopMountedRef = useRef(false)
 
-  const showGate = !cascadeDone
-  const mode = cascadeDone ? 'shop' : 'gate'
+  const showGate = phase === 'gate'
+  const showCascade = phase === 'cascade'
+  const mode = phase === 'shop' ? 'shop' : 'gate'
 
   /* ---------- root tokens ---------- */
 
@@ -177,18 +103,25 @@ export default function Page() {
     }
   }, [])
 
-  /* ---------- Gate → Shop choreography ---------- */
+  /* ---------- Gate → Cascade → Shop choreography ---------- */
 
-  // Called from LandingGate when bands are ~2/3 across
-  const onCascadeWhite = () => {
-    setWhiteShow(true) // mount white curtain under bands
-    setShopActive(true) // start mounting shop behind curtain
-  }
+  const beginCascade = useCallback(() => {
+    if (phase !== 'gate') return
 
-  // Called from LandingGate when sweep finishes
-  const onCascadeComplete = useCallback(() => {
-    setCascadeDone(true) // gate is done; hide gate React tree
-  }, [])
+    // 1) switch to cascade phase (bands)
+    setPhase('cascade')
+
+    // 2) show white curtain + orb
+    setWhiteShow(true)
+
+    // 3) start mounting shop behind the curtain
+    setShopActive(true)
+
+    // 4) hard guarantee we move into shop after CASCADE_MS
+    window.setTimeout(() => {
+      setPhase('shop')
+    }, CASCADE_MS)
+  }, [phase])
 
   // Mirror the "white phase" attr for CSS
   useEffect(() => {
@@ -235,24 +168,29 @@ export default function Page() {
     }
   }, [])
 
-  // When cascade is done and shop is mounted, drop the white curtain
+  // When we are in shop phase and bundles are ready, fade out the white curtain
   useEffect(() => {
-    if (!cascadeDone || !shopMounted) return
+    if (phase !== 'shop' || !shopMounted) return
     const t = setTimeout(() => setWhiteShow(false), 420)
     return () => clearTimeout(t)
-  }, [cascadeDone, shopMounted])
+  }, [phase, shopMounted])
 
   return (
     <div
       className="lb-screen w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
+      {/* Gate (banned login) */}
       {showGate && (
         <main className="lb-screen">
-          <LandingGate onCascadeWhite={onCascadeWhite} onCascadeComplete={onCascadeComplete} />
+          <BannedLogin onProceed={beginCascade} />
         </main>
       )}
 
+      {/* Cascade overlay */}
+      {showCascade && <CascadeOverlay durationMs={CASCADE_MS} />}
+
+      {/* Shop (behind curtain) */}
       {shopActive && (
         <>
           <HeaderBar ctrlPx={ctrlPx} />
@@ -268,30 +206,8 @@ export default function Page() {
         </>
       )}
 
-      {/* White curtain (black orb page) */}
+      {/* White curtain + black orb page */}
       <WhiteLoader show={whiteShow} />
     </div>
   )
-}
-
-/* =============================== Clock (shared) =============================== */
-
-function ClockNaples() {
-  const [now, setNow] = useState('')
-  useEffect(() => {
-    const fmt = () =>
-      setNow(
-        new Intl.DateTimeFormat('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-          timeZone: 'America/New_York',
-        }).format(new Date())
-      )
-    fmt()
-    const id = setInterval(fmt, 1000)
-    return () => clearInterval(id)
-  }, [])
-  return <span>{now}</span>
 }
