@@ -2,11 +2,10 @@
 'use client'
 
 import nextDynamic from 'next/dynamic'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
-/* ---------------- helpers ---------------- */
 function useShift() {
   const calc = () => {
     const h = typeof window !== 'undefined' ? window.innerHeight : 800
@@ -26,7 +25,12 @@ function useShift() {
   return s
 }
 
-/* ---------------- component ---------------- */
+/**
+ * Banned gate:
+ * - shows orb + copy
+ * - long-press / double-click calls onProceed()
+ * - cascade / white-page / shop are driven by src/app/page.js
+ */
 export default function BannedLogin({ onProceed }) {
   const { vh, micro, gap } = useShift()
   const [flipBrand, setFlipBrand] = useState(false)
@@ -36,10 +40,18 @@ export default function BannedLogin({ onProceed }) {
   const SEAFOAM = '#32ffc7'
   const RED = '#ff001a'
 
-  const runProceed = useCallback(() => {
-    if (!onProceed) return
-    onProceed()
+  const triggerProceed = useCallback(() => {
+    if (typeof onProceed === 'function') onProceed()
   }, [onProceed])
+
+  const startPressTimer = () => {
+    clearTimeout(pressTimer.current)
+    pressTimer.current = setTimeout(triggerProceed, 650)
+  }
+
+  const clearPressTimer = () => {
+    clearTimeout(pressTimer.current)
+  }
 
   return (
     <div
@@ -55,18 +67,12 @@ export default function BannedLogin({ onProceed }) {
         type="button"
         aria-label="Orb"
         onClick={() => setOrbRed((v) => !v)}
-        onMouseDown={() => {
-          clearTimeout(pressTimer.current)
-          pressTimer.current = setTimeout(runProceed, 650)
-        }}
-        onMouseUp={() => clearTimeout(pressTimer.current)}
-        onMouseLeave={() => clearTimeout(pressTimer.current)}
-        onTouchStart={() => {
-          clearTimeout(pressTimer.current)
-          pressTimer.current = setTimeout(runProceed, 650)
-        }}
-        onTouchEnd={() => clearTimeout(pressTimer.current)}
-        onDoubleClick={runProceed}
+        onMouseDown={startPressTimer}
+        onMouseUp={clearPressTimer}
+        onMouseLeave={clearPressTimer}
+        onTouchStart={startPressTimer}
+        onTouchEnd={clearPressTimer}
+        onDoubleClick={triggerProceed}
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         style={{ lineHeight: 0, background: 'transparent', border: 0, padding: 0, marginBottom: 0 }}
         title="Tap: toggle color • Hold/Double-click: enter"
