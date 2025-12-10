@@ -3,15 +3,15 @@
 
 export const dynamic = 'force-static'
 
-import nextDynamic from 'next/dynamic'
 import React, { useCallback, useEffect, useState } from 'react'
+import nextDynamic from 'next/dynamic'
 import products from '@/lib/products'
 
-// Landing gate (banned page)
+// Gate
 const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
 
-// Black-orb loader screen
-const WhiteLoader = nextDynamic(() => import('@/components/orb/WhiteLoader'), { ssr: false })
+// Loader (black orb on white) – static import for zero lag
+import WhiteLoader from '@/components/orb/WhiteLoader'
 
 // Shop
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
@@ -22,7 +22,7 @@ const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRu
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 
 const RUNNER_H = 14
-const LOADER_MS = 1400 // how long the black-orb loader stays on screen
+const LOADER_MS = 1400 // how long the black-orb loader stays fully visible
 
 /* ========================= Header control size ========================= */
 
@@ -52,9 +52,8 @@ function useHeaderCtrlPx(defaultPx = 64) {
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
 
-  // 'gate'   -> BannedLogin
-  // 'loader' -> black orb on white
-  // 'shop'   -> Header + ShopGrid + runner
+  // 'gate'  -> BannedLogin
+  // 'shop'  -> Header + ShopGrid
   const [mode, setMode] = useState('gate')
   const [theme, setTheme] = useState('day')
   const [loaderShow, setLoaderShow] = useState(false)
@@ -95,25 +94,28 @@ export default function Page() {
     }
   }, [])
 
-  /* ---------- Gate → Loader → Shop choreography (no cascade) ---------- */
+  /* ---------- Gate → Loader overlay → Shop choreography ---------- */
 
   const handleEnterShop = useCallback(() => {
     if (mode !== 'gate') return
 
-    // 1) Show black-orb loader
-    setMode('loader')
+    // 1) show loader immediately over the gate
     setLoaderShow(true)
 
-    // Lock to day as we enter the shop
+    // lock theme to day for shop
     const root = document.documentElement
     root.setAttribute('data-theme', 'day')
     try {
       localStorage.setItem('lb:theme', 'day')
     } catch {}
 
-    // 2) After a short delay, reveal shop & hide loader
-    window.setTimeout(() => {
+    // 2) very quickly mount the shop behind the loader
+    setTimeout(() => {
       setMode('shop')
+    }, 120)
+
+    // 3) keep the loader up for a short beat, then fade it out
+    setTimeout(() => {
       setLoaderShow(false)
     }, LOADER_MS)
   }, [mode])
@@ -126,6 +128,7 @@ export default function Page() {
       import('@/components/BannedLogin')
       import('@/components/ChakraBottomRunner')
       import('@/components/HeartBeatButton')
+      import('@/components/orb/WhiteLoader')
     }
     const id =
       typeof window.requestIdleCallback === 'function'
@@ -142,7 +145,7 @@ export default function Page() {
       className="lb-screen w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
-      {/* Landing gate */}
+      {/* Gate */}
       {inGate && (
         <main className="lb-screen">
           <BannedLogin onProceed={handleEnterShop} />
@@ -165,7 +168,7 @@ export default function Page() {
         </>
       )}
 
-      {/* Black-orb loader on white */}
+      {/* Black-orb loader overlay (covers both gate + shop when shown) */}
       <WhiteLoader show={loaderShow} />
     </div>
   )
