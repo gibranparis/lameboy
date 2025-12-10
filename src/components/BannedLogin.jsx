@@ -2,7 +2,7 @@
 'use client'
 
 import nextDynamic from 'next/dynamic'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
@@ -26,14 +26,18 @@ export default function BannedLogin({ onProceed }) {
 
   return (
     <div
-      className="lb-screen flex w-full flex-col items-center justify-center"
       style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
         background: '#fff',
-        color: '#000',
-        position: 'relative',
+        zIndex: 10,
       }}
     >
-      {/* ORB – centered exactly like BlackLoader */}
+      {/* ORB */}
       <button
         aria-label="Orb"
         type="button"
@@ -66,7 +70,7 @@ export default function BannedLogin({ onProceed }) {
         />
       </button>
 
-      {/* FLORIDA, USA centered exactly under orb */}
+      {/* Florida, USA */}
       <div
         style={{
           marginTop: 28,
