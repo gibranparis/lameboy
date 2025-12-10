@@ -4,15 +4,16 @@
 export const dynamic = 'force-static'
 
 import nextDynamic from 'next/dynamic'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import products from '@/lib/products'
 
+// Landing gate (banned page)
 const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
-const CascadeOverlay = nextDynamic(() => import('@/components/cascade/CascadeOverlay'), {
-  ssr: false,
-})
+
+// Black-orb loader screen
 const WhiteLoader = nextDynamic(() => import('@/components/orb/WhiteLoader'), { ssr: false })
 
+// Shop
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), {
@@ -21,7 +22,7 @@ const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRu
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 
 const RUNNER_H = 14
-const CASCADE_MS = 2400
+const LOADER_MS = 1400 // how long the black-orb loader stays on screen
 
 /* ========================= Header control size ========================= */
 
@@ -51,19 +52,15 @@ function useHeaderCtrlPx(defaultPx = 64) {
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
 
+  // 'gate'   -> BannedLogin
+  // 'loader' -> black orb on white
+  // 'shop'   -> Header + ShopGrid + runner
+  const [mode, setMode] = useState('gate')
   const [theme, setTheme] = useState('day')
-  const [phase, setPhase] = useState('gate') // 'gate' | 'cascade' | 'shop'
+  const [loaderShow, setLoaderShow] = useState(false)
 
-  const [shopActive, setShopActive] = useState(false) // shop mounted behind curtain
-  const [shopMounted, setShopMounted] = useState(false) // shop bundles ready
-  const [whiteShow, setWhiteShow] = useState(false) // white curtain with orb visible
-  const [loginOpen, setLoginOpen] = useState(false)
-
-  const shopMountedRef = useRef(false)
-
-  const showGate = phase === 'gate'
-  const showCascade = phase === 'cascade'
-  const mode = phase === 'shop' ? 'shop' : 'gate'
+  const inGate = mode === 'gate'
+  const inShop = mode === 'shop'
 
   /* ---------- root tokens ---------- */
 
@@ -78,19 +75,14 @@ export default function Page() {
     root.setAttribute('data-theme', theme || 'day')
     root.setAttribute('data-mode', mode)
 
-    if (shopActive) root.setAttribute('data-shop-root', '')
-    else root.removeAttribute('data-shop-root')
-
-    if (shopMounted) root.setAttribute('data-shop-mounted', '1')
-    else root.removeAttribute('data-shop-mounted')
-  }, [theme, mode, shopActive, shopMounted])
-
-  // overlay-open flag (future login / banned, kept for later)
-  useEffect(() => {
-    const root = document.documentElement
-    if (loginOpen) root.setAttribute('data-overlay-open', '1')
-    else root.removeAttribute('data-overlay-open')
-  }, [loginOpen])
+    if (inShop) {
+      root.setAttribute('data-shop-root', '')
+      root.setAttribute('data-shop-mounted', '1')
+    } else {
+      root.removeAttribute('data-shop-root')
+      root.removeAttribute('data-shop-mounted')
+    }
+  }, [theme, mode, inShop])
 
   // listen for theme changes from DayNightToggle
   useEffect(() => {
@@ -103,51 +95,28 @@ export default function Page() {
     }
   }, [])
 
-  /* ---------- Gate → Cascade → Shop choreography ---------- */
+  /* ---------- Gate → Loader → Shop choreography (no cascade) ---------- */
 
-  const beginCascade = useCallback(() => {
-    if (phase !== 'gate') return
+  const handleEnterShop = useCallback(() => {
+    if (mode !== 'gate') return
 
-    // 1) switch to cascade phase (bands)
-    setPhase('cascade')
+    // 1) Show black-orb loader
+    setMode('loader')
+    setLoaderShow(true)
 
-    // 2) show white curtain + orb
-    setWhiteShow(true)
+    // Lock to day as we enter the shop
+    const root = document.documentElement
+    root.setAttribute('data-theme', 'day')
+    try {
+      localStorage.setItem('lb:theme', 'day')
+    } catch {}
 
-    // 3) start mounting shop behind the curtain
-    setShopActive(true)
-
-    // 4) hard guarantee we move into shop after CASCADE_MS
+    // 2) After a short delay, reveal shop & hide loader
     window.setTimeout(() => {
-      setPhase('shop')
-    }, CASCADE_MS)
-  }, [phase])
-
-  // Mirror the "white phase" attr for CSS
-  useEffect(() => {
-    const root = document.documentElement
-    if (whiteShow) root.setAttribute('data-white-phase', '1')
-    else root.removeAttribute('data-white-phase')
-  }, [whiteShow])
-
-  // When shop becomes active, mark bundles as mounted on next frame
-  useEffect(() => {
-    if (!shopActive) {
-      shopMountedRef.current = false
-      setShopMounted(false)
-      return
-    }
-    const root = document.documentElement
-    const id = requestAnimationFrame(() => {
-      shopMountedRef.current = true
-      setShopMounted(true)
-      root.setAttribute('data-theme', 'day')
-      try {
-        localStorage.setItem('lb:theme', 'day')
-      } catch {}
-    })
-    return () => cancelAnimationFrame(id)
-  }, [shopActive])
+      setMode('shop')
+      setLoaderShow(false)
+    }, LOADER_MS)
+  }, [mode])
 
   // Pre-warm shop bundles while idle
   useEffect(() => {
@@ -168,30 +137,20 @@ export default function Page() {
     }
   }, [])
 
-  // When we are in shop phase and bundles are ready, fade out the white curtain
-  useEffect(() => {
-    if (phase !== 'shop' || !shopMounted) return
-    const t = setTimeout(() => setWhiteShow(false), 420)
-    return () => clearTimeout(t)
-  }, [phase, shopMounted])
-
   return (
     <div
       className="lb-screen w-full"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
-      {/* Gate (banned login) */}
-      {showGate && (
+      {/* Landing gate */}
+      {inGate && (
         <main className="lb-screen">
-          <BannedLogin onProceed={beginCascade} />
+          <BannedLogin onProceed={handleEnterShop} />
         </main>
       )}
 
-      {/* Cascade overlay */}
-      {showCascade && <CascadeOverlay durationMs={CASCADE_MS} />}
-
-      {/* Shop (behind curtain) */}
-      {shopActive && (
+      {/* Shop */}
+      {inShop && (
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
@@ -206,8 +165,8 @@ export default function Page() {
         </>
       )}
 
-      {/* White curtain + black orb page */}
-      <WhiteLoader show={whiteShow} />
+      {/* Black-orb loader on white */}
+      <WhiteLoader show={loaderShow} />
     </div>
   )
 }
