@@ -142,7 +142,7 @@ export default function Page() {
 
   return (
     <div
-      className="lb-screen w-full"
+      className="lb-screen w-full font-bold"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
       {/* Gate */}
