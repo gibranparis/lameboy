@@ -11,11 +11,18 @@ const wrap = (i, len) => ((i % len) + len) % len
 function flash(el, klass = 'is-hot', ms = 220) {
   if (!el) return
   el.classList.remove(klass)
-  // reflow
   // eslint-disable-next-line no-unused-expressions
   el.offsetWidth
   el.classList.add(klass)
   window.setTimeout(() => el.classList.remove(klass), ms)
+}
+
+function prefersReducedMotion() {
+  try {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch {
+    return false
+  }
 }
 
 /* ---------------- theme hook (reactive) ---------------- */
@@ -35,7 +42,6 @@ function useTheme() {
       else if (t === 'day') setState({ night: false })
       else setState(read())
     }
-    // initialize once (covers SSR→CSR and any missed event)
     setState(read())
     window.addEventListener('theme-change', onTheme)
     document.addEventListener('theme-change', onTheme)
@@ -43,7 +49,6 @@ function useTheme() {
       window.removeEventListener('theme-change', onTheme)
       document.removeEventListener('theme-change', onTheme)
     }
-    // we intentionally rely on the initial `read` here
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -69,7 +74,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
       <div
         aria-hidden
         style={{
-          position: 'relative', // <-- keeps fallback SVG inside the pill
+          position: 'relative',
           width: 28,
           height: 28,
           borderRadius: '50%',
@@ -81,7 +86,6 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
           transition: 'background .12s ease, box-shadow .12s ease, transform .08s ease',
         }}
       >
-        {/* mask-capable glyph */}
         <span
           style={{
             display: 'inline-block',
@@ -96,7 +100,6 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
             backgroundColor: glyph,
           }}
         />
-        {/* fallback SVG (shows when mask URL not wired) */}
         <svg
           width="14"
           height="14"
@@ -137,7 +140,6 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
   const [hotSize, setHotSize] = useState(null)
   const [showAdded, setAdded] = useState(false)
   const [plusHot, setPlusHot] = useState(false)
-  const plusRef = useRef(null)
   const timers = useRef({})
 
   const onToggle = useCallback(() => {
@@ -187,9 +189,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
 
   return (
     <div style={{ display: 'grid', justifyItems: 'center', gap: 12, position: 'relative' }}>
-      {/* +/- pill */}
       <button
-        ref={plusRef}
         type="button"
         data-ui="size-toggle"
         className={[
@@ -202,13 +202,13 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
         onClick={onToggle}
         aria-label={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
         title={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
+        style={{ width: 32, height: 32 }}
       >
         <span aria-hidden style={{ opacity: showAdded ? 0 : 1 }}>
           {glyph}
         </span>
       </button>
 
-      {/* “Added” label */}
       {showAdded && (
         <span
           aria-live="polite"
@@ -224,7 +224,6 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
         </span>
       )}
 
-      {/* Sizes row */}
       <div
         className={`row-nowrap size-panel ${open ? 'is-open' : ''}`}
         data-ui="size-panel"
@@ -252,7 +251,6 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
       </div>
 
       <style jsx>{`
-        /* smaller, tighter plus pill to match the site scale */
         .plus-pill {
           width: 32px;
           height: 32px;
@@ -351,29 +349,6 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
               inset 0 0 0 1px rgba(11, 240, 95, 0.2);
           }
         }
-
-        .arrow-pill.is-hot > div {
-          background: var(--hover-green, #0bf05f) !important;
-          color: #000 !important;
-          box-shadow:
-            inset 0 0 0 1px rgba(0, 0, 0, 0.18),
-            0 2px 10px rgba(0, 0, 0, 0.12) !important;
-        }
-        .dot-pill {
-          border-radius: 9999px;
-          padding: 0;
-          width: 18px;
-          height: 18px;
-          background: #ececec;
-        }
-        :root[data-theme='night'] .dot-pill {
-          background: #111;
-        }
-        .dot-pill.is-active {
-          background: var(--hover-green, #0bf05f);
-          color: #000;
-          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
-        }
       `}</style>
     </div>
   )
@@ -470,8 +445,16 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
 }
 
 /* ---------------- component ---------------- */
-export default function ProductOverlay({ products, index, onIndexChange, onClose }) {
+export default function ProductOverlay({
+  products,
+  index,
+  fromRect,
+  onIndexChange,
+  onClose,
+  onClosed,
+}) {
   const night = useTheme()
+  const reduceMotion = useMemo(() => prefersReducedMotion(), [])
 
   const product = products[index]
   const imgs = useMemo(() => {
@@ -484,18 +467,58 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     () => clamp(imgIdx, 0, Math.max(0, imgs.length - 1)),
     [imgIdx, imgs.length]
   )
+
   const [closing, setClosing] = useState(false)
   const closingRef = useRef(false)
 
-  const animateClose = useCallback(
-    (delayMs = 180) => {
-      if (closingRef.current) return
-      closingRef.current = true
-      setClosing(true)
-      setTimeout(() => onClose?.(), delayMs)
-    },
-    [onClose]
-  )
+  // Zoom refs
+  const heroRef = useRef(null)
+  const pendingCloseRef = useRef(false)
+  const fromRectRef = useRef(fromRect || null)
+  useEffect(() => {
+    fromRectRef.current = fromRect || null
+  }, [fromRect])
+
+  const finishClose = useCallback(() => {
+    onClose?.()
+    onClosed?.()
+  }, [onClose, onClosed])
+
+  const animateClose = useCallback(() => {
+    if (closingRef.current) return
+    closingRef.current = true
+    setClosing(true)
+
+    const hero = heroRef.current
+    const fr = fromRectRef.current
+
+    // If we don’t have a rect or reduced motion is on, fall back to existing close timing
+    if (!hero || !fr || reduceMotion) {
+      window.setTimeout(finishClose, 160)
+      return
+    }
+
+    // Animate transform back to the tile rect (FLIP exit)
+    const to = fr
+    const from = hero.getBoundingClientRect()
+
+    const dx = to.left - from.left
+    const dy = to.top - from.top
+    const sx = to.width / Math.max(1, from.width)
+    const sy = to.height / Math.max(1, from.height)
+
+    hero.style.willChange = 'transform'
+    hero.style.transition = 'transform 200ms cubic-bezier(.2,.8,.2,1), opacity 200ms ease'
+    hero.style.transformOrigin = 'top left'
+    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+    hero.style.opacity = '0.0'
+
+    // Close after transition
+    window.setTimeout(() => {
+      hero.style.willChange = ''
+      finishClose()
+    }, 210)
+  }, [finishClose, reduceMotion])
 
   /* signal mount for grid guard */
   useEffect(() => {
@@ -586,6 +609,45 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
     return () => document.documentElement.removeAttribute('data-overlay-open')
   }, [])
 
+  // Reset image index when product changes
+  useEffect(() => setImgIdx(0), [index])
+
+  // App-speed entrance zoom (FLIP enter)
+  useEffect(() => {
+    const hero = heroRef.current
+    if (!hero) return
+
+    // If reduced motion or no fromRect, keep your current subtle scale in
+    const fr = fromRectRef.current
+    if (reduceMotion || !fr) return
+
+    const target = hero.getBoundingClientRect()
+    const dx = fr.left - target.left
+    const dy = fr.top - target.top
+    const sx = fr.width / Math.max(1, target.width)
+    const sy = fr.height / Math.max(1, target.height)
+
+    hero.style.transition = 'none'
+    hero.style.transformOrigin = 'top left'
+    hero.style.willChange = 'transform'
+    hero.style.opacity = '0.0'
+    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+
+    // next frame: animate to identity
+    requestAnimationFrame(() => {
+      hero.style.transition = 'transform 220ms cubic-bezier(.2,.9,.2,1), opacity 180ms ease'
+      hero.style.opacity = '1'
+      hero.style.transform = 'translate(0px, 0px) scale(1)'
+    })
+
+    const cleanup = () => {
+      hero.style.willChange = ''
+      hero.removeEventListener('transitionend', cleanup)
+    }
+    hero.addEventListener('transitionend', cleanup)
+    return () => hero.removeEventListener('transitionend', cleanup)
+  }, [index, reduceMotion])
+
   if (!product) return null
 
   const priceText = useMemo(() => {
@@ -624,7 +686,7 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
           display: 'grid',
           placeItems: 'center',
           background: 'transparent',
-          pointerEvents: 'none', // overlay click-away works; hero handles interactions
+          pointerEvents: 'none',
           overscrollBehavior: 'contain',
           cursor: 'default',
         }}
@@ -647,15 +709,17 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         />
 
         <div
+          ref={heroRef}
           className="product-hero"
           style={{
             pointerEvents: 'auto',
             textAlign: 'center',
             zIndex: 521,
             touchAction: 'none',
-            transform: closing ? 'scale(0.94)' : 'scale(1)',
-            opacity: closing ? 0.0 : 1,
-            transition: 'transform 160ms ease, opacity 160ms ease',
+            // keep your existing close feel as fallback (when no fromRect)
+            transform: closing ? 'scale(0.94)' : undefined,
+            opacity: closing ? 0.0 : undefined,
+            transition: closing ? 'transform 160ms ease, opacity 160ms ease' : undefined,
           }}
           onPointerDown={swipe.onDown}
           onPointerMove={swipe.onMove}
@@ -748,7 +812,6 @@ export default function ProductOverlay({ products, index, onIndexChange, onClose
         </div>
       </div>
 
-      {/* tiny helpers for arrow/dot states (duplicate-safe) */}
       <style jsx>{`
         .dot-pill {
           border-radius: 9999px;

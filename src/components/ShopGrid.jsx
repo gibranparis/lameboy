@@ -70,17 +70,37 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   /* ---------------- Overlay state ---------------- */
   const [overlayIdx, setOverlayIdx] = useState(/** @type {number|null} */ null)
+  const [fromRect, setFromRect] = useState(
+    /** @type {{left:number,top:number,width:number,height:number}|null} */ (null)
+  )
+
   const overlayOpen = overlayIdx != null
-  const open = useCallback((i) => setOverlayIdx(i), [])
-  const close = useCallback(() => setOverlayIdx(null), [])
+
+  const openAt = useCallback((i, rect) => {
+    setFromRect(rect || null)
+    setOverlayIdx(i)
+  }, [])
+
+  const close = useCallback(() => {
+    setOverlayIdx(null)
+    // keep fromRect briefly (overlay may use it to animate out)
+    // overlay will call onClosed when done; we’ll clear there.
+  }, [])
+
+  const clearFromRect = useCallback(() => setFromRect(null), [])
 
   // Auto-open first product on mount (slight delay to allow layout)
   useEffect(() => {
     if (autoOpenFirstOnMount && seed.length) {
-      const t = setTimeout(() => setOverlayIdx(0), 80)
+      const t = setTimeout(() => {
+        // best-effort rect: first tile if we have it
+        const el = firstTileRef.current
+        const r = el?.getBoundingClientRect?.()
+        openAt(0, r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null)
+      }, 80)
       return () => clearTimeout(t)
     }
-  }, [autoOpenFirstOnMount, seed.length])
+  }, [autoOpenFirstOnMount, seed.length, openAt])
 
   /* ---------------- Grid density via orb ---------------- */
 
@@ -114,11 +134,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       sessionStorage.setItem(KEY_DENSITY, String(clamped))
     } catch {}
 
-    // On first run, still broadcast once so header orb knows initial density
     const isFirst = prevColsRef.current === clamped
     broadcastDensity(clamped)
 
-    // Bump animation only when value actually changes
     if (!isFirst) {
       try {
         const root = document.documentElement
@@ -138,7 +156,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   // Listen for zoom/density events from the orb/header
   useEffect(() => {
     const onZoom = (e) => {
-      // If overlay is open, close it first (keeps the “single page” interaction clean)
       if (overlayIdx != null) {
         setOverlayIdx(null)
         return
@@ -146,7 +163,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
       const d = e?.detail || {}
 
-      // If an explicit value is provided, prefer it (direct set)
       const explicit = Number(d.value)
       if (Number.isFinite(explicit)) {
         setCols(clampCols(explicit))
@@ -165,7 +181,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         return
       }
 
-      // Toggle one step by default
       setCols((p) => {
         const goingIn = p > MIN_COLS
         return clampCols(goingIn ? p - 1 : p + 1)
@@ -250,12 +265,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
             aria-label={`Open ${p.title ?? 'product'} details`}
             onClick={(e) => {
               e.preventDefault()
-              open(idx)
+              const r = e.currentTarget.getBoundingClientRect()
+              openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
-                open(idx)
+                const el = /** @type {HTMLElement} */ (e.currentTarget)
+                const r = el.getBoundingClientRect()
+                openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
               }
             }}
           >
@@ -277,7 +295,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 }}
                 onError={(e) => {
                   const img = e.currentTarget
-                  // two-step fallback: thumb -> image -> brown.png
                   if (img.dataset.fallback === 'hero') {
                     img.src = '/products/brown.png'
                     img.dataset.fallback = 'final'
@@ -297,8 +314,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         <ProductOverlay
           products={seed}
           index={overlayIdx}
+          fromRect={fromRect}
           onIndexChange={(i) => setOverlayIdx(((i % seed.length) + seed.length) % seed.length)}
           onClose={close}
+          onClosed={clearFromRect}
         />
       )}
 
