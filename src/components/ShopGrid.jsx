@@ -8,6 +8,23 @@ import { PRODUCTS, logMissingAssets } from '@/lib/products'
 
 /** Storage key for saved grid density */
 const KEY_DENSITY = 'lb:grid-cols'
+const MIN_COLS = 1
+const MAX_COLS = 5
+
+function clampCols(n) {
+  const v = Number(n) || MAX_COLS
+  return Math.max(MIN_COLS, Math.min(MAX_COLS, v | 0))
+}
+
+function readSavedCols() {
+  try {
+    const v = Number(sessionStorage.getItem(KEY_DENSITY) || '')
+    if (!Number.isFinite(v)) return MAX_COLS
+    return clampCols(v)
+  } catch {
+    return MAX_COLS
+  }
+}
 
 export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   /* ---------------- Seed products ---------------- */
@@ -23,20 +40,20 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       fromProp && fromProp.length
         ? fromProp
         : fromWin && fromWin.length
-        ? fromWin
-        : PRODUCTS && PRODUCTS.length
-        ? PRODUCTS
-        : [
-            {
-              id: 'hoodie-brown-1',
-              title: 'Brown',
-              price: 4000,
-              image: '/products/brown.png',
-              thumb: '/products/brown.png',
-              images: ['/products/brown.png'],
-              sizes: ['S', 'M', 'L', 'XL'],
-            },
-          ]
+          ? fromWin
+          : PRODUCTS && PRODUCTS.length
+            ? PRODUCTS
+            : [
+                {
+                  id: 'hoodie-brown-1',
+                  title: 'Brown',
+                  price: 4000,
+                  image: '/products/brown.png',
+                  thumb: '/products/brown.png',
+                  images: ['/products/brown.png'],
+                  sizes: ['S', 'M', 'L', 'XL'],
+                },
+              ]
 
     if (base.length >= 2) return base
 
@@ -54,7 +71,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   /* ---------------- Overlay state ---------------- */
   const [overlayIdx, setOverlayIdx] = useState(/** @type {number|null} */ null)
   const overlayOpen = overlayIdx != null
-  const open = useCallback(i => setOverlayIdx(i), [])
+  const open = useCallback((i) => setOverlayIdx(i), [])
   const close = useCallback(() => setOverlayIdx(null), [])
 
   // Auto-open first product on mount (slight delay to allow layout)
@@ -66,21 +83,11 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   }, [autoOpenFirstOnMount, seed.length])
 
   /* ---------------- Grid density via orb ---------------- */
-  const MIN_COLS = 1
-  const MAX_COLS = 5
 
-  const readSavedCols = () => {
-    try {
-      const v = Number(sessionStorage.getItem(KEY_DENSITY) || '')
-      return Number.isFinite(v) ? v : MAX_COLS
-    } catch {
-      return MAX_COLS
-    }
-  }
+  const [cols, setCols] = useState(() => clampCols(readSavedCols()))
+  const prevColsRef = useRef(cols)
 
-  const [cols, setCols] = useState(readSavedCols)
-
-  const broadcastDensity = useCallback(density => {
+  const broadcastDensity = useCallback((density) => {
     const detail = { density, value: density }
     try {
       document.dispatchEvent(new CustomEvent('lb:grid-density', { detail }))
@@ -90,7 +97,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     } catch {}
   }, [])
 
-  const syncCssTokens = useCallback(n => {
+  const syncCssTokens = useCallback((n) => {
     try {
       const root = document.documentElement
       root.style.setProperty('--grid-cols', String(n))
@@ -98,46 +105,51 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     } catch {}
   }, [])
 
-  const applyCols = useCallback(
-    (next, { broadcast = true, persist = true } = {}) => {
-      const clamped = Math.max(MIN_COLS, Math.min(MAX_COLS, next | 0))
-      setCols(clamped)
-      if (persist) {
-        try {
-          sessionStorage.setItem(KEY_DENSITY, String(clamped))
-        } catch {}
-      }
-      syncCssTokens(clamped)
-      if (broadcast) broadcastDensity(clamped)
-      try {
-        document.documentElement.style.setProperty('--grid-anim', '1')
-        setTimeout(() => {
-          document.documentElement.style.removeProperty('--grid-anim')
-        }, 280)
-      } catch {}
-    },
-    [broadcastDensity, syncCssTokens]
-  )
-
-  // On mount: apply saved, sync CSS, broadcast once
+  // Keep CSS tokens, storage, bump flag, and broadcast in sync with `cols`
   useEffect(() => {
-    applyCols(readSavedCols(), { broadcast: true, persist: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    const clamped = clampCols(cols)
+    syncCssTokens(clamped)
+
+    try {
+      sessionStorage.setItem(KEY_DENSITY, String(clamped))
+    } catch {}
+
+    // On first run, still broadcast once so header orb knows initial density
+    const isFirst = prevColsRef.current === clamped
+    broadcastDensity(clamped)
+
+    // Bump animation only when value actually changes
+    if (!isFirst) {
+      try {
+        const root = document.documentElement
+        root.style.setProperty('--grid-anim', '1')
+        const t = setTimeout(() => {
+          root.style.removeProperty('--grid-anim')
+        }, 280)
+        return () => clearTimeout(t)
+      } catch {
+        /* ignore */
+      }
+    }
+
+    prevColsRef.current = clamped
+  }, [cols, broadcastDensity, syncCssTokens])
 
   // Listen for zoom/density events from the orb/header
   useEffect(() => {
-    const onZoom = e => {
+    const onZoom = (e) => {
       // If overlay is open, close it first (keeps the “single page” interaction clean)
       if (overlayIdx != null) {
         setOverlayIdx(null)
         return
       }
+
       const d = e?.detail || {}
+
       // If an explicit value is provided, prefer it (direct set)
       const explicit = Number(d.value)
-      if (Number.isFinite(explicit) && explicit >= MIN_COLS && explicit <= MAX_COLS) {
-        applyCols(explicit)
+      if (Number.isFinite(explicit)) {
+        setCols(clampCols(explicit))
         return
       }
 
@@ -145,42 +157,33 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       const dir = typeof d.dir === 'string' ? d.dir : null
 
       if (dir === 'in') {
-        setCols(p => {
-          const n = Math.max(MIN_COLS, p - step)
-          applyCols(n)
-          return n
-        })
+        setCols((p) => clampCols(p - step))
         return
       }
       if (dir === 'out') {
-        setCols(p => {
-          const n = Math.min(MAX_COLS, p + step)
-          applyCols(n)
-          return n
-        })
+        setCols((p) => clampCols(p + step))
         return
       }
+
       // Toggle one step by default
-      setCols(p => {
+      setCols((p) => {
         const goingIn = p > MIN_COLS
-        const n = goingIn ? Math.max(MIN_COLS, p - 1) : Math.min(MAX_COLS, p + 1)
-        applyCols(n)
-        return n
+        return clampCols(goingIn ? p - 1 : p + 1)
       })
     }
 
     const names = ['lb:zoom', 'lb:zoom/grid-density']
-    names.forEach(n => {
+    names.forEach((n) => {
       window.addEventListener(n, onZoom)
       document.addEventListener(n, onZoom)
     })
     return () => {
-      names.forEach(n => {
+      names.forEach((n) => {
         window.removeEventListener(n, onZoom)
         document.removeEventListener(n, onZoom)
       })
     }
-  }, [overlayIdx, applyCols])
+  }, [overlayIdx])
 
   /* ---------------- Signal “shop ready” (redundant safety) ---------------- */
   const readySent = useRef(false)
@@ -210,7 +213,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   const onFirstThumbRef = useRef(false)
   const handleFirstDecode = useCallback(
-    imgEl => {
+    (imgEl) => {
       if (!imgEl || onFirstThumbRef.current) return
       onFirstThumbRef.current = true
       try {
@@ -245,11 +248,11 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
             role="button"
             tabIndex={0}
             aria-label={`Open ${p.title ?? 'product'} details`}
-            onClick={e => {
+            onClick={(e) => {
               e.preventDefault()
               open(idx)
             }}
-            onKeyDown={e => {
+            onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
                 open(idx)
@@ -266,13 +269,13 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 priority={idx === 0}
                 unoptimized
                 sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
-                ref={el => {
+                ref={(el) => {
                   if (idx === 0 && el?.complete) handleFirstDecode(el)
                 }}
-                onLoad={e => {
+                onLoad={(e) => {
                   if (idx === 0) handleFirstDecode(e.currentTarget)
                 }}
-                onError={e => {
+                onError={(e) => {
                   const img = e.currentTarget
                   // two-step fallback: thumb -> image -> brown.png
                   if (img.dataset.fallback === 'hero') {
@@ -294,7 +297,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         <ProductOverlay
           products={seed}
           index={overlayIdx}
-          onIndexChange={i => setOverlayIdx(((i % seed.length) + seed.length) % seed.length)}
+          onIndexChange={(i) => setOverlayIdx(((i % seed.length) + seed.length) % seed.length)}
           onClose={close}
         />
       )}
@@ -328,7 +331,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           outline: none;
         }
         .product-tile:focus-visible .product-box {
-          box-shadow: 0 0 0 2px #000, 0 1px 6px rgba(0, 0, 0, 0.08);
+          box-shadow:
+            0 0 0 2px #000,
+            0 1px 6px rgba(0, 0, 0, 0.08);
         }
         .product-meta {
           font-size: 0.9rem;

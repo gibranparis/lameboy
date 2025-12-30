@@ -3,91 +3,28 @@
 
 export const dynamic = 'force-static'
 
+import React, { useCallback, useEffect, useState } from 'react'
 import nextDynamic from 'next/dynamic'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import products from '@/lib/products'
 
-const LandingGate = nextDynamic(() => import('@/components/LandingGate'), { ssr: false })
+// Gate
+const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
+
+// Loader (black orb on white) – static import for zero lag
+import WhiteLoader from '@/components/orb/WhiteLoader'
+
+// Shop
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), {
   ssr: false,
 })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
-const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 const RUNNER_H = 14
-const WHITE_Z = 10002
+const LOADER_MS = 1400 // how long the black-orb loader stays fully visible
 
-/* WHITE overlay (black orb page) */
-function WhiteLoader({ show, onFadeOutEnd }) {
-  const opacity = show ? 1 : 0
-  useEffect(() => {
-    if (!show) {
-      const t = setTimeout(() => onFadeOutEnd?.(), 260)
-      return () => clearTimeout(t)
-    }
-  }, [show, onFadeOutEnd])
-
-  return (
-    <div
-      aria-hidden
-      className="white-loader"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: WHITE_Z,
-        pointerEvents: 'none',
-        background: '#fff',
-        display: 'grid',
-        placeItems: 'center',
-        transition: 'opacity 260ms ease',
-        opacity,
-        contain: 'layout paint style',
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <div style={{ lineHeight: 0 }}>
-          <BlueOrbCross3D
-            rpm={44}
-            color="#32ffc7"
-            geomScale={1.12}
-            glow
-            glowOpacity={1}
-            includeZAxis
-            height="88px"
-            interactive={false}
-            overrideAllColor="#000"
-            flashDecayMs={140}
-          />
-        </div>
-        <span
-          style={{
-            color: '#000',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            lineHeight: 1.2,
-          }}
-        >
-          <ClockNaples />
-        </span>
-        <span
-          style={{
-            color: '#000',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            lineHeight: 1.2,
-            textTransform: 'uppercase',
-          }}
-        >
-          LAMEBOY, USA
-        </span>
-      </div>
-    </div>
-  )
-}
+/* ========================= Header control size ========================= */
 
 function useHeaderCtrlPx(defaultPx = 64) {
   const [px, setPx] = useState(defaultPx)
@@ -110,50 +47,45 @@ function useHeaderCtrlPx(defaultPx = 64) {
   return px
 }
 
+/* ================================= Page ================================= */
+
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
+
+  // 'gate'  -> BannedLogin
+  // 'shop'  -> Header + ShopGrid
+  const [mode, setMode] = useState('gate')
   const [theme, setTheme] = useState('day')
-  const [shopActive, setShopActive] = useState(false)
-  const [cascadeDone, setCascadeDone] = useState(false)
-  const [shopMounted, setShopMounted] = useState(false)
-  const readyRequestedRef = useRef(false)
-  const readyRanRef = useRef(false)
-  const shopMountedRef = useRef(false)
+  const [loaderShow, setLoaderShow] = useState(false)
 
-  const [whiteShow, setWhiteShow] = useState(false)
-  const [veilGrid, setVeilGrid] = useState(true)
-  const [loginOpen, setLoginOpen] = useState(false)
+  const inGate = mode === 'gate'
+  const inShop = mode === 'shop'
 
-  const showGate = !cascadeDone
+  /* ---------- root tokens ---------- */
 
-  // tokens
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--header-ctrl', `${ctrlPx}px`)
     root.style.setProperty('--runner-h', `${RUNNER_H}px`)
   }, [ctrlPx])
 
-  // mode & theme
   useEffect(() => {
     const root = document.documentElement
-    const mode = shopActive && cascadeDone ? 'shop' : 'gate'
     root.setAttribute('data-theme', theme || 'day')
     root.setAttribute('data-mode', mode)
-    if (shopActive) root.setAttribute('data-shop-root', '')
-    else root.removeAttribute('data-shop-root')
-    if (!shopMounted) root.removeAttribute('data-shop-mounted')
-  }, [theme, shopActive, cascadeDone, shopMounted])
 
-  // overlay-open flag (banned/login)
-  useEffect(() => {
-    const root = document.documentElement
-    if (loginOpen) root.setAttribute('data-overlay-open', '1')
-    else root.removeAttribute('data-overlay-open')
-  }, [loginOpen])
+    if (inShop) {
+      root.setAttribute('data-shop-root', '')
+      root.setAttribute('data-shop-mounted', '1')
+    } else {
+      root.removeAttribute('data-shop-root')
+      root.removeAttribute('data-shop-mounted')
+    }
+  }, [theme, mode, inShop])
 
-  // listen for theme changes
+  // listen for theme changes from DayNightToggle
   useEffect(() => {
-    const onTheme = e => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
+    const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
     document.addEventListener('theme-change', onTheme)
     return () => {
@@ -162,51 +94,33 @@ export default function Page() {
     }
   }, [])
 
-  /* ---------- Gate → Shop choreography ---------- */
+  /* ---------- Gate → Loader overlay → Shop choreography ---------- */
 
-  // Called late in the sweep (from LandingGate)
-  const onCascadeWhite = () => {
-    setWhiteShow(true) // mount WHITE under bands
-    setVeilGrid(true)
-    setShopActive(true) // start mounting shop behind the curtain
-  }
+  const handleEnterShop = useCallback(() => {
+    if (mode !== 'gate') return
 
-  const onCascadeComplete = useCallback(() => {
-    setWhiteShow(true) // ensure WHITE stays up through handoff
-    setVeilGrid(true) // keep grid hidden until overlay signals ready
-    setCascadeDone(true)
-    setShopActive(true)
-  }, [])
-  // Mirror the "white phase" attr so LandingGate can hard-hide base
-  useEffect(() => {
+    // 1) show loader immediately over the gate
+    setLoaderShow(true)
+
+    // lock theme to day for shop
     const root = document.documentElement
-    if (whiteShow) root.setAttribute('data-white-phase', '1')
-    else root.removeAttribute('data-white-phase')
-  }, [whiteShow])
+    root.setAttribute('data-theme', 'day')
+    try {
+      localStorage.setItem('lb:theme', 'day')
+    } catch {}
 
-  // When Shop mounts, allow off-white tokens & ensure DAY on entry
-  useEffect(() => {
-    if (!shopActive) return
-    const root = document.documentElement
-    const id = requestAnimationFrame(() => {
-      root.setAttribute('data-shop-mounted', '1')
-      root.setAttribute('data-theme', 'day')
-      try {
-        localStorage.setItem('lb:theme', 'day')
-      } catch {}
-      shopMountedRef.current = true
-      setShopMounted(true)
-    })
-    return () => {
-      cancelAnimationFrame(id)
-      shopMountedRef.current = false
-      setShopMounted(false)
-      root.removeAttribute('data-shop-mounted')
-      root.setAttribute('data-theme', 'day')
-    }
-  }, [shopActive])
+    // 2) very quickly mount the shop behind the loader
+    setTimeout(() => {
+      setMode('shop')
+    }, 120)
 
-  // Prewarm shop bundles while idle to avoid jank at handoff
+    // 3) keep the loader up for a short beat, then fade it out
+    setTimeout(() => {
+      setLoaderShow(false)
+    }, LOADER_MS)
+  }, [mode])
+
+  // Pre-warm shop bundles while idle
   useEffect(() => {
     const run = () => {
       import('@/components/HeaderBar')
@@ -214,6 +128,7 @@ export default function Page() {
       import('@/components/BannedLogin')
       import('@/components/ChakraBottomRunner')
       import('@/components/HeartBeatButton')
+      import('@/components/orb/WhiteLoader')
     }
     const id =
       typeof window.requestIdleCallback === 'function'
@@ -225,70 +140,20 @@ export default function Page() {
     }
   }, [])
 
-  // Unveil grid + fade WHITE out when ready (or after safety)
-  useEffect(() => {
-    const runReady = () => {
-      if (readyRanRef.current || !cascadeDone) return
-      readyRanRef.current = true
-      setTheme('day') // soften handoff by revealing overlay in day palette
-      setVeilGrid(false)
-      // linger white curtain slightly longer; drop only after shop mounts to avoid black gap
-      const hideWhiteWhenReady = () => {
-        let attempts = 0
-        const tick = () => {
-          if (shopMountedRef.current || attempts > 40) {
-            setWhiteShow(false)
-            return
-          }
-          attempts += 1
-          setTimeout(tick, 30)
-        }
-        tick()
-      }
-      setTimeout(hideWhiteWhenReady, 360)
-    }
-
-    const onReady = () => {
-      readyRequestedRef.current = true
-      runReady()
-    }
-
-    const handlers = [
-      ['lb:overlay-mounted', onReady],
-      ['lb:overlay-open', onReady],
-      ['lb:shop-ready', onReady],
-    ]
-    handlers.forEach(([n, h]) => window.addEventListener(n, h))
-    const safety = setTimeout(onReady, 3000)
-
-    // If readiness was requested before cascade finished, run once now
-    if (readyRequestedRef.current) runReady()
-
-    return () => {
-      handlers.forEach(([n, h]) => window.removeEventListener(n, h))
-      clearTimeout(safety)
-    }
-  }, [cascadeDone])
-
-  // If cascade finished but shop isn't mounted yet, keep WHITE up to block black gaps
-  useEffect(() => {
-    if (cascadeDone && !shopMounted) {
-      setWhiteShow(true)
-    }
-  }, [cascadeDone, shopMounted])
-
   return (
     <div
-      className="lb-screen w-full"
+      className="lb-screen w-full font-bold"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
-      {showGate && (
+      {/* Gate */}
+      {inGate && (
         <main className="lb-screen">
-          <LandingGate onCascadeWhite={onCascadeWhite} onCascadeComplete={onCascadeComplete} />
+          <BannedLogin onProceed={handleEnterShop} />
         </main>
       )}
 
-      {shopActive && (
+      {/* Shop */}
+      {inShop && (
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
@@ -303,28 +168,8 @@ export default function Page() {
         </>
       )}
 
-      {/* WHITE under bands; disappears only after shop is ready */}
-      <WhiteLoader show={whiteShow} />
+      {/* Black-orb loader overlay (covers both gate + shop when shown) */}
+      <WhiteLoader show={loaderShow} />
     </div>
   )
-}
-
-function ClockNaples() {
-  const [now, setNow] = useState('')
-  useEffect(() => {
-    const fmt = () =>
-      setNow(
-        new Intl.DateTimeFormat('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-          timeZone: 'America/New_York',
-        }).format(new Date())
-      )
-    fmt()
-    const id = setInterval(fmt, 1000)
-    return () => clearInterval(id)
-  }, [])
-  return <span>{now}</span>
 }

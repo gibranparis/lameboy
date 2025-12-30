@@ -9,13 +9,13 @@ import { playChakraSequenceRTL } from '@/lib/chakra-audio'
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 /* =============================== Timings / Layers =============================== */
-export const CASCADE_MS = 2400
-// Call WHITE later in the sweep to keep bands moving while prepping orb
-const WHITE_CALL_PCT = 0.64
+export const CASCADE_MS = 2800
+// Call WHITE around halfway so black orb is already there as bands exit
+const WHITE_CALL_PCT = 0.5
 const FLASH_MS = 200
 const LAYERS = {
   BASE: 10000,
-  WHITE: 10002, // white page (black orb) lives above base; bands sit above WHITE
+  WHITE: 10002,
   BANDS: 10006,
   BANDS_LABEL: 10007,
 }
@@ -36,7 +36,6 @@ function useNoLayoutMeasure(ref) {
   }, [ref])
 }
 
-// defensively wrap callbacks so they can’t kill the sweep
 function safeCall(fn, label) {
   if (typeof fn !== 'function') return
   try {
@@ -48,6 +47,11 @@ function safeCall(fn, label) {
 }
 
 /* ========================== Right→Left sweep ========================== */
+/**
+ * ChakraSweep
+ * - Renders 7 blurred color bands that slide right→left.
+ * - Uses inline z-index + background color so they can't "silently disappear".
+ */
 function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
   const startedRef = useRef(false)
   const rafRef = useRef(0)
@@ -69,7 +73,9 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
       const raw = Math.min(1, (ts - t0) / durationMs)
       const p = ease(raw)
       const el = rootRef.current
-      if (el) el.style.transform = `translate3d(${tx(p)}vw,0,0)`
+      if (el) {
+        el.style.transform = `translate3d(${tx(p)}vw,0,0)`
+      }
 
       try {
         onProgress?.(p)
@@ -91,33 +97,27 @@ function ChakraSweep({ durationMs = CASCADE_MS, onProgress }) {
     <div
       ref={rootRef}
       aria-hidden
+      className="chakra-overlay"
+      data-js-cascade="raf"
       style={{
-        position: 'fixed',
-        inset: '0 auto 0 0',
-        height: '100vh',
-        width: '160vw',
-        zIndex: LAYERS.BANDS,
-        pointerEvents: 'none',
-        willChange: 'transform',
-        transform: 'translate3d(160vw,0,0)',
-        background: 'transparent',
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
+        transform: 'translate3d(160vw,0,0)',
+        zIndex: LAYERS.BANDS, // make sure we’re above white curtain + gate
+        pointerEvents: 'none',
       }}
     >
       {['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#4f46e5', '#c084fc'].map((c, i) => (
-        <div key={i} style={{ position: 'relative', background: c }}>
-          <span
-            style={{
-              position: 'absolute',
-              inset: -24,
-              background: c,
-              filter: 'blur(28px)',
-              opacity: 0.85,
-              pointerEvents: 'none',
-            }}
-          />
-        </div>
+        <div
+          key={i}
+          className="chakra-band"
+          style={{
+            '--c': c,
+            // inline background so even if ::before/glow CSS fails,
+            // you still see solid color bands.
+            background: c,
+          }}
+        />
       ))}
     </div>,
     document.body
@@ -136,20 +136,31 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
 
   const labelRef = useRef(null)
   useNoLayoutMeasure(labelRef)
+  const [labelVisible, setLabelVisible] = useState(true)
 
   // put document into "gate" mode while this component is mounted
   useEffect(() => {
     const root = document.documentElement
     const prevMode = root.getAttribute('data-mode')
 
+    // ensure we’re in gate mode
     root.setAttribute('data-mode', 'gate')
 
+    // 🔥 HARD RESET of cascade flags on mount
+    // (prevents leftover data-cascade-done="1" from hiding bands)
+    root.removeAttribute('data-cascade-active')
+    root.removeAttribute('data-cascade-done')
+    root.removeAttribute('data-white-phase')
+
     return () => {
-      // only restore if nothing else changed it
+      // cleanup only if nothing else changed it
       if (root.getAttribute('data-mode') === 'gate') {
         if (prevMode) root.setAttribute('data-mode', prevMode)
         else root.removeAttribute('data-mode')
       }
+      root.removeAttribute('data-cascade-active')
+      root.removeAttribute('data-cascade-done')
+      root.removeAttribute('data-white-phase')
     }
   }, [])
 
@@ -175,7 +186,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     safeCall(onCascadeWhite, 'onCascadeWhite')
   }, [onCascadeWhite])
 
-  // tokens
+  // tokens cleanup (guard)
   useEffect(() => {
     const root = document.documentElement
     return () => {
@@ -204,13 +215,18 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
   const reallyStart = useCallback(() => {
     const now = performance.now()
     if (localLockRef.current || global.__lb.cascadeActive) return
-    if (now - startedAtRef.current < 800) return
+    if (now - startedAtRef.current < 400) return
     startedAtRef.current = now
 
     localLockRef.current = true
     global.__lb.cascadeActive = true
+    whiteCalledRef.current = false
+    setLabelVisible(true)
 
-    document.documentElement.setAttribute('data-cascade-active', '1')
+    const root = document.documentElement
+    root.setAttribute('data-cascade-active', '1')
+    root.removeAttribute('data-cascade-done')
+
     flashGate()
     setPhase('cascade')
 
@@ -261,10 +277,16 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
     (p) => {
       const phase = phaseRef.current
 
-      // Show WHITE under bands & hide landing immediately
+      // Show WHITE under bands & start mounting black orb page
       if (!whiteCalledRef.current && p >= WHITE_CALL_PCT && phase === 'cascade') {
         callWhitePhase()
       }
+
+      // Let "LAMEBOY, USA" ride with the pack then disappear before the end
+      if (p >= 0.8 && phase === 'cascade') {
+        setLabelVisible(false)
+      }
+
       // End
       if (p >= 1 && phase === 'cascade') {
         setPhase('done')
@@ -313,6 +335,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
       )}
 
       {phaseState === 'cascade' &&
+        labelVisible &&
         createPortal(
           <div
             aria-hidden
@@ -395,7 +418,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           padding: '6px 0',
           cursor: 'pointer',
           color: '#7c7c84',
-          fontWeight: 800,
+          fontWeight: 900,
           letterSpacing: '.10em',
           fontSize: '12px',
           fontFamily: GATE_MONO,
@@ -425,7 +448,7 @@ export default function LandingGate({ onCascadeWhite, onCascadeComplete }) {
           border: 'none',
           padding: '6px 0',
           cursor: 'pointer',
-          fontWeight: 800,
+          fontWeight: 900,
           letterSpacing: '.10em',
           fontSize: '12px',
           fontFamily: GATE_MONO,

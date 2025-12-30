@@ -5,7 +5,8 @@
    ========================================================================== */
 :root {
   /* Typography */
-  --mono: Menlo, Monaco, Consolas, 'SFMono-Regular', 'Liberation Mono', 'Courier New', ui-monospace,
+  --mono:
+    Menlo, Monaco, Consolas, 'SFMono-Regular', 'Liberation Mono', 'Courier New', ui-monospace,
     monospace;
 
   /* Shell (dark by default) */
@@ -68,16 +69,17 @@
   z-index: var(--z-white) !important;
   pointer-events: none;
   opacity: 0;
-  visibility: hidden;
+  /* no visibility toggle here – we fade with React state */
   transition: opacity 160ms ease;
 }
 
-/* Chakra bands live above base content */
+/* Chakra bands live above base content
+   Visibility is controlled by React (mounted only during cascade). */
 .chakra-overlay {
-  display: none;
   position: fixed;
   inset: 0;
   z-index: var(--z-bands) !important;
+  display: grid;
   grid-template-columns: repeat(7, 1fr);
   pointer-events: none;
   direction: rtl;
@@ -124,11 +126,15 @@ body {
 
 :root[data-mode='gate'] .gate-flash {
   color: #000;
-  transition: color 120ms ease, text-shadow 120ms ease;
+  transition:
+    color 120ms ease,
+    text-shadow 120ms ease;
 }
 :root[data-mode='gate'][data-gate-flash='1'] .gate-flash {
   color: #faff00;
-  text-shadow: 0 0 10px rgba(250, 255, 0, 0.55), 0 0 18px rgba(250, 255, 0, 0.35);
+  text-shadow:
+    0 0 10px rgba(250, 255, 0, 0.55),
+    0 0 18px rgba(250, 255, 0, 0.35);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -191,7 +197,9 @@ html[data-overlay-open] {
 :root[data-mode='shop'] {
   background: var(--bg);
   color: var(--text);
-  transition: background-color 0.35s ease, color 0.35s ease;
+  transition:
+    background-color 0.35s ease,
+    color 0.35s ease;
 }
 
 /* ==========================================================================
@@ -378,7 +386,9 @@ html[data-overlay-open] {
   display: grid;
   grid-template-columns: repeat(var(--grid-cols, 5), minmax(0, 1fr));
   gap: var(--gap);
-  transition: grid-template-columns 220ms ease, gap 220ms ease;
+  transition:
+    grid-template-columns 220ms ease,
+    gap 220ms ease;
 }
 @media (max-width: 640px) {
   .shop-grid {
@@ -405,7 +415,10 @@ html[data-overlay-open] {
   width: 88%;
   height: 88%;
   object-fit: contain;
-  transition: width 220ms ease, height 220ms ease, transform 220ms ease;
+  transition:
+    width 220ms ease,
+    height 220ms ease,
+    transform 220ms ease;
 }
 /* bump animation only when grid cols change (flagged by JS) */
 :root[data-grid-anim='1'] .product-box,
@@ -591,11 +604,16 @@ html:has([data-shop-root]) .logo-3d {
 }
 .neon-black {
   color: #000;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.6), 0 0 8px rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.6),
+    0 0 8px rgba(0, 0, 0, 0.35);
 }
 .banned-neon {
   color: var(--banned-neon, #ff073a);
-  text-shadow: 0 0 4px currentColor, 0 0 10px currentColor, 0 0 18px currentColor;
+  text-shadow:
+    0 0 4px currentColor,
+    0 0 10px currentColor,
+    0 0 18px currentColor;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -604,7 +622,10 @@ html:has([data-shop-root]) .logo-3d {
 .florida-link {
   font-weight: 800;
   color: #fff;
-  transition: filter 0.15s ease, text-shadow 0.15s ease, color 0.15s ease;
+  transition:
+    filter 0.15s ease,
+    text-shadow 0.15s ease,
+    color 0.15s ease;
 }
 :root[data-theme='day'] .florida-link {
   color: #111;
@@ -612,21 +633,28 @@ html:has([data-shop-root]) .logo-3d {
 .florida-link.is-hot,
 .florida-link:hover {
   color: #ffe600;
-  text-shadow: 0 0 6px rgba(255, 230, 0, 0.85), 0 0 16px rgba(255, 230, 0, 0.55),
+  text-shadow:
+    0 0 6px rgba(255, 230, 0, 0.85),
+    0 0 16px rgba(255, 230, 0, 0.55),
     0 0 28px rgba(255, 230, 0, 0.35);
 }
 
 .time-link {
   font-weight: 800;
   color: inherit;
-  transition: color 0.15s ease, text-shadow 0.15s ease, filter 0.15s ease;
+  transition:
+    color 0.15s ease,
+    text-shadow 0.15s ease,
+    filter 0.15s ease;
 }
 .time-link:hover,
 .time-link:focus-visible,
 .time-link:active,
 .time-link.is-hot {
   color: #fff;
-  text-shadow: 0 0 6px rgba(255, 255, 255, 0.85), 0 0 16px rgba(255, 255, 255, 0.55),
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.85),
+    0 0 16px rgba(255, 255, 255, 0.55),
     0 0 28px rgba(255, 255, 255, 0.35);
   filter: saturate(1.05);
 }
@@ -639,7 +667,11 @@ html:has([data-shop-root]) .logo-3d {
   place-items: center;
   border: none;
   font-weight: 800;
-  transition: background 0.14s ease, color 0.14s ease, transform 0.06s ease, box-shadow 0.14s ease;
+  transition:
+    background 0.14s ease,
+    color 0.14s ease,
+    transform 0.06s ease,
+    box-shadow 0.14s ease;
 }
 
 /* smaller plus for tiles / global */
@@ -651,17 +683,23 @@ html:has([data-shop-root]) .logo-3d {
   font-size: 14px;
   background: #fff;
   color: #0f1115;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 1px 6px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 :root[data-theme='night'] .plus-pill {
   background: #0b0c10;
   color: #fff;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 1px 6px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 .plus-pill.is-hot {
   background: var(--hover-green) !important;
   color: #000 !important;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 2px 10px rgba(0, 0, 0, 0.12) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    0 2px 10px rgba(0, 0, 0, 0.12) !important;
 }
 
 /* size chips */
@@ -672,12 +710,16 @@ html:has([data-shop-root]) .logo-3d {
   font-size: 12px;
   background: #fff;
   color: #0f1115;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 :root[data-theme='night'] .size-pill {
   background: #0b0c10;
   color: #fff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 .size-pill.is-selected {
   background: var(--hover-green);
@@ -755,7 +797,6 @@ html:has([data-shop-root]) .logo-3d {
 /* white curtain flags */
 :root[data-white-phase='1'] .white-loader {
   opacity: 1;
-  visibility: visible;
 }
 
 /* After done, never show bands */
@@ -770,8 +811,13 @@ html:has([data-shop-root]) .logo-3d {
   background: var(--panel);
   border: 2px solid var(--accent);
   border-radius: var(--radius-xl);
-  box-shadow: 0 0 0 1px rgba(25, 145, 255, 0.15), 0 0 24px rgba(25, 145, 255, 0.12);
-  transition: transform 0.28s ease, box-shadow 0.28s ease, opacity 0.28s ease;
+  box-shadow:
+    0 0 0 1px rgba(25, 145, 255, 0.15),
+    0 0 24px rgba(25, 145, 255, 0.12);
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease,
+    opacity 0.28s ease;
 }
 .card-ultra-tight {
   padding: 6px 8px;
@@ -788,25 +834,35 @@ html:has([data-shop-root]) .logo-3d {
   cursor: pointer;
 }
 .bubble-button:hover {
-  box-shadow: 0 0 0 1px rgba(25, 145, 255, 0.25), 0 0 24px rgba(25, 145, 255, 0.22),
+  box-shadow:
+    0 0 0 1px rgba(25, 145, 255, 0.25),
+    0 0 24px rgba(25, 145, 255, 0.22),
     0 0 50px rgba(25, 145, 255, 0.25);
 }
 @keyframes bubblePulseBlue {
   0% {
-    box-shadow: 0 0 0 1px rgba(25, 145, 255, 0.15), 0 0 24px rgba(25, 145, 255, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(25, 145, 255, 0.15),
+      0 0 24px rgba(25, 145, 255, 0.12);
   }
   35% {
-    box-shadow: 0 0 0 1px rgba(25, 145, 255, 0.25), 0 0 28px rgba(25, 145, 255, 0.28),
+    box-shadow:
+      0 0 0 1px rgba(25, 145, 255, 0.25),
+      0 0 28px rgba(25, 145, 255, 0.28),
       0 0 56px rgba(25, 145, 255, 0.32);
   }
   100% {
-    box-shadow: 0 0 0 1px rgba(25, 145, 255, 0.15), 0 0 24px rgba(25, 145, 255, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(25, 145, 255, 0.15),
+      0 0 24px rgba(25, 145, 255, 0.12);
   }
 }
 .lameboy-glow {
   color: var(--seafoam);
   font-weight: 900;
-  text-shadow: 0 0 10px rgba(46, 230, 184, 0.5), 0 0 20px rgba(46, 230, 184, 0.35);
+  text-shadow:
+    0 0 10px rgba(46, 230, 184, 0.5),
+    0 0 20px rgba(46, 230, 184, 0.35);
 }
 
 .ticker-viewport {
