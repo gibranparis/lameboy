@@ -468,7 +468,7 @@ export default function ProductOverlay({
     [imgIdx, imgs.length]
   )
 
-  // IMPORTANT: remember which product was opened from the grid
+  // Remember which index we opened from the grid.
   const openedIndexRef = useRef(index)
   const didEnterRef = useRef(false)
 
@@ -493,9 +493,11 @@ export default function ProductOverlay({
 
     const hero = heroRef.current
     const fr = fromRectRef.current
-    const canZoomBack = fr && !reduceMotion && index === openedIndexRef.current
 
-    if (!hero || !canZoomBack) {
+    // Only zoom back to tile if we're still on the original product.
+    const canZoomBack = hero && fr && !reduceMotion && index === openedIndexRef.current
+
+    if (!canZoomBack) {
       window.setTimeout(finishClose, 160)
       return
     }
@@ -527,9 +529,32 @@ export default function ProductOverlay({
     } catch {}
   }, [])
 
-  /* close on orb zoom */
+  /* orb zoom while overlay is open:
+     close overlay AND reset grid density back to 5
+     IMPORTANT: ignore ShopGrid broadcastDensity events ({value,density} only). */
   useEffect(() => {
-    const h = () => animateClose()
+    const h = (e) => {
+      const d = e?.detail || {}
+
+      // Ignore our own reset event
+      if (d?.source === 'overlay-reset') return
+
+      // Only react to real orb zoom events (dir/step-based),
+      // not density broadcasts that have no dir/step.
+      const hasDir = typeof d.dir === 'string'
+      const hasStep = Number.isFinite(Number(d.step))
+      if (!hasDir && !hasStep) return
+
+      try {
+        const detail = { value: 5, density: 5, source: 'overlay-reset' }
+        window.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
+        document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
+        document.dispatchEvent(new CustomEvent('lb:grid-density', { detail }))
+      } catch {}
+
+      animateClose()
+    }
+
     const names = ['lb:zoom', 'lb:zoom/grid-density']
     names.forEach((n) => {
       window.addEventListener(n, h)
@@ -568,7 +593,7 @@ export default function ProductOverlay({
     return () => window.removeEventListener('keydown', onKey)
   }, [animateClose, imgs.length, products.length, index, onIndexChange])
 
-  /* wheel parity (your "wheel roll") */
+  /* wheel rolls products; horizontal wheel rolls images */
   const lastWheel = useRef(0)
   useEffect(() => {
     const onWheel = (e) => {
@@ -579,13 +604,11 @@ export default function ProductOverlay({
       const ax = Math.abs(e.deltaX)
       const ay = Math.abs(e.deltaY)
 
-      // horizontal wheel cycles images
       if (ax > ay && imgs.length) {
         setImgIdx((i) => clamp(i + (e.deltaX > 0 ? 1 : -1), 0, imgs.length - 1))
         return
       }
 
-      // vertical wheel cycles products (NO ZOOM TRANSITION)
       if (products.length > 1) {
         const dirDown = e.deltaY > 0
         flash(document.querySelector(dirDown ? '[data-ui="img-down"]' : '[data-ui="img-up"]'))
@@ -615,10 +638,10 @@ export default function ProductOverlay({
     return () => document.documentElement.removeAttribute('data-overlay-open')
   }, [])
 
-  // Reset image index when product changes
+  // Reset image index when product changes (wheel roll / swipe up/down)
   useEffect(() => setImgIdx(0), [index])
 
-  // FLIP ENTER: run ONLY ONCE (initial open from grid)
+  // FLIP ENTER: run ONLY ONCE (initial open), double-rAF for stable measurement
   useEffect(() => {
     const hero = heroRef.current
     const fr = fromRectRef.current
@@ -626,33 +649,36 @@ export default function ProductOverlay({
     if (didEnterRef.current) return
     didEnterRef.current = true
 
-    const target = hero.getBoundingClientRect()
-    const dx = fr.left - target.left
-    const dy = fr.top - target.top
-    const sx = fr.width / Math.max(1, target.width)
-    const sy = fr.height / Math.max(1, target.height)
+    const run = () => {
+      const target = hero.getBoundingClientRect()
+      const dx = fr.left - target.left
+      const dy = fr.top - target.top
+      const sx = fr.width / Math.max(1, target.width)
+      const sy = fr.height / Math.max(1, target.height)
 
-    hero.style.transition = 'none'
-    hero.style.transformOrigin = 'top left'
-    hero.style.willChange = 'transform'
-    hero.style.opacity = '0.0'
-    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+      hero.style.transition = 'none'
+      hero.style.transformOrigin = 'top left'
+      hero.style.willChange = 'transform'
+      hero.style.opacity = '0.0'
+      hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
 
-    requestAnimationFrame(() => {
-      hero.style.transition = 'transform 220ms cubic-bezier(.2,.9,.2,1), opacity 180ms ease'
-      hero.style.opacity = '1'
-      hero.style.transform = 'translate(0px, 0px) scale(1)'
-    })
+      requestAnimationFrame(() => {
+        hero.style.transition = 'transform 220ms cubic-bezier(.2,.9,.2,1), opacity 180ms ease'
+        hero.style.opacity = '1'
+        hero.style.transform = 'translate(0px, 0px) scale(1)'
+      })
 
-    const cleanup = () => {
-      hero.style.willChange = ''
-      hero.removeEventListener('transitionend', cleanup)
+      const cleanup = () => {
+        hero.style.willChange = ''
+        hero.removeEventListener('transitionend', cleanup)
+      }
+      hero.addEventListener('transitionend', cleanup)
     }
-    hero.addEventListener('transitionend', cleanup)
-    return () => hero.removeEventListener('transitionend', cleanup)
+
+    requestAnimationFrame(() => requestAnimationFrame(run))
   }, [reduceMotion])
 
-  // Ensure that product changes do NOT keep any stale transform
+  // Ensure product changes do NOT keep any stale transform
   useEffect(() => {
     const hero = heroRef.current
     if (!hero) return

@@ -1,3 +1,4 @@
+// src/components/ShopGrid.jsx
 // @ts-check
 'use client'
 
@@ -89,11 +90,13 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   const clearFromRect = useCallback(() => setFromRect(null), [])
 
+  /* ---------------- Render refs (used by auto-open) ---------------- */
+  const firstTileRef = useRef(null)
+
   // Auto-open first product on mount (slight delay to allow layout)
   useEffect(() => {
     if (autoOpenFirstOnMount && seed.length) {
       const t = setTimeout(() => {
-        // best-effort rect: first tile if we have it
         const el = firstTileRef.current
         const r = el?.getBoundingClientRect?.()
         openAt(0, r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null)
@@ -156,14 +159,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   // Listen for zoom/density events from the orb/header
   useEffect(() => {
     const onZoom = (e) => {
+      const d = e?.detail || {}
+      const explicit = Number(d.value)
+
       if (overlayIdx != null) {
         setOverlayIdx(null)
-        return
+        // Only continue if this was an explicit set (e.g., reset to 5)
+        if (!Number.isFinite(explicit)) return
       }
 
-      const d = e?.detail || {}
-
-      const explicit = Number(d.value)
       if (Number.isFinite(explicit)) {
         setCols(clampCols(explicit))
         return
@@ -240,9 +244,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     },
     [sendReady]
   )
-
-  /* ---------------- Render ---------------- */
-  const firstTileRef = useRef(null)
 
   return (
     <div
