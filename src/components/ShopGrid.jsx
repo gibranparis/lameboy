@@ -84,8 +84,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   const close = useCallback(() => {
     setOverlayIdx(null)
-    // keep fromRect briefly (overlay may use it to animate out)
-    // overlay will call onClosed when done; we’ll clear there.
   }, [])
 
   const clearFromRect = useCallback(() => setFromRect(null), [])
@@ -131,22 +129,27 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   // Keep CSS tokens, storage, bump flag, and broadcast in sync with `cols`
   useEffect(() => {
     const clamped = clampCols(cols)
+    const prev = prevColsRef.current
+
     syncCssTokens(clamped)
 
     try {
       sessionStorage.setItem(KEY_DENSITY, String(clamped))
     } catch {}
 
-    const isFirst = prevColsRef.current === clamped
     broadcastDensity(clamped)
 
-    if (!isFirst) {
+    // Grid “zoom” feel on density changes (only when value actually changes)
+    if (prev !== clamped) {
       try {
         const root = document.documentElement
-        root.style.setProperty('--grid-anim', '1')
+        root.setAttribute('data-grid-anim', '1')
+        root.setAttribute('data-grid-dir', clamped < prev ? 'in' : 'out')
         const t = setTimeout(() => {
-          root.style.removeProperty('--grid-anim')
-        }, 280)
+          root.removeAttribute('data-grid-anim')
+          root.removeAttribute('data-grid-dir')
+        }, 260)
+        prevColsRef.current = clamped
         return () => clearTimeout(t)
       } catch {
         /* ignore */
@@ -164,7 +167,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
       if (overlayIdx != null) {
         setOverlayIdx(null)
-        // Only continue if this was an explicit set (e.g., reset to 5)
+        // Allow explicit set (like reset-to-5) to still apply
         if (!Number.isFinite(explicit)) return
       }
 
@@ -331,14 +334,35 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           grid-template-columns: repeat(var(--grid-cols, 5), minmax(0, 1fr));
           gap: clamp(10px, 2vw, 18px);
           padding: clamp(10px, 3vw, 24px);
+          transition:
+            gap 220ms ease,
+            padding 220ms ease;
         }
+
         .product-box {
           aspect-ratio: 1 / 1;
           background: #fff;
           border-radius: 16px;
           overflow: hidden;
           box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+          transform: translateZ(0) scale(1);
+          transition: transform 240ms cubic-bezier(0.2, 0.9, 0.2, 1);
+          will-change: transform;
         }
+
+        /* Grid “zoom” feel when density changes via orb */
+        :global(html[data-grid-anim='1'][data-grid-dir='in']) .product-box {
+          transform: translateZ(0) scale(1.03);
+        }
+        :global(html[data-grid-anim='1'][data-grid-dir='out']) .product-box {
+          transform: translateZ(0) scale(0.97);
+        }
+
+        /* Never animate grid tiles while overlay is open */
+        :global(html[data-overlay-open='1']) .product-box {
+          transform: translateZ(0) scale(1) !important;
+        }
+
         .product-img {
           width: 100%;
           height: 100%;

@@ -325,30 +325,6 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
           color: #000;
           box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
         }
-        .size-pill.is-hot {
-          transform: scale(1.06);
-          box-shadow:
-            0 0 0 0 rgba(11, 240, 95, 0.42),
-            inset 0 0 0 1px rgba(11, 240, 95, 0.55);
-          animation: lbPulseShort 420ms ease;
-        }
-        @keyframes lbPulseShort {
-          0% {
-            box-shadow:
-              0 0 0 0 rgba(11, 240, 95, 0.42),
-              inset 0 0 0 1px rgba(11, 240, 95, 0.55);
-          }
-          70% {
-            box-shadow:
-              0 0 0 8px rgba(11, 240, 95, 0),
-              inset 0 0 0 1px rgba(11, 240, 95, 0.35);
-          }
-          100% {
-            box-shadow:
-              0 0 0 10px rgba(11, 240, 95, 0),
-              inset 0 0 0 1px rgba(11, 240, 95, 0.2);
-          }
-        }
       `}</style>
     </div>
   )
@@ -468,7 +444,7 @@ export default function ProductOverlay({
     [imgIdx, imgs.length]
   )
 
-  // Remember which index we opened from the grid.
+  // The grid tile we opened from (FLIP anchor)
   const openedIndexRef = useRef(index)
   const didEnterRef = useRef(false)
 
@@ -481,10 +457,28 @@ export default function ProductOverlay({
     fromRectRef.current = fromRect || null
   }, [fromRect])
 
+  // If orb was clicked while overlay open, we want to reset grid AFTER close finishes.
+  const pendingResetRef = useRef(false)
+
+  const dispatchResetToFive = useCallback(() => {
+    try {
+      const detail = { value: 5, density: 5, source: 'overlay-reset' }
+      window.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
+      document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
+      document.dispatchEvent(new CustomEvent('lb:grid-density', { detail }))
+    } catch {}
+  }, [])
+
   const finishClose = useCallback(() => {
     onClose?.()
     onClosed?.()
-  }, [onClose, onClosed])
+
+    if (pendingResetRef.current) {
+      pendingResetRef.current = false
+      // next tick so grid is mounted/visible before resetting density
+      setTimeout(dispatchResetToFive, 0)
+    }
+  }, [onClose, onClosed, dispatchResetToFive])
 
   const animateClose = useCallback(() => {
     if (closingRef.current) return
@@ -494,8 +488,10 @@ export default function ProductOverlay({
     const hero = heroRef.current
     const fr = fromRectRef.current
 
-    // Only zoom back to tile if we're still on the original product.
-    const canZoomBack = hero && fr && !reduceMotion && index === openedIndexRef.current
+    // Zoom back only if we have an anchor rect.
+    // We intentionally allow zoom-back even if user scrolled to another product;
+    // it will always return to the tile that originally opened the overlay.
+    const canZoomBack = hero && fr && !reduceMotion
 
     if (!canZoomBack) {
       window.setTimeout(finishClose, 160)
@@ -520,7 +516,7 @@ export default function ProductOverlay({
       hero.style.willChange = ''
       finishClose()
     }, 210)
-  }, [finishClose, reduceMotion, index])
+  }, [finishClose, reduceMotion])
 
   /* signal mount for grid guard */
   useEffect(() => {
@@ -530,28 +526,20 @@ export default function ProductOverlay({
   }, [])
 
   /* orb zoom while overlay is open:
-     close overlay AND reset grid density back to 5
-     IMPORTANT: ignore ShopGrid broadcastDensity events ({value,density} only). */
+     - set pending reset-to-5
+     - zoom-out close (FLIP) */
   useEffect(() => {
     const h = (e) => {
       const d = e?.detail || {}
-
-      // Ignore our own reset event
       if (d?.source === 'overlay-reset') return
 
       // Only react to real orb zoom events (dir/step-based),
-      // not density broadcasts that have no dir/step.
+      // not ShopGrid broadcasts that have no dir/step.
       const hasDir = typeof d.dir === 'string'
       const hasStep = Number.isFinite(Number(d.step))
       if (!hasDir && !hasStep) return
 
-      try {
-        const detail = { value: 5, density: 5, source: 'overlay-reset' }
-        window.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
-        document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
-        document.dispatchEvent(new CustomEvent('lb:grid-density', { detail }))
-      } catch {}
-
+      pendingResetRef.current = true
       animateClose()
     }
 
@@ -757,7 +745,6 @@ export default function ProductOverlay({
             textAlign: 'center',
             zIndex: 521,
             touchAction: 'none',
-            // fallback close feel when we’re not zooming back
             transform: closing ? 'scale(0.94)' : undefined,
             opacity: closing ? 0.0 : undefined,
             transition: closing ? 'transform 160ms ease, opacity 160ms ease' : undefined,
@@ -801,7 +788,6 @@ export default function ProductOverlay({
             </div>
           )}
 
-          {/* image + dots */}
           {!!imgs.length && (
             <>
               <div data-ui="product-viewport" style={{ width: '100%' }}>
@@ -844,7 +830,6 @@ export default function ProductOverlay({
             </>
           )}
 
-          {/* title/price/sizes */}
           <div className="product-hero-title">{product.title}</div>
           <div ref={priceRef} className="product-hero-price">
             {priceText}
