@@ -468,12 +468,14 @@ export default function ProductOverlay({
     [imgIdx, imgs.length]
   )
 
+  // IMPORTANT: remember which product was opened from the grid
+  const openedIndexRef = useRef(index)
+  const didEnterRef = useRef(false)
+
   const [closing, setClosing] = useState(false)
   const closingRef = useRef(false)
 
-  // Zoom refs
   const heroRef = useRef(null)
-  const pendingCloseRef = useRef(false)
   const fromRectRef = useRef(fromRect || null)
   useEffect(() => {
     fromRectRef.current = fromRect || null
@@ -491,14 +493,13 @@ export default function ProductOverlay({
 
     const hero = heroRef.current
     const fr = fromRectRef.current
+    const canZoomBack = fr && !reduceMotion && index === openedIndexRef.current
 
-    // If we don’t have a rect or reduced motion is on, fall back to existing close timing
-    if (!hero || !fr || reduceMotion) {
+    if (!hero || !canZoomBack) {
       window.setTimeout(finishClose, 160)
       return
     }
 
-    // Animate transform back to the tile rect (FLIP exit)
     const to = fr
     const from = hero.getBoundingClientRect()
 
@@ -513,12 +514,11 @@ export default function ProductOverlay({
     hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
     hero.style.opacity = '0.0'
 
-    // Close after transition
     window.setTimeout(() => {
       hero.style.willChange = ''
       finishClose()
     }, 210)
-  }, [finishClose, reduceMotion])
+  }, [finishClose, reduceMotion, index])
 
   /* signal mount for grid guard */
   useEffect(() => {
@@ -568,7 +568,7 @@ export default function ProductOverlay({
     return () => window.removeEventListener('keydown', onKey)
   }, [animateClose, imgs.length, products.length, index, onIndexChange])
 
-  /* wheel parity */
+  /* wheel parity (your "wheel roll") */
   const lastWheel = useRef(0)
   useEffect(() => {
     const onWheel = (e) => {
@@ -578,9 +578,15 @@ export default function ProductOverlay({
 
       const ax = Math.abs(e.deltaX)
       const ay = Math.abs(e.deltaY)
+
+      // horizontal wheel cycles images
       if (ax > ay && imgs.length) {
         setImgIdx((i) => clamp(i + (e.deltaX > 0 ? 1 : -1), 0, imgs.length - 1))
-      } else if (products.length > 1) {
+        return
+      }
+
+      // vertical wheel cycles products (NO ZOOM TRANSITION)
+      if (products.length > 1) {
         const dirDown = e.deltaY > 0
         flash(document.querySelector(dirDown ? '[data-ui="img-down"]' : '[data-ui="img-up"]'))
         onIndexChange?.(wrap(index + (dirDown ? 1 : -1), products.length))
@@ -612,14 +618,13 @@ export default function ProductOverlay({
   // Reset image index when product changes
   useEffect(() => setImgIdx(0), [index])
 
-  // App-speed entrance zoom (FLIP enter)
+  // FLIP ENTER: run ONLY ONCE (initial open from grid)
   useEffect(() => {
     const hero = heroRef.current
-    if (!hero) return
-
-    // If reduced motion or no fromRect, keep your current subtle scale in
     const fr = fromRectRef.current
-    if (reduceMotion || !fr) return
+    if (!hero || !fr || reduceMotion) return
+    if (didEnterRef.current) return
+    didEnterRef.current = true
 
     const target = hero.getBoundingClientRect()
     const dx = fr.left - target.left
@@ -633,7 +638,6 @@ export default function ProductOverlay({
     hero.style.opacity = '0.0'
     hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
 
-    // next frame: animate to identity
     requestAnimationFrame(() => {
       hero.style.transition = 'transform 220ms cubic-bezier(.2,.9,.2,1), opacity 180ms ease'
       hero.style.opacity = '1'
@@ -646,7 +650,18 @@ export default function ProductOverlay({
     }
     hero.addEventListener('transitionend', cleanup)
     return () => hero.removeEventListener('transitionend', cleanup)
-  }, [index, reduceMotion])
+  }, [reduceMotion])
+
+  // Ensure that product changes do NOT keep any stale transform
+  useEffect(() => {
+    const hero = heroRef.current
+    if (!hero) return
+    if (!didEnterRef.current) return
+    hero.style.transform = 'translate(0px, 0px) scale(1)'
+    hero.style.transformOrigin = ''
+    hero.style.transition = ''
+    hero.style.opacity = ''
+  }, [index])
 
   if (!product) return null
 
@@ -716,7 +731,7 @@ export default function ProductOverlay({
             textAlign: 'center',
             zIndex: 521,
             touchAction: 'none',
-            // keep your existing close feel as fallback (when no fromRect)
+            // fallback close feel when we’re not zooming back
             transform: closing ? 'scale(0.94)' : undefined,
             opacity: closing ? 0.0 : undefined,
             transition: closing ? 'transform 160ms ease, opacity 160ms ease' : undefined,
