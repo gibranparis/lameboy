@@ -18,7 +18,7 @@ export default function BannedLogin({ onProceed }) {
   const SEAFOAM = '#32ffc7'
   const RED = '#ff001a'
   const YELLOW = '#ffd400'
-  const GREEN = '#22ff7a'
+  const GREEN = '#00ff66' // punchier green to stay green under bloom
 
   const triggerProceed = useCallback(() => {
     if (proceedFired.current) return
@@ -60,6 +60,8 @@ export default function BannedLogin({ onProceed }) {
     if (gateStep === 3) return GREEN
     return null
   }, [gateStep])
+
+  const solidOverride = gateStep === 3
 
   // When we hit green, WAIT so green is visible, then proceed (once)
   useEffect(() => {
@@ -108,13 +110,14 @@ export default function BannedLogin({ onProceed }) {
       >
         <BlueOrbCross3D
           rpm={44}
-          color={SEAFOAM}
+          color={solidOverride ? GREEN : SEAFOAM}
           geomScale={1.2}
           glow
-          glowOpacity={gateStep >= 1 ? 1.0 : 0.9}
+          glowOpacity={solidOverride ? 1.0 : gateStep >= 1 ? 1.0 : 0.9}
           includeZAxis
           height="110px"
           overrideAllColor={orbOverride}
+          solidOverride={solidOverride}
           interactive
         />
       </button>
@@ -135,7 +138,7 @@ export default function BannedLogin({ onProceed }) {
         {clockText}
       </div>
 
-      {/* Florida, USA (clickable, ORIGINAL typography preserved) */}
+      {/* Florida, USA (clickable, typography preserved) */}
       <div
         role="button"
         tabIndex={0}
