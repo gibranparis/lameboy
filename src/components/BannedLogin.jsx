@@ -7,12 +7,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 export default function BannedLogin({ onProceed }) {
-  // gateStep: 0 = default (seafoam), 1 = red, 2 = yellow, 3 = green (proceed)
+  // gateStep: 0 = default (seafoam), 1 = red, 2 = yellow, 3 = green (then proceed)
   const [gateStep, setGateStep] = useState(0)
   const [now, setNow] = useState(() => new Date())
 
   const pressTimer = useRef(null)
   const proceedFired = useRef(false)
+  const proceedDelayTimer = useRef(null)
 
   const SEAFOAM = '#32ffc7'
   const RED = '#ff001a'
@@ -60,9 +61,16 @@ export default function BannedLogin({ onProceed }) {
     return null
   }, [gateStep])
 
-  // When we hit green, automatically proceed (once)
+  // When we hit green, WAIT so green is visible, then proceed (once)
   useEffect(() => {
-    if (gateStep === 3) triggerProceed()
+    if (gateStep !== 3) return
+
+    clearTimeout(proceedDelayTimer.current)
+    proceedDelayTimer.current = setTimeout(() => {
+      triggerProceed()
+    }, 300)
+
+    return () => clearTimeout(proceedDelayTimer.current)
   }, [gateStep, triggerProceed])
 
   return (
@@ -111,47 +119,46 @@ export default function BannedLogin({ onProceed }) {
         />
       </button>
 
-      {/* Clock + Florida, USA (clickable) */}
-      <button
-        aria-label="Florida, USA"
-        type="button"
-        onClick={advanceGate}
+      {/* Clock */}
+      <div
         style={{
-          marginTop: 28,
-          padding: 0,
-          border: 'none',
-          background: 'transparent',
-          cursor: 'pointer',
+          marginTop: 22,
           textAlign: 'center',
+          fontSize: 'clamp(12px, 1.2vw, 14px)',
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          color: '#000',
+          opacity: 0.9,
+          textTransform: 'uppercase',
         }}
       >
-        <div
-          style={{
-            fontSize: 'clamp(12px, 1.2vw, 14px)',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            color: '#000',
-            opacity: 0.9,
-            textTransform: 'uppercase',
-            marginBottom: 6,
-          }}
-        >
-          {clockText}
-        </div>
+        {clockText}
+      </div>
 
-        <div
-          style={{
-            fontSize: 'clamp(13px, 1.4vw, 16px)',
-            fontWeight: 700,
-            letterSpacing: '0.05em',
-            color: '#000',
-            opacity: 0.9,
-            textTransform: 'uppercase',
-          }}
-        >
-          Florida, USA
-        </div>
-      </button>
+      {/* Florida, USA (clickable, ORIGINAL typography preserved) */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={advanceGate}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') advanceGate()
+        }}
+        style={{
+          marginTop: 6,
+          textAlign: 'center',
+          fontSize: 'clamp(13px, 1.4vw, 16px)',
+          fontWeight: 700,
+          letterSpacing: '0.05em',
+          color: '#000',
+          opacity: 0.9,
+          textTransform: 'uppercase',
+          cursor: 'pointer',
+          userSelect: 'none',
+          outline: 'none',
+        }}
+      >
+        Florida, USA
+      </div>
     </div>
   )
 }
