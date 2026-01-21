@@ -149,14 +149,11 @@ export default function BannedLogin({ onProceed }) {
         style={{
           marginTop: 6,
           textAlign: 'center',
-
-          // key fix: this must read as secondary to the clock
-          fontSize: 'clamp(11px, 1.05vw, 12px)',
-          fontWeight: 600,
-          letterSpacing: '0.08em',
-
+          fontSize: 'clamp(12px, 1.2vw, 14px)',
+          fontWeight: 700,
+          letterSpacing: '0.06em',
           color: '#000',
-          opacity: 0.78,
+          opacity: 0.9,
           textTransform: 'uppercase',
           cursor: 'pointer',
           userSelect: 'none',
