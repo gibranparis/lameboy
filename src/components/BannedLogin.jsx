@@ -125,7 +125,7 @@ export default function BannedLogin({ onProceed }) {
       {/* Clock */}
       <div
         style={{
-          marginTop: 22,
+          marginTop: 16,
           textAlign: 'center',
           fontSize: 'clamp(12px, 1.2vw, 14px)',
           fontWeight: 700,
