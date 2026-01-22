@@ -2,6 +2,9 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import nextDynamic from 'next/dynamic'
+
+const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 const WHITE_Z = 10002
 
@@ -57,7 +60,39 @@ export default function WhiteLoader({ show }) {
         contain: 'layout paint style',
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <div
+          style={{
+            lineHeight: 0,
+            // This is what makes the black orb feel “alive” on white
+            filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.35)) drop-shadow(0 0 22px rgba(0,0,0,0.22))',
+          }}
+        >
+          <BlueOrbCross3D
+            rpm={44}
+            geomScale={1.12}
+            includeZAxis
+            height="88px"
+            interactive={false}
+            // Force the orb itself to black…
+            overrideAllColor="#000"
+            // …but tint the halo near-black so the additive halo is actually visible on white.
+            haloTint="#111111"
+            glow
+            glowOpacity={1}
+            // Keep it saturated/solid so it doesn’t wash weirdly
+            solidOverride
+            flashDecayMs={0}
+          />
+        </div>
+
         <span
           style={{
             color: '#000',
@@ -65,10 +100,12 @@ export default function WhiteLoader({ show }) {
             letterSpacing: '.06em',
             fontSize: 'clamp(12px,1.3vw,14px)',
             lineHeight: 1.2,
+            textTransform: 'uppercase',
           }}
         >
           <ClockNaples />
         </span>
+
         <span
           style={{
             color: '#000',
