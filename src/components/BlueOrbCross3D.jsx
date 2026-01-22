@@ -22,6 +22,8 @@ function OrbCross({
   haloTint = null,
   /** NEW: make overridden state read as a saturated “solid” color (no white blowout) */
   solidOverride = false,
+  /** NEW: opt-in chakra multi-color spheres (default false for “single orb” look) */
+  chakraColors = false,
   /** shorter by default so flashes never “linger” */
   flashDecayMs = 140,
 }) {
@@ -152,10 +154,9 @@ function OrbCross({
 
   const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * (coarse ? 0.55 : 1.0)
 
-  // These were previously high and could bloom to white.
   // In solid mode we lower emissive and disable tone mapping on overridden materials.
-  const coreEmissive = solid ? 0.75 : useOverride ? 2.25 : 1.25
-  const barEmissive = solid ? 0.55 : useOverride ? 1.35 : 0.6
+  const coreEmissive = solid ? 0.75 : useOverride ? 2.25 : 1.15
+  const barEmissive = solid ? 0.55 : useOverride ? 1.35 : 0.55
 
   const stdMatProps = useMemo(() => {
     if (!solid) {
@@ -198,25 +199,36 @@ function OrbCross({
     [barColor, glow, haloBase, haloTint]
   )
 
+  /**
+   * IMPORTANT CHANGE:
+   * Default = single-color spheres (matches your “earlier screenshot” look)
+   * Only use chakra rainbow if chakraColors === true.
+   */
   const sphereDefs = useOverride
     ? new Array(centers.length).fill({
         core: barColor,
         halo: haloTint || barColor,
         haloOp: haloBase,
       })
-    : [
-        {
-          core: CHAKRA.crownW,
-          halo: haloTint || CHAKRA.crownV,
-          haloOp: 0.9 * (coarse ? 0.55 : 1.0),
-        },
-        { core: CHAKRA.root, halo: haloTint || CHAKRA.root, haloOp: haloBase },
-        { core: CHAKRA.sacral, halo: haloTint || CHAKRA.sacral, haloOp: haloBase },
-        { core: CHAKRA.solar, halo: haloTint || CHAKRA.solar, haloOp: haloBase },
-        { core: CHAKRA.heart, halo: haloTint || CHAKRA.heart, haloOp: haloBase },
-        { core: CHAKRA.throat, halo: haloTint || CHAKRA.throat, haloOp: haloBase },
-        { core: CHAKRA.thirdEye, halo: haloTint || CHAKRA.thirdEye, haloOp: haloBase },
-      ]
+    : chakraColors
+      ? [
+          {
+            core: CHAKRA.crownW,
+            halo: haloTint || CHAKRA.crownV,
+            haloOp: 0.9 * (coarse ? 0.55 : 1.0),
+          },
+          { core: CHAKRA.root, halo: haloTint || CHAKRA.root, haloOp: haloBase },
+          { core: CHAKRA.sacral, halo: haloTint || CHAKRA.sacral, haloOp: haloBase },
+          { core: CHAKRA.solar, halo: haloTint || CHAKRA.solar, haloOp: haloBase },
+          { core: CHAKRA.heart, halo: haloTint || CHAKRA.heart, haloOp: haloBase },
+          { core: CHAKRA.throat, halo: haloTint || CHAKRA.throat, haloOp: haloBase },
+          { core: CHAKRA.thirdEye, halo: haloTint || CHAKRA.thirdEye, haloOp: haloBase },
+        ]
+      : new Array(centers.length).fill({
+          core: barColor,
+          halo: haloTint || barColor,
+          haloOp: haloBase,
+        })
 
   const sphereCoreMats = useMemo(
     () =>
@@ -225,7 +237,7 @@ function OrbCross({
           new THREE.MeshStandardMaterial({
             color: core,
             roughness: solid ? 0.42 : 0.28,
-            metalness: solid ? 0.05 : 0.25,
+            metalness: solid ? 0.05 : 0.22,
             emissive: new THREE.Color(core),
             emissiveIntensity: coreEmissive,
             toneMapped: solid ? false : true,
@@ -406,8 +418,9 @@ export default function BlueOrbCross3D({
   interactive = false,
   respectReducedMotion = false,
   haloTint = null,
-  flashDecayMs = 140, // new default
-  solidOverride = false, // NEW
+  flashDecayMs = 140,
+  solidOverride = false,
+  chakraColors = false, // NEW: off by default for clean single-orb look
 }) {
   const [maxDpr, setMaxDpr] = useState(2)
   const [reduced, setReduced] = useState(false)
@@ -415,6 +428,7 @@ export default function BlueOrbCross3D({
   useEffect(() => {
     const pr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     setMaxDpr(Math.min(2, Math.max(1, pr)))
+
     if (respectReducedMotion) {
       const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)')
       setReduced(!!mq?.matches)
@@ -472,6 +486,7 @@ export default function BlueOrbCross3D({
           haloTint={haloTint}
           flashDecayMs={flashDecayMs}
           solidOverride={solidOverride}
+          chakraColors={chakraColors}
         />
       </Canvas>
     </div>
