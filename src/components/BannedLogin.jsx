@@ -24,8 +24,8 @@ export default function BannedLogin({ onProceed }) {
     if (proceedFired.current) return
     proceedFired.current = true
 
-    // Lock the gate immediately. The page-level WhiteLoader covers the transition,
-    // so we do NOT switch this orb to black (that was causing overlap / “flash” artifacts).
+    // IMPORTANT: hide the gate stack immediately so you do NOT see "double orbs"
+    // when the WhiteLoader mounts centered.
     setLocked(true)
 
     if (typeof onProceed === 'function') onProceed()
@@ -57,7 +57,6 @@ export default function BannedLogin({ onProceed }) {
     })
   }, [now])
 
-  // Color override per step (keeps the orb where it belongs; no black state here)
   const orbOverride = useMemo(() => {
     if (gateStep === 1) return RED
     if (gateStep === 2) return YELLOW
@@ -89,14 +88,17 @@ export default function BannedLogin({ onProceed }) {
         zIndex: 10,
       }}
     >
+      {/* Gate stack */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          // This is the “proportionate” spacing you were asking for:
-          // orb ↔ clock ↔ florida
           gap: 10,
+          // This is the key: instantly disappear behind the loader to prevent double-orb
+          opacity: locked ? 0 : 1,
+          transition: 'opacity 90ms linear',
+          pointerEvents: locked ? 'none' : 'auto',
           transform: 'translateZ(0)',
         }}
       >
@@ -122,7 +124,6 @@ export default function BannedLogin({ onProceed }) {
             background: 'transparent',
             cursor: locked ? 'default' : 'pointer',
             lineHeight: 0,
-            pointerEvents: locked ? 'none' : 'auto',
           }}
         >
           <BlueOrbCross3D
@@ -130,14 +131,11 @@ export default function BannedLogin({ onProceed }) {
             geomScale={1.2}
             includeZAxis
             height="110px"
-            // keep glow consistent so it never “dies” right before the loader covers
             glow
             glowOpacity={gateStep >= 1 ? 1.0 : 0.9}
             overrideAllColor={orbOverride}
-            // no lingering click flash behavior on the gate
             interactive={!locked}
             flashDecayMs={0}
-            // we only want “solidOverride” on GREEN so it reads clean
             solidOverride={gateStep === 3}
           />
         </button>
@@ -178,7 +176,7 @@ export default function BannedLogin({ onProceed }) {
             userSelect: 'none',
             outline: 'none',
             lineHeight: 1.15,
-            paddingBottom: 2, // tiny breathing room (helps “feel” centered)
+            paddingBottom: 2,
           }}
         >
           Florida, USA
