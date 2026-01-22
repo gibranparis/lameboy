@@ -348,9 +348,10 @@ html[data-overlay-open] {
   border-radius: 0 !important;
 }
 :root[data-mode='shop'] header[role='banner'] .cart-fab .cart-img-wrap {
-  width: 32px !important;
-  height: 32px !important;
+  width: calc(var(--header-ctrl) * 0.44) !important;
+  height: calc(var(--header-ctrl) * 0.44) !important;
 }
+
 :root[data-mode='shop'][data-theme='day'] header[role='banner'] .cart-fab {
   color: #111;
 }

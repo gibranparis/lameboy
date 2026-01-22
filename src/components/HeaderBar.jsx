@@ -1,7 +1,7 @@
+// src/components/HeaderBar.jsx
 'use client'
 
 import React, { useMemo } from 'react'
-import ChakraOrbButton from '@/components/ChakraOrbButton'
 import DayNightToggle from '@/components/DayNightToggle'
 import CartButton from '@/components/CartButton'
 
@@ -11,15 +11,14 @@ export default function HeaderBar({ ctrlPx }) {
     return Number.isFinite(n) && n > 0 ? n : 64
   }, [ctrlPx])
 
-  const sizes = useMemo(
-    () => ({
+  const sizes = useMemo(() => {
+    const cart = Math.round(headerPx * 0.44) // more proportional vs toggle/orb
+    return {
       box: headerPx,
       toggleDot: 28,
-      cartImg: 28,
-      orb: Math.round(headerPx * 1.12),
-    }),
-    [headerPx]
-  )
+      cartImg: Math.max(26, Math.min(34, cart)),
+    }
+  }, [headerPx])
 
   return (
     <header
@@ -56,13 +55,8 @@ export default function HeaderBar({ ctrlPx }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-center" style={{ lineHeight: 0 }}>
-        <ChakraOrbButton
-          size={sizes.orb}
-          className="orb-ring"
-          style={{ display: 'grid', placeItems: 'center', pointerEvents: 'auto' }}
-        />
-      </div>
+      {/* Center column intentionally empty: OrbShell is fixed-positioned and moves here */}
+      <div className="flex items-center justify-center" style={{ lineHeight: 0 }} />
 
       <div className="flex items-center justify-end" style={{ lineHeight: 0 }}>
         <div

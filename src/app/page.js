@@ -3,15 +3,15 @@
 
 export const dynamic = 'force-static'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import nextDynamic from 'next/dynamic'
 import products from '@/lib/products'
 
-// Gate
-const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
-
-// Loader (black orb on white) – static import for zero lag
+import OrbShell from '@/components/OrbShell'
 import WhiteLoader from '@/components/orb/WhiteLoader'
+
+// Gate (text only now)
+const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
 
 // Shop
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
@@ -22,9 +22,7 @@ const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRu
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 
 const RUNNER_H = 14
-const LOADER_MS = 1400 // how long the black-orb loader stays fully visible
-
-/* ========================= Header control size ========================= */
+const LOADER_MS = 1400
 
 function useHeaderCtrlPx(defaultPx = 64) {
   const [px, setPx] = useState(defaultPx)
@@ -47,19 +45,28 @@ function useHeaderCtrlPx(defaultPx = 64) {
   return px
 }
 
-/* ================================= Page ================================= */
-
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
 
-  // 'gate'  -> BannedLogin
-  // 'shop'  -> Header + ShopGrid
-  const [mode, setMode] = useState('gate')
+  const [mode, setMode] = useState('gate') // 'gate' | 'shop'
   const [theme, setTheme] = useState('day')
   const [loaderShow, setLoaderShow] = useState(false)
 
   const inGate = mode === 'gate'
   const inShop = mode === 'shop'
+
+  /* ===================== Gate state (moved up) ===================== */
+
+  const [gateStep, setGateStep] = useState(0) // 0..3
+  const [isProceeding, setIsProceeding] = useState(false)
+  const proceedFired = useRef(false)
+  const proceedDelayTimer = useRef(null)
+
+  const advanceGate = useCallback(() => {
+    if (!inGate) return
+    if (proceedFired.current || isProceeding) return
+    setGateStep((s) => (s >= 3 ? 3 : s + 1))
+  }, [inGate, isProceeding])
 
   /* ---------- root tokens ---------- */
 
@@ -83,7 +90,6 @@ export default function Page() {
     }
   }, [theme, mode, inShop])
 
-  // listen for theme changes from DayNightToggle
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
@@ -94,12 +100,12 @@ export default function Page() {
     }
   }, [])
 
-  /* ---------- Gate → Loader overlay → Shop choreography ---------- */
+  /* ===================== Gate → Loader → Shop choreography ===================== */
 
   const handleEnterShop = useCallback(() => {
     if (mode !== 'gate') return
 
-    // 1) show loader immediately over the gate
+    // show loader immediately
     setLoaderShow(true)
 
     // lock theme to day for shop
@@ -109,18 +115,48 @@ export default function Page() {
       localStorage.setItem('lb:theme', 'day')
     } catch {}
 
-    // 2) very quickly mount the shop behind the loader
+    // mount shop behind loader
     setTimeout(() => {
       setMode('shop')
     }, 120)
 
-    // 3) keep the loader up for a short beat, then fade it out
+    // fade loader out
     setTimeout(() => {
       setLoaderShow(false)
     }, LOADER_MS)
   }, [mode])
 
-  // Pre-warm shop bundles while idle
+  const triggerProceed = useCallback(() => {
+    if (!inGate) return
+    if (proceedFired.current) return
+    proceedFired.current = true
+
+    // Force stable black/no-glow state first (OrbShell will read this)
+    setIsProceeding(true)
+
+    // Give the browser 2 frames to paint the black state before the loader/shop mount
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        handleEnterShop()
+      })
+    })
+  }, [handleEnterShop, inGate])
+
+  // When we hit green, wait briefly so green is visible, then proceed
+  useEffect(() => {
+    if (!inGate) return
+    if (gateStep !== 3) return
+    if (proceedFired.current || isProceeding) return
+
+    clearTimeout(proceedDelayTimer.current)
+    proceedDelayTimer.current = setTimeout(() => {
+      triggerProceed()
+    }, 300)
+
+    return () => clearTimeout(proceedDelayTimer.current)
+  }, [gateStep, inGate, isProceeding, triggerProceed])
+
+  // Pre-warm client bundles while idle (keeps everything seamless)
   useEffect(() => {
     const run = () => {
       import('@/components/HeaderBar')
@@ -128,7 +164,8 @@ export default function Page() {
       import('@/components/BannedLogin')
       import('@/components/ChakraBottomRunner')
       import('@/components/HeartBeatButton')
-      import('@/components/orb/WhiteLoader')
+      import('@/components/OrbShell')
+      import('@/components/BlueOrbCross3D') // ensures the single canvas code is ready
     }
     const id =
       typeof window.requestIdleCallback === 'function'
@@ -145,10 +182,21 @@ export default function Page() {
       className="lb-screen w-full font-bold"
       style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
     >
+      {/* SINGLE persistent orb (never remounts) */}
+      <OrbShell
+        mode={mode}
+        loaderShow={loaderShow}
+        gateStep={gateStep}
+        isProceeding={isProceeding}
+        onAdvanceGate={advanceGate}
+        onProceed={triggerProceed}
+        ctrlPx={ctrlPx}
+      />
+
       {/* Gate */}
       {inGate && (
         <main className="lb-screen">
-          <BannedLogin onProceed={handleEnterShop} />
+          <BannedLogin onAdvanceGate={advanceGate} />
         </main>
       )}
 
@@ -168,7 +216,7 @@ export default function Page() {
         </>
       )}
 
-      {/* Black-orb loader overlay (covers both gate + shop when shown) */}
+      {/* White curtain overlay (no WebGL inside) */}
       <WhiteLoader show={loaderShow} />
     </div>
   )

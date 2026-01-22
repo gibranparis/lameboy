@@ -2,9 +2,6 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import nextDynamic from 'next/dynamic'
-
-const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 const WHITE_Z = 10002
 
@@ -32,14 +29,11 @@ export default function WhiteLoader({ show }) {
   const [visible, setVisible] = useState(show)
 
   useEffect(() => {
-    // when show flips to false, fade out then unmount
     if (!show && visible) {
       const t = setTimeout(() => setVisible(false), 260)
       return () => clearTimeout(t)
     }
-    if (show && !visible) {
-      setVisible(true)
-    }
+    if (show && !visible) setVisible(true)
   }, [show, visible])
 
   if (!visible) return null
@@ -64,20 +58,6 @@ export default function WhiteLoader({ show }) {
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <div style={{ lineHeight: 0 }}>
-          <BlueOrbCross3D
-            rpm={44}
-            color="#32ffc7"
-            geomScale={1.12}
-            glow
-            glowOpacity={1}
-            includeZAxis
-            height="88px"
-            interactive={false}
-            overrideAllColor="#000"
-            flashDecayMs={140}
-          />
-        </div>
         <span
           style={{
             color: '#000',
