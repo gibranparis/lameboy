@@ -10,6 +10,7 @@ export default function BannedLogin({ onProceed }) {
   // gateStep: 0 = default (seafoam), 1 = red, 2 = yellow, 3 = green (then proceed)
   const [gateStep, setGateStep] = useState(0)
   const [now, setNow] = useState(() => new Date())
+  const [isProceeding, setIsProceeding] = useState(false)
 
   const pressTimer = useRef(null)
   const proceedFired = useRef(false)
@@ -19,21 +20,31 @@ export default function BannedLogin({ onProceed }) {
   const RED = '#ff001a'
   const YELLOW = '#ffd400'
   const GREEN = '#00ff66' // punchier green to stay green under bloom
+  const BLACK = '#000'
 
   const triggerProceed = useCallback(() => {
     if (proceedFired.current) return
     proceedFired.current = true
+
+    // Force orb into a stable "black/no-glow" state immediately
+    // so there is no flash from prior bloom/tint while the next phase mounts.
+    setIsProceeding(true)
+
     if (typeof onProceed === 'function') onProceed()
   }, [onProceed])
 
   const advanceGate = useCallback(() => {
+    // Once proceeding starts, ignore further interactions (prevents flashy transitions).
+    if (proceedFired.current || isProceeding) return
+
     setGateStep((s) => {
       if (s >= 3) return 3
       return s + 1
     })
-  }, [])
+  }, [isProceeding])
 
   const startPressTimer = () => {
+    if (proceedFired.current || isProceeding) return
     clearTimeout(pressTimer.current)
     pressTimer.current = setTimeout(triggerProceed, 650)
   }
@@ -55,17 +66,19 @@ export default function BannedLogin({ onProceed }) {
   }, [now])
 
   const orbOverride = useMemo(() => {
+    if (isProceeding) return BLACK
     if (gateStep === 1) return RED
     if (gateStep === 2) return YELLOW
     if (gateStep === 3) return GREEN
     return null
-  }, [gateStep])
+  }, [gateStep, isProceeding])
 
-  const solidOverride = gateStep === 3
+  const solidOverride = gateStep === 3 || isProceeding
 
   // When we hit green, WAIT so green is visible, then proceed (once)
   useEffect(() => {
     if (gateStep !== 3) return
+    if (proceedFired.current || isProceeding) return
 
     clearTimeout(proceedDelayTimer.current)
     proceedDelayTimer.current = setTimeout(() => {
@@ -73,7 +86,7 @@ export default function BannedLogin({ onProceed }) {
     }, 300)
 
     return () => clearTimeout(proceedDelayTimer.current)
-  }, [gateStep, triggerProceed])
+  }, [gateStep, isProceeding, triggerProceed])
 
   return (
     <div
@@ -98,27 +111,35 @@ export default function BannedLogin({ onProceed }) {
         onMouseLeave={clearPressTimer}
         onTouchStart={startPressTimer}
         onTouchEnd={clearPressTimer}
-        onDoubleClick={triggerProceed}
+        onDoubleClick={() => {
+          if (proceedFired.current || isProceeding) return
+          triggerProceed()
+        }}
         style={{
           padding: 0,
           margin: 0,
           border: 'none',
           background: 'transparent',
-          cursor: 'pointer',
+          cursor: proceedFired.current || isProceeding ? 'default' : 'pointer',
           lineHeight: 0,
         }}
       >
         <BlueOrbCross3D
           rpm={44}
-          color={solidOverride ? GREEN : SEAFOAM}
+          color={solidOverride ? (isProceeding ? BLACK : GREEN) : SEAFOAM}
           geomScale={1.2}
-          glow
-          glowOpacity={solidOverride ? 1.0 : gateStep >= 1 ? 1.0 : 0.9}
+          // When proceeding, kill glow so there is no bloom flash at phase transition
+          glow={!isProceeding}
+          glowOpacity={isProceeding ? 0 : solidOverride ? 1.0 : gateStep >= 1 ? 1.0 : 0.9}
           includeZAxis
           height="110px"
           overrideAllColor={orbOverride}
           solidOverride={solidOverride}
-          interactive
+          // Prevent interaction-driven flashes while proceeding
+          interactive={!isProceeding}
+          // If your BlueOrbCross3D supports it (your earlier code did),
+          // setting this to 0 removes any internal "flash linger" behavior.
+          flashDecayMs={0}
         />
       </button>
 
@@ -138,7 +159,7 @@ export default function BannedLogin({ onProceed }) {
         {clockText}
       </div>
 
-      {/* Florida, USA (clickable, typography preserved) */}
+      {/* Florida, USA (clickable, typography matches clock) */}
       <div
         role="button"
         tabIndex={0}
@@ -155,7 +176,7 @@ export default function BannedLogin({ onProceed }) {
           color: '#000',
           opacity: 0.9,
           textTransform: 'uppercase',
-          cursor: 'pointer',
+          cursor: proceedFired.current || isProceeding ? 'default' : 'pointer',
           userSelect: 'none',
           outline: 'none',
         }}
