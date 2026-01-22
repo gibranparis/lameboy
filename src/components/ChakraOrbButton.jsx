@@ -1,8 +1,8 @@
 // src/components/ChakraOrbButton.jsx
-'use client';
+'use client'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import BlueOrbCross3D from '@/components/BlueOrbCross3D';
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import BlueOrbCross3D from '@/components/BlueOrbCross3D'
 
 export default function ChakraOrbButton({
   size = 72,
@@ -18,89 +18,118 @@ export default function ChakraOrbButton({
   style = {},
   tightHitbox = true,
 }) {
-  const lastFireRef = useRef(0);
-  const FIRE_COOLDOWN_MS = 150;
+  const lastFireRef = useRef(0)
+  const FIRE_COOLDOWN_MS = 150
 
-  const [pressColor, setPressColor] = useState(null); // '#11ff4f' | '#ff001a' | null
-  const [overlayOpen, setOverlayOpen] = useState(false);
-  const [nextDir, setNextDir] = useState('in');
+  const [pressColor, setPressColor] = useState(null)
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  const [nextDir, setNextDir] = useState('in')
+  const [gateOpen, setGateOpen] = useState(false)
 
-  // keep the “edge behavior” correct: at MAX → go IN, at MIN → go OUT
-  const MIN = 1, MAX = 5;
+  // NEW: hide this component entirely while the gate is open
+  useEffect(() => {
+    const read = () => setGateOpen(document.documentElement.getAttribute('data-gate-open') === '1')
+    read()
+    const mo = new MutationObserver(read)
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-gate-open'] })
+    return () => mo.disconnect()
+  }, [])
 
   useEffect(() => {
     const read = () =>
-      setOverlayOpen(document.documentElement.getAttribute('data-overlay-open') === '1');
-    read();
-    const mo = new MutationObserver(read);
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-overlay-open'] });
-    return () => mo.disconnect();
-  }, []);
+      setOverlayOpen(document.documentElement.getAttribute('data-overlay-open') === '1')
+    read()
+    const mo = new MutationObserver(read)
+    mo.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-overlay-open'],
+    })
+    return () => mo.disconnect()
+  }, [])
+
+  // If gate is open, do not render the “fixed orb” at all.
+  if (gateOpen) return null
+
+  const MIN = 1,
+    MAX = 5
 
   useEffect(() => {
     const onDensity = (e) => {
-      const d = Number(e?.detail?.density ?? e?.detail?.value);
-      if (!Number.isFinite(d)) return;
-      if (d <= MIN) setNextDir('out');
-      else if (d >= MAX) setNextDir('in');
-    };
-    document.addEventListener('lb:grid-density', onDensity);
-    return () => document.removeEventListener('lb:grid-density', onDensity);
-  }, []);
+      const d = Number(e?.detail?.density ?? e?.detail?.value)
+      if (!Number.isFinite(d)) return
+      if (d <= MIN) setNextDir('out')
+      else if (d >= MAX) setNextDir('in')
+    }
+    document.addEventListener('lb:grid-density', onDensity)
+    return () => document.removeEventListener('lb:grid-density', onDensity)
+  }, [])
 
-  const GREEN = '#11ff4f';  // zoom IN
-  const RED   = '#ff001a';  // zoom OUT
+  const GREEN = '#11ff4f'
+  const RED = '#ff001a'
 
   const pulse = useCallback((c) => {
-    setPressColor(c);
-    const t = setTimeout(() => setPressColor(null), 210); // shorter pulse
-    return () => clearTimeout(t);
-  }, []);
+    setPressColor(c)
+    const t = setTimeout(() => setPressColor(null), 210)
+    return () => clearTimeout(t)
+  }, [])
 
-  const fireZoom = useCallback((dir) => {
-    const now = performance.now();
-    if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return;
-    lastFireRef.current = now;
+  const fireZoom = useCallback(
+    (dir) => {
+      const now = performance.now()
+      if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
+      lastFireRef.current = now
 
-    pulse(dir === 'in' ? GREEN : RED);
+      pulse(dir === 'in' ? GREEN : RED)
 
-    const detail = { step: 1, dir };
-    document.dispatchEvent(new CustomEvent('lb:zoom', { detail }));
-    document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }));
-    document.dispatchEvent(new CustomEvent('grid-density', { detail })); // legacy
-    setNextDir(dir);
-  }, [pulse]);
+      const detail = { step: 1, dir }
+      document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
+      document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
+      document.dispatchEvent(new CustomEvent('grid-density', { detail }))
+      setNextDir(dir)
+    },
+    [pulse]
+  )
 
   useEffect(() => {
     const onExternal = (ev) => {
-      const d = ev?.detail || {};
-      if (d.dir === 'in')  pulse(GREEN);
-      if (d.dir === 'out') pulse(RED);
-      if (d.dir === 'in' || d.dir === 'out') setNextDir(d.dir);
-    };
-    document.addEventListener('lb:zoom', onExternal);
-    return () => document.removeEventListener('lb:zoom', onExternal);
-  }, [pulse]);
+      const d = ev?.detail || {}
+      if (d.dir === 'in') pulse(GREEN)
+      if (d.dir === 'out') pulse(RED)
+      if (d.dir === 'in' || d.dir === 'out') setNextDir(d.dir)
+    }
+    document.addEventListener('lb:zoom', onExternal)
+    return () => document.removeEventListener('lb:zoom', onExternal)
+  }, [pulse])
 
-  const onClick       = () => fireZoom(nextDir);
-  const onContextMenu = (e) => { e.preventDefault(); fireZoom('out'); };
-  const onKeyDown     = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fireZoom(nextDir); }
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp')  { e.preventDefault(); fireZoom('in');  }
-    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); fireZoom('out'); }
-  };
+  const onClick = () => fireZoom(nextDir)
+  const onContextMenu = (e) => {
+    e.preventDefault()
+    fireZoom('out')
+  }
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      fireZoom(nextDir)
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      fireZoom('in')
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      fireZoom('out')
+    }
+  }
   const onWheel = (e) => {
-    e.preventDefault();
-    const y = e.deltaY;
-    if (y < 0) fireZoom('in');
-    if (y > 0) fireZoom('out');
-  };
+    e.preventDefault()
+    const y = e.deltaY
+    if (y < 0) fireZoom('in')
+    if (y > 0) fireZoom('out')
+  }
 
-  const px = typeof size === 'number' ? `${size}px` : size;
-  const rpmValue = ((overlayOpen || nextDir === 'out') ? -1 : 1) * rpm;
+  const px = typeof size === 'number' ? `${size}px` : size
+  const rpmValue = (overlayOpen || nextDir === 'out' ? -1 : 1) * rpm
 
-  const HIT_INSET = tightHitbox ? 4 : 0;
-  const innerPx = `calc(${px} - ${HIT_INSET * 2}px)`;
+  const HIT_INSET = tightHitbox ? 4 : 0
+  const innerPx = `calc(${px} - ${HIT_INSET * 2}px)`
 
   return (
     <div
@@ -163,5 +192,5 @@ export default function ChakraOrbButton({
         />
       </button>
     </div>
-  );
+  )
 }

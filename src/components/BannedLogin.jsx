@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 export default function BannedLogin({ onProceed }) {
-  // gateStep: 0 = seafoam, 1 = red, 2 = yellow, 3 = green (then proceed)
+  // gateStep: 0 = default (seafoam), 1 = red, 2 = yellow, 3 = green (then proceed)
   const [gateStep, setGateStep] = useState(0)
   const [now, setNow] = useState(() => new Date())
   const [isProceeding, setIsProceeding] = useState(false)
@@ -20,11 +20,22 @@ export default function BannedLogin({ onProceed }) {
   const RED = '#ff001a'
   const YELLOW = '#ffd400'
   const GREEN = '#00ff66'
+  const BLACK = '#000000'
+
+  // IMPORTANT: while this gate is mounted, hide any “global/header” orb
+  useEffect(() => {
+    document.documentElement.setAttribute('data-gate-open', '1')
+    return () => {
+      document.documentElement.removeAttribute('data-gate-open')
+    }
+  }, [])
 
   const triggerProceed = useCallback(() => {
     if (proceedFired.current) return
     proceedFired.current = true
-    setIsProceeding(true) // lock interactions ONLY (do not force black orb here)
+
+    setIsProceeding(true)
+
     if (typeof onProceed === 'function') onProceed()
   }, [onProceed])
 
@@ -55,13 +66,14 @@ export default function BannedLogin({ onProceed }) {
   }, [now])
 
   const orbOverride = useMemo(() => {
+    if (isProceeding) return BLACK
     if (gateStep === 1) return RED
     if (gateStep === 2) return YELLOW
     if (gateStep === 3) return GREEN
     return null
-  }, [gateStep])
+  }, [gateStep, isProceeding])
 
-  const solidOverride = gateStep === 3
+  const solidOverride = gateStep === 3 || isProceeding
 
   // When we hit green, WAIT so green is visible, then proceed (once)
   useEffect(() => {
@@ -86,7 +98,7 @@ export default function BannedLogin({ onProceed }) {
         justifyContent: 'center',
         alignItems: 'center',
         background: '#fff',
-        zIndex: 10,
+        zIndex: 1000,
       }}
     >
       {/* ORB */}
@@ -114,37 +126,38 @@ export default function BannedLogin({ onProceed }) {
       >
         <BlueOrbCross3D
           rpm={44}
-          color={solidOverride ? GREEN : SEAFOAM}
-          geomScale={1.2}
-          glow
-          glowOpacity={solidOverride ? 1.0 : gateStep >= 1 ? 1.0 : 0.9}
-          includeZAxis
           height="110px"
+          geomScale={1.2}
+          includeZAxis
+          // keep glow off during the BLACK phase transition only
+          glow={!isProceeding}
+          glowOpacity={isProceeding ? 0 : solidOverride ? 1.0 : gateStep >= 1 ? 1.0 : 0.9}
           overrideAllColor={orbOverride}
           solidOverride={solidOverride}
           interactive={!isProceeding}
-          // IMPORTANT: remove any click-flash linger while transitioning
           flashDecayMs={0}
+          // if override becomes BLACK, keep halo readable (your BlueOrbCross3D handles near-black halo)
+          haloTint={isProceeding ? '#111111' : null}
         />
       </button>
 
-      {/* Clock */}
+      {/* Text block spacing like your earlier screenshot */}
       <div
         style={{
-          marginTop: 16,
+          marginTop: 14,
           textAlign: 'center',
           fontSize: 'clamp(12px, 1.2vw, 14px)',
-          fontWeight: 700,
+          fontWeight: 800,
           letterSpacing: '0.06em',
           color: '#000',
           opacity: 0.9,
           textTransform: 'uppercase',
+          lineHeight: 1.2,
         }}
       >
         {clockText}
       </div>
 
-      {/* Florida, USA */}
       <div
         role="button"
         tabIndex={0}
@@ -156,7 +169,7 @@ export default function BannedLogin({ onProceed }) {
           marginTop: 6,
           textAlign: 'center',
           fontSize: 'clamp(12px, 1.2vw, 14px)',
-          fontWeight: 700,
+          fontWeight: 800,
           letterSpacing: '0.06em',
           color: '#000',
           opacity: 0.9,
@@ -164,6 +177,7 @@ export default function BannedLogin({ onProceed }) {
           cursor: proceedFired.current || isProceeding ? 'default' : 'pointer',
           userSelect: 'none',
           outline: 'none',
+          lineHeight: 1.2,
         }}
       >
         Florida, USA
