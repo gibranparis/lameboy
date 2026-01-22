@@ -5,6 +5,19 @@ import * as THREE from 'three'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 
+function isNearBlack(hex) {
+  if (!hex || typeof hex !== 'string') return false
+  const h = hex.trim().toLowerCase()
+  if (h === '#000' || h === '#000000' || h === 'black') return true
+  if (!h.startsWith('#') || (h.length !== 7 && h.length !== 4)) return false
+  const full = h.length === 4 ? `#${h[1]}${h[1]}${h[2]}${h[2]}${h[3]}${h[3]}` : h
+
+  const r = parseInt(full.slice(1, 3), 16)
+  const g = parseInt(full.slice(3, 5), 16)
+  const b = parseInt(full.slice(5, 7), 16)
+  return r + g + b <= 18
+}
+
 function OrbCross({
   rpm = 14.4,
   color = '#32ffc7',
@@ -13,18 +26,14 @@ function OrbCross({
   armRatio = 0.33,
   glow = true,
   glowOpacity = 0.7,
-  glowScale = 1.35,
+  glowScale = 1.25,
   includeZAxis = true,
   onActivate = null,
   overrideAllColor = null,
   overrideGlowOpacity,
   interactive = false,
   haloTint = null,
-  /** NEW: make overridden state read as a saturated “solid” color (no white blowout) */
   solidOverride = false,
-  /** NEW: opt-in chakra multi-color spheres (default false for “single orb” look) */
-  chakraColors = false,
-  /** shorter by default so flashes never “linger” */
   flashDecayMs = 140,
 }) {
   const group = useRef()
@@ -58,10 +67,9 @@ function OrbCross({
         b = Math.min(1, b * (0.85 + 0.3 * k))
       }
 
-      u.barHalo.opacity = b * 0.55
+      // single halo system only (prevents “double orb” look)
+      u.barHalo.opacity = b * 0.5
       u.sphereHalos.forEach((m) => (m.opacity = b))
-      u.halo2.opacity = b * 0.65
-      u.halo3.opacity = b * 0.35
     }
   })
 
@@ -77,24 +85,24 @@ function OrbCross({
     const armGeoZ = new THREE.CylinderGeometry(armR, armR, armLen, 48, 1, true)
 
     const armGlowGeoX = new THREE.CylinderGeometry(
-      armR * 1.35,
-      armR * 1.35,
+      armR * 1.28,
+      armR * 1.28,
       armLen * 1.02,
       48,
       1,
       true
     )
     const armGlowGeoY = new THREE.CylinderGeometry(
-      armR * 1.35,
-      armR * 1.35,
+      armR * 1.28,
+      armR * 1.28,
       armLen * 1.02,
       48,
       1,
       true
     )
     const armGlowGeoZ = new THREE.CylinderGeometry(
-      armR * 1.35,
-      armR * 1.35,
+      armR * 1.28,
+      armR * 1.28,
       armLen * 1.02,
       48,
       1,
@@ -149,28 +157,25 @@ function OrbCross({
   const useOverride = !!overrideAllColor
   const barColor = useOverride ? overrideAllColor : color
 
-  // NOTE: solidOverride is only meaningful when overriding a single color
+  // “solidOverride” only matters if we are overriding a single color
   const solid = solidOverride && useOverride
 
-  const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity * 1.35)) * (coarse ? 0.55 : 1.0)
+  const haloColor = useMemo(() => {
+    if (haloTint) return haloTint
+    if (isNearBlack(barColor)) return '#111111' // near-black so halo is visible on white
+    return barColor
+  }, [barColor, haloTint])
 
-  // In solid mode we lower emissive and disable tone mapping on overridden materials.
-  const coreEmissive = solid ? 0.75 : useOverride ? 2.25 : 1.15
-  const barEmissive = solid ? 0.55 : useOverride ? 1.35 : 0.55
+  const haloBase = (overrideGlowOpacity ?? Math.min(1, glowOpacity)) * (coarse ? 0.55 : 1.0)
+
+  const coreEmissive = solid ? 0.75 : useOverride ? 1.6 : 1.15
+  const barEmissive = solid ? 0.55 : useOverride ? 1.1 : 0.6
 
   const stdMatProps = useMemo(() => {
     if (!solid) {
-      return {
-        roughness: 0.32,
-        metalness: 0.25,
-        toneMapped: true,
-      }
+      return { roughness: 0.32, metalness: 0.25, toneMapped: true }
     }
-    return {
-      roughness: 0.42,
-      metalness: 0.05,
-      toneMapped: false, // keeps saturated override color (prevents “white core”)
-    }
+    return { roughness: 0.42, metalness: 0.05, toneMapped: false }
   }, [solid])
 
   const barCoreMat = useMemo(
@@ -189,111 +194,70 @@ function OrbCross({
   const barHaloMat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: haloTint || barColor,
+        color: haloColor,
         transparent: true,
-        opacity: glow ? haloBase * 0.5 : 0,
+        opacity: glow ? haloBase * 0.45 : 0,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         toneMapped: false,
       }),
-    [barColor, glow, haloBase, haloTint]
+    [haloColor, glow, haloBase]
   )
 
-  /**
-   * IMPORTANT CHANGE:
-   * Default = single-color spheres (matches your “earlier screenshot” look)
-   * Only use chakra rainbow if chakraColors === true.
-   */
   const sphereDefs = useOverride
     ? new Array(centers.length).fill({
         core: barColor,
-        halo: haloTint || barColor,
+        halo: haloColor,
         haloOp: haloBase,
       })
-    : chakraColors
-      ? [
-          {
-            core: CHAKRA.crownW,
-            halo: haloTint || CHAKRA.crownV,
-            haloOp: 0.9 * (coarse ? 0.55 : 1.0),
-          },
-          { core: CHAKRA.root, halo: haloTint || CHAKRA.root, haloOp: haloBase },
-          { core: CHAKRA.sacral, halo: haloTint || CHAKRA.sacral, haloOp: haloBase },
-          { core: CHAKRA.solar, halo: haloTint || CHAKRA.solar, haloOp: haloBase },
-          { core: CHAKRA.heart, halo: haloTint || CHAKRA.heart, haloOp: haloBase },
-          { core: CHAKRA.throat, halo: haloTint || CHAKRA.throat, haloOp: haloBase },
-          { core: CHAKRA.thirdEye, halo: haloTint || CHAKRA.thirdEye, haloOp: haloBase },
-        ]
-      : new Array(centers.length).fill({
-          core: barColor,
-          halo: haloTint || barColor,
-          haloOp: haloBase,
+    : [
+        {
+          core: CHAKRA.crownW,
+          halo: CHAKRA.crownV,
+          haloOp: 0.85 * (coarse ? 0.55 : 1.0),
+        },
+        { core: CHAKRA.root, halo: CHAKRA.root, haloOp: haloBase },
+        { core: CHAKRA.sacral, halo: CHAKRA.sacral, haloOp: haloBase },
+        { core: CHAKRA.solar, halo: CHAKRA.solar, haloOp: haloBase },
+        { core: CHAKRA.heart, halo: CHAKRA.heart, haloOp: haloBase },
+        { core: CHAKRA.throat, halo: CHAKRA.throat, haloOp: haloBase },
+        { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: haloBase },
+      ]
+
+  const sphereCoreMats = useMemo(() => {
+    return sphereDefs.map(
+      ({ core }) =>
+        new THREE.MeshStandardMaterial({
+          color: core,
+          roughness: solid ? 0.42 : 0.28,
+          metalness: solid ? 0.05 : 0.25,
+          emissive: new THREE.Color(core),
+          emissiveIntensity: coreEmissive,
+          toneMapped: solid ? false : true,
         })
-
-  const sphereCoreMats = useMemo(
-    () =>
-      sphereDefs.map(
-        ({ core }) =>
-          new THREE.MeshStandardMaterial({
-            color: core,
-            roughness: solid ? 0.42 : 0.28,
-            metalness: solid ? 0.05 : 0.22,
-            emissive: new THREE.Color(core),
-            emissiveIntensity: coreEmissive,
-            toneMapped: solid ? false : true,
-          })
-      ),
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [useOverride ? barColor : JSON.stringify(sphereDefs.map((s) => s.core)), coreEmissive, solid]
-  )
+  }, [useOverride ? barColor : JSON.stringify(sphereDefs.map((s) => s.core)), coreEmissive, solid])
 
-  const sphereHaloMats = useMemo(
-    () =>
-      sphereDefs.map(
-        ({ halo, haloOp }) =>
-          new THREE.MeshBasicMaterial({
-            color: halo,
-            transparent: true,
-            opacity: glow ? haloOp : 0,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            toneMapped: false,
-          })
-      ),
+  const sphereHaloMats = useMemo(() => {
+    return sphereDefs.map(
+      ({ halo, haloOp }) =>
+        new THREE.MeshBasicMaterial({
+          color: halo,
+          transparent: true,
+          opacity: glow ? haloOp : 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          toneMapped: false,
+        })
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      useOverride ? haloTint || barColor : JSON.stringify(sphereDefs.map((s) => s.halo)),
-      glow,
-      haloTint,
-      barColor,
-    ]
-  )
-
-  const halo2Mat = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: haloTint || barColor,
-        transparent: true,
-        opacity: haloBase * 0.6,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        toneMapped: false,
-      }),
-    [barColor, haloBase, haloTint]
-  )
-
-  const halo3Mat = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: haloTint || barColor,
-        transparent: true,
-        opacity: haloBase * 0.32,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        toneMapped: false,
-      }),
-    [barColor, haloBase, haloTint]
-  )
+  }, [
+    useOverride ? haloColor : JSON.stringify(sphereDefs.map((s) => s.halo)),
+    glow,
+    haloColor,
+    haloBase,
+  ])
 
   useEffect(() => {
     if (!group.current) return
@@ -302,12 +266,10 @@ function OrbCross({
       base: haloBase,
       barHalo: barHaloMat,
       sphereHalos: sphereHaloMats,
-      halo2: halo2Mat,
-      halo3: halo3Mat,
       flashUntil: 0,
       flashDecayMs,
     }
-  }, [haloBase, barHaloMat, sphereHaloMats, halo2Mat, halo3Mat, flashDecayMs])
+  }, [haloBase, barHaloMat, sphereHaloMats, flashDecayMs])
 
   const triggerFlash = () => {
     if (!group.current?.userData) return
@@ -352,7 +314,7 @@ function OrbCross({
         <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />
       ))}
 
-      {/* Halos */}
+      {/* Single-pass glow (no extra halo2/halo3 = no “double orb”) */}
       {glow && (
         <>
           <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} />
@@ -370,29 +332,6 @@ function OrbCross({
               scale={glowScale}
             />
           ))}
-
-          {(overrideAllColor || haloTint) && (
-            <>
-              {centers.map((p, i) => (
-                <mesh
-                  key={`h2-${i}`}
-                  geometry={sphereGeo}
-                  material={halo2Mat}
-                  position={p}
-                  scale={glowScale * 1.6}
-                />
-              ))}
-              {centers.map((p, i) => (
-                <mesh
-                  key={`h3-${i}`}
-                  geometry={sphereGeo}
-                  material={halo3Mat}
-                  position={p}
-                  scale={glowScale * 1.95}
-                />
-              ))}
-            </>
-          )}
         </>
       )}
     </group>
@@ -408,7 +347,7 @@ export default function BlueOrbCross3D({
   armRatio = 0.33,
   glow = true,
   glowOpacity = 0.7,
-  glowScale = 1.35,
+  glowScale = 1.25,
   includeZAxis = true,
   onActivate = null,
   overrideAllColor = null,
@@ -420,7 +359,6 @@ export default function BlueOrbCross3D({
   haloTint = null,
   flashDecayMs = 140,
   solidOverride = false,
-  chakraColors = false, // NEW: off by default for clean single-orb look
 }) {
   const [maxDpr, setMaxDpr] = useState(2)
   const [reduced, setReduced] = useState(false)
@@ -486,7 +424,6 @@ export default function BlueOrbCross3D({
           haloTint={haloTint}
           flashDecayMs={flashDecayMs}
           solidOverride={solidOverride}
-          chakraColors={chakraColors}
         />
       </Canvas>
     </div>

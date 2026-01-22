@@ -1,13 +1,12 @@
 // src/components/orb/WhiteLoader.jsx
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import nextDynamic from 'next/dynamic'
 
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 const WHITE_Z = 10002
-const FADE_OUT_MS = 260
 
 function ClockNaples() {
   const [now, setNow] = useState('')
@@ -30,41 +29,24 @@ function ClockNaples() {
 }
 
 export default function WhiteLoader({ show }) {
-  // We mount instantly (no fade-in) and only fade OUT on hide.
-  const [mounted, setMounted] = useState(!!show)
-  const [isFadingOut, setIsFadingOut] = useState(false)
-  const hideTimer = useRef(null)
+  const [visible, setVisible] = useState(show)
 
   useEffect(() => {
-    if (show) {
-      // Cancel any pending unmount and show immediately at full opacity.
-      if (hideTimer.current) clearTimeout(hideTimer.current)
-      setMounted(true)
-      setIsFadingOut(false)
-      return
+    if (!show && visible) {
+      const t = setTimeout(() => setVisible(false), 260)
+      return () => clearTimeout(t)
     }
+    if (show && !visible) setVisible(true)
+  }, [show, visible])
 
-    // show === false: fade out then unmount
-    if (mounted && !isFadingOut) {
-      setIsFadingOut(true)
-      hideTimer.current = setTimeout(() => {
-        setMounted(false)
-        setIsFadingOut(false)
-      }, FADE_OUT_MS)
-    }
+  if (!visible) return null
 
-    return () => {
-      if (hideTimer.current) clearTimeout(hideTimer.current)
-    }
-  }, [show, mounted, isFadingOut])
-
-  if (!mounted) return null
-
-  const opacity = isFadingOut ? 0 : 1
+  const opacity = show ? 1 : 0
 
   return (
     <div
       aria-hidden
+      className="white-loader"
       style={{
         position: 'fixed',
         inset: 0,
@@ -73,28 +55,35 @@ export default function WhiteLoader({ show }) {
         background: '#fff',
         display: 'grid',
         placeItems: 'center',
+        transition: 'opacity 260ms ease',
         opacity,
-        transition: isFadingOut ? `opacity ${FADE_OUT_MS}ms ease` : 'none', // IMPORTANT: no fade-in
         contain: 'layout paint style',
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <div style={{ lineHeight: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8,
+          transform: 'translateY(-2px)',
+        }}
+      >
+        <div style={{ lineHeight: 0, marginBottom: 2 }}>
           <BlueOrbCross3D
             rpm={44}
-            color="#32ffc7"
-            geomScale={1.12}
-            glow
-            glowOpacity={1}
-            includeZAxis
             height="88px"
+            geomScale={1.12}
+            includeZAxis
             interactive={false}
-            // Black core, SEAFOAM glow
-            overrideAllColor="#000"
-            haloTint="#32ffc7"
-            // keep any “flash” behavior out of the loader
-            flashDecayMs={0}
+            // black core
+            overrideAllColor="#000000"
             solidOverride
+            // visible “black glow” (near-black halo)
+            glow
+            glowOpacity={0.85}
+            glowScale={1.22}
+            haloTint="#111111"
           />
         </div>
 
