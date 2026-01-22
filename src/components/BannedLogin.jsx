@@ -7,15 +7,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 export default function BannedLogin({ onProceed }) {
-  // gateStep: 0 = default (chakra), 1 = red, 2 = yellow, 3 = green (then proceed)
+  // gateStep: 0 = seafoam, 1 = red, 2 = yellow, 3 = green (then proceed)
   const [gateStep, setGateStep] = useState(0)
   const [now, setNow] = useState(() => new Date())
-  const [locked, setLocked] = useState(false)
+  const [isProceeding, setIsProceeding] = useState(false)
 
   const pressTimer = useRef(null)
   const proceedFired = useRef(false)
   const proceedDelayTimer = useRef(null)
 
+  const SEAFOAM = '#32ffc7'
   const RED = '#ff001a'
   const YELLOW = '#ffd400'
   const GREEN = '#00ff66'
@@ -23,27 +24,23 @@ export default function BannedLogin({ onProceed }) {
   const triggerProceed = useCallback(() => {
     if (proceedFired.current) return
     proceedFired.current = true
-
-    // IMPORTANT: hide the gate stack immediately so you do NOT see "double orbs"
-    // when the WhiteLoader mounts centered.
-    setLocked(true)
-
+    setIsProceeding(true) // lock interactions ONLY (do not force black orb here)
     if (typeof onProceed === 'function') onProceed()
   }, [onProceed])
 
   const advanceGate = useCallback(() => {
-    if (locked || proceedFired.current) return
+    if (proceedFired.current || isProceeding) return
     setGateStep((s) => (s >= 3 ? 3 : s + 1))
-  }, [locked])
+  }, [isProceeding])
 
   const startPressTimer = () => {
-    if (locked || proceedFired.current) return
+    if (proceedFired.current || isProceeding) return
     clearTimeout(pressTimer.current)
     pressTimer.current = setTimeout(triggerProceed, 650)
   }
+
   const clearPressTimer = () => clearTimeout(pressTimer.current)
 
-  // clock tick
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(t)
@@ -64,10 +61,12 @@ export default function BannedLogin({ onProceed }) {
     return null
   }, [gateStep])
 
-  // When we hit green, show it briefly, then proceed
+  const solidOverride = gateStep === 3
+
+  // When we hit green, WAIT so green is visible, then proceed (once)
   useEffect(() => {
     if (gateStep !== 3) return
-    if (locked || proceedFired.current) return
+    if (proceedFired.current || isProceeding) return
 
     clearTimeout(proceedDelayTimer.current)
     proceedDelayTimer.current = setTimeout(() => {
@@ -75,112 +74,99 @@ export default function BannedLogin({ onProceed }) {
     }, 300)
 
     return () => clearTimeout(proceedDelayTimer.current)
-  }, [gateStep, locked, triggerProceed])
+  }, [gateStep, isProceeding, triggerProceed])
 
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        display: 'grid',
-        placeItems: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
         background: '#fff',
         zIndex: 10,
       }}
     >
-      {/* Gate stack */}
-      <div
+      {/* ORB */}
+      <button
+        aria-label="Orb"
+        type="button"
+        onClick={advanceGate}
+        onMouseDown={startPressTimer}
+        onMouseUp={clearPressTimer}
+        onMouseLeave={clearPressTimer}
+        onTouchStart={startPressTimer}
+        onTouchEnd={clearPressTimer}
+        onDoubleClick={() => {
+          if (proceedFired.current || isProceeding) return
+          triggerProceed()
+        }}
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 10,
-          // This is the key: instantly disappear behind the loader to prevent double-orb
-          opacity: locked ? 0 : 1,
-          transition: 'opacity 90ms linear',
-          pointerEvents: locked ? 'none' : 'auto',
-          transform: 'translateZ(0)',
+          padding: 0,
+          margin: 0,
+          border: 'none',
+          background: 'transparent',
+          cursor: proceedFired.current || isProceeding ? 'default' : 'pointer',
+          lineHeight: 0,
         }}
       >
-        {/* ORB */}
-        <button
-          aria-label="Orb"
-          type="button"
-          onClick={advanceGate}
-          onMouseDown={startPressTimer}
-          onMouseUp={clearPressTimer}
-          onMouseLeave={clearPressTimer}
-          onTouchStart={startPressTimer}
-          onTouchEnd={clearPressTimer}
-          onDoubleClick={() => {
-            if (locked || proceedFired.current) return
-            triggerProceed()
-          }}
-          disabled={locked}
-          style={{
-            padding: 0,
-            margin: 0,
-            border: 'none',
-            background: 'transparent',
-            cursor: locked ? 'default' : 'pointer',
-            lineHeight: 0,
-          }}
-        >
-          <BlueOrbCross3D
-            rpm={44}
-            geomScale={1.2}
-            includeZAxis
-            height="110px"
-            glow
-            glowOpacity={gateStep >= 1 ? 1.0 : 0.9}
-            overrideAllColor={orbOverride}
-            interactive={!locked}
-            flashDecayMs={0}
-            solidOverride={gateStep === 3}
-          />
-        </button>
+        <BlueOrbCross3D
+          rpm={44}
+          color={solidOverride ? GREEN : SEAFOAM}
+          geomScale={1.2}
+          glow
+          glowOpacity={solidOverride ? 1.0 : gateStep >= 1 ? 1.0 : 0.9}
+          includeZAxis
+          height="110px"
+          overrideAllColor={orbOverride}
+          solidOverride={solidOverride}
+          interactive={!isProceeding}
+          // IMPORTANT: remove any click-flash linger while transitioning
+          flashDecayMs={0}
+        />
+      </button>
 
-        {/* Clock */}
-        <div
-          style={{
-            textAlign: 'center',
-            fontSize: 'clamp(12px, 1.2vw, 14px)',
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            color: '#000',
-            opacity: 0.9,
-            textTransform: 'uppercase',
-            lineHeight: 1.15,
-          }}
-        >
-          {clockText}
-        </div>
+      {/* Clock */}
+      <div
+        style={{
+          marginTop: 16,
+          textAlign: 'center',
+          fontSize: 'clamp(12px, 1.2vw, 14px)',
+          fontWeight: 700,
+          letterSpacing: '0.06em',
+          color: '#000',
+          opacity: 0.9,
+          textTransform: 'uppercase',
+        }}
+      >
+        {clockText}
+      </div>
 
-        {/* Florida, USA */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={advanceGate}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') advanceGate()
-          }}
-          style={{
-            textAlign: 'center',
-            fontSize: 'clamp(12px, 1.2vw, 14px)',
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            color: '#000',
-            opacity: 0.9,
-            textTransform: 'uppercase',
-            cursor: locked ? 'default' : 'pointer',
-            userSelect: 'none',
-            outline: 'none',
-            lineHeight: 1.15,
-            paddingBottom: 2,
-          }}
-        >
-          Florida, USA
-        </div>
+      {/* Florida, USA */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={advanceGate}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') advanceGate()
+        }}
+        style={{
+          marginTop: 6,
+          textAlign: 'center',
+          fontSize: 'clamp(12px, 1.2vw, 14px)',
+          fontWeight: 700,
+          letterSpacing: '0.06em',
+          color: '#000',
+          opacity: 0.9,
+          textTransform: 'uppercase',
+          cursor: proceedFired.current || isProceeding ? 'default' : 'pointer',
+          userSelect: 'none',
+          outline: 'none',
+        }}
+      >
+        Florida, USA
       </div>
     </div>
   )
