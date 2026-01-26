@@ -3,7 +3,7 @@
 
 export const dynamic = 'force-static'
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import nextDynamic from 'next/dynamic'
 import products from '@/lib/products'
 
@@ -55,16 +55,26 @@ export default function Page() {
   const inGate = mode === 'gate'
   const inShop = mode === 'shop'
 
-  /* ===================== Gate state (moved up) ===================== */
+  /* ===================== Gate state ===================== */
 
   const [gateStep, setGateStep] = useState(0) // 0..3
   const [isProceeding, setIsProceeding] = useState(false)
+
   const proceedFired = useRef(false)
   const proceedDelayTimer = useRef(null)
+
+  // Prevent rapid multi-fire from skipping yellow/green
+  const lastGateAdvanceAt = useRef(0)
+  const GATE_ADVANCE_COOLDOWN_MS = 180
 
   const advanceGate = useCallback(() => {
     if (!inGate) return
     if (proceedFired.current || isProceeding) return
+
+    const now = performance.now()
+    if (now - lastGateAdvanceAt.current < GATE_ADVANCE_COOLDOWN_MS) return
+    lastGateAdvanceAt.current = now
+
     setGateStep((s) => (s >= 3 ? 3 : s + 1))
   }, [inGate, isProceeding])
 
@@ -105,10 +115,8 @@ export default function Page() {
   const handleEnterShop = useCallback(() => {
     if (mode !== 'gate') return
 
-    // show loader immediately
     setLoaderShow(true)
 
-    // lock theme to day for shop
     const root = document.documentElement
     root.setAttribute('data-theme', 'day')
     try {
@@ -116,14 +124,19 @@ export default function Page() {
     } catch {}
 
     // mount shop behind loader
-    setTimeout(() => {
+    const t1 = setTimeout(() => {
       setMode('shop')
     }, 120)
 
     // fade loader out
-    setTimeout(() => {
+    const t2 = setTimeout(() => {
       setLoaderShow(false)
     }, LOADER_MS)
+
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
   }, [mode])
 
   const triggerProceed = useCallback(() => {
@@ -131,13 +144,16 @@ export default function Page() {
     if (proceedFired.current) return
     proceedFired.current = true
 
-    // Force stable black/no-glow state first (OrbShell will read this)
+    // lock to black phase (OrbShell will render black immediately)
     setIsProceeding(true)
 
-    // Give the browser 2 frames to paint the black state before the loader/shop mount
+    // two frames to guarantee black paints before loader/shop work
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        handleEnterShop()
+        const cleanup = handleEnterShop()
+        // if handleEnterShop returned a cleanup function, we intentionally ignore it here
+        // because this is a one-way transition; timers are cleared on unmount anyway.
+        void cleanup
       })
     })
   }, [handleEnterShop, inGate])
@@ -156,7 +172,14 @@ export default function Page() {
     return () => clearTimeout(proceedDelayTimer.current)
   }, [gateStep, inGate, isProceeding, triggerProceed])
 
-  // Pre-warm client bundles while idle (keeps everything seamless)
+  // cleanup any pending timer if component unmounts
+  useEffect(() => {
+    return () => {
+      clearTimeout(proceedDelayTimer.current)
+    }
+  }, [])
+
+  // Pre-warm client bundles while idle
   useEffect(() => {
     const run = () => {
       import('@/components/HeaderBar')
@@ -165,7 +188,7 @@ export default function Page() {
       import('@/components/ChakraBottomRunner')
       import('@/components/HeartBeatButton')
       import('@/components/OrbShell')
-      import('@/components/BlueOrbCross3D') // ensures the single canvas code is ready
+      import('@/components/BlueOrbCross3D')
     }
     const id =
       typeof window.requestIdleCallback === 'function'
@@ -196,7 +219,7 @@ export default function Page() {
       {/* Gate */}
       {inGate && (
         <main className="lb-screen">
-          <BannedLogin onAdvanceGate={advanceGate} />
+          <BannedLogin onAdvanceGate={advanceGate} onProceed={triggerProceed} />
         </main>
       )}
 

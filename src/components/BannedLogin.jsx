@@ -1,56 +1,19 @@
 // src/components/BannedLogin.jsx
 'use client'
 
-import nextDynamic from 'next/dynamic'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 
-const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
-
-export default function BannedLogin({ onProceed }) {
-  // gateStep: 0 = default (seafoam), 1 = red, 2 = yellow, 3 = green (then proceed)
-  const [gateStep, setGateStep] = useState(0)
+export default function BannedLogin({ onAdvanceGate, onProceed }) {
   const [now, setNow] = useState(() => new Date())
-  const [isProceeding, setIsProceeding] = useState(false)
 
-  const pressTimer = useRef(null)
-  const proceedFired = useRef(false)
-  const proceedDelayTimer = useRef(null)
-
-  const SEAFOAM = '#32ffc7'
-  const RED = '#ff001a'
-  const YELLOW = '#ffd400'
-  const GREEN = '#00ff66'
-  const BLACK = '#000000'
-
-  // IMPORTANT: while this gate is mounted, hide any “global/header” orb
+  // IMPORTANT: while this gate is mounted, hide any “global/header” orb duplicates
+  // (Your ChakraOrbButton watches this.)
   useEffect(() => {
     document.documentElement.setAttribute('data-gate-open', '1')
     return () => {
       document.documentElement.removeAttribute('data-gate-open')
     }
   }, [])
-
-  const triggerProceed = useCallback(() => {
-    if (proceedFired.current) return
-    proceedFired.current = true
-
-    setIsProceeding(true)
-
-    if (typeof onProceed === 'function') onProceed()
-  }, [onProceed])
-
-  const advanceGate = useCallback(() => {
-    if (proceedFired.current || isProceeding) return
-    setGateStep((s) => (s >= 3 ? 3 : s + 1))
-  }, [isProceeding])
-
-  const startPressTimer = () => {
-    if (proceedFired.current || isProceeding) return
-    clearTimeout(pressTimer.current)
-    pressTimer.current = setTimeout(triggerProceed, 650)
-  }
-
-  const clearPressTimer = () => clearTimeout(pressTimer.current)
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
@@ -65,28 +28,24 @@ export default function BannedLogin({ onProceed }) {
     })
   }, [now])
 
-  const orbOverride = useMemo(() => {
-    if (isProceeding) return BLACK
-    if (gateStep === 1) return RED
-    if (gateStep === 2) return YELLOW
-    if (gateStep === 3) return GREEN
-    return null
-  }, [gateStep, isProceeding])
+  // Long-press handling on text (optional parity with orb)
+  const pressTimer = useRef(null)
+  const startPressTimer = useCallback(() => {
+    clearTimeout(pressTimer.current)
+    pressTimer.current = setTimeout(() => {
+      if (typeof onProceed === 'function') onProceed()
+    }, 650)
+  }, [onProceed])
 
-  const solidOverride = gateStep === 3 || isProceeding
+  const clearPressTimer = useCallback(() => clearTimeout(pressTimer.current), [])
 
-  // When we hit green, WAIT so green is visible, then proceed (once)
-  useEffect(() => {
-    if (gateStep !== 3) return
-    if (proceedFired.current || isProceeding) return
+  const advanceGate = useCallback(() => {
+    if (typeof onAdvanceGate === 'function') onAdvanceGate()
+  }, [onAdvanceGate])
 
-    clearTimeout(proceedDelayTimer.current)
-    proceedDelayTimer.current = setTimeout(() => {
-      triggerProceed()
-    }, 300)
-
-    return () => clearTimeout(proceedDelayTimer.current)
-  }, [gateStep, isProceeding, triggerProceed])
+  const triggerProceed = useCallback(() => {
+    if (typeof onProceed === 'function') onProceed()
+  }, [onProceed])
 
   return (
     <div
@@ -101,9 +60,8 @@ export default function BannedLogin({ onProceed }) {
         zIndex: 1000,
       }}
     >
-      {/* ORB */}
+      {/* Time */}
       <button
-        aria-label="Orb"
         type="button"
         onClick={advanceGate}
         onMouseDown={startPressTimer}
@@ -111,40 +69,9 @@ export default function BannedLogin({ onProceed }) {
         onMouseLeave={clearPressTimer}
         onTouchStart={startPressTimer}
         onTouchEnd={clearPressTimer}
-        onDoubleClick={() => {
-          if (proceedFired.current || isProceeding) return
-          triggerProceed()
-        }}
+        onDoubleClick={triggerProceed}
         style={{
-          padding: 0,
-          margin: 0,
-          border: 'none',
-          background: 'transparent',
-          cursor: proceedFired.current || isProceeding ? 'default' : 'pointer',
-          lineHeight: 0,
-        }}
-      >
-        <BlueOrbCross3D
-          rpm={44}
-          height="110px"
-          geomScale={1.2}
-          includeZAxis
-          // keep glow off during the BLACK phase transition only
-          glow={!isProceeding}
-          glowOpacity={isProceeding ? 0 : solidOverride ? 1.0 : gateStep >= 1 ? 1.0 : 0.9}
-          overrideAllColor={orbOverride}
-          solidOverride={solidOverride}
-          interactive={!isProceeding}
-          flashDecayMs={0}
-          // if override becomes BLACK, keep halo readable (your BlueOrbCross3D handles near-black halo)
-          haloTint={isProceeding ? '#111111' : null}
-        />
-      </button>
-
-      {/* Text block spacing like your earlier screenshot */}
-      <div
-        style={{
-          marginTop: 14,
+          marginTop: 150, // leaves room for the persistent OrbShell orb centered behind
           textAlign: 'center',
           fontSize: 'clamp(12px, 1.2vw, 14px)',
           fontWeight: 800,
@@ -153,18 +80,25 @@ export default function BannedLogin({ onProceed }) {
           opacity: 0.9,
           textTransform: 'uppercase',
           lineHeight: 1.2,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
         }}
       >
         {clockText}
-      </div>
+      </button>
 
-      <div
-        role="button"
-        tabIndex={0}
+      {/* Florida label */}
+      <button
+        type="button"
         onClick={advanceGate}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') advanceGate()
-        }}
+        onMouseDown={startPressTimer}
+        onMouseUp={clearPressTimer}
+        onMouseLeave={clearPressTimer}
+        onTouchStart={startPressTimer}
+        onTouchEnd={clearPressTimer}
+        onDoubleClick={triggerProceed}
         style={{
           marginTop: 6,
           textAlign: 'center',
@@ -174,14 +108,17 @@ export default function BannedLogin({ onProceed }) {
           color: '#000',
           opacity: 0.9,
           textTransform: 'uppercase',
-          cursor: proceedFired.current || isProceeding ? 'default' : 'pointer',
+          cursor: 'pointer',
           userSelect: 'none',
           outline: 'none',
           lineHeight: 1.2,
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
         }}
       >
         Florida, USA
-      </div>
+      </button>
     </div>
   )
 }

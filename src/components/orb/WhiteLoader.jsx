@@ -2,9 +2,6 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import nextDynamic from 'next/dynamic'
-
-const BlueOrbCross3D = nextDynamic(() => import('@/components/BlueOrbCross3D'), { ssr: false })
 
 const WHITE_Z = 10002
 
@@ -69,23 +66,16 @@ export default function WhiteLoader({ show }) {
           transform: 'translateY(-2px)',
         }}
       >
-        <div style={{ lineHeight: 0, marginBottom: 2 }}>
-          <BlueOrbCross3D
-            rpm={44}
-            height="88px"
-            geomScale={1.12}
-            includeZAxis
-            interactive={false}
-            // black core
-            overrideAllColor="#000000"
-            solidOverride
-            // visible “black glow” (near-black halo)
-            glow
-            glowOpacity={0.85}
-            glowScale={1.22}
-            haloTint="#111111"
-          />
-        </div>
+        {/* Pure DOM “black orb” surrogate (no WebGL stall) */}
+        <div
+          style={{
+            width: 88,
+            height: 88,
+            borderRadius: 9999,
+            background: '#000',
+            boxShadow: '0 0 10px rgba(0,0,0,0.20), 0 0 22px rgba(0,0,0,0.12)',
+          }}
+        />
 
         <span
           style={{
