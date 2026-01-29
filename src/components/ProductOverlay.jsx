@@ -112,7 +112,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
             <path
               d="M6 14l6-6 6 6"
               stroke={glyph}
-              strokeWidth="2.5"
+              strokeWidth="3.5"
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -121,7 +121,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
             <path
               d="M6 10l6 6 6-6"
               stroke={glyph}
-              strokeWidth="2.5"
+              strokeWidth="3.5"
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
