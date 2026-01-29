@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ProductOverlay from '@/components/ProductOverlay'
 import { PRODUCTS, logMissingAssets } from '@/lib/products'
+import { useCart } from '@/contexts/CartContext'
 
 /** Storage key for saved grid density */
 const KEY_DENSITY = 'lb:grid-cols'
@@ -68,6 +69,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') logMissingAssets()
   }, [])
+
+  /* ---------------- Cart integration ---------------- */
+  const cart = useCart()
+
+  const getProductQty = useCallback((productId) => {
+    return cart.items
+      .filter(item => item.id === productId)
+      .reduce((sum, item) => sum + item.qty, 0)
+  }, [cart.items])
 
   /* ---------------- Overlay state ---------------- */
   const [overlayIdx, setOverlayIdx] = useState(/** @type {number|null} */ null)
