@@ -5,14 +5,34 @@ import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 
 export default function BannedLogin({ onAdvanceGate, onProceed }) {
   const [now, setNow] = useState(() => new Date())
+  const [location, setLocation] = useState('Florida, USA') // Default fallback
 
-  // IMPORTANT: while this gate is mounted, hide any “global/header” orb duplicates
+  // IMPORTANT: while this gate is mounted, hide any "global/header" orb duplicates
   // (Your ChakraOrbButton watches this.)
   useEffect(() => {
     document.documentElement.setAttribute('data-gate-open', '1')
     return () => {
       document.documentElement.removeAttribute('data-gate-open')
     }
+  }, [])
+
+  // Fetch user's location from IP
+  useEffect(() => {
+    async function fetchLocation() {
+      try {
+        const response = await fetch('https://ipapi.co/json/')
+        const data = await response.json()
+        
+        if (data.city && data.country_name) {
+          setLocation(`${data.city}, ${data.country_name}`)
+        }
+      } catch (error) {
+        console.log('Location detection failed, using default')
+        // Keep default "Florida, USA"
+      }
+    }
+
+    fetchLocation()
   }, [])
 
   useEffect(() => {
@@ -89,7 +109,7 @@ export default function BannedLogin({ onAdvanceGate, onProceed }) {
         {clockText}
       </button>
 
-      {/* Florida label */}
+      {/* Dynamic location */}
       <button
         type="button"
         onClick={advanceGate}
@@ -117,7 +137,7 @@ export default function BannedLogin({ onAdvanceGate, onProceed }) {
           padding: 0,
         }}
       >
-        Florida, USA
+        {location}
       </button>
     </div>
   )
