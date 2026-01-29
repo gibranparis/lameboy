@@ -4,6 +4,10 @@
    0) TOKENS / VARIABLES
    ========================================================================== */
 :root {
+/* Hide mask arrows that create black boxes */
+.arrow-pill span {
+  display: none !important;
+}
   /* Typography */
   --mono:
     Menlo, Monaco, Consolas, 'SFMono-Regular', 'Liberation Mono', 'Courier New', ui-monospace,
@@ -59,9 +63,9 @@
   /* Cascade stack tokens */
   --z-white: 10002; /* white enlightenment */
   --z-bands: 10006; /* color bands */
-  /* Arrow SVG definitions for product navigation */
-/* Show fallback arrows (bolder to match plus button) */
+  /* Use fallback SVG arrows only */
 --arrow-fallback: 1;
+--arrow-mask-display: none;
 }
 
 /* Full white curtain used by LandingGate */
