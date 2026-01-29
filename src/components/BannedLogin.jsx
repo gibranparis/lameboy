@@ -3,13 +3,12 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 
-export default function BannedLogin({ onAdvanceGate, onProceed }) {
+export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0 }) {
   const [now, setNow] = useState(() => new Date())
-  const [location, setLocation] = useState('Florida, USA') // Default fallback
-  const [timezone, setTimezone] = useState(null) // Visitor's timezone
+  const [visitorLocation, setVisitorLocation] = useState('Florida, USA') // Visitor's actual location
+  const [visitorTimezone, setVisitorTimezone] = useState(null) // Visitor's actual timezone
 
   // IMPORTANT: while this gate is mounted, hide any "global/header" orb duplicates
-  // (Your ChakraOrbButton watches this.)
   useEffect(() => {
     document.documentElement.setAttribute('data-gate-open', '1')
     return () => {
@@ -17,7 +16,7 @@ export default function BannedLogin({ onAdvanceGate, onProceed }) {
     }
   }, [])
 
-  // Fetch user's location and timezone from IP
+  // Fetch user's location and timezone from IP (only once)
   useEffect(() => {
     async function fetchLocation() {
       try {
@@ -25,18 +24,15 @@ export default function BannedLogin({ onAdvanceGate, onProceed }) {
         const data = await response.json()
         
         if (data.city && data.country_code) {
-          // Use country_code (e.g., "US") instead of country_name ("United States")
           const countryCode = data.country_code === 'US' ? 'USA' : data.country_code
-          setLocation(`${data.city}, ${countryCode}`)
+          setVisitorLocation(`${data.city}, ${countryCode}`)
         }
         
-        // Set timezone for clock
         if (data.timezone) {
-          setTimezone(data.timezone)
+          setVisitorTimezone(data.timezone)
         }
       } catch (error) {
         console.log('Location detection failed, using default')
-        // Keep defaults
       }
     }
 
@@ -48,20 +44,30 @@ export default function BannedLogin({ onAdvanceGate, onProceed }) {
     return () => clearInterval(t)
   }, [])
 
+  // Determine which location and timezone to show based on gateStep
+  const displayLocation = useMemo(() => {
+    // gateStep 0 = visitor's location, gateStep 1+ = Florida
+    return gateStep >= 1 ? 'Cape Coral, USA' : visitorLocation
+  }, [gateStep, visitorLocation])
+
+  const displayTimezone = useMemo(() => {
+    // gateStep 0 = visitor's timezone, gateStep 1+ = Florida timezone
+    return gateStep >= 1 ? 'America/New_York' : visitorTimezone
+  }, [gateStep, visitorTimezone])
+
   const clockText = useMemo(() => {
-    // If we have visitor's timezone, use it; otherwise use their local time
     const options = {
       hour: 'numeric',
       minute: '2-digit',
       second: '2-digit',
     }
     
-    if (timezone) {
-      options.timeZone = timezone
+    if (displayTimezone) {
+      options.timeZone = displayTimezone
     }
     
     return now.toLocaleTimeString([], options)
-  }, [now, timezone])
+  }, [now, displayTimezone])
 
   // Long-press handling on text (optional parity with orb)
   const pressTimer = useRef(null)
@@ -106,7 +112,7 @@ export default function BannedLogin({ onAdvanceGate, onProceed }) {
         onTouchEnd={clearPressTimer}
         onDoubleClick={triggerProceed}
         style={{
-          marginTop: 150, // leaves room for the persistent OrbShell orb centered behind
+          marginTop: 150,
           textAlign: 'center',
           fontSize: 'clamp(12px, 1.2vw, 14px)',
           fontWeight: 800,
@@ -152,7 +158,7 @@ export default function BannedLogin({ onAdvanceGate, onProceed }) {
           padding: 0,
         }}
       >
-        {location}
+        {displayLocation}
       </button>
     </div>
   )

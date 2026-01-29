@@ -219,8 +219,7 @@ export default function Page() {
       {/* Gate */}
       {inGate && (
         <main className="lb-screen">
-          <BannedLogin onAdvanceGate={advanceGate} onProceed={triggerProceed} />
-        </main>
+<BannedLogin onAdvanceGate={advanceGate} onProceed={triggerProceed} gateStep={gateStep} />        </main>
       )}
 
       {/* Shop */}
