@@ -56,17 +56,19 @@ function useTheme() {
 }
 
 /* ---------------- arrow buttons ---------------- */
-function ArrowControl({ dir = 'up', night, onClick, dataUi }) {
-  const baseBg = night ? 'rgba(255,255,255,0.10)' : '#ffffff'
+function ArrowControl({ dir = 'up', night, onClick, dataUi, isHot = false }) {
+  const baseBg = isHot
+    ? 'var(--hover-green, #0bf05f)'
+    : (night ? 'rgba(255,255,255,0.10)' : '#ffffff')
   const ring = night ? 'rgba(255,255,255,.24)' : 'rgba(0,0,0,.10)'
-  const glyph = night ? '#ffffff' : '#0f1115'
+  const glyph = isHot ? '#000000' : (night ? '#ffffff' : '#0f1115')
 
   return (
     <button
       type="button"
       onClick={onClick}
       data-ui={dataUi}
-      className="arrow-pill"
+      className={`arrow-pill ${isHot ? 'is-hot' : ''}`}
       aria-label={dir === 'up' ? 'Previous product' : 'Next product'}
       title={dir === 'up' ? 'Previous product' : 'Next product'}
       style={{ padding: 0, background: 'transparent', border: 'none' }}
@@ -444,6 +446,9 @@ export default function ProductOverlay({
     [imgIdx, imgs.length]
   )
 
+  // Track scroll direction for arrow green activation
+  const [hotDir, setHotDir] = useState('') // 'up' | 'down' | ''
+
   // The grid tile we opened from (FLIP anchor)
   const openedIndexRef = useRef(index)
   const didEnterRef = useRef(false)
@@ -568,11 +573,17 @@ export default function ProductOverlay({
         if (e.key === 'ArrowDown') {
           const el = document.querySelector('[data-ui="img-down"]')
           if (el) flash(el)
+          // Set hot state for green activation
+          setHotDir('down')
+          setTimeout(() => setHotDir(''), 180)
           return onIndexChange?.(wrap(index + 1, products.length))
         }
         if (e.key === 'ArrowUp') {
           const el = document.querySelector('[data-ui="img-up"]')
           if (el) flash(el)
+          // Set hot state for green activation
+          setHotDir('up')
+          setTimeout(() => setHotDir(''), 180)
           return onIndexChange?.(wrap(index - 1, products.length))
         }
       }
@@ -599,6 +610,12 @@ export default function ProductOverlay({
 
       if (products.length > 1) {
         const dirDown = e.deltaY > 0
+        const dir = dirDown ? 'down' : 'up'
+
+        // Set hot state for green activation
+        setHotDir(dir)
+        setTimeout(() => setHotDir(''), 180) // Match + button timing
+
         flash(document.querySelector(dirDown ? '[data-ui="img-down"]' : '[data-ui="img-up"]'))
         onIndexChange?.(wrap(index + (dirDown ? 1 : -1), products.length))
       }
@@ -609,6 +626,9 @@ export default function ProductOverlay({
 
   const onDirFlash = useCallback((dir) => {
     flash(document.querySelector(dir === 'down' ? '[data-ui="img-down"]' : '[data-ui="img-up"]'))
+    // Set hot state for green activation
+    setHotDir(dir)
+    setTimeout(() => setHotDir(''), 180)
   }, [])
 
   const swipe = useSwipe({
@@ -771,6 +791,7 @@ export default function ProductOverlay({
                 dir="up"
                 night={night}
                 dataUi="img-up"
+                isHot={hotDir === 'up'}
                 onClick={() => {
                   onIndexChange?.(wrap(index - 1, products.length))
                   onDirFlash('up')
@@ -780,6 +801,7 @@ export default function ProductOverlay({
                 dir="down"
                 night={night}
                 dataUi="img-down"
+                isHot={hotDir === 'down'}
                 onClick={() => {
                   onIndexChange?.(wrap(index + 1, products.length))
                   onDirFlash('down')
