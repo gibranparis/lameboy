@@ -60,7 +60,11 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi, isHot = false }) {
   const baseBg = isHot
     ? 'var(--hover-green, #0bf05f)'
     : (night ? 'rgba(255,255,255,0.10)' : '#ffffff')
-  const ring = night ? 'rgba(255,255,255,.24)' : 'rgba(0,0,0,.10)'
+  const boxShadowValue = isHot
+    ? '0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px rgba(0, 0, 0, 0.18)'
+    : night
+    ? '0 2px 10px rgba(0,0,0,.14), inset 0 0 0 1px rgba(255,255,255,.24)'
+    : '0 2px 10px rgba(0,0,0,.14), inset 0 0 0 1px rgba(0,0,0,.10)'
   const glyph = isHot ? '#000000' : (night ? '#ffffff' : '#0f1115')
 
   return (
@@ -68,7 +72,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi, isHot = false }) {
       type="button"
       onClick={onClick}
       data-ui={dataUi}
-      className={`arrow-pill ${isHot ? 'is-hot' : ''}`}
+      className="arrow-pill"
       aria-label={dir === 'up' ? 'Previous product' : 'Next product'}
       title={dir === 'up' ? 'Previous product' : 'Next product'}
       style={{ padding: 0, background: 'transparent', border: 'none' }}
@@ -84,7 +88,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi, isHot = false }) {
           placeItems: 'center',
           overflow: 'hidden',
           background: baseBg,
-          boxShadow: `0 2px 10px rgba(0,0,0,.14), inset 0 0 0 1px ${ring}`,
+          boxShadow: boxShadowValue,
           transition: 'background .12s ease, box-shadow .12s ease, transform .08s ease',
         }}
       >
@@ -136,7 +140,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi, isHot = false }) {
 }
 
 /* ---------------- + / sizes ---------------- */
-function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
+function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState(null)
   const [hotSize, setHotSize] = useState(null)
@@ -155,7 +159,15 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
   const pick = useCallback((sz) => {
     setPicked(sz)
     try {
-      window.dispatchEvent(new CustomEvent('lb:add-to-cart', { detail: { size: sz, count: 1 } }))
+      window.dispatchEvent(
+        new CustomEvent('lb:add-to-cart', {
+          detail: {
+            product: product, // Pass full product object
+            size: sz,
+            qty: 1,
+          },
+        })
+      )
     } catch {}
     setHotSize(sz)
     setPlusHot(true)
@@ -170,7 +182,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
       clearTimeout(timers.current.hide)
       timers.current.hide = setTimeout(() => setAdded(false), 900)
     }, 380)
-  }, [])
+  }, [product])
 
   useEffect(
     () => () =>
@@ -179,6 +191,17 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle }) {
       }),
     []
   )
+
+  // Listen for product image clicks to flash + button
+  useEffect(() => {
+    const onProductClick = () => {
+      setPlusHot(true)
+      clearTimeout(timers.current.imageTap)
+      timers.current.imageTap = setTimeout(() => setPlusHot(false), 180)
+    }
+    window.addEventListener('product-image-click', onProductClick)
+    return () => window.removeEventListener('product-image-click', onProductClick)
+  }, [])
 
   const glyph = open ? '–' : '+'
   const addedStyle = {
@@ -666,13 +689,12 @@ export default function ProductOverlay({
 
       hero.style.transition = 'none'
       hero.style.transformOrigin = 'top left'
-      hero.style.willChange = 'transform'
-      hero.style.opacity = '0.0'
+      hero.style.willChange = 'transform, opacity'
+      hero.style.opacity = '1'
       hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
 
       requestAnimationFrame(() => {
-        hero.style.transition = 'transform 220ms cubic-bezier(.2,.9,.2,1), opacity 180ms ease'
-        hero.style.opacity = '1'
+        hero.style.transition = 'transform 200ms cubic-bezier(.2,.9,.2,1), opacity 200ms ease'
         hero.style.transform = 'translate(0px, 0px) scale(1)'
       })
 
@@ -812,7 +834,18 @@ export default function ProductOverlay({
 
           {!!imgs.length && (
             <>
-              <div data-ui="product-viewport" style={{ width: '100%' }}>
+              <div
+                data-ui="product-viewport"
+                onClick={() => {
+                  try {
+                    window.dispatchEvent(new CustomEvent('product-image-click'))
+                  } catch {}
+                }}
+                style={{
+                  width: '100%',
+                  cursor: 'pointer',
+                }}
+              >
                 <Image
                   src={imgs[clampedImgIdx]}
                   alt={product.title}
@@ -856,7 +889,7 @@ export default function ProductOverlay({
           <div ref={priceRef} className="product-hero-price">
             {priceText}
           </div>
-          <PlusSizesInline sizes={sizes} priceStyle={priceStyle} />
+          <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} />
         </div>
       </div>
 

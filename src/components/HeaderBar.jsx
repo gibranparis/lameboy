@@ -1,11 +1,14 @@
 // src/components/HeaderBar.jsx
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import DayNightToggle from '@/components/DayNightToggle'
 import CartButton from '@/components/CartButton'
 
 export default function HeaderBar({ ctrlPx }) {
+  const router = useRouter()
+  const cartButtonRef = useRef(null)
   const headerPx = useMemo(() => {
     const n = Number(ctrlPx)
     return Number.isFinite(n) && n > 0 ? n : 64
@@ -60,6 +63,7 @@ export default function HeaderBar({ ctrlPx }) {
 
       <div className="flex items-center justify-end" style={{ lineHeight: 0 }}>
         <div
+          ref={cartButtonRef}
           style={{
             height: sizes.box,
             width: 'var(--header-ctrl)',
@@ -67,7 +71,26 @@ export default function HeaderBar({ ctrlPx }) {
             placeItems: 'center',
           }}
         >
-          <CartButton size={sizes.cartImg} inHeader />
+          <CartButton
+            size={sizes.cartImg}
+            inHeader
+            onClick={() => {
+              // Save cart button position for FLIP animation
+              if (cartButtonRef.current) {
+                const rect = cartButtonRef.current.getBoundingClientRect()
+                sessionStorage.setItem(
+                  'cart-btn-rect',
+                  JSON.stringify({
+                    left: rect.left,
+                    top: rect.top,
+                    width: rect.width,
+                    height: rect.height,
+                  })
+                )
+              }
+              router.push('/checkout')
+            }}
+          />
         </div>
       </div>
     </header>

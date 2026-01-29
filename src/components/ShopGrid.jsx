@@ -80,10 +80,31 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   const openAt = useCallback((i, rect) => {
     setFromRect(rect || null)
     setOverlayIdx(i)
+    // Add fade class to grid for fade-out effect
+    const gridEl = document.querySelector('[data-component="shop-grid"]')
+    if (gridEl) {
+      gridEl.classList.add('overlay-fading')
+      // Mark the active tile so it doesn't fade
+      const tiles = gridEl.querySelectorAll('.product-tile')
+      tiles.forEach((tile, idx) => {
+        if (idx === i) {
+          tile.setAttribute('data-flip-active', 'true')
+        } else {
+          tile.removeAttribute('data-flip-active')
+        }
+      })
+    }
   }, [])
 
   const close = useCallback(() => {
     setOverlayIdx(null)
+    // Remove fade class from grid and clear active tile marker
+    const gridEl = document.querySelector('[data-component="shop-grid"]')
+    if (gridEl) {
+      gridEl.classList.remove('overlay-fading')
+      const tiles = gridEl.querySelectorAll('.product-tile[data-flip-active]')
+      tiles.forEach((tile) => tile.removeAttribute('data-flip-active'))
+    }
   }, [])
 
   const clearFromRect = useCallback(() => setFromRect(null), [])
@@ -258,7 +279,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         minHeight: '100dvh',
       }}
     >
-      <div className="shop-grid">
+      <div className="shop-grid" data-component="shop-grid">
         {seed.map((p, idx) => (
           <a
             key={p.id ?? idx}
