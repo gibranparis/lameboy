@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 export default function BannedLogin({ onAdvanceGate, onProceed }) {
   const [now, setNow] = useState(() => new Date())
   const [location, setLocation] = useState('Florida, USA') // Default fallback
+  const [timezone, setTimezone] = useState(null) // Visitor's timezone
 
   // IMPORTANT: while this gate is mounted, hide any "global/header" orb duplicates
   // (Your ChakraOrbButton watches this.)
@@ -16,19 +17,26 @@ export default function BannedLogin({ onAdvanceGate, onProceed }) {
     }
   }, [])
 
-  // Fetch user's location from IP
+  // Fetch user's location and timezone from IP
   useEffect(() => {
     async function fetchLocation() {
       try {
         const response = await fetch('https://ipapi.co/json/')
         const data = await response.json()
         
-        if (data.city && data.country_name) {
-          setLocation(`${data.city}, ${data.country_name}`)
+        if (data.city && data.country_code) {
+          // Use country_code (e.g., "US") instead of country_name ("United States")
+          const countryCode = data.country_code === 'US' ? 'USA' : data.country_code
+          setLocation(`${data.city}, ${countryCode}`)
+        }
+        
+        // Set timezone for clock
+        if (data.timezone) {
+          setTimezone(data.timezone)
         }
       } catch (error) {
         console.log('Location detection failed, using default')
-        // Keep default "Florida, USA"
+        // Keep defaults
       }
     }
 
@@ -41,12 +49,19 @@ export default function BannedLogin({ onAdvanceGate, onProceed }) {
   }, [])
 
   const clockText = useMemo(() => {
-    return now.toLocaleTimeString([], {
+    // If we have visitor's timezone, use it; otherwise use their local time
+    const options = {
       hour: 'numeric',
       minute: '2-digit',
       second: '2-digit',
-    })
-  }, [now])
+    }
+    
+    if (timezone) {
+      options.timeZone = timezone
+    }
+    
+    return now.toLocaleTimeString([], options)
+  }, [now, timezone])
 
   // Long-press handling on text (optional parity with orb)
   const pressTimer = useRef(null)
