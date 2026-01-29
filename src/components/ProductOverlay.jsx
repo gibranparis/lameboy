@@ -192,16 +192,16 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     []
   )
 
-  // Listen for product image clicks to flash + button
+  // Listen for product image clicks to flash + button AND open size picker
   useEffect(() => {
     const onProductClick = () => {
-      setPlusHot(true)
-      clearTimeout(timers.current.imageTap)
-      timers.current.imageTap = setTimeout(() => setPlusHot(false), 180)
+      if (!showAdded) {  // Don't trigger during "Added" notification
+        onToggle()  // This flashes green AND opens size picker
+      }
     }
     window.addEventListener('product-image-click', onProductClick)
     return () => window.removeEventListener('product-image-click', onProductClick)
-  }, [])
+  }, [showAdded, onToggle])
 
   const glyph = open ? '–' : '+'
   const addedStyle = {
