@@ -3,9 +3,10 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 
-export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0 }) {
+export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, isProceeding = false }) {
   const [now, setNow] = useState(() => new Date())
-  const [visitorLocation, setVisitorLocation] = useState('Florida, USA') // Visitor's actual location
+  const [visitorLocation, setVisitorLocation] = useState('Cape Coral, USA') // Visitor's actual location
+  const [visitorRegion, setVisitorRegion] = useState(null) // raw region/state from IP
   const [visitorTimezone, setVisitorTimezone] = useState(null) // Visitor's actual timezone
 
   // IMPORTANT: while this gate is mounted, hide any "global/header" orb duplicates
@@ -24,6 +25,7 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0 }) 
         const data = await response.json()
         
         // Use region (state) instead of city for broader location
+        if (data.region) setVisitorRegion(data.region)
         if (data.region && data.country_code) {
           const countryCode = data.country_code === 'US' ? 'USA' : data.country_code
           setVisitorLocation(`${data.region}, ${countryCode}`)
@@ -60,12 +62,13 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0 }) 
 
   // Determine which location and timezone to show based on gateStep
   const displayLocation = useMemo(() => {
-    if (gateStep === 0) return visitorLocation  // Broader IP location
-    if (gateStep === 1) return 'Cape Coral, USA'
+    if (isProceeding) return 'Let All Mankind Evolve'
+    if (gateStep === 0) return 'Lameboy, USA'
+    if (gateStep === 1) return visitorRegion?.toLowerCase() === 'florida' ? 'Cape Coral, USA' : visitorLocation
     if (gateStep === 2) return 'Naples, USA'
     if (gateStep === 3) return 'Florida, USA'
     return visitorLocation
-  }, [gateStep, visitorLocation])
+  }, [gateStep, visitorLocation, isProceeding])
 
   const displayTimezone = useMemo(() => {
     // Always use Eastern Time during gate sequence

@@ -234,7 +234,9 @@ export default function OrbShell({
       }
 
   const orbOverrideAllColor = inGateLike ? gateOverride : pressColor || null
-  const orbHaloTint = inGateLike ? null : pressColor || null
+  const orbHaloTint = inGateLike
+    ? isProceeding ? '#555' : null
+    : pressColor || null
 
   // Always keep glow meshes mounted so the visual footprint stays consistent
   // across color transitions. Opacity (orbGlowOpacity) already goes to 0
@@ -245,7 +247,7 @@ export default function OrbShell({
     ? loaderShow
       ? 0
       : isProceeding
-        ? 0
+        ? 1.0
         : gateSolid
           ? 1.0
           : gateStep >= 1
@@ -264,8 +266,27 @@ export default function OrbShell({
     : SEAFOAM
   const orbSolidOverride = inGateLike ? gateSolid : false
 
+  const blackGlow = isProceeding && !loaderShow
+
   return (
     <div style={shellStyle}>
+      {blackGlow && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '160%',
+            height: '160%',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.10) 40%, transparent 70%)',
+            pointerEvents: 'none',
+            zIndex: -1,
+          }}
+        />
+      )}
       <button
         type="button"
         aria-label={inGateLike ? 'Orb' : 'Zoom products'}
