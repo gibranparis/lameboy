@@ -19,8 +19,17 @@ function ClockNaples() {
         }).format(new Date())
       )
     fmt()
-    const id = setInterval(fmt, 1000)
-    return () => clearInterval(id)
+    // Align to next second boundary
+    const msToNextSec = 1000 - (Date.now() % 1000)
+    let intervalId
+    const alignTimer = setTimeout(() => {
+      fmt()
+      intervalId = setInterval(fmt, 1000)
+    }, msToNextSec)
+    return () => {
+      clearTimeout(alignTimer)
+      if (intervalId) clearInterval(intervalId)
+    }
   }, [])
   return <span>{now}</span>
 }
@@ -50,62 +59,47 @@ export default function WhiteLoader({ show }) {
         zIndex: WHITE_Z,
         pointerEvents: 'none',
         background: '#fff',
-        display: 'grid',
-        placeItems: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
         transition: 'opacity 260ms ease',
         opacity,
         contain: 'layout paint style',
       }}
     >
-      <div
+      {/* OrbShell renders the real orb above this layer (z-index 10050).
+          Text matches BannedLogin positioning so the transition is seamless. */}
+      <span
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 8,
-          transform: 'translateY(-2px)',
+          marginTop: 150,
+          textAlign: 'center',
+          color: '#000',
+          fontWeight: 800,
+          letterSpacing: '.06em',
+          fontSize: 'clamp(12px,1.3vw,14px)',
+          lineHeight: 1.2,
+          opacity: 0.9,
         }}
       >
-        {/* Enhanced black orb with glow effect */}
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: '50%',
-            background: '#000',
-            boxShadow:
-              '0 0 20px rgba(0, 0, 0, 0.4), ' +
-              '0 0 40px rgba(0, 0, 0, 0.25), ' +
-              '0 0 60px rgba(0, 0, 0, 0.15), ' +
-              'inset 0 0 20px rgba(255, 255, 255, 0.05)',
-          }}
-        />
+        <ClockNaples />
+      </span>
 
-        <span
-          style={{
-            color: '#000',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            lineHeight: 1.2,
-          }}
-        >
-          <ClockNaples />
-        </span>
-
-        <span
-          style={{
-            color: '#000',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            fontSize: 'clamp(12px,1.3vw,14px)',
-            lineHeight: 1.2,
-            textTransform: 'uppercase',
-          }}
-        >
-          LAMEBOY, USA
-        </span>
-      </div>
+      <span
+        style={{
+          marginTop: 6,
+          textAlign: 'center',
+          color: '#000',
+          fontWeight: 800,
+          letterSpacing: '.06em',
+          fontSize: 'clamp(12px,1.3vw,14px)',
+          lineHeight: 1.2,
+          opacity: 0.9,
+          textTransform: 'uppercase',
+        }}
+      >
+        LAMEBOY, USA
+      </span>
     </div>
   )
 }

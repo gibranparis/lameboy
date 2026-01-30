@@ -76,10 +76,11 @@ export default function Page() {
     if (now - lastGateAdvanceAt.current < GATE_ADVANCE_COOLDOWN_MS) return
     lastGateAdvanceAt.current = now
 
-    // If on step 0, trigger automatic sequence
+    // If on step 0, trigger automatic sequence.
+    // Don't set gateStep yet — the sequence effect will align
+    // RED to the next clock-second boundary.
     if (gateStep === 0) {
       setSequenceActive(true)
-      setGateStep(1)  // RED
     } else {
       setGateStep((s) => (s >= 3 ? 3 : s + 1))
     }
@@ -165,11 +166,12 @@ export default function Page() {
     })
   }, [handleEnterShop, inGate])
 
-  // When we hit green, wait briefly so green is visible, then proceed
+  // When we hit green via manual clicks (not auto-sequence), proceed after a brief pause
   useEffect(() => {
     if (!inGate) return
     if (gateStep !== 3) return
     if (proceedFired.current || isProceeding) return
+    if (sequenceActive) return // auto-sequence handles its own timing
 
     clearTimeout(proceedDelayTimer.current)
     proceedDelayTimer.current = setTimeout(() => {
@@ -177,26 +179,32 @@ export default function Page() {
     }, 300)
 
     return () => clearTimeout(proceedDelayTimer.current)
-  }, [gateStep, inGate, isProceeding, triggerProceed])
+  }, [gateStep, inGate, isProceeding, triggerProceed, sequenceActive])
 
-  // Auto-advance through color sequence: RED → YELLOW → GREEN → BLACK
+  // Auto-advance through color sequence, aligned to clock-second boundaries.
+  // Each color change fires when the clock's seconds digit ticks.
   useEffect(() => {
     if (!sequenceActive || !inGate) return
 
     let timer
+    // ms until the next whole-second boundary
+    const msToNextSec = 1000 - (Date.now() % 1000)
 
-    if (gateStep === 1) {
-      // RED → YELLOW after 1000ms
-      timer = setTimeout(() => setGateStep(2), 1000)
+    if (gateStep === 0) {
+      // Wait for next clock-second boundary, then show RED
+      timer = setTimeout(() => setGateStep(1), msToNextSec)
+    } else if (gateStep === 1) {
+      // RED → YELLOW at next second boundary
+      timer = setTimeout(() => setGateStep(2), msToNextSec)
     } else if (gateStep === 2) {
-      // YELLOW → GREEN after 1000ms
-      timer = setTimeout(() => setGateStep(3), 1000)
+      // YELLOW → GREEN at next second boundary
+      timer = setTimeout(() => setGateStep(3), msToNextSec)
     } else if (gateStep === 3) {
-      // GREEN → BLACK after 1000ms, then proceed
+      // GREEN → BLACK at next second boundary, then proceed
       timer = setTimeout(() => {
         setSequenceActive(false)
         triggerProceed()
-      }, 1000)
+      }, msToNextSec)
     }
 
     return () => clearTimeout(timer)
@@ -259,7 +267,7 @@ export default function Page() {
 
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
-            <HeartBeatButton className="heart-submit" aria-label="Open login" onClick={() => {}} />
+            {!loaderShow && <HeartBeatButton className="heart-submit" aria-label="Open login" onClick={() => {}} />}
           </main>
 
           <div className="lb-chakra-runner">

@@ -44,8 +44,18 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0 }) 
   }, [])
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(t)
+    const tick = () => setNow(new Date())
+    // Align to next second boundary so the display ticks at :00 ms
+    const msToNextSec = 1000 - (Date.now() % 1000)
+    let intervalId
+    const alignTimer = setTimeout(() => {
+      tick()
+      intervalId = setInterval(tick, 1000)
+    }, msToNextSec)
+    return () => {
+      clearTimeout(alignTimer)
+      if (intervalId) clearInterval(intervalId)
+    }
   }, [])
 
   // Determine which location and timezone to show based on gateStep
