@@ -186,17 +186,17 @@ export default function Page() {
     let timer
 
     if (gateStep === 1) {
-      // RED → YELLOW after 1200ms
-      timer = setTimeout(() => setGateStep(2), 1200)
+      // RED → YELLOW after 1000ms
+      timer = setTimeout(() => setGateStep(2), 1000)
     } else if (gateStep === 2) {
-      // YELLOW → GREEN after 1200ms
-      timer = setTimeout(() => setGateStep(3), 1200)
+      // YELLOW → GREEN after 1000ms
+      timer = setTimeout(() => setGateStep(3), 1000)
     } else if (gateStep === 3) {
-      // GREEN → BLACK after 1200ms, then proceed
+      // GREEN → BLACK after 1000ms, then proceed
       timer = setTimeout(() => {
         setSequenceActive(false)
         triggerProceed()
-      }, 1200)
+      }, 1000)
     }
 
     return () => clearTimeout(timer)
