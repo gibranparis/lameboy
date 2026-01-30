@@ -59,6 +59,7 @@ export default function Page() {
 
   const [gateStep, setGateStep] = useState(0) // 0..3
   const [isProceeding, setIsProceeding] = useState(false)
+  const [sequenceActive, setSequenceActive] = useState(false)
 
   const proceedFired = useRef(false)
   const proceedDelayTimer = useRef(null)
@@ -75,8 +76,14 @@ export default function Page() {
     if (now - lastGateAdvanceAt.current < GATE_ADVANCE_COOLDOWN_MS) return
     lastGateAdvanceAt.current = now
 
-    setGateStep((s) => (s >= 3 ? 3 : s + 1))
-  }, [inGate, isProceeding])
+    // If on step 0, trigger automatic sequence
+    if (gateStep === 0) {
+      setSequenceActive(true)
+      setGateStep(1)  // RED
+    } else {
+      setGateStep((s) => (s >= 3 ? 3 : s + 1))
+    }
+  }, [inGate, isProceeding, gateStep])
 
   /* ---------- root tokens ---------- */
 
@@ -171,6 +178,29 @@ export default function Page() {
 
     return () => clearTimeout(proceedDelayTimer.current)
   }, [gateStep, inGate, isProceeding, triggerProceed])
+
+  // Auto-advance through color sequence: RED → YELLOW → GREEN → BLACK
+  useEffect(() => {
+    if (!sequenceActive || !inGate) return
+
+    let timer
+
+    if (gateStep === 1) {
+      // RED → YELLOW after 800ms
+      timer = setTimeout(() => setGateStep(2), 800)
+    } else if (gateStep === 2) {
+      // YELLOW → GREEN after 800ms
+      timer = setTimeout(() => setGateStep(3), 800)
+    } else if (gateStep === 3) {
+      // GREEN → BLACK after 800ms, then proceed
+      timer = setTimeout(() => {
+        setSequenceActive(false)
+        triggerProceed()
+      }, 800)
+    }
+
+    return () => clearTimeout(timer)
+  }, [sequenceActive, gateStep, inGate, triggerProceed])
 
   // cleanup any pending timer if component unmounts
   useEffect(() => {

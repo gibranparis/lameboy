@@ -66,14 +66,18 @@ export default function WhiteLoader({ show }) {
           transform: 'translateY(-2px)',
         }}
       >
-        {/* Pure DOM “black orb” surrogate (no WebGL stall) */}
+        {/* Enhanced black orb with glow effect */}
         <div
           style={{
-            width: 88,
-            height: 88,
-            borderRadius: 9999,
+            width: 72,
+            height: 72,
+            borderRadius: '50%',
             background: '#000',
-            boxShadow: '0 0 10px rgba(0,0,0,0.20), 0 0 22px rgba(0,0,0,0.12)',
+            boxShadow:
+              '0 0 20px rgba(0, 0, 0, 0.4), ' +
+              '0 0 40px rgba(0, 0, 0, 0.25), ' +
+              '0 0 60px rgba(0, 0, 0, 0.15), ' +
+              'inset 0 0 20px rgba(255, 255, 255, 0.05)',
           }}
         />
 

@@ -339,6 +339,14 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                   }
                 }}
               />
+              {(() => {
+                const qty = getProductQty(p.id)
+                return qty > 0 ? (
+                  <span className="product-badge" aria-label={`${qty} in cart`}>
+                    {qty}
+                  </span>
+                ) : null
+              })()}
             </div>
             <div className="product-meta">{p.title}</div>
           </a>

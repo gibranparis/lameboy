@@ -23,7 +23,11 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0 }) 
         const response = await fetch('https://ipapi.co/json/')
         const data = await response.json()
         
-        if (data.city && data.country_code) {
+        // Use region (state) instead of city for broader location
+        if (data.region && data.country_code) {
+          const countryCode = data.country_code === 'US' ? 'USA' : data.country_code
+          setVisitorLocation(`${data.region}, ${countryCode}`)
+        } else if (data.city && data.country_code) {
           const countryCode = data.country_code === 'US' ? 'USA' : data.country_code
           setVisitorLocation(`${data.city}, ${countryCode}`)
         }
@@ -46,12 +50,15 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0 }) 
 
   // Determine which location and timezone to show based on gateStep
   const displayLocation = useMemo(() => {
-    // gateStep 0 = visitor's location, gateStep 1+ = Florida
-    return gateStep >= 1 ? 'Cape Coral, USA' : visitorLocation
+    if (gateStep === 0) return visitorLocation  // Broader IP location
+    if (gateStep === 1) return 'Cape Coral, USA'
+    if (gateStep === 2) return 'Naples, USA'
+    if (gateStep === 3) return 'Florida, USA'
+    return visitorLocation
   }, [gateStep, visitorLocation])
 
   const displayTimezone = useMemo(() => {
-    // gateStep 0 = visitor's timezone, gateStep 1+ = Florida timezone
+    // Always use Eastern Time during gate sequence
     return gateStep >= 1 ? 'America/New_York' : visitorTimezone
   }, [gateStep, visitorTimezone])
 
