@@ -612,16 +612,25 @@ export default function ProductOverlay({
 
     const hero = heroRef.current
     const fr = fromRectRef.current
-
-    // Zoom back only if we have an anchor rect.
-    // We intentionally allow zoom-back even if user scrolled to another product;
-    // it will always return to the tile that originally opened the overlay.
     const canZoomBack = hero && fr && !reduceMotion
 
     if (!canZoomBack) {
+      // Fallback: simple fade when no FLIP target
+      if (hero) {
+        hero.style.transition = 'opacity 160ms ease'
+        hero.style.opacity = '0'
+      }
       window.setTimeout(finishClose, 160)
       return
     }
+
+    // Reveal grid so the tile is visible when hero arrives
+    window.setTimeout(() => {
+      try {
+        const gridEl = document.querySelector('[data-component="shop-grid"]')
+        if (gridEl) gridEl.classList.remove('overlay-fading')
+      } catch {}
+    }, 40)
 
     const to = fr
     const from = hero.getBoundingClientRect()
@@ -631,16 +640,16 @@ export default function ProductOverlay({
     const sx = to.width / Math.max(1, from.width)
     const sy = to.height / Math.max(1, from.height)
 
+    // Item stays fully visible — just shrinks into grid position
     hero.style.willChange = 'transform'
-    hero.style.transition = 'transform 200ms cubic-bezier(.2,.8,.2,1), opacity 200ms ease'
+    hero.style.transition = 'transform 280ms cubic-bezier(.2,.8,.2,1)'
     hero.style.transformOrigin = 'top left'
     hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
-    hero.style.opacity = '0.0'
 
     window.setTimeout(() => {
       hero.style.willChange = ''
       finishClose()
-    }, 210)
+    }, 300)
   }, [finishClose, reduceMotion])
 
   /* zoom-back close after add-to-cart: item stays visible while shrinking to grid */
@@ -673,13 +682,11 @@ export default function ProductOverlay({
     const sx = to.width / Math.max(1, from.width)
     const sy = to.height / Math.max(1, from.height)
 
-    // Item stays visible during zoom, fades only in the last stretch
-    hero.style.willChange = 'transform, opacity'
-    hero.style.transition =
-      'transform 340ms cubic-bezier(.2,.8,.2,1), opacity 80ms ease 270ms'
+    // Item stays fully visible — just shrinks into grid position
+    hero.style.willChange = 'transform'
+    hero.style.transition = 'transform 340ms cubic-bezier(.2,.8,.2,1)'
     hero.style.transformOrigin = 'top left'
     hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
-    hero.style.opacity = '0'
 
     window.setTimeout(() => {
       hero.style.willChange = ''
@@ -833,13 +840,13 @@ export default function ProductOverlay({
     // Snap hero to the grid-tile position before the browser ever paints
     hero.style.transition = 'none'
     hero.style.transformOrigin = 'top left'
-    hero.style.willChange = 'transform, opacity'
+    hero.style.willChange = 'transform'
     hero.style.opacity = '1'
     hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
 
     // Next frame: apply transition and animate to final position
     requestAnimationFrame(() => {
-      hero.style.transition = 'transform 200ms cubic-bezier(.2,.9,.2,1), opacity 200ms ease'
+      hero.style.transition = 'transform 200ms cubic-bezier(.2,.9,.2,1)'
       hero.style.transform = 'translate(0px, 0px) scale(1)'
     })
 
@@ -976,11 +983,6 @@ export default function ProductOverlay({
 
           <div
             ref={heroRef}
-            style={{
-              transform: closing ? 'scale(0.94)' : undefined,
-              opacity: closing ? 0.0 : undefined,
-              transition: closing ? 'transform 160ms ease, opacity 160ms ease' : undefined,
-            }}
           >
             {!!imgs.length && (
               <>
