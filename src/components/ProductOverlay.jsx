@@ -203,6 +203,11 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     return () => window.removeEventListener('product-image-click', onProductClick)
   }, [showAdded, onToggle])
 
+  // Close size dropdown when product changes (scroll / swipe / arrow navigation)
+  useEffect(() => {
+    setOpen(false)
+  }, [product])
+
   const glyph = open ? '–' : '+'
   const addedStyle = {
     color: priceStyle?.color || 'inherit',
@@ -227,7 +232,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         onClick={onToggle}
         aria-label={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
         title={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
-        style={{ width: 32, height: 32 }}
+        style={{ width: 28, height: 28 }}
       >
         <span aria-hidden style={{ opacity: showAdded ? 0 : 1 }}>
           {glyph}
@@ -277,19 +282,19 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
 
       <style jsx>{`
         .plus-pill {
-          width: 32px;
-          height: 32px;
-          border-radius: 9999px;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
           display: grid;
           place-items: center;
-          font-size: 20px;
+          font-size: 18px;
           line-height: 1;
           font-weight: 800;
           color: #0f1115;
           background: #fff;
           box-shadow:
-            inset 0 0 0 1px rgba(0, 0, 0, 0.12),
-            0 2px 10px rgba(0, 0, 0, 0.08);
+            0 2px 10px rgba(0,0,0,.14),
+            inset 0 0 0 1px rgba(0,0,0,.10);
           transition:
             background 0.12s ease,
             box-shadow 0.12s ease,
@@ -298,10 +303,10 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         }
         :root[data-theme='night'] .plus-pill {
           color: #fff;
-          background: #000;
+          background: rgba(255,255,255,0.10);
           box-shadow:
-            inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-            0 2px 10px rgba(0, 0, 0, 0.2);
+            0 2px 10px rgba(0,0,0,.14),
+            inset 0 0 0 1px rgba(255,255,255,.24);
         }
         .plus-pill.is-open,
         .plus-pill.is-hot {
@@ -325,15 +330,20 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           max-height: 68px;
         }
         .size-pill {
-          height: 36px;
-          min-width: 44px;
-          padding: 0 12px;
-          border-radius: 9999px;
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          border-radius: 50%;
           font-weight: 700;
-          letterspacing: 0.04em;
+          font-size: 10px;
+          letter-spacing: 0.02em;
+          display: grid;
+          place-items: center;
           background: #fff;
           color: #0f1115;
-          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+          box-shadow:
+            0 2px 10px rgba(0,0,0,.14),
+            inset 0 0 0 1px rgba(0,0,0,.10);
           transition:
             transform 0.08s ease,
             box-shadow 0.2s ease,
@@ -341,9 +351,11 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
             color 0.12s ease;
         }
         :root[data-theme='night'] .size-pill {
-          background: #000;
+          background: rgba(255,255,255,0.10);
           color: #fff;
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+          box-shadow:
+            0 2px 10px rgba(0,0,0,.14),
+            inset 0 0 0 1px rgba(255,255,255,.24);
         }
         .size-pill.is-selected {
           background: var(--hover-green, #0bf05f);
@@ -356,7 +368,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
 }
 
 /* ---------------- swipe engine ---------------- */
-function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash }) {
+function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash, onSwipeBack }) {
   const state = useRef({
     active: false,
     lastX: 0,
@@ -410,11 +422,16 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
       state.current.ax += dx + state.current.vx * FLICK_V_BONUS * 80
       state.current.ay += dy + state.current.vy * FLICK_V_BONUS * 80
 
+      // Swipe left → close overlay (back to grid)
+      if (state.current.ax <= -STEP_X) {
+        state.current.active = false
+        state.current.ax = 0
+        state.current.ay = 0
+        onSwipeBack?.()
+        return
+      }
+      // Swipe right → previous image
       if (imgsLen) {
-        while (state.current.ax <= -STEP_X) {
-          state.current.ax += STEP_X
-          setImgIdx((i) => clamp(i + 1, 0, imgsLen - 1))
-        }
         while (state.current.ax >= STEP_X) {
           state.current.ax -= STEP_X
           setImgIdx((i) => clamp(i - 1, 0, imgsLen - 1))
@@ -433,7 +450,7 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
         }
       }
     },
-    [imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash]
+    [imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFlash, onSwipeBack]
   )
 
   const onUp = useCallback(() => {
@@ -661,6 +678,7 @@ export default function ProductOverlay({
     setImgIdx,
     onIndexChange,
     onDirFlash,
+    onSwipeBack: animateClose,
   })
 
   /* overlay flag */
