@@ -2,7 +2,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react'
 
 /* ---------------- utils ---------------- */
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -814,40 +814,40 @@ export default function ProductOverlay({
   // Reset image index when product changes (wheel roll / swipe up/down)
   useEffect(() => setImgIdx(0), [index])
 
-  // FLIP ENTER: run ONLY ONCE (initial open), double-rAF for stable measurement
-  useEffect(() => {
+  // FLIP ENTER: useLayoutEffect positions hero BEFORE first paint (no flash)
+  useLayoutEffect(() => {
     const hero = heroRef.current
     const fr = fromRectRef.current
     if (!hero || !fr || reduceMotion) return
     if (didEnterRef.current) return
     didEnterRef.current = true
 
-    const run = () => {
-      const target = hero.getBoundingClientRect()
-      const dx = fr.left - target.left
-      const dy = fr.top - target.top
-      const sx = fr.width / Math.max(1, target.width)
-      const sy = fr.height / Math.max(1, target.height)
+    // Measure hero's final (center) position — getBoundingClientRect forces
+    // synchronous layout so measurements are accurate before paint.
+    const target = hero.getBoundingClientRect()
+    const dx = fr.left - target.left
+    const dy = fr.top - target.top
+    const sx = fr.width / Math.max(1, target.width)
+    const sy = fr.height / Math.max(1, target.height)
 
-      hero.style.transition = 'none'
-      hero.style.transformOrigin = 'top left'
-      hero.style.willChange = 'transform, opacity'
-      hero.style.opacity = '1'
-      hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+    // Snap hero to the grid-tile position before the browser ever paints
+    hero.style.transition = 'none'
+    hero.style.transformOrigin = 'top left'
+    hero.style.willChange = 'transform, opacity'
+    hero.style.opacity = '1'
+    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
 
-      requestAnimationFrame(() => {
-        hero.style.transition = 'transform 200ms cubic-bezier(.2,.9,.2,1), opacity 200ms ease'
-        hero.style.transform = 'translate(0px, 0px) scale(1)'
-      })
+    // Next frame: apply transition and animate to final position
+    requestAnimationFrame(() => {
+      hero.style.transition = 'transform 200ms cubic-bezier(.2,.9,.2,1), opacity 200ms ease'
+      hero.style.transform = 'translate(0px, 0px) scale(1)'
+    })
 
-      const cleanup = () => {
-        hero.style.willChange = ''
-        hero.removeEventListener('transitionend', cleanup)
-      }
-      hero.addEventListener('transitionend', cleanup)
+    const cleanup = () => {
+      hero.style.willChange = ''
+      hero.removeEventListener('transitionend', cleanup)
     }
-
-    requestAnimationFrame(() => requestAnimationFrame(run))
+    hero.addEventListener('transitionend', cleanup)
   }, [reduceMotion])
 
   // Ensure product changes do NOT keep any stale transform

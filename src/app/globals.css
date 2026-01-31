@@ -479,20 +479,10 @@ html:has(.shop-grid[style*='--grid-cols: 5']) .product-img {
   pointer-events: none;
 }
 
-/* Keep the active/clicked tile visible initially, then fade during transition */
+/* Hide clicked tile immediately — the FLIP hero takes over its position */
 [data-component='shop-grid'].overlay-fading .product-tile[data-flip-active='true'] {
-  opacity: 1;
-  pointer-events: auto;
-  animation: flip-tile-fadeout 200ms ease 50ms forwards;
-}
-
-@keyframes flip-tile-fadeout {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Keep grid hidden until ProductOverlay/Shop ready */
