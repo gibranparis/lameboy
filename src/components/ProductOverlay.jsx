@@ -486,8 +486,8 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
       vel = Math.max(-MAX_VEL, Math.min(MAX_VEL, vel))
       let accum = state.current.ay
       let localIdx = indexRef.current
-      const FRICTION = 0.97
-      const STOP = 0.8 // px/frame threshold to stop
+      const FRICTION = 0.96
+      const STOP = 1.5 // px/frame threshold to stop
 
       const tick = () => {
         vel *= FRICTION
