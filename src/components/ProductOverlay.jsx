@@ -482,7 +482,7 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
     // Touch momentum: continue scrolling products after finger lifts
     if (coarse && absVy > 0.25 && prodsLen > 1) {
       let vel = vy * 10 // softer initial momentum
-      const MAX_VEL = 14 // cap so products don't zip by too fast
+      const MAX_VEL = 9 // cap so products don't zip by too fast
       vel = Math.max(-MAX_VEL, Math.min(MAX_VEL, vel))
       let accum = state.current.ay
       let localIdx = indexRef.current
