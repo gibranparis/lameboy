@@ -76,10 +76,9 @@ export default function Page() {
     if (now - lastGateAdvanceAt.current < GATE_ADVANCE_COOLDOWN_MS) return
     lastGateAdvanceAt.current = now
 
-    // If on step 0, trigger automatic sequence.
-    // Don't set gateStep yet — the sequence effect will align
-    // RED to the next clock-second boundary.
+    // If on step 0, immediately show RED and start auto-sequence
     if (gateStep === 0) {
+      setGateStep(1)
       setSequenceActive(true)
     } else {
       setGateStep((s) => (s >= 3 ? 3 : s + 1))
@@ -155,15 +154,13 @@ export default function Page() {
     // lock to black phase (OrbShell will render black immediately)
     setIsProceeding(true)
 
-    // Hold black orb + "Let All Mankind Evolve" visible before starting transition
-    setTimeout(() => {
+    // Two frames to guarantee black paints before loader/shop work
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const cleanup = handleEnterShop()
-          void cleanup
-        })
+        const cleanup = handleEnterShop()
+        void cleanup
       })
-    }, 800)
+    })
   }, [handleEnterShop, inGate])
 
   // When we hit green via manual clicks (not auto-sequence), proceed after a brief pause
@@ -190,10 +187,7 @@ export default function Page() {
     // ms until the next whole-second boundary
     const msToNextSec = 1000 - (Date.now() % 1000)
 
-    if (gateStep === 0) {
-      // Wait for next clock-second boundary, then show RED
-      timer = setTimeout(() => setGateStep(1), msToNextSec)
-    } else if (gateStep === 1) {
+    if (gateStep === 1) {
       // RED → YELLOW at next second boundary
       timer = setTimeout(() => setGateStep(2), msToNextSec)
     } else if (gateStep === 2) {
@@ -255,9 +249,10 @@ export default function Page() {
       />
 
       {/* Gate */}
-      {inGate && (
+      {(inGate || loaderShow) && (
         <main className="lb-screen">
-<BannedLogin onAdvanceGate={advanceGate} onProceed={triggerProceed} gateStep={gateStep} isProceeding={isProceeding} />        </main>
+          <BannedLogin onAdvanceGate={advanceGate} onProceed={triggerProceed} gateStep={gateStep} isProceeding={isProceeding} />
+        </main>
       )}
 
       {/* Shop */}

@@ -7,6 +7,15 @@
 /** @type {Product[]} */
 export const PRODUCTS = [
   {
+    id: 'hoodie-gray',
+    title: 'Gray',
+    price: 4000,
+    image: '/products/gray.png',
+    thumb: '/products/gray.png',
+    images: ['/products/gray.png'],
+    sizes: ['S', 'M', 'L', 'XL'],
+  },
+  {
     id: 'hoodie-brown',
     title: 'Brown',
     price: 4000,
@@ -22,15 +31,6 @@ export const PRODUCTS = [
     image: '/products/black.png',
     thumb: '/products/black.png',
     images: ['/products/black.png'],
-    sizes: ['S', 'M', 'L', 'XL'],
-  },
-  {
-    id: 'hoodie-gray',
-    title: 'Gray',
-    price: 4000,
-    image: '/products/gray.png',
-    thumb: '/products/gray.png',
-    images: ['/products/gray.png'],
     sizes: ['S', 'M', 'L', 'XL'],
   },
   {
