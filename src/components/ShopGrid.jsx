@@ -197,9 +197,14 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       const explicit = Number(d.value)
 
       if (overlayIdx != null) {
-        setOverlayIdx(null)
-        // Allow explicit set (like reset-to-5) to still apply
-        if (!Number.isFinite(explicit)) return
+        // Don't unmount here — ProductOverlay handles its own animated
+        // close via its zoom listener and calls onClose() when done.
+        // Still apply an explicit density value so the grid is correct
+        // when the overlay finishes closing.
+        if (Number.isFinite(explicit)) {
+          setCols(clampCols(explicit))
+        }
+        return
       }
 
       if (Number.isFinite(explicit)) {

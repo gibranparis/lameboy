@@ -822,6 +822,7 @@ export default function ProductOverlay({
   useEffect(() => setImgIdx(0), [index])
 
   // FLIP ENTER: useLayoutEffect positions hero BEFORE first paint (no flash)
+  const isInitialMount = useRef(true)
   useLayoutEffect(() => {
     const hero = heroRef.current
     const fr = fromRectRef.current
@@ -844,11 +845,14 @@ export default function ProductOverlay({
     hero.style.opacity = '1'
     hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
 
-    // Next frame: apply transition and animate to final position
-    requestAnimationFrame(() => {
-      hero.style.transition = 'transform 200ms cubic-bezier(.2,.9,.2,1)'
-      hero.style.transform = 'translate(0px, 0px) scale(1)'
-    })
+    // Force reflow so the browser registers the initial position
+    // before we apply the transition to the final position.
+    // eslint-disable-next-line no-unused-expressions
+    hero.offsetHeight
+
+    // Animate to final (center) position
+    hero.style.transition = 'transform 200ms cubic-bezier(.2,.9,.2,1)'
+    hero.style.transform = 'translate(0px, 0px) scale(1)'
 
     const cleanup = () => {
       hero.style.willChange = ''
@@ -858,10 +862,14 @@ export default function ProductOverlay({
   }, [reduceMotion])
 
   // Ensure product changes do NOT keep any stale transform
+  // (skip initial mount so we don't clobber the FLIP enter animation)
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
     const hero = heroRef.current
     if (!hero) return
-    if (!didEnterRef.current) return
     hero.style.transform = 'translate(0px, 0px) scale(1)'
     hero.style.transformOrigin = ''
     hero.style.transition = ''
