@@ -991,6 +991,7 @@ export default function ProductOverlay({
 
           <div
             ref={heroRef}
+            style={{ display: 'inline-block' }}
           >
             {!!imgs.length && (
               <>
@@ -1002,7 +1003,6 @@ export default function ProductOverlay({
                     } catch {}
                   }}
                   style={{
-                    width: '100%',
                     cursor: 'pointer',
                   }}
                 >
@@ -1017,10 +1017,11 @@ export default function ProductOverlay({
                     quality={95}
                     sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
                     style={{
-                      width: '100%',
+                      display: 'block',
+                      width: 'auto',
+                      maxWidth: '100%',
                       height: 'auto',
                       maxHeight: '70vh',
-                      objectFit: 'contain',
                       imageRendering: 'auto',
                     }}
                   />
