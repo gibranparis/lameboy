@@ -155,15 +155,15 @@ export default function Page() {
     // lock to black phase (OrbShell will render black immediately)
     setIsProceeding(true)
 
-    // two frames to guarantee black paints before loader/shop work
-    requestAnimationFrame(() => {
+    // Hold black orb + "Let All Mankind Evolve" visible before starting transition
+    setTimeout(() => {
       requestAnimationFrame(() => {
-        const cleanup = handleEnterShop()
-        // if handleEnterShop returned a cleanup function, we intentionally ignore it here
-        // because this is a one-way transition; timers are cleared on unmount anyway.
-        void cleanup
+        requestAnimationFrame(() => {
+          const cleanup = handleEnterShop()
+          void cleanup
+        })
       })
-    })
+    }, 800)
   }, [handleEnterShop, inGate])
 
   // When we hit green via manual clicks (not auto-sequence), proceed after a brief pause
