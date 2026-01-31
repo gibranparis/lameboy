@@ -1043,7 +1043,7 @@ export default function ProductOverlay({
         <div
           style={{
             position: 'fixed',
-            top: '80%',
+            bottom: 'calc(12vh + env(safe-area-inset-bottom, 0px))',
             left: '50%',
             transform: 'translateX(-50%)',
             textAlign: 'center',
@@ -1054,7 +1054,7 @@ export default function ProductOverlay({
           }}
         >
           <div className="product-hero-title">{product.title}</div>
-          <div ref={priceRef} className="product-hero-price">
+          <div ref={priceRef} className="product-hero-price" style={{ marginTop: 4, marginBottom: 10 }}>
             {priceText}
           </div>
           <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} />
