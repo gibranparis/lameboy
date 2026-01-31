@@ -234,19 +234,23 @@ export default function OrbShell({
       }
 
   const orbOverrideAllColor = inGateLike ? gateOverride : pressColor || null
-  const orbHaloTint = inGateLike ? null : pressColor || null
+  const orbHaloTint = inGateLike
+    ? null
+    : pressColor || null
 
-  const orbGlow = inGateLike ? !isProceeding && !loaderShow : true
+  // Always keep glow meshes mounted so the visual footprint stays consistent
+  // across color transitions. Opacity (orbGlowOpacity) already goes to 0
+  // during black/proceeding/loader states, making halos invisible without
+  // unmounting them (which caused a perceived vertical shift).
+  const orbGlow = true
   const orbGlowOpacity = inGateLike
-    ? loaderShow
+    ? loaderShow || isProceeding
       ? 0
-      : isProceeding
-        ? 0
-        : gateSolid
+      : gateSolid
+        ? 1.0
+        : gateStep >= 1
           ? 1.0
-          : gateStep >= 1
-            ? 1.0
-            : 0.9
+          : 0.9
     : pressColor
       ? 1.0
       : 0.9
