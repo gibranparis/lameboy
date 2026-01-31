@@ -188,8 +188,9 @@ export default function Page() {
     const msToNextSec = 1000 - (Date.now() % 1000)
 
     if (gateStep === 1) {
-      // RED → YELLOW at next second boundary
-      timer = setTimeout(() => setGateStep(2), msToNextSec)
+      // RED → YELLOW at next second boundary (ensure at least 600ms so RED doesn't feel rushed)
+      const redDelay = msToNextSec < 600 ? msToNextSec + 1000 : msToNextSec
+      timer = setTimeout(() => setGateStep(2), redDelay)
     } else if (gateStep === 2) {
       // YELLOW → GREEN at next second boundary
       timer = setTimeout(() => setGateStep(3), msToNextSec)
