@@ -486,9 +486,9 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
       vel = Math.max(-MAX_VEL, Math.min(MAX_VEL, vel))
       let accum = state.current.ay
       let localIdx = indexRef.current
-      const FRICTION = 0.92 // original friction — natural decay
-      const STOP = 1.5
-      const M_STEP = 70 // lighter step than drag so momentum rolls
+      const FRICTION = 0.94
+      const STOP = 1.0
+      const M_STEP = 52 // lighter step than drag so momentum rolls
 
       const tick = () => {
         vel *= FRICTION
