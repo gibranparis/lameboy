@@ -140,7 +140,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi, isHot = false }) {
 }
 
 /* ---------------- + / sizes ---------------- */
-function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product }) {
+function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, onAddedToCart }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState(null)
   const [hotSize, setHotSize] = useState(null)
@@ -180,9 +180,13 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
       setHotSize(null)
       setAdded(true)
       clearTimeout(timers.current.hide)
-      timers.current.hide = setTimeout(() => setAdded(false), 900)
+      if (onAddedToCart) {
+        timers.current.hide = setTimeout(() => onAddedToCart(), 300)
+      } else {
+        timers.current.hide = setTimeout(() => setAdded(false), 900)
+      }
     }, 380)
-  }, [product])
+  }, [product, onAddedToCart])
 
   useEffect(
     () => () =>
@@ -569,6 +573,7 @@ export default function ProductOverlay({
   const didEnterRef = useRef(false)
 
   const [closing, setClosing] = useState(false)
+  const [addToCartClosing, setAddToCartClosing] = useState(false)
   const closingRef = useRef(false)
 
   const heroRef = useRef(null)
@@ -636,6 +641,50 @@ export default function ProductOverlay({
       hero.style.willChange = ''
       finishClose()
     }, 210)
+  }, [finishClose, reduceMotion])
+
+  /* zoom-back close after add-to-cart: item stays visible while shrinking to grid */
+  const animateCloseAfterAdd = useCallback(() => {
+    if (closingRef.current) return
+    closingRef.current = true
+    setAddToCartClosing(true)
+
+    const hero = heroRef.current
+    const fr = fromRectRef.current
+    const canZoomBack = hero && fr && !reduceMotion
+
+    if (!canZoomBack) {
+      window.setTimeout(finishClose, 160)
+      return
+    }
+
+    // Reveal grid with a slight delay so the zoom starts first
+    window.setTimeout(() => {
+      try {
+        const gridEl = document.querySelector('[data-component="shop-grid"]')
+        if (gridEl) gridEl.classList.remove('overlay-fading')
+      } catch {}
+    }, 60)
+
+    const from = hero.getBoundingClientRect()
+    const to = fr
+    const dx = to.left - from.left
+    const dy = to.top - from.top
+    const sx = to.width / Math.max(1, from.width)
+    const sy = to.height / Math.max(1, from.height)
+
+    // Item stays visible during zoom, fades only in the last stretch
+    hero.style.willChange = 'transform, opacity'
+    hero.style.transition =
+      'transform 340ms cubic-bezier(.2,.8,.2,1), opacity 80ms ease 270ms'
+    hero.style.transformOrigin = 'top left'
+    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+    hero.style.opacity = '0'
+
+    window.setTimeout(() => {
+      hero.style.willChange = ''
+      finishClose()
+    }, 360)
   }, [finishClose, reduceMotion])
 
   /* signal mount for grid guard */
@@ -872,17 +921,15 @@ export default function ProductOverlay({
           }}
         />
 
+        {/* Image section – participates in FLIP open/close animation */}
         <div
-          ref={heroRef}
           className="product-hero"
           style={{
             pointerEvents: 'auto',
             textAlign: 'center',
             zIndex: 521,
             touchAction: 'none',
-            transform: closing ? 'scale(0.94)' : undefined,
-            opacity: closing ? 0.0 : undefined,
-            transition: closing ? 'transform 160ms ease, opacity 160ms ease' : undefined,
+            marginTop: '-4vh',
           }}
           onPointerDown={swipe.onDown}
           onPointerMove={swipe.onMove}
@@ -900,6 +947,8 @@ export default function ProductOverlay({
                 display: 'grid',
                 gap: 8,
                 zIndex: 110,
+                opacity: (closing || addToCartClosing) ? 0 : 1,
+                transition: (closing || addToCartClosing) ? 'opacity 160ms ease' : undefined,
               }}
             >
               <ArrowControl
@@ -925,64 +974,88 @@ export default function ProductOverlay({
             </div>
           )}
 
-          {!!imgs.length && (
-            <>
-              <div
-                data-ui="product-viewport"
-                onClick={() => {
-                  try {
-                    window.dispatchEvent(new CustomEvent('product-image-click'))
-                  } catch {}
-                }}
-                style={{
-                  width: '100%',
-                  cursor: 'pointer',
-                }}
-              >
-                <Image
-                  src={imgs[clampedImgIdx]}
-                  alt={product.title}
-                  width={2048}
-                  height={1536}
-                  className="product-hero-img"
-                  priority
-                  fetchPriority="high"
-                  quality={95}
-                  sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
+          <div
+            ref={heroRef}
+            style={{
+              transform: closing ? 'scale(0.94)' : undefined,
+              opacity: closing ? 0.0 : undefined,
+              transition: closing ? 'transform 160ms ease, opacity 160ms ease' : undefined,
+            }}
+          >
+            {!!imgs.length && (
+              <>
+                <div
+                  data-ui="product-viewport"
+                  onClick={() => {
+                    try {
+                      window.dispatchEvent(new CustomEvent('product-image-click'))
+                    } catch {}
+                  }}
                   style={{
                     width: '100%',
-                    height: 'auto',
-                    maxHeight: '70vh',
-                    objectFit: 'contain',
-                    imageRendering: 'auto',
+                    cursor: 'pointer',
                   }}
-                />
-              </div>
-              {imgs.length > 1 && (
-                <div
-                  className="row-nowrap"
-                  style={{ gap: 8, marginTop: 6, justifyContent: 'center', display: 'flex' }}
                 >
-                  {imgs.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      aria-label={`Image ${i + 1}`}
-                      className={`pill dot-pill ${i === clampedImgIdx ? 'is-active' : ''}`}
-                      onClick={() => setImgIdx(i)}
-                      style={{ width: 18, height: 18, padding: 0 }}
-                    />
-                  ))}
+                  <Image
+                    src={imgs[clampedImgIdx]}
+                    alt={product.title}
+                    width={2048}
+                    height={1536}
+                    className="product-hero-img"
+                    priority
+                    fetchPriority="high"
+                    quality={95}
+                    sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      maxHeight: '70vh',
+                      objectFit: 'contain',
+                      imageRendering: 'auto',
+                    }}
+                  />
                 </div>
-              )}
-            </>
-          )}
+                {imgs.length > 1 && (
+                  <div
+                    className="row-nowrap"
+                    style={{ gap: 8, marginTop: 6, justifyContent: 'center', display: 'flex' }}
+                  >
+                    {imgs.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        aria-label={`Image ${i + 1}`}
+                        className={`pill dot-pill ${i === clampedImgIdx ? 'is-active' : ''}`}
+                        onClick={() => setImgIdx(i)}
+                        style={{ width: 18, height: 18, padding: 0 }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
 
+        {/* Text & buttons – fixed position, stays stationary when scrolling products */}
+        <div
+          style={{
+            position: 'fixed',
+            top: '80%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            textAlign: 'center',
+            zIndex: 522,
+            pointerEvents: 'auto',
+            opacity: (closing || addToCartClosing) ? 0 : 1,
+            transition: (closing || addToCartClosing) ? 'opacity 160ms ease' : undefined,
+          }}
+        >
           <div className="product-hero-title">{product.title}</div>
           <div ref={priceRef} className="product-hero-price">
             {priceText}
           </div>
-          <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} />
+          <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} />
         </div>
       </div>
 
