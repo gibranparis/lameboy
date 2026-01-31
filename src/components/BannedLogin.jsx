@@ -118,7 +118,7 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
         justifyContent: 'center',
         alignItems: 'center',
         background: '#fff',
-        zIndex: 1000,
+        zIndex: 10010,
       }}
     >
       {/* Time */}
