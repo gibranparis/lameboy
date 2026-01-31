@@ -632,19 +632,27 @@ export default function ProductOverlay({
       } catch {}
     }, 40)
 
-    const to = fr
     const from = hero.getBoundingClientRect()
+    const to = fr
 
-    const dx = to.left - from.left
-    const dy = to.top - from.top
+    // Center-to-center with uniform scale (symmetric with open animation)
+    const fromCx = from.left + from.width / 2
+    const fromCy = from.top + from.height / 2
+    const toCx = to.left + to.width / 2
+    const toCy = to.top + to.height / 2
+
     const sx = to.width / Math.max(1, from.width)
     const sy = to.height / Math.max(1, from.height)
+    const s = Math.max(sx, sy)
+
+    const dx = toCx - fromCx
+    const dy = toCy - fromCy
 
     // Item stays fully visible — just shrinks into grid position
     hero.style.willChange = 'transform'
     hero.style.transition = 'transform 280ms cubic-bezier(.2,.8,.2,1)'
-    hero.style.transformOrigin = 'top left'
-    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+    hero.style.transformOrigin = 'center center'
+    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`
 
     window.setTimeout(() => {
       hero.style.willChange = ''
@@ -677,16 +685,25 @@ export default function ProductOverlay({
 
     const from = hero.getBoundingClientRect()
     const to = fr
-    const dx = to.left - from.left
-    const dy = to.top - from.top
+
+    // Center-to-center with uniform scale (symmetric with open animation)
+    const fromCx = from.left + from.width / 2
+    const fromCy = from.top + from.height / 2
+    const toCx = to.left + to.width / 2
+    const toCy = to.top + to.height / 2
+
     const sx = to.width / Math.max(1, from.width)
     const sy = to.height / Math.max(1, from.height)
+    const s = Math.max(sx, sy)
+
+    const dx = toCx - fromCx
+    const dy = toCy - fromCy
 
     // Item stays fully visible — just shrinks into grid position
     hero.style.willChange = 'transform'
     hero.style.transition = 'transform 340ms cubic-bezier(.2,.8,.2,1)'
-    hero.style.transformOrigin = 'top left'
-    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+    hero.style.transformOrigin = 'center center'
+    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`
 
     window.setTimeout(() => {
       hero.style.willChange = ''
@@ -830,20 +847,33 @@ export default function ProductOverlay({
     if (didEnterRef.current) return
     didEnterRef.current = true
 
-    // Measure hero's final (center) position — getBoundingClientRect forces
-    // synchronous layout so measurements are accurate before paint.
+    // Measure hero's final position.
     const target = hero.getBoundingClientRect()
-    const dx = fr.left - target.left
-    const dy = fr.top - target.top
+
+    // Center-to-center positioning: anchor on the center of the tile and
+    // the center of the hero so the image always aligns with the tile
+    // regardless of hero/image size mismatch (object-fit letterboxing).
+    const frCx = fr.left + fr.width / 2
+    const frCy = fr.top + fr.height / 2
+    const tCx = target.left + target.width / 2
+    const tCy = target.top + target.height / 2
+
+    // Uniform scale so the image doesn't distort during the animation
     const sx = fr.width / Math.max(1, target.width)
     const sy = fr.height / Math.max(1, target.height)
+    const s = Math.max(sx, sy)
+
+    // With transformOrigin center, scale keeps center fixed, then translate
+    // moves the center from the hero's natural position to the tile's center.
+    const dx = frCx - tCx
+    const dy = frCy - tCy
 
     // Snap hero to the grid-tile position before the browser ever paints
     hero.style.transition = 'none'
-    hero.style.transformOrigin = 'top left'
+    hero.style.transformOrigin = 'center center'
     hero.style.willChange = 'transform'
     hero.style.opacity = '1'
-    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`
 
     // Force reflow so the browser registers the initial position
     // before we apply the transition to the final position.
@@ -991,7 +1021,6 @@ export default function ProductOverlay({
 
           <div
             ref={heroRef}
-            style={{ display: 'inline-block' }}
           >
             {!!imgs.length && (
               <>
@@ -1003,6 +1032,7 @@ export default function ProductOverlay({
                     } catch {}
                   }}
                   style={{
+                    width: '100%',
                     cursor: 'pointer',
                   }}
                 >
@@ -1017,11 +1047,10 @@ export default function ProductOverlay({
                     quality={95}
                     sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
                     style={{
-                      display: 'block',
-                      width: 'auto',
-                      maxWidth: '100%',
+                      width: '100%',
                       height: 'auto',
                       maxHeight: '70vh',
+                      objectFit: 'contain',
                       imageRendering: 'auto',
                     }}
                   />
