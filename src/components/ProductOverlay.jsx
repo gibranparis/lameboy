@@ -378,7 +378,17 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
     lastT: 0,
     vx: 0,
     vy: 0,
+    momentumRaf: 0,
   })
+
+  // Stable refs so the momentum loop always reads fresh values
+  const indexRef = useRef(index)
+  indexRef.current = index
+  const onIndexChangeRef = useRef(onIndexChange)
+  onIndexChangeRef.current = onIndexChange
+  const onDirFlashRef = useRef(onDirFlash)
+  onDirFlashRef.current = onDirFlash
+
   const coarse =
     typeof window !== 'undefined' &&
     window.matchMedia &&
@@ -388,7 +398,15 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
   const STEP_Y = coarse ? 110 : 64
   const FLICK_V_BONUS = coarse ? 0.22 : 0.35
 
+  const cancelMomentum = useCallback(() => {
+    if (state.current.momentumRaf) {
+      cancelAnimationFrame(state.current.momentumRaf)
+      state.current.momentumRaf = 0
+    }
+  }, [])
+
   const onDown = useCallback((e) => {
+    cancelMomentum()
     const p = e.touches ? e.touches[0] : e
     state.current.active = true
     state.current.lastX = p.clientX
@@ -398,7 +416,7 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
     state.current.lastT = performance.now()
     state.current.vx = 0
     state.current.vy = 0
-  }, [])
+  }, [cancelMomentum])
 
   const onMove = useCallback(
     (e) => {
@@ -427,6 +445,8 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
         state.current.active = false
         state.current.ax = 0
         state.current.ay = 0
+        state.current.vy = 0
+        state.current.vx = 0
         onSwipeBack?.()
         return
       }
@@ -455,9 +475,54 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
 
   const onUp = useCallback(() => {
     state.current.active = false
-    state.current.ax = 0
-    state.current.ay = 0
-  }, [])
+
+    const vy = state.current.vy // px per ms
+    const absVy = Math.abs(vy)
+
+    // Touch momentum: continue scrolling products after finger lifts
+    if (coarse && absVy > 0.4 && prodsLen > 1) {
+      let vel = vy * 16 // convert to ~px per frame at 60 fps
+      let accum = state.current.ay
+      let localIdx = indexRef.current
+      const FRICTION = 0.92
+      const STOP = 1.5 // px/frame threshold to stop
+
+      const tick = () => {
+        vel *= FRICTION
+        if (Math.abs(vel) < STOP) {
+          state.current.ay = 0
+          state.current.ax = 0
+          state.current.momentumRaf = 0
+          return
+        }
+
+        accum += vel
+
+        while (accum <= -STEP_Y) {
+          accum += STEP_Y
+          localIdx = wrap(localIdx + 1, prodsLen)
+          onIndexChangeRef.current?.(localIdx)
+          onDirFlashRef.current?.('down')
+        }
+        while (accum >= STEP_Y) {
+          accum -= STEP_Y
+          localIdx = wrap(localIdx - 1, prodsLen)
+          onIndexChangeRef.current?.(localIdx)
+          onDirFlashRef.current?.('up')
+        }
+
+        state.current.momentumRaf = requestAnimationFrame(tick)
+      }
+
+      state.current.momentumRaf = requestAnimationFrame(tick)
+    } else {
+      state.current.ax = 0
+      state.current.ay = 0
+    }
+  }, [coarse, prodsLen, STEP_Y])
+
+  // Clean up momentum on unmount
+  useEffect(() => cancelMomentum, [cancelMomentum])
 
   return { onDown, onMove, onUp }
 }
