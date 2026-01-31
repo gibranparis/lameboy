@@ -481,13 +481,14 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
 
     // Touch momentum: continue scrolling products after finger lifts
     if (coarse && absVy > 0.25 && prodsLen > 1) {
-      let vel = vy * 7 // softer initial momentum
-      const MAX_VEL = 7 // cap so products don't zip by too fast
+      let vel = vy * 9
+      const MAX_VEL = 10
       vel = Math.max(-MAX_VEL, Math.min(MAX_VEL, vel))
       let accum = state.current.ay
       let localIdx = indexRef.current
       const FRICTION = 0.96
       const STOP = 1.5 // px/frame threshold to stop
+      const M_STEP = 70 // lighter step than drag so momentum actually rolls
 
       const tick = () => {
         vel *= FRICTION
@@ -500,14 +501,14 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
 
         accum += vel
 
-        while (accum <= -STEP_Y) {
-          accum += STEP_Y
+        while (accum <= -M_STEP) {
+          accum += M_STEP
           localIdx = wrap(localIdx + 1, prodsLen)
           onIndexChangeRef.current?.(localIdx)
           onDirFlashRef.current?.('down')
         }
-        while (accum >= STEP_Y) {
-          accum -= STEP_Y
+        while (accum >= M_STEP) {
+          accum -= M_STEP
           localIdx = wrap(localIdx - 1, prodsLen)
           onIndexChangeRef.current?.(localIdx)
           onDirFlashRef.current?.('up')
