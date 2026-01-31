@@ -110,6 +110,13 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
 
   return (
     <div
+      onClick={advanceGate}
+      onMouseDown={startPressTimer}
+      onMouseUp={clearPressTimer}
+      onMouseLeave={clearPressTimer}
+      onTouchStart={startPressTimer}
+      onTouchEnd={clearPressTimer}
+      onDoubleClick={triggerProceed}
       style={{
         position: 'fixed',
         inset: 0,
@@ -119,18 +126,12 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
         alignItems: 'center',
         background: '#fff',
         zIndex: 10010,
+        cursor: 'pointer',
+        userSelect: 'none',
       }}
     >
       {/* Time */}
-      <button
-        type="button"
-        onClick={advanceGate}
-        onMouseDown={startPressTimer}
-        onMouseUp={clearPressTimer}
-        onMouseLeave={clearPressTimer}
-        onTouchStart={startPressTimer}
-        onTouchEnd={clearPressTimer}
-        onDoubleClick={triggerProceed}
+      <span
         style={{
           marginTop: 150,
           textAlign: 'center',
@@ -141,25 +142,13 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
           opacity: 0.9,
           textTransform: 'uppercase',
           lineHeight: 1.2,
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
         }}
       >
         {clockText}
-      </button>
+      </span>
 
       {/* Dynamic location */}
-      <button
-        type="button"
-        onClick={advanceGate}
-        onMouseDown={startPressTimer}
-        onMouseUp={clearPressTimer}
-        onMouseLeave={clearPressTimer}
-        onTouchStart={startPressTimer}
-        onTouchEnd={clearPressTimer}
-        onDoubleClick={triggerProceed}
+      <span
         style={{
           marginTop: 6,
           textAlign: 'center',
@@ -169,17 +158,11 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
           color: '#000',
           opacity: 0.9,
           textTransform: 'uppercase',
-          cursor: 'pointer',
-          userSelect: 'none',
-          outline: 'none',
           lineHeight: 1.2,
-          background: 'transparent',
-          border: 'none',
-          padding: 0,
         }}
       >
         {displayLocation}
-      </button>
+      </span>
     </div>
   )
 }
