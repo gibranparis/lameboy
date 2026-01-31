@@ -395,8 +395,8 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
     window.matchMedia('(pointer:coarse)').matches
 
   const STEP_X = coarse ? 88 : 48
-  const STEP_Y = coarse ? 105 : 64
-  const FLICK_V_BONUS = coarse ? 0.15 : 0.35
+  const STEP_Y = coarse ? 150 : 64
+  const FLICK_V_BONUS = coarse ? 0 : 0.35
 
   const cancelMomentum = useCallback(() => {
     if (state.current.momentumRaf) {
