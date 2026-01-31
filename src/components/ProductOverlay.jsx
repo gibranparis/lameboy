@@ -218,7 +218,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
   }
 
   return (
-    <div style={{ display: 'grid', justifyItems: 'center', gap: 12, position: 'relative' }}>
+    <div style={{ display: 'grid', justifyItems: 'center', position: 'relative' }}>
       <button
         type="button"
         data-ui="size-toggle"
@@ -258,7 +258,14 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         className={`row-nowrap size-panel ${open ? 'is-open' : ''}`}
         data-ui="size-panel"
         hidden={!open}
-        style={{ gap: 8 }}
+        style={{
+          gap: 8,
+          position: 'absolute',
+          top: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginTop: 10,
+        }}
       >
         {sizes.map((sz) => (
           <button
