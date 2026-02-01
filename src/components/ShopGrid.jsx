@@ -411,6 +411,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           transform: translateZ(0) scale(1) !important;
         }
 
+        @media (pointer: fine) {
+          .product-tile:hover .product-box {
+            transform: translateZ(0) scale(1.05);
+          }
+        }
+
         .product-img {
           width: 100%;
           height: 100%;

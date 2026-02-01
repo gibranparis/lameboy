@@ -575,6 +575,7 @@ export default function ProductOverlay({
 
   // Subtle zoom pulse on image click
   const [heroZoomed, setHeroZoomed] = useState(false)
+  const handleToggleZoom = useCallback(() => setHeroZoomed((v) => !v), [])
 
   // Canvas for alpha hit-testing (transparent pixel click-through)
   const alphaCanvasRef = useRef(/** @type {HTMLCanvasElement|null} */ (null))
@@ -634,6 +635,7 @@ export default function ProductOverlay({
     if (closingRef.current) return
     closingRef.current = true
     setClosing(true)
+    setHeroZoomed(false)
 
     const hero = heroRef.current
     const fr = getFreshTileRect()
@@ -690,6 +692,7 @@ export default function ProductOverlay({
     if (closingRef.current) return
     closingRef.current = true
     setAddToCartClosing(true)
+    setHeroZoomed(false)
 
     const hero = heroRef.current
     const fr = getFreshTileRect()
@@ -1216,7 +1219,7 @@ export default function ProductOverlay({
           <div ref={priceRef} className="product-hero-price" style={{ marginTop: 4, marginBottom: 10 }}>
             {priceText}
           </div>
-          <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} />
+          <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} />
         </div>
       </div>
 
