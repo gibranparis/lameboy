@@ -855,42 +855,74 @@ export default function ProductOverlay({
     return () => document.documentElement.removeAttribute('data-overlay-open')
   }, [])
 
-  // Reset image index, zoom, and alpha canvas when product changes
-  useEffect(() => { setImgIdx(0); setHeroZoomed(false); alphaCanvasRef.current = null }, [index])
-  // Also reset alpha canvas when image index changes
-  useEffect(() => { alphaCanvasRef.current = null }, [clampedImgIdx])
+  // Reset image index and zoom when product changes
+  useEffect(() => { setImgIdx(0); setHeroZoomed(false) }, [index])
 
-  // Build alpha canvas when hero image loads (for transparent-pixel click-through)
-  const handleHeroImgLoad = useCallback(function (e) {
-    try {
-      const img = e.currentTarget || e.target
-      if (!img || !img.naturalWidth) return
-      const c = document.createElement('canvas')
-      c.width = img.naturalWidth
-      c.height = img.naturalHeight
-      const ctx = c.getContext('2d')
-      if (!ctx) return
-      ctx.drawImage(img, 0, 0)
-      alphaCanvasRef.current = c
-    } catch {
-      alphaCanvasRef.current = null
+  // Load the original (unoptimized) PNG for alpha hit-testing.
+  // This bypasses Next.js image optimization so the raw alpha channel is preserved.
+  useEffect(() => {
+    alphaCanvasRef.current = null
+    const src = imgs[clampedImgIdx]
+    if (!src) return
+    let cancelled = false
+    const img = new window.Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = function () {
+      if (cancelled) return
+      try {
+        const c = document.createElement('canvas')
+        c.width = img.naturalWidth
+        c.height = img.naturalHeight
+        const ctx = c.getContext('2d')
+        if (!ctx) return
+        ctx.drawImage(img, 0, 0)
+        alphaCanvasRef.current = c
+      } catch {
+        alphaCanvasRef.current = null
+      }
     }
-  }, [])
+    img.src = src
+    return function () { cancelled = true }
+  }, [imgs, clampedImgIdx])
 
-  // Hero image click: check alpha — transparent pixels close overlay, opaque pixels do normal behavior
+  // Hero image click: check alpha — transparent pixels close overlay, opaque pixels do normal behavior.
+  // Accounts for object-fit:contain letterboxing when mapping click → pixel coordinates.
   const handleHeroImgClick = useCallback(function (e) {
     e.stopPropagation()
     const cvs = alphaCanvasRef.current
     if (cvs) {
       try {
-        const img = e.currentTarget
-        const rect = img.getBoundingClientRect()
-        const relX = e.clientX - rect.left
-        const relY = e.clientY - rect.top
-        const scaleX = img.naturalWidth / rect.width
-        const scaleY = img.naturalHeight / rect.height
-        const imgX = Math.max(0, Math.min(cvs.width - 1, Math.round(relX * scaleX)))
-        const imgY = Math.max(0, Math.min(cvs.height - 1, Math.round(relY * scaleY)))
+        const el = e.currentTarget
+        const rect = el.getBoundingClientRect()
+        const clickX = e.clientX - rect.left
+        const clickY = e.clientY - rect.top
+
+        // Compute rendered image area within the element (object-fit: contain)
+        const elW = rect.width
+        const elH = rect.height
+        const cW = cvs.width
+        const cH = cvs.height
+        const elAspect = elW / elH
+        const imgAspect = cW / cH
+        var renderW, renderH, offX, offY
+        if (imgAspect > elAspect) {
+          renderW = elW; renderH = elW / imgAspect
+          offX = 0; offY = (elH - renderH) / 2
+        } else {
+          renderH = elH; renderW = elH * imgAspect
+          offX = (elW - renderW) / 2; offY = 0
+        }
+
+        // Click in letterbox padding → transparent, close overlay
+        if (clickX < offX || clickX > offX + renderW ||
+            clickY < offY || clickY > offY + renderH) {
+          animateClose()
+          return
+        }
+
+        // Map click to canvas pixel
+        const imgX = Math.max(0, Math.min(cW - 1, Math.round((clickX - offX) / renderW * cW)))
+        const imgY = Math.max(0, Math.min(cH - 1, Math.round((clickY - offY) / renderH * cH)))
         const ctx = cvs.getContext('2d')
         if (ctx) {
           const pixel = ctx.getImageData(imgX, imgY, 1, 1).data
@@ -1120,7 +1152,6 @@ export default function ProductOverlay({
                     fetchPriority="high"
                     quality={95}
                     sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
-                    onLoad={handleHeroImgLoad}
                     onClick={handleHeroImgClick}
                     style={{
                       width: '100%',
