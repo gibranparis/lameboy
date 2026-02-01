@@ -311,40 +311,42 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
             }}
           >
             <div className="product-box">
-              <Image
-                src={p.thumb || p.image}
-                alt={p.title || 'Product'}
-                width={800}
-                height={800}
-                className="product-img"
-                priority={idx === 0}
-                unoptimized
-                sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
-                ref={(el) => {
-                  if (idx === 0 && el?.complete) handleFirstDecode(el)
-                }}
-                onLoad={(e) => {
-                  if (idx === 0) handleFirstDecode(e.currentTarget)
-                }}
-                onError={(e) => {
-                  const img = e.currentTarget
-                  if (img.dataset.fallback === 'hero') {
-                    img.src = '/products/brown.png'
-                    img.dataset.fallback = 'final'
-                  } else if (!img.dataset.fallback) {
-                    img.src = p.image
-                    img.dataset.fallback = 'hero'
-                  }
-                }}
-              />
-              {(() => {
-                const qty = getProductQty(p.id)
-                return qty > 0 ? (
-                  <span className="product-badge" aria-label={`${qty} in cart`}>
-                    {qty}
-                  </span>
-                ) : null
-              })()}
+              <div className="product-img-wrap">
+                <Image
+                  src={p.thumb || p.image}
+                  alt={p.title || 'Product'}
+                  width={800}
+                  height={800}
+                  className="product-img"
+                  priority={idx === 0}
+                  unoptimized
+                  sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
+                  ref={(el) => {
+                    if (idx === 0 && el?.complete) handleFirstDecode(el)
+                  }}
+                  onLoad={(e) => {
+                    if (idx === 0) handleFirstDecode(e.currentTarget)
+                  }}
+                  onError={(e) => {
+                    const img = e.currentTarget
+                    if (img.dataset.fallback === 'hero') {
+                      img.src = '/products/brown.png'
+                      img.dataset.fallback = 'final'
+                    } else if (!img.dataset.fallback) {
+                      img.src = p.image
+                      img.dataset.fallback = 'hero'
+                    }
+                  }}
+                />
+                {(() => {
+                  const qty = getProductQty(p.id)
+                  return qty > 0 ? (
+                    <span className="product-badge" aria-label={`${qty} in cart`}>
+                      {qty}
+                    </span>
+                  ) : null
+                })()}
+              </div>
             </div>
             {cols < MAX_COLS && (
               <div className="product-meta">

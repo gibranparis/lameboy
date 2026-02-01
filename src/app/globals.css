@@ -349,8 +349,8 @@ html[data-overlay-open] {
 /* Product grid cart quantity badge (iPhone-style) */
 .product-badge {
   position: absolute;
-  top: 8%;
-  right: 8%;
+  top: 4px;
+  right: 4px;
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -441,21 +441,27 @@ html[data-overlay-open] {
   border: none;
   transition: transform 220ms ease;
 }
-.product-img {
+.product-img-wrap {
+  position: relative;
   width: 88%;
   height: 88%;
-  object-fit: contain;
   transition:
     width 220ms ease,
-    height 220ms ease,
-    transform 220ms ease;
+    height 220ms ease;
+}
+.product-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  transition: transform 220ms ease;
 }
 /* bump animation only when grid cols change (flagged by JS) */
 :root[data-grid-anim='1'] .product-box,
-:root[data-grid-anim='1'] .product-img {
+:root[data-grid-anim='1'] .product-img-wrap {
   transform: scale(0.98);
 }
-html:has(.shop-grid[style*='--grid-cols: 5']) .product-img {
+html:has(.shop-grid[style*='--grid-cols: 5']) .product-img-wrap {
   width: 96%;
   height: auto;
 }
