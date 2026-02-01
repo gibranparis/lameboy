@@ -568,6 +568,12 @@ export default function ProductOverlay({
   // Track scroll direction for arrow green activation
   const [hotDir, setHotDir] = useState('') // 'up' | 'down' | ''
 
+  // Subtle zoom pulse on image click
+  const [heroZoomed, setHeroZoomed] = useState(false)
+
+  // Canvas for alpha hit-testing (transparent pixel click-through)
+  const alphaCanvasRef = useRef(/** @type {HTMLCanvasElement|null} */ (null))
+
   // The grid tile we opened from (FLIP anchor)
   const openedIndexRef = useRef(index)
   const didEnterRef = useRef(false)
@@ -582,14 +588,28 @@ export default function ProductOverlay({
     fromRectRef.current = fromRect || null
   }, [fromRect])
 
+  // Re-read the grid tile's current bounding rect from the DOM so close
+  // animations always target the tile's actual position (not a stale rect
+  // captured before layout settled, e.g. during autoOpenFirstOnMount).
+  const getFreshTileRect = useCallback(() => {
+    try {
+      const tiles = document.querySelectorAll('[data-component="shop-grid"] .product-tile')
+      const tile = tiles[openedIndexRef.current]
+      if (tile) {
+        const r = tile.getBoundingClientRect()
+        return { left: r.left, top: r.top, width: r.width, height: r.height }
+      }
+    } catch {}
+    return fromRectRef.current
+  }, [])
+
   // If orb was clicked while overlay open, we want to reset grid AFTER close finishes.
   const pendingResetRef = useRef(false)
 
   const dispatchResetToFive = useCallback(() => {
     try {
       const detail = { value: 5, density: 5, source: 'overlay-reset' }
-      window.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
-      document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
+      document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
       document.dispatchEvent(new CustomEvent('lb:grid-density', { detail }))
     } catch {}
   }, [])
@@ -611,7 +631,7 @@ export default function ProductOverlay({
     setClosing(true)
 
     const hero = heroRef.current
-    const fr = fromRectRef.current
+    const fr = getFreshTileRect()
     const canZoomBack = hero && fr && !reduceMotion
 
     if (!canZoomBack) {
@@ -658,7 +678,7 @@ export default function ProductOverlay({
       hero.style.willChange = ''
       finishClose()
     }, 300)
-  }, [finishClose, reduceMotion])
+  }, [finishClose, reduceMotion, getFreshTileRect])
 
   /* zoom-back close after add-to-cart: item stays visible while shrinking to grid */
   const animateCloseAfterAdd = useCallback(() => {
@@ -667,7 +687,7 @@ export default function ProductOverlay({
     setAddToCartClosing(true)
 
     const hero = heroRef.current
-    const fr = fromRectRef.current
+    const fr = getFreshTileRect()
     const canZoomBack = hero && fr && !reduceMotion
 
     if (!canZoomBack) {
@@ -709,7 +729,7 @@ export default function ProductOverlay({
       hero.style.willChange = ''
       finishClose()
     }, 360)
-  }, [finishClose, reduceMotion])
+  }, [finishClose, reduceMotion, getFreshTileRect])
 
   /* signal mount for grid guard */
   useEffect(() => {
@@ -835,8 +855,60 @@ export default function ProductOverlay({
     return () => document.documentElement.removeAttribute('data-overlay-open')
   }, [])
 
-  // Reset image index when product changes (wheel roll / swipe up/down)
-  useEffect(() => setImgIdx(0), [index])
+  // Reset image index, zoom, and alpha canvas when product changes
+  useEffect(() => { setImgIdx(0); setHeroZoomed(false); alphaCanvasRef.current = null }, [index])
+  // Also reset alpha canvas when image index changes
+  useEffect(() => { alphaCanvasRef.current = null }, [clampedImgIdx])
+
+  // Build alpha canvas when hero image loads (for transparent-pixel click-through)
+  const handleHeroImgLoad = useCallback(function (e) {
+    try {
+      const img = e.currentTarget || e.target
+      if (!img || !img.naturalWidth) return
+      const c = document.createElement('canvas')
+      c.width = img.naturalWidth
+      c.height = img.naturalHeight
+      const ctx = c.getContext('2d')
+      if (!ctx) return
+      ctx.drawImage(img, 0, 0)
+      alphaCanvasRef.current = c
+    } catch {
+      alphaCanvasRef.current = null
+    }
+  }, [])
+
+  // Hero image click: check alpha — transparent pixels close overlay, opaque pixels do normal behavior
+  const handleHeroImgClick = useCallback(function (e) {
+    e.stopPropagation()
+    const cvs = alphaCanvasRef.current
+    if (cvs) {
+      try {
+        const img = e.currentTarget
+        const rect = img.getBoundingClientRect()
+        const relX = e.clientX - rect.left
+        const relY = e.clientY - rect.top
+        const scaleX = img.naturalWidth / rect.width
+        const scaleY = img.naturalHeight / rect.height
+        const imgX = Math.max(0, Math.min(cvs.width - 1, Math.round(relX * scaleX)))
+        const imgY = Math.max(0, Math.min(cvs.height - 1, Math.round(relY * scaleY)))
+        const ctx = cvs.getContext('2d')
+        if (ctx) {
+          const pixel = ctx.getImageData(imgX, imgY, 1, 1).data
+          if (pixel[3] < 20) {
+            animateClose()
+            return
+          }
+        }
+      } catch {
+        // Canvas read failed — fall through to normal behavior
+      }
+    }
+    // Opaque pixel or no canvas — normal image click
+    try {
+      window.dispatchEvent(new CustomEvent('product-image-click'))
+    } catch {}
+    setHeroZoomed((v) => !v)
+  }, [animateClose])
 
   // FLIP ENTER: useLayoutEffect positions hero BEFORE first paint (no flash)
   const isInitialMount = useRef(true)
@@ -974,12 +1046,18 @@ export default function ProductOverlay({
             textAlign: 'center',
             zIndex: 521,
             touchAction: 'none',
-            marginTop: '-4vh',
+            marginTop: '-22vh',
           }}
           onPointerDown={swipe.onDown}
           onPointerMove={swipe.onMove}
           onPointerUp={swipe.onUp}
           onPointerCancel={swipe.onUp}
+          onClick={(e) => {
+            // Clicks on buttons or the image are handled by their own handlers
+            // (image uses stopPropagation). Anything else in the hero area = close.
+            if (/** @type {Element} */ (e.target).closest('button')) return
+            animateClose()
+          }}
         >
           {/* side arrows */}
           {products.length > 1 && (
@@ -987,7 +1065,7 @@ export default function ProductOverlay({
               style={{
                 position: 'fixed',
                 left: `calc(12px + env(safe-area-inset-left,0px))`,
-                top: '50%',
+                top: '42%',
                 transform: 'translateY(-50%)',
                 display: 'grid',
                 gap: 8,
@@ -1026,14 +1104,10 @@ export default function ProductOverlay({
               <>
                 <div
                   data-ui="product-viewport"
-                  onClick={() => {
-                    try {
-                      window.dispatchEvent(new CustomEvent('product-image-click'))
-                    } catch {}
-                  }}
                   style={{
                     width: '100%',
-                    cursor: 'pointer',
+                    transform: heroZoomed ? 'scale(1.09)' : 'scale(1)',
+                    transition: 'transform 0.2s cubic-bezier(.2,.8,.2,1)',
                   }}
                 >
                   <Image
@@ -1046,12 +1120,15 @@ export default function ProductOverlay({
                     fetchPriority="high"
                     quality={95}
                     sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
+                    onLoad={handleHeroImgLoad}
+                    onClick={handleHeroImgClick}
                     style={{
                       width: '100%',
                       height: 'auto',
                       maxHeight: '70vh',
                       objectFit: 'contain',
                       imageRendering: 'auto',
+                      cursor: 'pointer',
                     }}
                   />
                 </div>
@@ -1081,7 +1158,7 @@ export default function ProductOverlay({
         <div
           style={{
             position: 'fixed',
-            bottom: 'calc(12vh + env(safe-area-inset-bottom, 0px))',
+            bottom: 'calc(16vh + env(safe-area-inset-bottom, 0px))',
             left: '50%',
             transform: 'translateX(-50%)',
             textAlign: 'center',

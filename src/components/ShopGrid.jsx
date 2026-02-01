@@ -230,16 +230,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       })
     }
 
-    const names = ['lb:zoom', 'lb:zoom/grid-density']
-    names.forEach((n) => {
-      window.addEventListener(n, onZoom)
-      document.addEventListener(n, onZoom)
-    })
+    document.addEventListener('lb:zoom', onZoom)
     return () => {
-      names.forEach((n) => {
-        window.removeEventListener(n, onZoom)
-        document.removeEventListener(n, onZoom)
-      })
+      document.removeEventListener('lb:zoom', onZoom)
     }
   }, [overlayIdx])
 
@@ -353,7 +346,18 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 ) : null
               })()}
             </div>
-            <div className="product-meta">{p.title}</div>
+            {cols < MAX_COLS && (
+              <div className="product-meta">
+                {p.title}
+                {cols <= MIN_COLS + 1 && (
+                  <span className="product-price">
+                    {typeof p.price === 'number'
+                      ? p.price % 100 === 0 ? `$${p.price / 100}` : `$${(p.price / 100).toFixed(2)}`
+                      : p.price ?? ''}
+                  </span>
+                )}
+              </div>
+            )}
           </a>
         ))}
       </div>
@@ -429,6 +433,13 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           letter-spacing: 0.02em;
           margin-top: 8px;
           text-align: center;
+        }
+        .product-price {
+          display: block;
+          font-size: 0.78rem;
+          font-weight: 700;
+          opacity: 0.55;
+          margin-top: 2px;
         }
       `}</style>
     </div>
