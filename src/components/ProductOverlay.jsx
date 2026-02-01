@@ -140,7 +140,7 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi, isHot = false }) {
 }
 
 /* ---------------- + / sizes ---------------- */
-function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, onAddedToCart }) {
+function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, onAddedToCart, onToggleZoom }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState(null)
   const [hotSize, setHotSize] = useState(null)
@@ -155,6 +155,11 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     clearTimeout(timers.current.plusTick)
     timers.current.plusTick = setTimeout(() => setPlusHot(false), 160)
   }, [showAdded])
+
+  const onPlusClick = useCallback(() => {
+    onToggle()
+    onToggleZoom?.()
+  }, [onToggle, onToggleZoom])
 
   const pick = useCallback((sz) => {
     setPicked(sz)
@@ -233,7 +238,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           plusHot ? 'is-hot' : '',
           showAdded ? 'is-hidden' : '',
         ].join(' ')}
-        onClick={onToggle}
+        onClick={onPlusClick}
         aria-label={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
         title={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
         style={{ width: 28, height: 28 }}
