@@ -954,6 +954,13 @@ export default function ProductOverlay({
     // Measure hero's final position.
     const target = hero.getBoundingClientRect()
 
+    // Guard: if the hero hasn't settled into its final layout yet (e.g. the
+    // image hasn't decoded and the browser collapsed the flex item), the
+    // measured dimensions would be near-zero, producing an absurdly large
+    // scale factor.  Skip the FLIP in that case — the hero will simply
+    // appear at its overlay position without an animation.
+    if (target.width < 50 || target.height < 50) return
+
     // Center-to-center positioning: anchor on the center of the tile and
     // the center of the hero so the image always aligns with the tile
     // regardless of hero/image size mismatch (object-fit letterboxing).
@@ -1131,6 +1138,7 @@ export default function ProductOverlay({
 
           <div
             ref={heroRef}
+            style={{ width: '100%' }}
           >
             {!!imgs.length && (
               <>
