@@ -28,6 +28,61 @@ function readSavedCols() {
   }
 }
 
+/** Cache of image src → opaque bounding-box (percentage offsets) */
+const _bboxCache = new Map()
+
+/**
+ * Load a PNG and scan its alpha channel to find the bounding box of
+ * opaque pixels.  Returns `{ top, right }` as 0-1 fractions of the
+ * image dimensions (how far the opaque edge is from each side).
+ */
+function computeOpaqueBBox(/** @type {string} */ src) {
+  return new Promise((resolve) => {
+    if (_bboxCache.has(src)) { resolve(_bboxCache.get(src)); return }
+    const img = new window.Image()
+    img.onload = () => {
+      try {
+        // Scale down for faster scanning
+        const MAX_DIM = 150
+        const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight))
+        const w = Math.round(img.naturalWidth * scale)
+        const h = Math.round(img.naturalHeight * scale)
+        const c = document.createElement('canvas')
+        c.width = w; c.height = h
+        const ctx = c.getContext('2d')
+        if (!ctx) { resolve(null); return }
+        ctx.drawImage(img, 0, 0, w, h)
+        const data = ctx.getImageData(0, 0, w, h).data
+        let minX = w, minY = h, maxX = 0, maxY = 0
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (data[(y * w + x) * 4 + 3] > 20) {
+              if (x < minX) minX = x
+              if (x > maxX) maxX = x
+              if (y < minY) minY = y
+              if (y > maxY) maxY = y
+            }
+          }
+        }
+        if (maxX >= minX && maxY >= minY) {
+          // Inset the anchor into the opaque content so the badge
+          // sits ON the product (like a shopping tag) rather than
+          // at the very edge of the bounding box.
+          const oW = maxX - minX
+          const oH = maxY - minY
+          const anchorY = (minY + oH * 0.15) / h
+          const anchorX = (maxX - oW * 0.12) / w
+          const result = { top: anchorY, right: 1 - anchorX }
+          _bboxCache.set(src, result)
+          resolve(result)
+        } else { resolve(null) }
+      } catch { resolve(null) }
+    }
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+}
+
 export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   /* ---------------- Seed products ---------------- */
   const seed = useMemo(() => {
@@ -78,6 +133,24 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       .filter(item => item.id === productId)
       .reduce((sum, item) => sum + item.qty, 0)
   }, [cart.items])
+
+  /* ---------------- Badge anchors (opaque bounding box) ---------------- */
+  const [badgeAnchors, setBadgeAnchors] = useState(
+    /** @type {Record<string, {top:number, right:number}>} */ ({})
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    seed.forEach((/** @type {any} */ p) => {
+      const src = p.thumb || p.image
+      if (!src) return
+      computeOpaqueBBox(src).then((bbox) => {
+        if (cancelled || !bbox) return
+        setBadgeAnchors((prev) => prev[src] ? prev : { ...prev, [src]: bbox })
+      })
+    })
+    return () => { cancelled = true }
+  }, [seed])
 
   /* ---------------- Overlay state ---------------- */
   const [overlayIdx, setOverlayIdx] = useState(/** @type {number|null} */ null)
@@ -340,11 +413,21 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 />
                 {(() => {
                   const qty = getProductQty(p.id)
-                  return qty > 0 ? (
-                    <span className="product-badge" aria-label={`${qty} in cart`}>
+                  if (qty <= 0) return null
+                  const anchor = badgeAnchors[p.thumb || p.image]
+                  return (
+                    <span
+                      className="product-badge"
+                      aria-label={`${qty} in cart`}
+                      style={anchor ? {
+                        top: `${(anchor.top * 100).toFixed(1)}%`,
+                        right: `${(anchor.right * 100).toFixed(1)}%`,
+                        transform: 'translate(50%, -50%)',
+                      } : undefined}
+                    >
                       {qty}
                     </span>
-                  ) : null
+                  )
                 })()}
               </div>
             </div>
@@ -393,7 +476,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           aspect-ratio: 1 / 1;
           background: #fff;
           border-radius: 16px;
-          overflow: hidden;
+          overflow: visible;
           box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
           transform: translateZ(0) scale(1);
           transition: transform 240ms cubic-bezier(0.2, 0.9, 0.2, 1);
