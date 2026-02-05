@@ -1013,6 +1013,10 @@ export default function ProductOverlay({
   // Ensure product changes do NOT keep any stale transform
   // (skip initial mount so we don't clobber the FLIP enter animation)
   useEffect(() => {
+    // Always keep the FLIP anchor in sync with the current product so
+    // the close animation targets the correct grid tile.
+    openedIndexRef.current = index
+
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
