@@ -411,7 +411,7 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
     window.matchMedia('(pointer:coarse)').matches
 
   const STEP_X = coarse ? 88 : 48
-  const STEP_Y = coarse ? 150 : 64
+  const STEP_Y = coarse ? 110 : 64
   const FLICK_V_BONUS = coarse ? 0 : 0.35
 
   const cancelMomentum = useCallback(() => {
@@ -496,15 +496,15 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
     const absVy = Math.abs(vy)
 
     // Touch momentum: continue scrolling products after finger lifts
-    if (coarse && absVy > 0.25 && prodsLen > 1) {
-      let vel = vy * 16 // original multiplier
-      const MAX_VEL = 10 // cap peak speed
+    if (coarse && absVy > 0.4 && prodsLen > 1) {
+      let vel = vy * 10
+      const MAX_VEL = 7
       vel = Math.max(-MAX_VEL, Math.min(MAX_VEL, vel))
       let accum = state.current.ay
       let localIdx = indexRef.current
-      const FRICTION = 0.94
-      const STOP = 1.0
-      const M_STEP = 52 // lighter step than drag so momentum rolls
+      const FRICTION = 0.91
+      const STOP = 1.2
+      const M_STEP = 80
 
       const tick = () => {
         vel *= FRICTION
