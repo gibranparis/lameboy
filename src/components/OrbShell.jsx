@@ -57,7 +57,7 @@ export default function OrbShell({
   const SEAFOAM = '#32ffc7'
   const RED = '#ff001a'
   const YELLOW = '#ffd400'
-  const GREEN = '#00ff66'
+  const GREEN = '#0bf05f'
   const BLACK = '#000'
 
   const gateOverride = useMemo(() => {
