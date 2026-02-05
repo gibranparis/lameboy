@@ -298,7 +298,7 @@ export default function OrbShell({
           includeZAxis
           respectReducedMotion={false}
           interactive={!inGateLike || (!isProceeding && !loaderShow)}
-          onActivate={!inGateLike ? onShopClick : null}
+          onActivate={null}
           overrideAllColor={orbOverrideAllColor}
           haloTint={orbHaloTint}
           flashDecayMs={inGateLike ? 0 : 140}
