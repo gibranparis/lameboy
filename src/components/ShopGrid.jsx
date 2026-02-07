@@ -3,7 +3,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ProductOverlay from '@/components/ProductOverlay'
 import { PRODUCTS, logMissingAssets } from '@/lib/products'
 import { useCart } from '@/contexts/CartContext'
@@ -212,6 +212,80 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   const [cols, setCols] = useState(() => clampCols(readSavedCols()))
   const prevColsRef = useRef(cols)
 
+  /* ---------- FLIP animation: smooth slide on density change ---------- */
+  const flipSnapshotRef = useRef(/** @type {Map<number,DOMRect>|null} */ (null))
+
+  /** Capture tile positions, then update cols so useLayoutEffect can FLIP */
+  const setColsWithFlip = useCallback((/** @type {number|((p:number)=>number)} */ v) => {
+    const grid = document.querySelector('[data-component="shop-grid"]')
+    if (grid) {
+      const tiles = grid.querySelectorAll('.product-tile')
+      const snap = new Map()
+      tiles.forEach((tile, idx) => snap.set(idx, tile.getBoundingClientRect()))
+      flipSnapshotRef.current = snap
+    }
+    setCols(v)
+  }, [])
+
+  /** After React re-renders with new cols, FLIP tiles from old → new pos */
+  useLayoutEffect(() => {
+    const snap = flipSnapshotRef.current
+    if (!snap || !snap.size) return
+    flipSnapshotRef.current = null
+
+    const grid = document.querySelector('[data-component="shop-grid"]')
+    if (!grid) return
+    const tiles = /** @type {HTMLElement[]} */ (Array.from(grid.querySelectorAll('.product-tile')))
+
+    const flips = []
+    tiles.forEach((tile, idx) => {
+      const prev = snap.get(idx)
+      if (!prev) return
+      const next = tile.getBoundingClientRect()
+      const dx = prev.left - next.left
+      const dy = prev.top - next.top
+      const sx = next.width > 0 ? prev.width / next.width : 1
+      const sy = next.height > 0 ? prev.height / next.height : 1
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01) return
+      flips.push({ tile, dx, dy, sx, sy })
+    })
+
+    if (!flips.length) return
+
+    // Invert — place each tile at its OLD position
+    flips.forEach(({ tile, dx, dy, sx, sy }) => {
+      tile.style.transformOrigin = '0 0'
+      tile.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+      tile.style.transition = 'none'
+    })
+
+    // Force reflow so the "from" state registers
+    void grid.offsetHeight
+
+    // Play — animate to final (natural) position
+    flips.forEach(({ tile }) => {
+      tile.style.transition = 'transform 380ms cubic-bezier(0.25, 1, 0.5, 1)'
+      tile.style.transform = 'translate(0,0) scale(1,1)'
+    })
+
+    // Cleanup after animation finishes
+    const t = setTimeout(() => {
+      flips.forEach(({ tile }) => {
+        // Disable transitions while clearing inline styles so the
+        // CSS-defined transition doesn't fire on the non-visual change
+        tile.style.transition = 'none'
+        tile.style.transform = ''
+        tile.style.transformOrigin = ''
+      })
+      // Re-enable CSS transitions next frame
+      requestAnimationFrame(() => {
+        flips.forEach(({ tile }) => { tile.style.transition = '' })
+      })
+    }, 400)
+
+    return () => clearTimeout(t)
+  }, [cols])
+
   const broadcastDensity = useCallback((density) => {
     const detail = { density, value: density }
     try {
@@ -281,7 +355,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       }
 
       if (Number.isFinite(explicit)) {
-        setCols(clampCols(explicit))
+        setColsWithFlip(clampCols(explicit))
         return
       }
 
@@ -289,15 +363,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       const dir = typeof d.dir === 'string' ? d.dir : null
 
       if (dir === 'in') {
-        setCols((p) => clampCols(p - step))
+        setColsWithFlip((p) => clampCols(p - step))
         return
       }
       if (dir === 'out') {
-        setCols((p) => clampCols(p + step))
+        setColsWithFlip((p) => clampCols(p + step))
         return
       }
 
-      setCols((p) => {
+      setColsWithFlip((p) => {
         const goingIn = p > MIN_COLS
         return clampCols(goingIn ? p - 1 : p + 1)
       })

@@ -416,9 +416,8 @@ html[data-overlay-open] {
   display: grid;
   grid-template-columns: repeat(var(--grid-cols, 5), minmax(0, 1fr));
   gap: var(--gap);
-  transition:
-    grid-template-columns 220ms ease,
-    gap 220ms ease;
+  /* gap transitions smoothly; grid-template-columns snaps so FLIP handles motion */
+  transition: gap 220ms ease;
 }
 @media (max-width: 640px) {
   .shop-grid {
