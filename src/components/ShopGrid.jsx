@@ -501,7 +501,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                           className="product-img"
                           priority={i === 0}
                           unoptimized
-                          sizes="(max-width: 480px) 60vw, 28vw"
+                          sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
                           ref={(el) => {
                             if (seedIndices[i] === 0 && el?.complete) handleFirstDecode(el)
                           }}
@@ -513,7 +513,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                     </div>
                   </a>
                 ))}
-                <span className="category-label">{category}</span>
               </div>
             )
           })
