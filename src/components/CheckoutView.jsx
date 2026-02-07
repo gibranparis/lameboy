@@ -1,27 +1,20 @@
 'use client'
 
 import { useCart } from '@/contexts/CartContext'
-import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { animateFlipEnter } from '@/lib/flip'
 import CheckoutItem from './CheckoutItem'
 
-export default function CheckoutView() {
+export default function CheckoutView({ onClose }) {
   const { items, total, count } = useCart()
-  const router = useRouter()
   const [closing, setClosing] = useState(false)
+  const [entered, setEntered] = useState(false)
   const [night, setNight] = useState(false)
-  const containerRef = useRef(null)
+  const panelRef = useRef(null)
 
-  // FLIP animation on mount from cart button
+  // Trigger slide-in on mount
   useEffect(() => {
-    const fromRectStr = sessionStorage.getItem('cart-btn-rect')
-    if (!fromRectStr || !containerRef.current) return
-
-    const fromRect = JSON.parse(fromRectStr)
-    sessionStorage.removeItem('cart-btn-rect')
-
-    animateFlipEnter(containerRef.current, fromRect, { duration: 220 })
+    const frame = requestAnimationFrame(() => setEntered(true))
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   // Detect theme
@@ -50,115 +43,117 @@ export default function CheckoutView() {
   }, [])
 
   const handleClose = () => {
+    if (closing) return
     setClosing(true)
-    setTimeout(() => router.push('/'), 200)
+    setTimeout(() => onClose?.(), 340)
   }
+
+  // Listen for external close requests (e.g. cart button toggle)
+  useEffect(() => {
+    const onRequestClose = () => handleClose()
+    window.addEventListener('checkout:request-close', onRequestClose)
+    return () => window.removeEventListener('checkout:request-close', onRequestClose)
+  })
+
+  const slideOpen = entered && !closing
 
   return (
     <div
-      ref={containerRef}
       className="checkout-overlay"
-      data-closing={closing ? 'true' : undefined}
       data-theme={night ? 'night' : 'day'}
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 420,
-        background: night ? '#0f1115' : '#fafaf8',
-        overflowY: 'auto',
-        opacity: closing ? 0 : 1,
-        transition: 'opacity 200ms ease',
+        zIndex: 700,
+        pointerEvents: slideOpen ? 'auto' : 'none',
       }}
     >
+      {/* Backdrop */}
       <div
+        onClick={handleClose}
         style={{
-          maxWidth: 640,
-          margin: '0 auto',
-          padding: '60px 20px 40px',
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.4)',
+          opacity: slideOpen ? 1 : 0,
+          transition: 'opacity 300ms ease',
+        }}
+      />
+
+      {/* Side panel */}
+      <div
+        ref={panelRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          maxWidth: 460,
+          background: night ? '#0f1115' : '#fafaf8',
+          overflowY: 'auto',
+          transform: slideOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+          boxShadow: '-4px 0 24px rgba(0,0,0,0.18)',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>
-            Cart ({count})
-          </h1>
-          <button
-            onClick={handleClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              fontSize: 14,
-              color: night ? '#fff' : '#0f1115',
-              cursor: 'pointer',
-              padding: '8px 12px',
-            }}
-          >
-            Continue Shopping
-          </button>
-        </div>
-
-        {/* Empty state */}
-        {items.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: night ? '#999' : '#666' }}>
-            <p style={{ fontSize: 16, marginBottom: 20 }}>Your cart is empty</p>
-            <button
-              onClick={handleClose}
-              style={{
-                background: night ? '#fff' : '#0f1115',
-                color: night ? '#0f1115' : '#fff',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: 24,
-                cursor: 'pointer',
-                fontSize: 14,
-              }}
-            >
-              Start Shopping
-            </button>
+        <div style={{ padding: '20px 24px 40px' }}>
+          {/* Header */}
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={{ fontSize: 28, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>
+              {`Cart (${count})`}
+            </h1>
           </div>
-        )}
 
-        {/* Items */}
-        <div style={{ display: 'grid', gap: 16 }}>
-          {items.map((item, i) => (
-            <CheckoutItem key={`${item.id}-${item.size}-${i}`} item={item} night={night} />
-          ))}
-        </div>
-
-        {/* Total */}
-        {items.length > 0 && (
-          <div
-            style={{
-              marginTop: 40,
-              padding: '24px 0',
-              borderTop: `1px solid ${night ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
-              <span style={{ fontSize: 18, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>Total</span>
-              <span style={{ fontSize: 18, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>
-                ${(total / 100).toFixed(2)}
-              </span>
+          {/* Empty state */}
+          {items.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: night ? '#999' : '#666' }}>
+              <p style={{ fontSize: 16 }}>Your cart is empty</p>
             </div>
-            <button
-              style={{
-                width: '100%',
-                background: 'var(--hover-green, #0bf05f)',
-                color: '#000',
-                border: 'none',
-                padding: '16px 24px',
-                borderRadius: 28,
-                cursor: 'pointer',
-                fontSize: 16,
-                fontWeight: 600,
-                boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
-              }}
-              onClick={() => alert('Checkout flow to be integrated with Swell')}
-            >
-              Checkout
-            </button>
+          )}
+
+          {/* Items */}
+          <div style={{ display: 'grid', gap: 16 }}>
+            {items.map((item, i) => (
+              <CheckoutItem key={`${item.id}-${item.size}-${i}`} item={item} night={night} />
+            ))}
           </div>
-        )}
+
+          {/* Total */}
+          {items.length > 0 && (
+            <div
+              style={{
+                marginTop: 40,
+                padding: '24px 0',
+                borderTop: `1px solid ${night ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+                <span style={{ fontSize: 18, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>Total</span>
+                <span style={{ fontSize: 18, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>
+                  ${(total / 100).toFixed(2)}
+                </span>
+              </div>
+              <button
+                style={{
+                  width: '100%',
+                  background: 'var(--hover-green, #0bf05f)',
+                  color: '#000',
+                  border: 'none',
+                  padding: '16px 24px',
+                  borderRadius: 28,
+                  cursor: 'pointer',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+                }}
+                onClick={() => alert('Checkout flow to be integrated with Swell')}
+              >
+                Checkout
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

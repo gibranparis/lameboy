@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 
 const BIRKINS = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png']
+const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
 
 /**
  * CartButton
@@ -24,7 +25,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   const candidates = useMemo(() => {
     if (imgSrc) return [imgSrc]
 
-    const start = Math.floor(Math.random() * BIRKINS.length)
+    const start = SHARED_START
     const ordered = []
     for (let i = 0; i < BIRKINS.length; i++) {
       ordered.push(BIRKINS[(start + i) % BIRKINS.length])

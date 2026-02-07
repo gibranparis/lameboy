@@ -1,25 +1,18 @@
 // src/components/HeaderBar.jsx
 'use client'
 
-import React, { useMemo, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMemo } from 'react'
 import DayNightToggle from '@/components/DayNightToggle'
-import CartButton from '@/components/CartButton'
-
 export default function HeaderBar({ ctrlPx }) {
-  const router = useRouter()
-  const cartButtonRef = useRef(null)
   const headerPx = useMemo(() => {
     const n = Number(ctrlPx)
     return Number.isFinite(n) && n > 0 ? n : 64
   }, [ctrlPx])
 
   const sizes = useMemo(() => {
-    const cart = Math.round(headerPx * 0.44) // more proportional vs toggle/orb
     return {
       box: headerPx,
       toggleDot: 28,
-      cartImg: Math.max(26, Math.min(34, cart)),
     }
   }, [headerPx])
 
@@ -30,7 +23,7 @@ export default function HeaderBar({ ctrlPx }) {
       style={{
         position: 'fixed',
         inset: '0 0 auto 0',
-        zIndex: 500,
+        zIndex: 800,
         height: headerPx,
         display: 'grid',
         gridTemplateColumns: 'var(--header-ctrl) 1fr var(--header-ctrl)',
@@ -38,9 +31,10 @@ export default function HeaderBar({ ctrlPx }) {
         padding: '0 var(--header-pad-x)',
         background: 'transparent',
         overflow: 'visible',
+        pointerEvents: 'none',
       }}
     >
-      <div className="flex items-center" style={{ lineHeight: 0 }}>
+      <div className="flex items-center" style={{ lineHeight: 0, pointerEvents: 'auto' }}>
         <div
           style={{
             height: sizes.box,
@@ -61,38 +55,8 @@ export default function HeaderBar({ ctrlPx }) {
       {/* Center column intentionally empty: OrbShell is fixed-positioned and moves here */}
       <div className="flex items-center justify-center" style={{ lineHeight: 0 }} />
 
-      <div className="flex items-center justify-end" style={{ lineHeight: 0 }}>
-        <div
-          ref={cartButtonRef}
-          style={{
-            height: sizes.box,
-            width: 'var(--header-ctrl)',
-            display: 'grid',
-            placeItems: 'center',
-          }}
-        >
-          <CartButton
-            size={sizes.cartImg}
-            inHeader
-            onClick={() => {
-              // Save cart button position for FLIP animation
-              if (cartButtonRef.current) {
-                const rect = cartButtonRef.current.getBoundingClientRect()
-                sessionStorage.setItem(
-                  'cart-btn-rect',
-                  JSON.stringify({
-                    left: rect.left,
-                    top: rect.top,
-                    width: rect.width,
-                    height: rect.height,
-                  })
-                )
-              }
-              router.push('/checkout')
-            }}
-          />
-        </div>
-      </div>
+      {/* Right column: cart button rendered independently at page level */}
+      <div />
     </header>
   )
 }

@@ -20,6 +20,8 @@ const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRu
   ssr: false,
 })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
+const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
+const CartButton = nextDynamic(() => import('@/components/CartButton'), { ssr: false })
 
 const RUNNER_H = 14
 const LOADER_MS = 1400
@@ -212,6 +214,24 @@ export default function Page() {
     }
   }, [])
 
+  /* ===================== Checkout side panel ===================== */
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+
+  useEffect(() => {
+    const toggle = () => {
+      setCheckoutOpen((prev) => {
+        if (prev) {
+          // Already open — ask CheckoutView to animate closed first
+          window.dispatchEvent(new Event('checkout:request-close'))
+          return prev // stay mounted until onClose fires
+        }
+        return true
+      })
+    }
+    window.addEventListener('checkout:toggle', toggle)
+    return () => window.removeEventListener('checkout:toggle', toggle)
+  }, [])
+
   // Pre-warm client bundles while idle
   useEffect(() => {
     const run = () => {
@@ -220,6 +240,7 @@ export default function Page() {
       import('@/components/BannedLogin')
       import('@/components/ChakraBottomRunner')
       import('@/components/HeartBeatButton')
+      import('@/components/CheckoutView')
       import('@/components/OrbShell')
       import('@/components/BlueOrbCross3D')
     }
@@ -271,6 +292,32 @@ export default function Page() {
           </div>
         </>
       )}
+
+      {/* Cart button — independent of header so it stays above checkout */}
+      {inShop && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: 'var(--header-pad-x, 16px)',
+            height: 'var(--header-ctrl, 64px)',
+            width: 'var(--header-ctrl, 64px)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 9999,
+          }}
+        >
+          <CartButton
+            size={36}
+            inHeader
+            imgSrc={null}
+            onClick={() => window.dispatchEvent(new Event('checkout:toggle'))}
+          />
+        </div>
+      )}
+
+      {/* Checkout side panel */}
+      {checkoutOpen && <CheckoutView onClose={() => setCheckoutOpen(false)} />}
 
       {/* White curtain overlay (no WebGL inside) */}
       <WhiteLoader show={loaderShow} />
