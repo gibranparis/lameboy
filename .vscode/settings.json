@@ -17,7 +17,7 @@
   "editor.minimap.enabled": false,
 
 // 🖊️ Formatting & Linting
-"editor.formatOnSave": true,
+"editor.formatOnSave": false,
 "editor.defaultFormatter": "esbenp.prettier-vscode",
 
 "[javascript]": {
