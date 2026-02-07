@@ -5,13 +5,16 @@
 import Image from 'next/image'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ProductOverlay from '@/components/ProductOverlay'
-import { PRODUCTS, logMissingAssets } from '@/lib/products'
+import { PRODUCTS, logMissingAssets, groupByCategory } from '@/lib/products'
 import { useCart } from '@/contexts/CartContext'
 
 /** Storage key for saved grid density */
 const KEY_DENSITY = 'lb:grid-cols'
 const MIN_COLS = 1
 const MAX_COLS = 5
+
+const VIEW_STACKS = 'stacks'
+const VIEW_GRID = 'grid'
 
 function clampCols(n) {
   const v = Number(n) || MAX_COLS
@@ -125,6 +128,14 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     if (process.env.NODE_ENV !== 'production') logMissingAssets()
   }, [])
 
+  /* ---------------- View mode (stacks vs grid) ---------------- */
+  const [viewMode, setViewMode] = useState(VIEW_STACKS)
+  const categoryGroups = useMemo(() => groupByCategory(seed), [seed])
+
+  useEffect(() => {
+    try { sessionStorage.setItem('lb:view-mode', viewMode) } catch {}
+  }, [viewMode])
+
   /* ---------------- Cart integration ---------------- */
   const cart = useCart()
 
@@ -196,8 +207,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   const firstTileRef = useRef(null)
 
   // Auto-open first product on mount (slight delay to allow layout)
+  // Only fires in grid mode — stacks view should show the deck first.
   useEffect(() => {
-    if (autoOpenFirstOnMount && seed.length) {
+    if (autoOpenFirstOnMount && seed.length && viewMode === VIEW_GRID) {
       const t = setTimeout(() => {
         const el = firstTileRef.current
         const r = el?.getBoundingClientRect?.()
@@ -205,7 +217,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       }, 80)
       return () => clearTimeout(t)
     }
-  }, [autoOpenFirstOnMount, seed.length, openAt])
+  }, [autoOpenFirstOnMount, seed.length, openAt, viewMode])
 
   /* ---------------- Grid density via orb ---------------- */
 
@@ -225,6 +237,19 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       flipSnapshotRef.current = snap
     }
     setCols(v)
+  }, [])
+
+  /** Transition from stacked deck → grid with FLIP animation */
+  const revealGrid = useCallback(() => {
+    const grid = document.querySelector('[data-component="shop-grid"]')
+    if (grid) {
+      const tiles = grid.querySelectorAll('.product-tile')
+      const snap = new Map()
+      tiles.forEach((tile, idx) => snap.set(idx, tile.getBoundingClientRect()))
+      flipSnapshotRef.current = snap
+    }
+    setViewMode(VIEW_GRID)
+    setCols(MAX_COLS)
   }, [])
 
   /** After React re-renders with new cols, FLIP tiles from old → new pos */
@@ -284,10 +309,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     }, 400)
 
     return () => clearTimeout(t)
-  }, [cols])
+  }, [cols, viewMode])
 
-  const broadcastDensity = useCallback((density) => {
-    const detail = { density, value: density }
+  const broadcastDensity = useCallback((/** @type {number} */ density, /** @type {string} */ mode) => {
+    const detail = { density, value: density, viewMode: mode }
     try {
       document.dispatchEvent(new CustomEvent('lb:grid-density', { detail }))
     } catch {}
@@ -315,9 +340,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       sessionStorage.setItem(KEY_DENSITY, String(clamped))
     } catch {}
 
-    broadcastDensity(clamped)
+    broadcastDensity(clamped, viewMode)
 
-    // Grid “zoom” feel on density changes (only when value actually changes)
+    // Grid "zoom" feel on density changes (only when value actually changes)
     if (prev !== clamped) {
       try {
         const root = document.documentElement
@@ -335,7 +360,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     }
 
     prevColsRef.current = clamped
-  }, [cols, broadcastDensity, syncCssTokens])
+  }, [cols, viewMode, broadcastDensity, syncCssTokens])
 
   // Listen for zoom/density events from the orb/header
   useEffect(() => {
@@ -344,13 +369,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       const explicit = Number(d.value)
 
       if (overlayIdx != null) {
-        // Don't unmount here — ProductOverlay handles its own animated
-        // close via its zoom listener and calls onClose() when done.
-        // Still apply an explicit density value so the grid is correct
-        // when the overlay finishes closing.
         if (Number.isFinite(explicit)) {
           setCols(clampCols(explicit))
         }
+        return
+      }
+
+      // Any zoom action while in stacks mode reveals the grid
+      if (viewMode === VIEW_STACKS) {
+        revealGrid()
         return
       }
 
@@ -381,9 +408,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     return () => {
       document.removeEventListener('lb:zoom', onZoom)
     }
-  }, [overlayIdx])
+  }, [overlayIdx, setColsWithFlip, viewMode, revealGrid])
 
-  /* ---------------- Signal “shop ready” (redundant safety) ---------------- */
+  /* ---------------- Signal "shop ready" (redundant safety) ---------------- */
   const readySent = useRef(false)
   const sendReady = useCallback(() => {
     if (readySent.current) return
@@ -434,91 +461,149 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         minHeight: '100dvh',
       }}
     >
-      <div className="shop-grid" data-component="shop-grid">
-        {seed.map((p, idx) => (
-          <a
-            key={p.id ?? idx}
-            ref={idx === 0 ? firstTileRef : undefined}
-            className="product-tile lb-tile"
-            role="button"
-            tabIndex={0}
-            aria-label={`Open ${p.title ?? 'product'} details`}
-            onClick={(e) => {
-              e.preventDefault()
-              const r = e.currentTarget.getBoundingClientRect()
-              openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
+      <div className="shop-grid" data-component="shop-grid" data-view-mode={viewMode}>
+        {viewMode === VIEW_STACKS ? (
+          /* ---------- STACKED DECK VIEW ---------- */
+          Array.from(categoryGroups.entries()).map((/** @type {[string, any[]]} */ [category, items]) => {
+            // Track the global seed index for each product so FLIP matches
+            const seedIndices = items.map((/** @type {any} */ p) => seed.indexOf(p))
+            return (
+              <div
+                key={category}
+                className="category-stack"
+                role="button"
+                tabIndex={0}
+                aria-label={`${category} — ${items.length} products. Click to expand.`}
+                onClick={() => revealGrid()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    revealGrid()
+                  }
+                }}
+              >
+                {items.map((/** @type {any} */ p, /** @type {number} */ i) => (
+                  <a
+                    key={p.id ?? i}
+                    ref={seedIndices[i] === 0 ? firstTileRef : undefined}
+                    className="product-tile lb-tile"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <div className="product-box">
+                      <div className="product-img-wrap">
+                        <Image
+                          src={p.thumb || p.image}
+                          alt={p.title || 'Product'}
+                          width={800}
+                          height={800}
+                          className="product-img"
+                          priority={i === 0}
+                          unoptimized
+                          sizes="(max-width: 480px) 60vw, 28vw"
+                          ref={(el) => {
+                            if (seedIndices[i] === 0 && el?.complete) handleFirstDecode(el)
+                          }}
+                          onLoad={(e) => {
+                            if (seedIndices[i] === 0) handleFirstDecode(e.currentTarget)
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </a>
+                ))}
+                <span className="category-label">{category}</span>
+              </div>
+            )
+          })
+        ) : (
+          /* ---------- GRID VIEW (existing) ---------- */
+          seed.map((/** @type {any} */ p, /** @type {number} */ idx) => (
+            <a
+              key={p.id ?? idx}
+              ref={idx === 0 ? firstTileRef : undefined}
+              className="product-tile lb-tile"
+              role="button"
+              tabIndex={0}
+              aria-label={`Open ${p.title ?? 'product'} details`}
+              onClick={(e) => {
                 e.preventDefault()
-                const el = /** @type {HTMLElement} */ (e.currentTarget)
-                const r = el.getBoundingClientRect()
+                const r = e.currentTarget.getBoundingClientRect()
                 openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
-              }
-            }}
-          >
-            <div className="product-box">
-              <div className="product-img-wrap">
-                <Image
-                  src={p.thumb || p.image}
-                  alt={p.title || 'Product'}
-                  width={800}
-                  height={800}
-                  className="product-img"
-                  priority={idx === 0}
-                  unoptimized
-                  sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
-                  ref={(el) => {
-                    if (idx === 0 && el?.complete) handleFirstDecode(el)
-                  }}
-                  onLoad={(e) => {
-                    if (idx === 0) handleFirstDecode(e.currentTarget)
-                  }}
-                  onError={(e) => {
-                    const img = e.currentTarget
-                    if (img.dataset.fallback === 'hero') {
-                      img.src = '/products/brown.png'
-                      img.dataset.fallback = 'final'
-                    } else if (!img.dataset.fallback) {
-                      img.src = p.image
-                      img.dataset.fallback = 'hero'
-                    }
-                  }}
-                />
-                {(() => {
-                  const qty = getProductQty(p.id)
-                  if (qty <= 0) return null
-                  const anchor = badgeAnchors[p.thumb || p.image]
-                  return (
-                    <span
-                      className="product-badge"
-                      aria-label={`${qty} in cart`}
-                      style={anchor ? {
-                        top: `${(anchor.top * 100).toFixed(1)}%`,
-                        right: `${(anchor.right * 100).toFixed(1)}%`,
-                        transform: 'translate(50%, -50%)',
-                      } : undefined}
-                    >
-                      {qty}
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  const el = /** @type {HTMLElement} */ (e.currentTarget)
+                  const r = el.getBoundingClientRect()
+                  openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
+                }
+              }}
+            >
+              <div className="product-box">
+                <div className="product-img-wrap">
+                  <Image
+                    src={p.thumb || p.image}
+                    alt={p.title || 'Product'}
+                    width={800}
+                    height={800}
+                    className="product-img"
+                    priority={idx === 0}
+                    unoptimized
+                    sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
+                    ref={(el) => {
+                      if (idx === 0 && el?.complete) handleFirstDecode(el)
+                    }}
+                    onLoad={(e) => {
+                      if (idx === 0) handleFirstDecode(e.currentTarget)
+                    }}
+                    onError={(e) => {
+                      const img = e.currentTarget
+                      if (img.dataset.fallback === 'hero') {
+                        img.src = '/products/brown.png'
+                        img.dataset.fallback = 'final'
+                      } else if (!img.dataset.fallback) {
+                        img.src = p.image
+                        img.dataset.fallback = 'hero'
+                      }
+                    }}
+                  />
+                  {(() => {
+                    const qty = getProductQty(p.id)
+                    if (qty <= 0) return null
+                    const anchor = badgeAnchors[p.thumb || p.image]
+                    return (
+                      <span
+                        className="product-badge"
+                        aria-label={`${qty} in cart`}
+                        style={anchor ? {
+                          top: `${(anchor.top * 100).toFixed(1)}%`,
+                          right: `${(anchor.right * 100).toFixed(1)}%`,
+                          transform: 'translate(50%, -50%)',
+                        } : undefined}
+                      >
+                        {qty}
+                      </span>
+                    )
+                  })()}
+                </div>
+              </div>
+              {cols < MAX_COLS && (
+                <div className="product-meta">
+                  {p.title}
+                  {cols <= MIN_COLS + 1 && (
+                    <span className="product-price">
+                      {typeof p.price === 'number'
+                        ? p.price % 100 === 0 ? `$${p.price / 100}` : `$${(p.price / 100).toFixed(2)}`
+                        : p.price ?? ''}
                     </span>
-                  )
-                })()}
-              </div>
-            </div>
-            {cols < MAX_COLS && (
-              <div className="product-meta">
-                {p.title}
-                {cols <= MIN_COLS + 1 && (
-                  <span className="product-price">
-                    {typeof p.price === 'number'
-                      ? p.price % 100 === 0 ? `$${p.price / 100}` : `$${(p.price / 100).toFixed(2)}`
-                      : p.price ?? ''}
-                  </span>
-                )}
-              </div>
-            )}
-          </a>
-        ))}
+                  )}
+                </div>
+              )}
+            </a>
+          ))
+        )}
       </div>
 
       {overlayOpen && (
@@ -536,6 +621,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         .shop-wrap {
           width: 100%;
         }
+
+        /* ---------- GRID VIEW ---------- */
         .shop-grid {
           display: grid;
           grid-template-columns: repeat(var(--grid-cols, 5), minmax(0, 1fr));
@@ -546,6 +633,72 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
             padding 220ms ease;
         }
 
+        /* ---------- STACKED DECK VIEW ---------- */
+        .shop-grid[data-view-mode='stacks'] {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          align-items: center;
+          gap: 48px;
+          min-height: calc(100dvh - var(--header-ctrl, 64px));
+          padding: clamp(24px, 6vw, 48px);
+        }
+
+        .category-stack {
+          position: relative;
+          cursor: pointer;
+          width: clamp(180px, 32vw, 300px);
+          aspect-ratio: 1 / 1;
+          /* Extra room for offset cards */
+          padding-bottom: 24px;
+          padding-right: 24px;
+        }
+
+        .category-stack:focus-visible {
+          outline: 2px solid #000;
+          outline-offset: 8px;
+          border-radius: 16px;
+        }
+
+        .category-stack .product-tile {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: calc(100% - 24px);
+          height: calc(100% - 24px);
+          pointer-events: none;
+          transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1),
+                      box-shadow 300ms ease;
+        }
+
+        .category-stack .product-tile:nth-child(1) { z-index: 5; transform: translate(0, 0) rotate(0deg); }
+        .category-stack .product-tile:nth-child(2) { z-index: 4; transform: translate(5px, 4px) rotate(1.2deg); }
+        .category-stack .product-tile:nth-child(3) { z-index: 3; transform: translate(10px, 8px) rotate(2.4deg); }
+        .category-stack .product-tile:nth-child(4) { z-index: 2; transform: translate(15px, 12px) rotate(3.6deg); }
+        .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translate(20px, 16px) rotate(4.8deg); }
+
+        @media (pointer: fine) {
+          .category-stack:hover .product-tile:nth-child(1) { transform: translate(-2px, -2px) rotate(-0.5deg); }
+          .category-stack:hover .product-tile:nth-child(2) { transform: translate(8px, 5px) rotate(2.5deg); }
+          .category-stack:hover .product-tile:nth-child(3) { transform: translate(18px, 12px) rotate(5deg); }
+          .category-stack:hover .product-tile:nth-child(4) { transform: translate(28px, 19px) rotate(7.5deg); }
+          .category-stack:hover .product-tile:nth-child(5) { transform: translate(38px, 26px) rotate(10deg); }
+        }
+
+        .category-label {
+          position: absolute;
+          bottom: -4px;
+          left: 50%;
+          transform: translateX(-60%);
+          font-size: clamp(11px, 1.4vw, 15px);
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          white-space: nowrap;
+          opacity: 0.6;
+        }
+
+        /* ---------- SHARED TILE STYLES ---------- */
         .product-box {
           aspect-ratio: 1 / 1;
           background: #fff;
@@ -557,7 +710,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           will-change: transform;
         }
 
-        /* Grid “zoom” feel when density changes via orb */
+        /* Grid "zoom" feel when density changes via orb */
         :global(html[data-grid-anim='1'][data-grid-dir='in']) .product-box {
           transform: translateZ(0) scale(1.03);
         }
@@ -571,7 +724,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         }
 
         @media (pointer: fine) {
-          .product-tile:hover .product-box {
+          .shop-grid[data-view-mode='grid'] .product-tile:hover .product-box {
             transform: translateZ(0) scale(1.05);
           }
         }

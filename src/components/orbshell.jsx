@@ -124,9 +124,12 @@ export default function OrbShell({
     return () => mo.disconnect()
   }, [])
 
-  // read density to set “edge behavior”
+  // read density to set "edge behavior"
   useEffect(() => {
     const onDensity = (e) => {
+      const mode = e?.detail?.viewMode
+      // In stacks mode, orb should always zoom "in" (to reveal grid)
+      if (mode === 'stacks') { setNextDir('in'); return }
       const d = Number(e?.detail?.density ?? e?.detail?.value)
       if (!Number.isFinite(d)) return
       if (d <= MIN) setNextDir('out')

@@ -2,7 +2,7 @@
 // Single source of truth for the current hoodie set.
 // All image paths are in /public/products (lowercase filenames).
 
-/** @typedef {{ id:string, title:string, price:number, image:string, thumb?:string, images?:string[], sizes?:string[] }} Product */
+/** @typedef {{ id:string, title:string, price:number, image:string, thumb?:string, images?:string[], sizes?:string[], category?:string }} Product */
 
 /** @type {Product[]} */
 export const PRODUCTS = [
@@ -10,6 +10,7 @@ export const PRODUCTS = [
     id: 'hoodie-gray',
     title: 'Gray',
     price: 4000,
+    category: 'hoodies',
     image: '/products/gray.png',
     thumb: '/products/gray.png',
     images: ['/products/gray.png'],
@@ -19,6 +20,7 @@ export const PRODUCTS = [
     id: 'hoodie-brown',
     title: 'Brown',
     price: 4000,
+    category: 'hoodies',
     image: '/products/brown.png',
     thumb: '/products/brown.png',
     images: ['/products/brown.png'],
@@ -28,6 +30,7 @@ export const PRODUCTS = [
     id: 'hoodie-black',
     title: 'Black',
     price: 4000,
+    category: 'hoodies',
     image: '/products/black.png',
     thumb: '/products/black.png',
     images: ['/products/black.png'],
@@ -37,6 +40,7 @@ export const PRODUCTS = [
     id: 'hoodie-green',
     title: 'Green',
     price: 4000,
+    category: 'hoodies',
     image: '/products/green.png',
     thumb: '/products/green.png',
     images: ['/products/green.png'],
@@ -46,6 +50,7 @@ export const PRODUCTS = [
     id: 'hoodie-blue',
     title: 'Blue',
     price: 4000,
+    category: 'hoodies',
     image: '/products/blue.png',
     thumb: '/products/blue.png',
     images: ['/products/blue.png'],
@@ -56,6 +61,17 @@ export const PRODUCTS = [
 // Default export so `import products from '@/lib/products'` works.
 const products = PRODUCTS
 export default products
+
+/** @param {Product[]} list @returns {Map<string, Product[]>} */
+export function groupByCategory(list) {
+  const map = new Map()
+  for (const p of list) {
+    const cat = p.category || 'uncategorized'
+    if (!map.has(cat)) map.set(cat, [])
+    map.get(cat).push(p)
+  }
+  return map
+}
 
 // Helpful in dev to surface missing assets fast.
 export function logMissingAssets() {
