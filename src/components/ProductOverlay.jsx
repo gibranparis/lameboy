@@ -1176,7 +1176,7 @@ export default function ProductOverlay({
                     style={{
                       width: '100%',
                       height: 'auto',
-                      maxHeight: '70vh',
+                      maxHeight: '58vh',
                       objectFit: 'contain',
                       imageRendering: 'auto',
                       cursor: 'pointer',
@@ -1220,10 +1220,12 @@ export default function ProductOverlay({
           }}
         >
           <div className="product-hero-title">{product.title}</div>
-          <div ref={priceRef} className="product-hero-price" style={{ marginTop: 4, marginBottom: 10 }}>
+          <div ref={priceRef} className="product-hero-price" style={{ marginTop: 6 }}>
             {priceText}
           </div>
-          <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} />
+          <div style={{ marginTop: 14 }}>
+            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} />
+          </div>
         </div>
       </div>
 
