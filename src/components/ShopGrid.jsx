@@ -474,10 +474,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 role="button"
                 tabIndex={0}
                 aria-label={`${category} — ${items.length} products. Click to expand.`}
-                onClick={() => revealGrid()}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  revealGrid()
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
+                    e.stopPropagation()
                     revealGrid()
                   }
                 }}
@@ -489,7 +494,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                     className="product-tile lb-tile"
                     tabIndex={-1}
                     aria-hidden="true"
-                    onClick={(e) => e.preventDefault()}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   >
                     <div className="product-box">
                       <div className="product-img-wrap">
