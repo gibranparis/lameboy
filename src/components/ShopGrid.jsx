@@ -634,28 +634,28 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
         /* ---------- STACKED DECK VIEW ---------- */
         .shop-grid[data-view-mode='stacks'] {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: center;
-          align-items: center;
-          gap: 48px;
+          /* Use same grid layout as normal grid mode */
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: clamp(10px, 2vw, 18px);
+          padding: clamp(10px, 3vw, 24px);
           min-height: calc(100dvh - var(--header-ctrl, 64px));
-          padding: clamp(24px, 6vw, 48px);
+          place-items: center;
         }
 
         .category-stack {
           position: relative;
           cursor: pointer;
-          width: clamp(180px, 32vw, 300px);
+          /* Place in middle column (3rd of 5) */
+          grid-column: 3;
+          /* Full width/height of the grid cell */
+          width: 100%;
           aspect-ratio: 1 / 1;
-          /* Extra room for offset cards */
-          padding-bottom: 24px;
-          padding-right: 24px;
         }
 
         .category-stack:focus-visible {
           outline: 2px solid #000;
-          outline-offset: 8px;
+          outline-offset: 4px;
           border-radius: 16px;
         }
 
@@ -663,38 +663,27 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           position: absolute;
           top: 0;
           left: 0;
-          width: calc(100% - 24px);
-          height: calc(100% - 24px);
+          width: 100%;
+          height: 100%;
           pointer-events: none;
-          transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1),
-                      box-shadow 300ms ease;
+          transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1);
         }
 
-        .category-stack .product-tile:nth-child(1) { z-index: 5; transform: translate(0, 0) rotate(0deg); }
-        .category-stack .product-tile:nth-child(2) { z-index: 4; transform: translate(5px, 4px) rotate(1.2deg); }
-        .category-stack .product-tile:nth-child(3) { z-index: 3; transform: translate(10px, 8px) rotate(2.4deg); }
-        .category-stack .product-tile:nth-child(4) { z-index: 2; transform: translate(15px, 12px) rotate(3.6deg); }
-        .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translate(20px, 16px) rotate(4.8deg); }
+        /* Horizontal stack - each card offset to the right with slight vertical offset */
+        /* Creates a "pile of clothes" look where each color is visible */
+        .category-stack .product-tile:nth-child(1) { z-index: 5; transform: translateX(0px); }
+        .category-stack .product-tile:nth-child(2) { z-index: 4; transform: translateX(3px); }
+        .category-stack .product-tile:nth-child(3) { z-index: 3; transform: translateX(6px); }
+        .category-stack .product-tile:nth-child(4) { z-index: 2; transform: translateX(9px); }
+        .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translateX(12px); }
 
+        /* Hover: slide them out a bit more to the right */
         @media (pointer: fine) {
-          .category-stack:hover .product-tile:nth-child(1) { transform: translate(-2px, -2px) rotate(-0.5deg); }
-          .category-stack:hover .product-tile:nth-child(2) { transform: translate(8px, 5px) rotate(2.5deg); }
-          .category-stack:hover .product-tile:nth-child(3) { transform: translate(18px, 12px) rotate(5deg); }
-          .category-stack:hover .product-tile:nth-child(4) { transform: translate(28px, 19px) rotate(7.5deg); }
-          .category-stack:hover .product-tile:nth-child(5) { transform: translate(38px, 26px) rotate(10deg); }
-        }
-
-        .category-label {
-          position: absolute;
-          bottom: -4px;
-          left: 50%;
-          transform: translateX(-60%);
-          font-size: clamp(11px, 1.4vw, 15px);
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          white-space: nowrap;
-          opacity: 0.6;
+          .category-stack:hover .product-tile:nth-child(1) { transform: translateX(-4px); }
+          .category-stack:hover .product-tile:nth-child(2) { transform: translateX(4px); }
+          .category-stack:hover .product-tile:nth-child(3) { transform: translateX(12px); }
+          .category-stack:hover .product-tile:nth-child(4) { transform: translateX(20px); }
+          .category-stack:hover .product-tile:nth-child(5) { transform: translateX(28px); }
         }
 
         /* ---------- SHARED TILE STYLES ---------- */
