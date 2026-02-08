@@ -1,51 +1,12 @@
 // src/components/DayNightToggle.jsx
-// Clouds (day), starry sky + LAMEBOY constellation (night)
-// Ridged sun with gradient + glow
+// Clouds (day), Virgo constellation (night)
+// NASA sun image and moon image
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 /** @typedef {'day'|'night'} Theme */
 const THEME_KEY = 'lb:theme';
-
-/* ---------- Ridged Sun SVG ---------- */
-function SunIcon({ size = 28 }) {
-  const id = useId();
-  const spokes = 16;
-  const rOuter = size * 0.52;
-  const rInner = size * 0.40;
-  const cx = size / 2;
-  const cy = size / 2;
-
-  const pts = [];
-  for (let i = 0; i < spokes * 2; i++) {
-    const a = (i * Math.PI) / spokes;
-    const r = i % 2 === 0 ? rOuter : rInner;
-    pts.push(`${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`);
-  }
-  const points = pts.join(' ');
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" style={{ display:'block' }}>
-      <defs>
-        <radialGradient id={`${id}-g`} cx="45%" cy="45%" r="65%">
-          <stop offset="0%"  stopColor="#fff6c6"/>
-          <stop offset="55%" stopColor="#ffd75e"/>
-          <stop offset="100%" stopColor="#ffb200"/>
-        </radialGradient>
-        <filter id={`${id}-glow`} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="1.4" result="b"/>
-          <feMerge>
-            <feMergeNode in="b"/>
-            <feMergeNode in="SourceGraphic"/>
-          </feMerge>
-        </filter>
-      </defs>
-      <polygon points={points} fill={`url(#${id}-g)`} filter={`url(#${id}-glow)`} />
-      <circle cx={cx} cy={cy} r={size * 0.36} fill={`url(#${id}-g)`} style={{ filter:'drop-shadow(0 0 10px rgba(255,210,80,.55))' }}/>
-    </svg>
-  );
-}
 
 /* ---------- Tiny cloud layer (day) ---------- */
 function Clouds() {
@@ -135,11 +96,15 @@ export default function DayNightToggle({
   function setTheme(next /** @type {Theme} */) { isControlled ? onChange?.(next) : setInternal(next); }
   function toggle() { setTheme(isNight ? 'day' : 'night'); }
 
-  // preload moon to avoid first-switch flash
+  // preload moon, sun, and constellation to avoid first-switch flash
   useEffect(() => {
-    const src = (Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/moon-red.png');
-    const img = new Image();
-    img.src = src;
+    const moonSrc = (Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/moon-red.png');
+    const sunSrc = '/toggle/sun.webp';
+    const constellationSrc = '/toggle/virgo-constellation.webp';
+    [moonSrc, sunSrc, constellationSrc].forEach(src => {
+      const img = new Image();
+      img.src = src;
+    });
   }, [moonImages]);
 
   // Sizing
@@ -198,9 +163,33 @@ export default function DayNightToggle({
         {!isNight && <Clouds />}
       </span>
 
-      {/* NIGHT SKY (canvas) */}
+      {/* NIGHT SKY (Virgo constellation) */}
       {isNight && (
-        <canvas aria-hidden style={{ position:'absolute', inset:0, borderRadius:9999, pointerEvents:'none' }} />
+        <span
+          aria-hidden
+          style={{
+            position:'absolute',
+            inset:0,
+            borderRadius:9999,
+            overflow:'hidden',
+            pointerEvents:'none',
+            background:'#0a0a12',
+          }}
+        >
+          <img
+            src="/toggle/virgo-constellation.webp"
+            alt=""
+            style={{
+              width:'100%',
+              height:'100%',
+              objectFit:'cover',
+              objectPosition:'20% center',
+              opacity:0.85,
+              mixBlendMode:'lighten',
+            }}
+            draggable={false}
+          />
+        </span>
       )}
 
       {/* KNOB (ridged sun / moon image) */}
@@ -223,10 +212,22 @@ export default function DayNightToggle({
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
             opacity: isNight ? 1 : 0, transition:'opacity 180ms ease',
-            filter:'drop-shadow(0 0 18px rgba(255,210,80,.65))',
           }}
         >
-          <SunIcon size={dims.knob}/>
+          <img
+            src="/toggle/sun.webp"
+            alt=""
+            style={{
+              width: dims.knob,
+              height: dims.knob,
+              borderRadius: '50%',
+              display: 'block',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              filter: 'saturate(1.1) brightness(1.05) drop-shadow(0 0 12px rgba(255,210,80,.7))',
+            }}
+            draggable={false}
+          />
         </span>
 
         {/* Moon */}

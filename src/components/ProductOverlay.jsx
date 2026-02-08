@@ -1354,8 +1354,8 @@ export default function ProductOverlay({
             <div
               style={{
                 position: 'fixed',
-                left: `calc(12px + env(safe-area-inset-left,0px))`,
-                top: '42%',
+                left: `calc(max(12px, 13vw) + env(safe-area-inset-left,0px))`,
+                top: '46%',
                 transform: 'translateY(-50%)',
                 display: 'grid',
                 gap: 8,
@@ -1402,6 +1402,13 @@ export default function ProductOverlay({
                   onWheel={handleTrackpadZoom}
                   style={{
                     width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '58vh',
+                    position: 'relative',
+                    left: product.title?.toLowerCase().includes('brown') ? '0.5vw' : product.title?.toLowerCase().includes('black') ? '0vw' : '-2vw',
+                    top: product.title?.toLowerCase().includes('brown') ? '2vh' : product.title?.toLowerCase().includes('blue') ? '1.5vh' : '0',
                   }}
                 >
                   <Image
@@ -1416,10 +1423,11 @@ export default function ProductOverlay({
                     sizes="(min-width:1536px) 60vw, (min-width:1024px) 72vw, 92vw"
                     onClick={handleHeroImgClick}
                     style={{
-                      width: '100%',
+                      width: '70vw',
                       height: 'auto',
                       maxHeight: '58vh',
                       objectFit: 'contain',
+                      objectPosition: '45% center',
                       imageRendering: 'auto',
                       cursor: 'pointer',
                       transform: `translate(${pinchZoom.x}px, ${pinchZoom.y}px) scale(${
@@ -1455,7 +1463,7 @@ export default function ProductOverlay({
         <div
           style={{
             position: 'fixed',
-            bottom: 'calc(16vh + env(safe-area-inset-bottom, 0px))',
+            bottom: 'calc(18vh + env(safe-area-inset-bottom, 0px))',
             left: '50%',
             transform: 'translateX(-50%)',
             textAlign: 'center',
@@ -1466,10 +1474,10 @@ export default function ProductOverlay({
           }}
         >
           <div className="product-hero-title">{product.title}</div>
-          <div ref={priceRef} className="product-hero-price" style={{ marginTop: 6 }}>
+          <div ref={priceRef} className="product-hero-price" style={{ marginTop: 10 }}>
             {priceText}
           </div>
-          <div style={{ marginTop: 14 }}>
+          <div style={{ marginTop: 20 }}>
             <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} />
           </div>
         </div>

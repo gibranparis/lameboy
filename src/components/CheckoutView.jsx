@@ -101,7 +101,7 @@ export default function CheckoutView({ onClose }) {
           {/* Header */}
           <div style={{ marginBottom: 24 }}>
             <h1 style={{ fontSize: 28, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>
-              {`Cart (${count})`}
+              {`(${count})`}
             </h1>
           </div>
 

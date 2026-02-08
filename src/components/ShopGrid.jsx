@@ -512,7 +512,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   // Keep CSS tokens, storage, bump flag, and broadcast in sync with `cols`
   useEffect(() => {
     const clamped = clampCols(cols)
-    const prev = prevColsRef.current
 
     syncCssTokens(clamped)
 
@@ -522,22 +521,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
     broadcastDensity(clamped, viewMode)
 
-    // Grid "zoom" feel on density changes (only when value actually changes)
-    if (prev !== clamped) {
-      try {
-        const root = document.documentElement
-        root.setAttribute('data-grid-anim', '1')
-        root.setAttribute('data-grid-dir', clamped < prev ? 'in' : 'out')
-        const t = setTimeout(() => {
-          root.removeAttribute('data-grid-anim')
-          root.removeAttribute('data-grid-dir')
-        }, 260)
-        prevColsRef.current = clamped
-        return () => clearTimeout(t)
-      } catch {
-        /* ignore */
-      }
-    }
+    // No zoom animation for grid density changes - only for stack transitions
+    // (The wiggle animation on stacks is handled separately in CSS)
 
     prevColsRef.current = clamped
   }, [cols, viewMode, broadcastDensity, syncCssTokens])
@@ -825,17 +810,20 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                   {(() => {
                     const qty = getProductQty(p.id)
                     if (qty <= 0) return null
-                    const anchor = badgeAnchors[p.thumb || p.image]
+
+                    // Use fixed position on right shoulder area
+                    // The anchor calculation puts it too far right for centered product images
+                    const leftPercent = 76
+                    const topPercent = 28
 
                     return (
                       <span
                         className="product-badge"
                         aria-label={`${qty} in cart`}
-                        style={anchor ? {
-                          top: `${(anchor.top * 100).toFixed(1)}%`,
-                          right: `${(anchor.right * 100).toFixed(1)}%`,
-                          transform: 'translate(50%, -50%)',
-                        } : undefined}
+                        style={{
+                          left: `${leftPercent.toFixed(1)}%`,
+                          top: `${topPercent.toFixed(1)}%`,
+                        }}
                       >
                         {qty}
                       </span>
@@ -1033,6 +1021,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           transition: transform 180ms cubic-bezier(0.2, 0.9, 0.2, 1);
           will-change: transform;
           backface-visibility: hidden;
+          /* Ensure children can render outside rounded corners */
+          isolation: isolate;
         }
 
         /* In grid mode, make only the image clickable, not the transparent areas */
@@ -1052,14 +1042,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           pointer-events: auto;
         }
 
-        /* Grid "zoom" feel when density changes via orb */
-        :global(html[data-grid-anim='1'][data-grid-dir='in']) .product-box {
-          transform: translateZ(0) scale(1.03);
-        }
-        :global(html[data-grid-anim='1'][data-grid-dir='out']) .product-box {
-          transform: translateZ(0) scale(0.97);
-        }
-
         /* Never animate grid tiles while overlay is open */
         :global(html[data-overlay-open='1']) .product-box {
           transform: translateZ(0) scale(1) !important;
@@ -1072,11 +1054,44 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           }
         }
 
+        .product-img-wrap {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: visible;
+          /* Create containing block for absolutely positioned badge */
+          transform: translateZ(0);
+        }
+
         .product-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
+        }
+
+        .product-badge {
+          position: absolute !important;
+          left: 73%;
+          top: 32%;
+          width: 24px;
+          height: 24px;
+          background: #ff4444;
+          color: white;
+          font-size: 0.7rem;
+          font-weight: 700;
+          line-height: 1;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+          pointer-events: none;
+          z-index: 1000;
+          /* Center the badge on the anchor point */
+          transform: translate(-50%, -50%);
+          /* Isolate from parent transforms */
+          will-change: transform;
+          contain: layout style paint;
         }
         .product-tile {
           text-decoration: none;
