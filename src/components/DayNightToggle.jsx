@@ -183,6 +183,7 @@ export default function DayNightToggle({
         WebkitTapHighlightColor:'transparent',
         isolation:'isolate',
         outline:'none',
+        transition:'transform 120ms ease',
       }}
     >
       {/* DAY BACKDROP (+ clouds) */}
@@ -249,6 +250,9 @@ export default function DayNightToggle({
       </span>
 
       <style jsx>{`
+        button:hover {
+          transform: scale(1.05);
+        }
         @keyframes cloudMove { from { transform: translateX(-4%); } to { transform: translateX(6%); } }
       `}</style>
     </button>

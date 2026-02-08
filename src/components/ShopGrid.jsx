@@ -702,10 +702,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         }
 
         @keyframes stack-wiggle {
-          0% { transform: scale(0.95) rotate(0deg); }
-          25% { transform: scale(1.02) rotate(-2deg); }
-          50% { transform: scale(1.01) rotate(2deg); }
-          75% { transform: scale(1.01) rotate(-1deg); }
+          0% { transform: scale(0.98) rotate(0deg); }
+          25% { transform: scale(1.01) rotate(-0.8deg); }
+          50% { transform: scale(1.005) rotate(0.8deg); }
+          75% { transform: scale(1.005) rotate(-0.4deg); }
           100% { transform: scale(1) rotate(0deg); }
         }
 

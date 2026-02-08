@@ -177,6 +177,9 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
       </button>
 
       <style jsx>{`
+        button:hover {
+          transform: scale(1.05);
+        }
         .cart-pulse {
           animation: cartPulse 0.42s ease;
         }
