@@ -726,13 +726,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           width: 100%;
           height: 100%;
           pointer-events: none;
-          transition: transform 320ms cubic-bezier(0.25, 1, 0.5, 1);
         }
 
-        /* Slower animation on touch devices for better visibility */
+        /* Slow down stack reveal FLIP animation on mobile only */
         @media (pointer: coarse) {
-          .category-stack .product-tile {
-            transition: transform 480ms cubic-bezier(0.25, 1, 0.5, 1);
+          .shop-grid[data-view-mode='stacks'] .product-tile {
+            transition: transform 450ms cubic-bezier(0.25, 1, 0.5, 1);
           }
         }
 
@@ -821,6 +820,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           text-decoration: none;
           color: inherit;
           outline: none;
+          transition: transform 220ms cubic-bezier(0.25, 1, 0.5, 1);
         }
         .product-tile:focus-visible .product-box {
           box-shadow:
