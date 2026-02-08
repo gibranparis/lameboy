@@ -133,7 +133,7 @@ export default function OrbShell({
       const d = Number(e?.detail?.density ?? e?.detail?.value)
       if (!Number.isFinite(d)) return
       if (d <= MIN) setNextDir('out')
-      else if (d >= MAX) setNextDir('in')
+      else if (d >= MAX) setNextDir('out') // At max grid density, zoom out to stacks
     }
     document.addEventListener('lb:grid-density', onDensity)
     return () => document.removeEventListener('lb:grid-density', onDensity)

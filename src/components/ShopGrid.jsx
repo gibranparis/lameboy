@@ -208,8 +208,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   // Auto-open first product on mount (slight delay to allow layout)
   // Only fires in grid mode — stacks view should show the deck first.
+  // Don't auto-open if we transitioned from stacks to grid (user clicked to reveal).
   useEffect(() => {
-    if (autoOpenFirstOnMount && seed.length && viewMode === VIEW_GRID) {
+    if (autoOpenFirstOnMount && seed.length && viewMode === VIEW_GRID && gridRevealedAtRef.current === 0) {
       const t = setTimeout(() => {
         const el = firstTileRef.current
         const r = el?.getBoundingClientRect?.()
@@ -239,6 +240,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     setCols(v)
   }, [])
 
+  /** Track when grid was revealed to prevent immediate overlay opening */
+  const gridRevealedAtRef = useRef(0)
+
   /** Transition from stacked deck → grid with FLIP animation */
   const revealGrid = useCallback(() => {
     const grid = document.querySelector('[data-component="shop-grid"]')
@@ -248,8 +252,21 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       tiles.forEach((tile, idx) => snap.set(idx, tile.getBoundingClientRect()))
       flipSnapshotRef.current = snap
     }
+    gridRevealedAtRef.current = Date.now()
     setViewMode(VIEW_GRID)
     setCols(MAX_COLS)
+  }, [])
+
+  /** Transition from grid → stacked deck with FLIP animation */
+  const collapseToStacks = useCallback(() => {
+    const grid = document.querySelector('[data-component="shop-grid"]')
+    if (grid) {
+      const tiles = grid.querySelectorAll('.product-tile')
+      const snap = new Map()
+      tiles.forEach((tile, idx) => snap.set(idx, tile.getBoundingClientRect()))
+      flipSnapshotRef.current = snap
+    }
+    setViewMode(VIEW_STACKS)
   }, [])
 
   /** After React re-renders with new cols, FLIP tiles from old → new pos */
@@ -375,40 +392,63 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         return
       }
 
-      // Any zoom action while in stacks mode reveals the grid
-      if (viewMode === VIEW_STACKS) {
-        revealGrid()
-        return
-      }
-
       if (Number.isFinite(explicit)) {
-        setColsWithFlip(clampCols(explicit))
+        if (viewMode === VIEW_STACKS) {
+          revealGrid()
+        } else {
+          setColsWithFlip(clampCols(explicit))
+        }
         return
       }
 
       const step = Math.max(1, Math.min(3, Number(d.step) || 1))
       const dir = typeof d.dir === 'string' ? d.dir : null
 
+      // Stacks is the "most zoomed out" stage, grid 5->1 are increasingly zoomed in
+      if (viewMode === VIEW_STACKS) {
+        // From stacks, only "zoom in" reveals grid at max cols
+        if (dir === 'in' || !dir) {
+          revealGrid()
+        }
+        // Zooming "out" from stacks does nothing (already at max zoom out)
+        return
+      }
+
+      // In grid mode
       if (dir === 'in') {
+        // Zoom in: decrease cols (5->4->3->2->1)
         setColsWithFlip((p) => clampCols(p - step))
         return
       }
       if (dir === 'out') {
+        // Zoom out: increase cols (1->2->3->4->5)
+        // If already at max cols (5), go back to stacks
+        if (cols >= MAX_COLS) {
+          collapseToStacks()
+          return
+        }
         setColsWithFlip((p) => clampCols(p + step))
         return
       }
 
-      setColsWithFlip((p) => {
-        const goingIn = p > MIN_COLS
-        return clampCols(goingIn ? p - 1 : p + 1)
-      })
+      // No direction specified - toggle behavior
+      if (cols <= MIN_COLS) {
+        // At min cols, zoom back out
+        setColsWithFlip((p) => clampCols(p + 1))
+      } else if (cols >= MAX_COLS) {
+        // At max cols, toggle to stacks
+        collapseToStacks()
+      } else {
+        // In between, zoom in
+        setColsWithFlip((p) => clampCols(p - 1))
+      }
     }
 
     document.addEventListener('lb:zoom', onZoom)
     return () => {
       document.removeEventListener('lb:zoom', onZoom)
     }
-  }, [overlayIdx, setColsWithFlip, viewMode, revealGrid])
+  }, [overlayIdx, setColsWithFlip, viewMode, cols, revealGrid, collapseToStacks])
 
   /* ---------------- Signal "shop ready" (redundant safety) ---------------- */
   const readySent = useRef(false)
@@ -488,13 +528,11 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 }}
               >
                 {items.map((/** @type {any} */ p, /** @type {number} */ i) => (
-                  <a
+                  <div
                     key={p.id ?? i}
                     ref={seedIndices[i] === 0 ? firstTileRef : undefined}
                     className="product-tile lb-tile"
-                    tabIndex={-1}
                     aria-hidden="true"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   >
                     <div className="product-box">
                       <div className="product-img-wrap">
@@ -516,7 +554,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                         />
                       </div>
                     </div>
-                  </a>
+                  </div>
                 ))}
               </div>
             )
@@ -533,12 +571,16 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
               aria-label={`Open ${p.title ?? 'product'} details`}
               onClick={(e) => {
                 e.preventDefault()
+                // Prevent opening overlay immediately after revealing grid from stacks
+                if (Date.now() - gridRevealedAtRef.current < 500) return
                 const r = e.currentTarget.getBoundingClientRect()
                 openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
+                  // Prevent opening overlay immediately after revealing grid from stacks
+                  if (Date.now() - gridRevealedAtRef.current < 500) return
                   const el = /** @type {HTMLElement} */ (e.currentTarget)
                   const r = el.getBoundingClientRect()
                   openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
@@ -645,14 +687,14 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           gap: clamp(10px, 2vw, 18px);
           padding: clamp(10px, 3vw, 24px);
           min-height: calc(100dvh - var(--header-ctrl, 64px));
-          place-items: center;
+          align-items: start;
         }
 
         .category-stack {
           position: relative;
           cursor: pointer;
-          /* Place in middle column (3rd of 5) */
-          grid-column: 3;
+          /* Place in first column (where item 1 would be in 5-item grid) */
+          grid-column: 1;
           /* Full width/height of the grid cell */
           width: 100%;
           aspect-ratio: 1 / 1;
@@ -682,13 +724,13 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         .category-stack .product-tile:nth-child(4) { z-index: 2; transform: translateX(9px); }
         .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translateX(12px); }
 
-        /* Hover: slide them out a bit more to the right */
+        /* Hover: zoom all items together, keep top item in place, let items underneath peek out to the right */
         @media (pointer: fine) {
-          .category-stack:hover .product-tile:nth-child(1) { transform: translateX(-4px); }
-          .category-stack:hover .product-tile:nth-child(2) { transform: translateX(4px); }
-          .category-stack:hover .product-tile:nth-child(3) { transform: translateX(12px); }
-          .category-stack:hover .product-tile:nth-child(4) { transform: translateX(20px); }
-          .category-stack:hover .product-tile:nth-child(5) { transform: translateX(28px); }
+          .category-stack:hover .product-tile:nth-child(1) { transform: translateX(0px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(2) { transform: translateX(16px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(3) { transform: translateX(32px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(4) { transform: translateX(48px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(5) { transform: translateX(64px) scale(1.05); }
         }
 
         /* ---------- SHARED TILE STYLES ---------- */
