@@ -203,6 +203,59 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     return () => { cancelled = true }
   }, [seed])
 
+  /* ---------------- Hover detection on opaque pixels ---------------- */
+  useEffect(() => {
+    if (viewMode !== VIEW_GRID) return
+
+    const handleMouseMove = (/** @type {any} */ e) => {
+      const tile = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.product-tile')
+      if (!tile) return
+
+      const img = tile.querySelector('.product-img')
+      if (!(img instanceof HTMLImageElement)) return
+
+      // Get product index from tile
+      const allTiles = Array.from(document.querySelectorAll('.shop-grid[data-view-mode="grid"] .product-tile'))
+      const idx = allTiles.indexOf(tile)
+      if (idx < 0 || idx >= seed.length) return
+
+      const p = seed[idx]
+      const src = p.thumb || p.image
+      const anchorData = badgeAnchors[src]
+
+      if (anchorData?.imageData && anchorData.width && anchorData.height) {
+        const isOpaque = isClickOnOpaquePixel(e, img, anchorData.imageData, anchorData.width, anchorData.height)
+        const box = tile.querySelector('.product-box')
+        if (box instanceof HTMLElement) {
+          if (isOpaque) {
+            box.classList.add('hover-opaque')
+          } else {
+            box.classList.remove('hover-opaque')
+          }
+        }
+      }
+    }
+
+    const handleMouseLeave = (/** @type {any} */ e) => {
+      const tile = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.product-tile')
+      if (!tile) return
+      const box = tile.querySelector('.product-box')
+      if (box instanceof HTMLElement) {
+        box.classList.remove('hover-opaque')
+      }
+    }
+
+    const grid = document.querySelector('.shop-grid[data-view-mode="grid"]')
+    if (grid) {
+      grid.addEventListener('mousemove', handleMouseMove)
+      grid.addEventListener('mouseleave', handleMouseLeave)
+      return () => {
+        grid.removeEventListener('mousemove', handleMouseMove)
+        grid.removeEventListener('mouseleave', handleMouseLeave)
+      }
+    }
+  }, [viewMode, seed, badgeAnchors])
+
   /* ---------------- Overlay state ---------------- */
   const [overlayIdx, setOverlayIdx] = useState(/** @type {number|null} */ null)
   const [fromRect, setFromRect] = useState(
@@ -890,11 +943,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           transform: translateZ(0) scale(1) !important;
         }
 
-        /* Hover effect only when hovering over the image area (not transparent padding) */
-        /* Since pointer-events are disabled on .product-tile and only enabled on .product-img-wrap,
-           the hover will only trigger when over the image area */
+        /* Hover effect only when hovering over opaque pixels (controlled by JS) */
         @media (pointer: fine) {
-          .shop-grid[data-view-mode='grid'] .product-tile .product-box:hover {
+          .shop-grid[data-view-mode='grid'] .product-tile .product-box.hover-opaque {
             transform: translateZ(0) scale(1.05);
           }
         }
