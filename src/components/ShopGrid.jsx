@@ -553,7 +553,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                     onError={(e) => {
                       const img = e.currentTarget
                       if (img.dataset.fallback === 'hero') {
-                        img.src = '/products/brown.png'
+                        img.src = '/products/brown.webp'
                         img.dataset.fallback = 'final'
                       } else if (!img.dataset.fallback) {
                         img.src = p.image

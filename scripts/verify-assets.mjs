@@ -10,11 +10,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const publicDir = join(__dirname, '../public')
 
 const PRODUCTS = [
-  { id: 'hoodie-gray', image: '/products/gray.png', thumb: '/products/gray.png' },
-  { id: 'hoodie-brown', image: '/products/brown.png', thumb: '/products/brown.png' },
-  { id: 'hoodie-black', image: '/products/black.png', thumb: '/products/black.png' },
-  { id: 'hoodie-green', image: '/products/green.png', thumb: '/products/green.png' },
-  { id: 'hoodie-blue', image: '/products/blue.png', thumb: '/products/blue.png' },
+  { id: 'hoodie-gray', image: '/products/gray.webp', thumb: '/products/gray.webp' },
+  { id: 'hoodie-brown', image: '/products/brown.webp', thumb: '/products/brown.webp' },
+  { id: 'hoodie-black', image: '/products/black.webp', thumb: '/products/black.webp' },
+  { id: 'hoodie-green', image: '/products/green.webp', thumb: '/products/green.webp' },
+  { id: 'hoodie-blue', image: '/products/blue.webp', thumb: '/products/blue.webp' },
 ]
 
 console.log('Verifying product assets...\n')

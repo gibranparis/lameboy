@@ -4,23 +4,23 @@
 
 /** @type {Record<string, {top: number, right: number}>} */
 export const PRODUCT_BBOX = {
-  "/products/gray.png": {
+  "/products/gray.webp": {
     "top": 0.1488,
     "right": 0.0861
   },
-  "/products/brown.png": {
+  "/products/brown.webp": {
     "top": 0.1063,
     "right": 0.0923
   },
-  "/products/black.png": {
+  "/products/black.webp": {
     "top": 0.1048,
     "right": 0.0979
   },
-  "/products/green.png": {
+  "/products/green.webp": {
     "top": 0.1055,
     "right": 0.1029
   },
-  "/products/blue.png": {
+  "/products/blue.webp": {
     "top": 0.1048,
     "right": 0.0861
   }

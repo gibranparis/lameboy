@@ -11,11 +11,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const publicDir = join(__dirname, '../public')
 
 const PRODUCTS = [
-  { id: 'hoodie-gray', image: '/products/gray.png' },
-  { id: 'hoodie-brown', image: '/products/brown.png' },
-  { id: 'hoodie-black', image: '/products/black.png' },
-  { id: 'hoodie-green', image: '/products/green.png' },
-  { id: 'hoodie-blue', image: '/products/blue.png' },
+  { id: 'hoodie-gray', image: '/products/gray.webp' },
+  { id: 'hoodie-brown', image: '/products/brown.webp' },
+  { id: 'hoodie-black', image: '/products/black.webp' },
+  { id: 'hoodie-green', image: '/products/green.webp' },
+  { id: 'hoodie-blue', image: '/products/blue.webp' },
 ]
 
 async function computeOpaqueBBox(imagePath) {
