@@ -746,14 +746,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translateX(12px); }
 
         /* Reversed stack order after full zoom cycle - Blue on top, Gray on bottom */
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(1) { z-index: 1; }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(2) { z-index: 2; }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(3) { z-index: 3; }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(4) { z-index: 4; }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(5) { z-index: 5; }
+        /* Blue shifts right to show its natural position in sequence */
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(1) { z-index: 1; transform: translateX(-12px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(2) { z-index: 2; transform: translateX(-9px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(3) { z-index: 3; transform: translateX(-6px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(4) { z-index: 4; transform: translateX(-3px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(5) { z-index: 5; transform: translateX(0px); }
 
-        /* Hover: zoom all items together, items slide out from underneath */
-        /* Reverse z-index on hover so items sliding right appear to emerge from below */
+        /* Hover: items slide out and flip z-order so they emerge from underneath */
+        /* Gray goes to bottom, items sliding right lift to top */
         @media (pointer: fine) {
           .category-stack:hover .product-tile:nth-child(1) { transform: translateX(0px) scale(1.05); z-index: 1; }
           .category-stack:hover .product-tile:nth-child(2) { transform: translateX(16px) scale(1.05); z-index: 2; }
@@ -762,13 +763,13 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           .category-stack:hover .product-tile:nth-child(5) { transform: translateX(64px) scale(1.05); z-index: 5; }
         }
 
-        /* Reversed stack hover - maintain appropriate z-index on hover */
+        /* Reversed state hover: fan maintains left-to-right order from shifted base */
         @media (pointer: fine) {
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) { z-index: 5; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) { z-index: 4; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) { z-index: 3; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) { z-index: 2; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) { z-index: 1; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) { transform: translateX(-12px) scale(1.05); z-index: 5; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) { transform: translateX(4px) scale(1.05); z-index: 4; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) { transform: translateX(20px) scale(1.05); z-index: 3; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) { transform: translateX(36px) scale(1.05); z-index: 2; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) { transform: translateX(52px) scale(1.05); z-index: 1; }
         }
 
         /* ---------- SHARED TILE STYLES ---------- */
