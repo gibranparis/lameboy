@@ -504,7 +504,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         minHeight: '100dvh',
       }}
     >
-      <div className="shop-grid" data-component="shop-grid" data-view-mode={viewMode}>
+      <div className="shop-grid" data-component="shop-grid" data-view-mode={viewMode} data-stack-reversed={stackReversed ? 'true' : undefined}>
         {viewMode === VIEW_STACKS ? (
           /* ---------- STACKED DECK VIEW ---------- */
           Array.from(categoryGroups.entries()).map((/** @type {[string, any[]]} */ [category, items]) => {
@@ -735,13 +735,31 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           }
         }
 
-        /* Preserve z-order during FLIP transition to grid */
-        /* First tile (gray or blue depending on cycle) stays on top during reveal */
-        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(1) { z-index: 5; }
-        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(2) { z-index: 4; }
-        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(3) { z-index: 3; }
-        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(4) { z-index: 2; }
-        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(5) { z-index: 1; }
+        /* Preserve z-order during FLIP transition */
+        /* Default: Gray on top (z-5), Blue on bottom (z-1) */
+        /* Apply to both stacks and grid view to maintain order throughout transition */
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(1),
+        .shop-grid[data-view-mode='grid'] .product-tile:nth-child(1) { z-index: 5; }
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(2),
+        .shop-grid[data-view-mode='grid'] .product-tile:nth-child(2) { z-index: 4; }
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(3),
+        .shop-grid[data-view-mode='grid'] .product-tile:nth-child(3) { z-index: 3; }
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(4),
+        .shop-grid[data-view-mode='grid'] .product-tile:nth-child(4) { z-index: 2; }
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(5),
+        .shop-grid[data-view-mode='grid'] .product-tile:nth-child(5) { z-index: 1; }
+
+        /* Reversed: Blue on top (z-5), Gray on bottom (z-1) */
+        .shop-grid[data-stack-reversed='true'][data-view-mode='stacks'] .product-tile:nth-child(1),
+        .shop-grid[data-stack-reversed='true'][data-view-mode='grid'] .product-tile:nth-child(1) { z-index: 1; }
+        .shop-grid[data-stack-reversed='true'][data-view-mode='stacks'] .product-tile:nth-child(2),
+        .shop-grid[data-stack-reversed='true'][data-view-mode='grid'] .product-tile:nth-child(2) { z-index: 2; }
+        .shop-grid[data-stack-reversed='true'][data-view-mode='stacks'] .product-tile:nth-child(3),
+        .shop-grid[data-stack-reversed='true'][data-view-mode='grid'] .product-tile:nth-child(3) { z-index: 3; }
+        .shop-grid[data-stack-reversed='true'][data-view-mode='stacks'] .product-tile:nth-child(4),
+        .shop-grid[data-stack-reversed='true'][data-view-mode='grid'] .product-tile:nth-child(4) { z-index: 4; }
+        .shop-grid[data-stack-reversed='true'][data-view-mode='stacks'] .product-tile:nth-child(5),
+        .shop-grid[data-stack-reversed='true'][data-view-mode='grid'] .product-tile:nth-child(5) { z-index: 5; }
 
         /* Horizontal stack - each card offset to the right with slight vertical offset */
         /* Creates a "pile of clothes" look where each color is visible */
