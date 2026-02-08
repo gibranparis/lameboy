@@ -726,12 +726,17 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           width: 100%;
           height: 100%;
           pointer-events: none;
+          transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Slower hover animation on mobile for better visibility */
+        .category-stack:hover .product-tile {
           transition: transform 500ms cubic-bezier(0.25, 1, 0.5, 1);
         }
 
-        /* Faster animation on desktop with mouse */
+        /* Faster hover animation on desktop */
         @media (pointer: fine) {
-          .category-stack .product-tile {
+          .category-stack:hover .product-tile {
             transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1);
           }
         }
@@ -753,23 +758,23 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         .category-stack[data-stack-reversed='true'] .product-tile:nth-child(4) { z-index: 4; transform: translateX(-3px); }
         .category-stack[data-stack-reversed='true'] .product-tile:nth-child(5) { z-index: 5; transform: translateX(0px); }
 
-        /* Hover: items slide out and flip z-order so they emerge from underneath */
-        /* Gray goes to bottom, items sliding right lift to top */
+        /* Hover: items slide out while maintaining stacked z-order */
+        /* Top item stays on top, items slide out from underneath */
         @media (pointer: fine) {
-          .category-stack:hover .product-tile:nth-child(1) { transform: translateX(0px) scale(1.05); z-index: 1; }
-          .category-stack:hover .product-tile:nth-child(2) { transform: translateX(16px) scale(1.05); z-index: 2; }
-          .category-stack:hover .product-tile:nth-child(3) { transform: translateX(32px) scale(1.05); z-index: 3; }
-          .category-stack:hover .product-tile:nth-child(4) { transform: translateX(48px) scale(1.05); z-index: 4; }
-          .category-stack:hover .product-tile:nth-child(5) { transform: translateX(64px) scale(1.05); z-index: 5; }
+          .category-stack:hover .product-tile:nth-child(1) { transform: translateX(0px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(2) { transform: translateX(16px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(3) { transform: translateX(32px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(4) { transform: translateX(48px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(5) { transform: translateX(64px) scale(1.05); }
         }
 
-        /* Reversed state hover: fan maintains left-to-right order from shifted base */
+        /* Reversed state hover: items slide from shifted base, maintaining z-order */
         @media (pointer: fine) {
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) { transform: translateX(-12px) scale(1.05); z-index: 5; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) { transform: translateX(4px) scale(1.05); z-index: 4; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) { transform: translateX(20px) scale(1.05); z-index: 3; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) { transform: translateX(36px) scale(1.05); z-index: 2; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) { transform: translateX(52px) scale(1.05); z-index: 1; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) { transform: translateX(-12px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) { transform: translateX(4px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) { transform: translateX(20px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) { transform: translateX(36px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) { transform: translateX(52px) scale(1.05); }
         }
 
         /* ---------- SHARED TILE STYLES ---------- */
