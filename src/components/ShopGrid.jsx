@@ -698,6 +698,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           /* Full width/height of the grid cell */
           width: 100%;
           aspect-ratio: 1 / 1;
+          animation: stack-wiggle 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+        }
+
+        @keyframes stack-wiggle {
+          0% { transform: scale(0.95) rotate(0deg); }
+          25% { transform: scale(1.02) rotate(-2deg); }
+          50% { transform: scale(1.01) rotate(2deg); }
+          75% { transform: scale(1.01) rotate(-1deg); }
+          100% { transform: scale(1) rotate(0deg); }
         }
 
         .category-stack:focus-visible {
