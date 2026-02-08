@@ -36,8 +36,8 @@ const _bboxCache = new Map()
 
 /**
  * Load a PNG and scan its alpha channel to find the bounding box of
- * opaque pixels.  Returns `{ top, right }` as 0-1 fractions of the
- * image dimensions (how far the opaque edge is from each side).
+ * opaque pixels.  Returns `{ top, right, imageData, width, height }`
+ * as 0-1 fractions of the image dimensions (how far the opaque edge is from each side).
  */
 function computeOpaqueBBox(/** @type {string} */ src) {
   return new Promise((resolve) => {
@@ -55,7 +55,8 @@ function computeOpaqueBBox(/** @type {string} */ src) {
         const ctx = c.getContext('2d')
         if (!ctx) { resolve(null); return }
         ctx.drawImage(img, 0, 0, w, h)
-        const data = ctx.getImageData(0, 0, w, h).data
+        const imgData = ctx.getImageData(0, 0, w, h)
+        const data = imgData.data
         let minX = w, minY = h, maxX = 0, maxY = 0
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
@@ -75,7 +76,13 @@ function computeOpaqueBBox(/** @type {string} */ src) {
           const oH = maxY - minY
           const anchorY = (minY + oH * 0.15) / h
           const anchorX = (maxX - oW * 0.12) / w
-          const result = { top: anchorY, right: 1 - anchorX }
+          const result = {
+            top: anchorY,
+            right: 1 - anchorX,
+            imageData: data,
+            width: w,
+            height: h
+          }
           _bboxCache.set(src, result)
           resolve(result)
         } else { resolve(null) }
@@ -84,6 +91,38 @@ function computeOpaqueBBox(/** @type {string} */ src) {
     img.onerror = () => resolve(null)
     img.src = src
   })
+}
+
+/**
+ * Check if a click on an image element happened on an opaque pixel
+ * @param {any} e - The click event (React MouseEvent)
+ * @param {HTMLImageElement} img - The image element
+ * @param {Uint8ClampedArray} imageData - The image pixel data
+ * @param {number} w - The image data width
+ * @param {number} h - The image data height
+ * @returns {boolean} - True if click was on opaque pixel
+ */
+function isClickOnOpaquePixel(e, img, imageData, w, h) {
+  try {
+    const rect = img.getBoundingClientRect()
+    // Get click position relative to image
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    // Convert to 0-1 range
+    const xPercent = x / rect.width
+    const yPercent = y / rect.height
+    // Map to imageData coordinates
+    const imgX = Math.floor(xPercent * w)
+    const imgY = Math.floor(yPercent * h)
+    // Check bounds
+    if (imgX < 0 || imgX >= w || imgY < 0 || imgY >= h) return false
+    // Get alpha value at this pixel
+    const alpha = imageData[(imgY * w + imgX) * 4 + 3]
+    // Consider alpha > 20 as opaque (same threshold as bbox computation)
+    return alpha > 20
+  } catch {
+    return true // Fallback to allowing click if detection fails
+  }
 }
 
 export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
@@ -146,9 +185,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       .reduce((sum, item) => sum + item.qty, 0)
   }, [cart.items])
 
-  /* ---------------- Badge anchors (opaque bounding box) ---------------- */
+  /* ---------------- Badge anchors (opaque bounding box) + click detection ---------------- */
   const [badgeAnchors, setBadgeAnchors] = useState(
-    /** @type {Record<string, {top:number, right:number}>} */ ({})
+    /** @type {Record<string, {top:number, right:number, imageData?:Uint8ClampedArray, width?:number, height?:number}>} */ ({})
   )
 
   useEffect(() => {
@@ -577,6 +616,24 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 e.preventDefault()
                 // Prevent opening overlay immediately after revealing grid from stacks
                 if (Date.now() - gridRevealedAtRef.current < 500) return
+
+                // Check if click is on opaque part of image (not transparent background)
+                const src = p.thumb || p.image
+                const anchorData = badgeAnchors[src]
+                if (anchorData?.imageData && anchorData.width && anchorData.height) {
+                  const imgEl = e.currentTarget.querySelector('.product-img')
+                  if (imgEl instanceof HTMLImageElement) {
+                    const isOpaque = isClickOnOpaquePixel(
+                      e,
+                      imgEl,
+                      anchorData.imageData,
+                      anchorData.width,
+                      anchorData.height
+                    )
+                    if (!isOpaque) return // Ignore clicks on transparent areas
+                  }
+                }
+
                 const r = e.currentTarget.getBoundingClientRect()
                 openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
               }}
@@ -731,7 +788,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         /* Slow down stack reveal FLIP animation on mobile only */
         @media (pointer: coarse) {
           .shop-grid[data-view-mode='stacks'] .product-tile {
-            transition: transform 450ms cubic-bezier(0.25, 1, 0.5, 1);
+            transition: transform 380ms cubic-bezier(0.25, 1, 0.5, 1);
+            will-change: transform;
           }
         }
 
@@ -805,8 +863,18 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           overflow: visible;
           box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
           transform: translateZ(0) scale(1);
-          transition: transform 240ms cubic-bezier(0.2, 0.9, 0.2, 1);
+          transition: transform 180ms cubic-bezier(0.2, 0.9, 0.2, 1);
           will-change: transform;
+          backface-visibility: hidden;
+        }
+
+        /* In grid mode, make only the image clickable, not the transparent areas */
+        .shop-grid[data-view-mode='grid'] .product-tile {
+          pointer-events: none;
+        }
+        .shop-grid[data-view-mode='grid'] .product-tile .product-img-wrap,
+        .shop-grid[data-view-mode='grid'] .product-tile .product-meta {
+          pointer-events: auto;
         }
 
         /* Grid "zoom" feel when density changes via orb */
@@ -822,8 +890,11 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           transform: translateZ(0) scale(1) !important;
         }
 
+        /* Hover effect only when hovering over the image area (not transparent padding) */
+        /* Since pointer-events are disabled on .product-tile and only enabled on .product-img-wrap,
+           the hover will only trigger when over the image area */
         @media (pointer: fine) {
-          .shop-grid[data-view-mode='grid'] .product-tile:hover .product-box {
+          .shop-grid[data-view-mode='grid'] .product-tile .product-box:hover {
             transform: translateZ(0) scale(1.05);
           }
         }
@@ -838,7 +909,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           text-decoration: none;
           color: inherit;
           outline: none;
-          transition: transform 140ms cubic-bezier(0.2, 0.9, 0.3, 1);
+          transition: transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1);
+          will-change: transform;
+          transform: translateZ(0);
         }
         .product-tile:focus-visible .product-box {
           box-shadow:
