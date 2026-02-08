@@ -260,11 +260,11 @@ export default function DayNightToggle({
           to { transform: translateX(6%); }
         }
         @keyframes starDrift {
-          0% { left: -10%; top: -5%; }
-          25% { left: -9%; top: -6%; }
-          50% { left: -8%; top: -5%; }
-          75% { left: -9%; top: -4%; }
-          100% { left: -10%; top: -5%; }
+          0% { left: -20%; top: -10%; }
+          25% { left: -20%; top: 0%; }
+          50% { left: -15%; top: 0%; }
+          75% { left: -15%; top: -10%; }
+          100% { left: -20%; top: -10%; }
         }
         .constellation-drift {
           animation: starDrift 8s ease-in-out infinite;
