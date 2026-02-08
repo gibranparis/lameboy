@@ -726,15 +726,23 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           width: 100%;
           height: 100%;
           pointer-events: none;
-          transition: transform 240ms cubic-bezier(0.25, 1, 0.5, 1);
+          transition: transform 320ms cubic-bezier(0.25, 1, 0.5, 1);
         }
 
         /* Slower animation on touch devices for better visibility */
         @media (pointer: coarse) {
           .category-stack .product-tile {
-            transition: transform 450ms cubic-bezier(0.25, 1, 0.5, 1);
+            transition: transform 480ms cubic-bezier(0.25, 1, 0.5, 1);
           }
         }
+
+        /* Preserve z-order during FLIP transition to grid */
+        /* First tile (gray or blue depending on cycle) stays on top during reveal */
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(1) { z-index: 5; }
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(2) { z-index: 4; }
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(3) { z-index: 3; }
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(4) { z-index: 2; }
+        .shop-grid[data-view-mode='stacks'] .product-tile:nth-child(5) { z-index: 1; }
 
         /* Horizontal stack - each card offset to the right with slight vertical offset */
         /* Creates a "pile of clothes" look where each color is visible */
