@@ -820,7 +820,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           text-decoration: none;
           color: inherit;
           outline: none;
-          transition: transform 220ms cubic-bezier(0.25, 1, 0.5, 1);
+          transition: transform 140ms cubic-bezier(0.2, 0.9, 0.3, 1);
         }
         .product-tile:focus-visible .product-box {
           box-shadow:
