@@ -141,7 +141,7 @@ export default function DayNightToggle({
         position:'relative',
         display:'inline-flex',
         height:dims.h, width:dims.w, borderRadius:9999, overflow:'hidden',
-        border: isNight ? '1px solid rgba(255,255,255,.14)' : '1px solid rgba(0,0,0,.10)',
+        border: 'none',
         boxShadow: '0 6px 18px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.55)',
         background: isNight ? '#0a0a12' : '#ffffff',
         cursor:'pointer',
@@ -179,11 +179,12 @@ export default function DayNightToggle({
           <img
             src="/toggle/virgo-constellation.webp"
             alt=""
+            className="constellation-drift"
             style={{
-              width:'100%',
-              height:'100%',
+              width:'110%',
+              height:'110%',
               objectFit:'cover',
-              objectPosition:'20% center',
+              position:'absolute',
               opacity:0.85,
               mixBlendMode:'lighten',
             }}
@@ -254,7 +255,20 @@ export default function DayNightToggle({
         button:hover {
           transform: scale(1.05);
         }
-        @keyframes cloudMove { from { transform: translateX(-4%); } to { transform: translateX(6%); } }
+        @keyframes cloudMove {
+          from { transform: translateX(-4%); }
+          to { transform: translateX(6%); }
+        }
+        @keyframes starDrift {
+          0% { left: -10%; top: -5%; }
+          25% { left: -9%; top: -6%; }
+          50% { left: -8%; top: -5%; }
+          75% { left: -9%; top: -4%; }
+          100% { left: -10%; top: -5%; }
+        }
+        .constellation-drift {
+          animation: starDrift 8s ease-in-out infinite;
+        }
       `}</style>
     </button>
   );
