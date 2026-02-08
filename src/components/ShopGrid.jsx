@@ -722,16 +722,24 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           width: 100%;
           height: 100%;
           pointer-events: none;
-          transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1);
+          transition: transform 500ms cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Faster animation on desktop with mouse */
+        @media (pointer: fine) {
+          .category-stack .product-tile {
+            transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1);
+          }
         }
 
         /* Horizontal stack - each card offset to the right with slight vertical offset */
         /* Creates a "pile of clothes" look where each color is visible */
-        .category-stack .product-tile:nth-child(1) { z-index: 5; transform: translateX(0px); }
-        .category-stack .product-tile:nth-child(2) { z-index: 4; transform: translateX(3px); }
+        /* Items unveil from underneath - rightmost items have highest z-index */
+        .category-stack .product-tile:nth-child(1) { z-index: 1; transform: translateX(0px); }
+        .category-stack .product-tile:nth-child(2) { z-index: 2; transform: translateX(3px); }
         .category-stack .product-tile:nth-child(3) { z-index: 3; transform: translateX(6px); }
-        .category-stack .product-tile:nth-child(4) { z-index: 2; transform: translateX(9px); }
-        .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translateX(12px); }
+        .category-stack .product-tile:nth-child(4) { z-index: 4; transform: translateX(9px); }
+        .category-stack .product-tile:nth-child(5) { z-index: 5; transform: translateX(12px); }
 
         /* Hover: zoom all items together, keep top item in place, let items underneath peek out to the right */
         @media (pointer: fine) {
