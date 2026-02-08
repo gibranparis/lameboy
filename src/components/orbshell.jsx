@@ -132,8 +132,9 @@ export default function OrbShell({
       if (mode === 'stacks') { setNextDir('in'); return }
       const d = Number(e?.detail?.density ?? e?.detail?.value)
       if (!Number.isFinite(d)) return
+      // Only change direction at minimum (1 item) - this creates the flow:
+      // stacks → 5 → 4 → 3 → 2 → 1 → reverse → 2 → 3 → 4 → 5 → stacks
       if (d <= MIN) setNextDir('out')
-      else if (d >= MAX) setNextDir('out') // At max grid density, zoom out to stacks
     }
     document.addEventListener('lb:grid-density', onDensity)
     return () => document.removeEventListener('lb:grid-density', onDensity)
