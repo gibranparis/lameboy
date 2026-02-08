@@ -130,6 +130,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   /* ---------------- View mode (stacks vs grid) ---------------- */
   const [viewMode, setViewMode] = useState(VIEW_STACKS)
+  const [stackReversed, setStackReversed] = useState(false)
   const categoryGroups = useMemo(() => groupByCategory(seed), [seed])
 
   useEffect(() => {
@@ -267,6 +268,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       flipSnapshotRef.current = snap
     }
     setViewMode(VIEW_STACKS)
+    // Toggle stack order after each full zoom cycle
+    setStackReversed((prev) => !prev)
   }, [])
 
   /** After React re-renders with new cols, FLIP tiles from old → new pos */
@@ -511,6 +514,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
               <div
                 key={category}
                 className="category-stack"
+                data-stack-reversed={stackReversed ? 'true' : undefined}
                 role="button"
                 tabIndex={0}
                 aria-label={`${category} — ${items.length} products. Click to expand.`}
@@ -734,20 +738,37 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
         /* Horizontal stack - each card offset to the right with slight vertical offset */
         /* Creates a "pile of clothes" look where each color is visible */
-        /* Items unveil from underneath - rightmost items have highest z-index */
-        .category-stack .product-tile:nth-child(1) { z-index: 1; transform: translateX(0px); }
-        .category-stack .product-tile:nth-child(2) { z-index: 2; transform: translateX(3px); }
+        /* Gray on top (z-5), Blue on bottom (z-1) - flips after full zoom cycle */
+        .category-stack .product-tile:nth-child(1) { z-index: 5; transform: translateX(0px); }
+        .category-stack .product-tile:nth-child(2) { z-index: 4; transform: translateX(3px); }
         .category-stack .product-tile:nth-child(3) { z-index: 3; transform: translateX(6px); }
-        .category-stack .product-tile:nth-child(4) { z-index: 4; transform: translateX(9px); }
-        .category-stack .product-tile:nth-child(5) { z-index: 5; transform: translateX(12px); }
+        .category-stack .product-tile:nth-child(4) { z-index: 2; transform: translateX(9px); }
+        .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translateX(12px); }
 
-        /* Hover: zoom all items together, keep top item in place, let items underneath peek out to the right */
+        /* Reversed stack order after full zoom cycle - Blue on top, Gray on bottom */
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(1) { z-index: 1; }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(2) { z-index: 2; }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(3) { z-index: 3; }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(4) { z-index: 4; }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(5) { z-index: 5; }
+
+        /* Hover: zoom all items together, items slide out from underneath */
+        /* Reverse z-index on hover so items sliding right appear to emerge from below */
         @media (pointer: fine) {
-          .category-stack:hover .product-tile:nth-child(1) { transform: translateX(0px) scale(1.05); }
-          .category-stack:hover .product-tile:nth-child(2) { transform: translateX(16px) scale(1.05); }
-          .category-stack:hover .product-tile:nth-child(3) { transform: translateX(32px) scale(1.05); }
-          .category-stack:hover .product-tile:nth-child(4) { transform: translateX(48px) scale(1.05); }
-          .category-stack:hover .product-tile:nth-child(5) { transform: translateX(64px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(1) { transform: translateX(0px) scale(1.05); z-index: 1; }
+          .category-stack:hover .product-tile:nth-child(2) { transform: translateX(16px) scale(1.05); z-index: 2; }
+          .category-stack:hover .product-tile:nth-child(3) { transform: translateX(32px) scale(1.05); z-index: 3; }
+          .category-stack:hover .product-tile:nth-child(4) { transform: translateX(48px) scale(1.05); z-index: 4; }
+          .category-stack:hover .product-tile:nth-child(5) { transform: translateX(64px) scale(1.05); z-index: 5; }
+        }
+
+        /* Reversed stack hover - maintain appropriate z-index on hover */
+        @media (pointer: fine) {
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) { z-index: 5; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) { z-index: 4; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) { z-index: 3; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) { z-index: 2; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) { z-index: 1; }
         }
 
         /* ---------- SHARED TILE STYLES ---------- */
