@@ -818,10 +818,24 @@ export default function ProductOverlay({
     return () => window.removeEventListener('keydown', onKey)
   }, [animateClose, imgs.length, products.length, index, onIndexChange])
 
-  /* wheel rolls products; horizontal wheel rolls images */
+  /* wheel rolls products; horizontal wheel rolls images; when zoomed, pans the image */
   const lastWheel = useRef(0)
   useEffect(() => {
     const onWheel = (e) => {
+      // Ignore pinch zoom gestures (handled by handleTrackpadZoom)
+      if (e.ctrlKey || e.metaKey) return
+
+      // When zoomed, use wheel to pan the image
+      if (pinchZoom.scale > 1) {
+        e.preventDefault()
+        setPinchZoom((prev) => ({
+          scale: prev.scale,
+          x: prev.x - e.deltaX,
+          y: prev.y - e.deltaY,
+        }))
+        return
+      }
+
       const now = performance.now()
       if (now - lastWheel.current < 110) return
       lastWheel.current = now
@@ -846,9 +860,9 @@ export default function ProductOverlay({
         onIndexChange?.(wrap(index + (dirDown ? 1 : -1), products.length))
       }
     }
-    window.addEventListener('wheel', onWheel, { passive: true })
+    window.addEventListener('wheel', onWheel, { passive: false })
     return () => window.removeEventListener('wheel', onWheel)
-  }, [imgs.length, products.length, index, onIndexChange])
+  }, [imgs.length, products.length, index, onIndexChange, pinchZoom.scale])
 
   const onDirFlash = useCallback((dir) => {
     flash(document.querySelector(dir === 'down' ? '[data-ui="img-down"]' : '[data-ui="img-up"]'))
@@ -961,6 +975,11 @@ export default function ProductOverlay({
   }, [handlePinchStart, handlePanStart, swipe, pinchZoom.scale])
 
   const handleTouchMove = useCallback((/** @type {any} */ e) => {
+    // Prevent scrolling when zoomed in
+    if (pinchZoom.scale > 1 && e.cancelable) {
+      e.preventDefault()
+    }
+
     if (e.touches.length === 2) {
       handlePinchMove(e)
     } else if (e.touches.length === 1) {
@@ -980,10 +999,83 @@ export default function ProductOverlay({
     }
   }, [handlePinchEnd, swipe])
 
+  // Trackpad pinch zoom and pan (MacBook, etc.)
+  const handleTrackpadZoom = useCallback((/** @type {any} */ e) => {
+    // Pinch zoom: wheel event with ctrlKey or metaKey
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault()
+      e.stopPropagation()
+
+      // deltaY < 0 = zoom in, deltaY > 0 = zoom out
+      const zoomDelta = -e.deltaY * 0.01
+
+      // Capture event properties before setState (React event pooling)
+      const rect = e.currentTarget?.getBoundingClientRect()
+      if (!rect) return
+
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+
+      setPinchZoom((prev) => {
+        let newScale = prev.scale + zoomDelta
+        newScale = clamp(newScale, 1, 4)
+
+        // Calculate pan to zoom towards mouse cursor
+        const offsetX = mouseX - (rect.width / 2)
+        const offsetY = mouseY - (rect.height / 2)
+
+        return {
+          scale: newScale,
+          x: newScale > 1 ? -offsetX * (newScale - 1) * 0.3 : 0,
+          y: newScale > 1 ? -offsetY * (newScale - 1) * 0.3 : 0,
+        }
+      })
+      return
+    }
+
+    // Pan when zoomed: shift+wheel or regular wheel when zoomed
+    if (pinchZoom.scale > 1 && e.shiftKey) {
+      e.preventDefault()
+      e.stopPropagation()
+
+      setPinchZoom((prev) => ({
+        scale: prev.scale,
+        x: prev.x - e.deltaX,
+        y: prev.y - e.deltaY,
+      }))
+    }
+  }, [pinchZoom.scale])
+
   /* overlay flag */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open', '1')
     return () => document.documentElement.removeAttribute('data-overlay-open')
+  }, [])
+
+  /* prevent browser's default pinch-to-zoom on the page */
+  useEffect(() => {
+    const preventDefaultZoom = (/** @type {any} */ e) => {
+      if (e.ctrlKey || e.scale !== 1) {
+        e.preventDefault()
+      }
+    }
+
+    const preventGesture = (/** @type {Event} */ e) => {
+      e.preventDefault()
+    }
+
+    // Prevent default zoom gestures
+    document.addEventListener('gesturestart', preventGesture, { passive: false })
+    document.addEventListener('gesturechange', preventGesture, { passive: false })
+    document.addEventListener('gestureend', preventGesture, { passive: false })
+    document.addEventListener('wheel', preventDefaultZoom, { passive: false })
+
+    return () => {
+      document.removeEventListener('gesturestart', preventGesture)
+      document.removeEventListener('gesturechange', preventGesture)
+      document.removeEventListener('gestureend', preventGesture)
+      document.removeEventListener('wheel', preventDefaultZoom)
+    }
   }, [])
 
   // Reset image index and zoom when product changes
@@ -1230,7 +1322,7 @@ export default function ProductOverlay({
           style={{
             pointerEvents: 'auto',
             textAlign: 'center',
-            zIndex: 521,
+            zIndex: pinchZoom.scale > 1 ? 523 : 521,
             touchAction: 'none',
             marginTop: '-22vh',
           }}
@@ -1297,18 +1389,19 @@ export default function ProductOverlay({
 
           <div
             ref={heroRef}
-            style={{ width: '100%' }}
+            style={{
+              width: '100%',
+              position: 'relative',
+              zIndex: pinchZoom.scale > 1 ? 200 : 'auto',
+            }}
           >
             {!!imgs.length && (
               <>
                 <div
                   data-ui="product-viewport"
+                  onWheel={handleTrackpadZoom}
                   style={{
                     width: '100%',
-                    transform: `translate(${pinchZoom.x}px, ${pinchZoom.y}px) scale(${
-                      heroZoomed && pinchZoom.scale === 1 ? 1.09 : pinchZoom.scale
-                    })`,
-                    transition: pinchState.current.isPinching ? 'none' : 'transform 0.2s cubic-bezier(.2,.8,.2,1)',
                   }}
                 >
                   <Image
@@ -1329,6 +1422,10 @@ export default function ProductOverlay({
                       objectFit: 'contain',
                       imageRendering: 'auto',
                       cursor: 'pointer',
+                      transform: `translate(${pinchZoom.x}px, ${pinchZoom.y}px) scale(${
+                        heroZoomed && pinchZoom.scale === 1 ? 1.09 : pinchZoom.scale
+                      })`,
+                      transition: pinchState.current.isPinching ? 'none' : 'transform 0.2s cubic-bezier(.2,.8,.2,1)',
                     }}
                   />
                 </div>

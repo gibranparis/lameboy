@@ -74,8 +74,8 @@ function computeOpaqueBBox(/** @type {string} */ src) {
           // at the very edge of the bounding box.
           const oW = maxX - minX
           const oH = maxY - minY
-          const anchorY = (minY + oH * 0.15) / h
-          const anchorX = (maxX - oW * 0.12) / w
+          const anchorY = (minY + oH * 0.08) / h
+          const anchorX = (maxX - oW * 0.08) / w
           const result = {
             top: anchorY,
             right: 1 - anchorX,

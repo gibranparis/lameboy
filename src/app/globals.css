@@ -336,7 +336,7 @@ html[data-overlay-open] {
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: 9px;
   font-size: 11px;
   line-height: 18px;
   text-align: center;
@@ -349,15 +349,15 @@ html[data-overlay-open] {
 /* Product grid cart quantity badge (iPhone-style) */
 .product-badge {
   position: absolute;
-  top: 15%;
-  right: 12%;
-  width: 26px;
-  height: 26px;
+  top: 4%;
+  right: 4%;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ef4444, #dc2626);
   color: #fff;
   font-family: Helvetica, Arial, sans-serif;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   display: grid;
   place-items: center;
@@ -366,6 +366,7 @@ html[data-overlay-open] {
   z-index: 10;
   pointer-events: none;
   line-height: 1;
+  transform: translate(50%, -50%);
 }
 :root[data-mode='shop'] header[role='banner'] .cart-fab {
   position: static !important;
