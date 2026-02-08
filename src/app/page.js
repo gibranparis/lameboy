@@ -245,13 +245,25 @@ export default function Page() {
       import('@/components/OrbShell')
       import('@/components/BlueOrbCross3D')
 
-      // Preload product images in background during gate
-      if (mode === 'gate' && gateStep >= 1) {
+      // Preload FULL-RES images in background during gate
+      // Thumbs are tiny and load instantly, so preload the big ones
+      if (mode === 'gate' && gateStep >= 0) {
         products.forEach((p, idx) => {
           setTimeout(() => {
-            const img = new Image()
-            img.src = p.thumb || p.image
-          }, idx * 100) // Stagger by 100ms
+            // Preload full-res image for detail view
+            const fullImg = new Image()
+            fullImg.src = p.image
+
+            // Also preload all images array if present
+            if (p.images && p.images.length > 1) {
+              p.images.slice(1).forEach((src, i) => {
+                setTimeout(() => {
+                  const img = new Image()
+                  img.src = src
+                }, (i + 1) * 50)
+              })
+            }
+          }, idx * 80) // Stagger by 80ms
         })
       }
     }

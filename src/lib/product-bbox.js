@@ -4,6 +4,28 @@
 
 /** @type {Record<string, {top: number, right: number}>} */
 export const PRODUCT_BBOX = {
+  // Thumbnails (used in grid)
+  "/products/gray-thumb.webp": {
+    "top": 0.1488,
+    "right": 0.0861
+  },
+  "/products/brown-thumb.webp": {
+    "top": 0.1063,
+    "right": 0.0923
+  },
+  "/products/black-thumb.webp": {
+    "top": 0.1048,
+    "right": 0.0979
+  },
+  "/products/green-thumb.webp": {
+    "top": 0.1055,
+    "right": 0.1029
+  },
+  "/products/blue-thumb.webp": {
+    "top": 0.1048,
+    "right": 0.0861
+  },
+  // Full-res (used in detail overlay - same bbox)
   "/products/gray.webp": {
     "top": 0.1488,
     "right": 0.0861

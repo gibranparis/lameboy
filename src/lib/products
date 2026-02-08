@@ -11,8 +11,8 @@ export const PRODUCTS = [
     title: 'Gray',
     price: 4000,
     category: 'hoodies',
-    image: '/products/gray.webp',
-    thumb: '/products/gray.webp',
+    thumb: '/products/gray-thumb.webp',    // 41KB - loads instantly in grid
+    image: '/products/gray.webp',           // 428KB - high-res for detail view
     images: ['/products/gray.webp'],
     sizes: ['S', 'M', 'L', 'XL'],
   },
@@ -21,8 +21,8 @@ export const PRODUCTS = [
     title: 'Brown',
     price: 4000,
     category: 'hoodies',
-    image: '/products/brown.webp',
-    thumb: '/products/brown.webp',
+    thumb: '/products/brown-thumb.webp',   // 19KB
+    image: '/products/brown.webp',          // 144KB
     images: ['/products/brown.webp'],
     sizes: ['S', 'M', 'L', 'XL'],
   },
@@ -31,8 +31,8 @@ export const PRODUCTS = [
     title: 'Black',
     price: 4000,
     category: 'hoodies',
-    image: '/products/black.webp',
-    thumb: '/products/black.webp',
+    thumb: '/products/black-thumb.webp',   // 21KB
+    image: '/products/black.webp',          // 182KB
     images: ['/products/black.webp'],
     sizes: ['S', 'M', 'L', 'XL'],
   },
@@ -41,8 +41,8 @@ export const PRODUCTS = [
     title: 'Green',
     price: 4000,
     category: 'hoodies',
-    image: '/products/green.webp',
-    thumb: '/products/green.webp',
+    thumb: '/products/green-thumb.webp',   // 21KB
+    image: '/products/green.webp',          // 223KB
     images: ['/products/green.webp'],
     sizes: ['S', 'M', 'L', 'XL'],
   },
@@ -51,8 +51,8 @@ export const PRODUCTS = [
     title: 'Blue',
     price: 4000,
     category: 'hoodies',
-    image: '/products/blue.webp',
-    thumb: '/products/blue.webp',
+    thumb: '/products/blue-thumb.webp',    // 26KB
+    image: '/products/blue.webp',           // 234KB
     images: ['/products/blue.webp'],
     sizes: ['S', 'M', 'L', 'XL'],
   },
