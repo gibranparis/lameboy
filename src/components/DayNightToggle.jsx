@@ -181,8 +181,8 @@ export default function DayNightToggle({
             alt=""
             className="constellation-drift"
             style={{
-              width:'110%',
-              height:'110%',
+              width:'220%',
+              height:'220%',
               objectFit:'cover',
               position:'absolute',
               opacity:0.85,
@@ -260,14 +260,14 @@ export default function DayNightToggle({
           to { transform: translateX(6%); }
         }
         @keyframes starDrift {
-          0% { left: -20%; top: -10%; }
-          25% { left: -20%; top: 0%; }
-          50% { left: -15%; top: 0%; }
-          75% { left: -15%; top: -10%; }
-          100% { left: -20%; top: -10%; }
+          0% { left: -100%; top: -100%; }
+          25% { left: -100%; top: -20%; }
+          50% { left: -20%; top: -20%; }
+          75% { left: -20%; top: -100%; }
+          100% { left: -100%; top: -100%; }
         }
         .constellation-drift {
-          animation: starDrift 8s ease-in-out infinite;
+          animation: starDrift 30s ease-in-out infinite;
         }
       `}</style>
     </button>

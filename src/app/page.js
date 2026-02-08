@@ -232,9 +232,10 @@ export default function Page() {
     return () => window.removeEventListener('checkout:toggle', toggle)
   }, [])
 
-  // Pre-warm client bundles while idle
+  // Pre-warm client bundles and preload images while idle
   useEffect(() => {
     const run = () => {
+      // Preload bundles
       import('@/components/HeaderBar')
       import('@/components/ShopGrid')
       import('@/components/BannedLogin')
@@ -243,16 +244,28 @@ export default function Page() {
       import('@/components/CheckoutView')
       import('@/components/OrbShell')
       import('@/components/BlueOrbCross3D')
+
+      // Preload product images in background during gate
+      if (mode === 'gate' && gateStep >= 1) {
+        products.forEach((p, idx) => {
+          setTimeout(() => {
+            const img = new Image()
+            img.src = p.thumb || p.image
+          }, idx * 100) // Stagger by 100ms
+        })
+      }
     }
+
     const id =
       typeof window.requestIdleCallback === 'function'
         ? window.requestIdleCallback(run, { timeout: 1200 })
         : setTimeout(run, 180)
+
     return () => {
       if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(id)
       else clearTimeout(id)
     }
-  }, [])
+  }, [mode, gateStep])
 
   return (
     <div

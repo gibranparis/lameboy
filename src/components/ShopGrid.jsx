@@ -5,7 +5,8 @@
 import Image from 'next/image'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ProductOverlay from '@/components/ProductOverlay'
-import { PRODUCTS, logMissingAssets, groupByCategory } from '@/lib/products'
+import { PRODUCTS, getCategoryGroups } from '@/lib/products'
+import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
 
 /** Storage key for saved grid density */
@@ -31,98 +32,13 @@ function readSavedCols() {
   }
 }
 
-/** Cache of image src → opaque bounding-box (percentage offsets) */
-const _bboxCache = new Map()
-
 /**
- * Load a PNG and scan its alpha channel to find the bounding box of
- * opaque pixels.  Returns `{ top, right, imageData, width, height }`
- * as 0-1 fractions of the image dimensions (how far the opaque edge is from each side).
+ * Get pre-computed bounding box for a product image
+ * @param {string} src - Image source path
+ * @returns {{top: number, right: number} | null}
  */
-function computeOpaqueBBox(/** @type {string} */ src) {
-  return new Promise((resolve) => {
-    if (_bboxCache.has(src)) { resolve(_bboxCache.get(src)); return }
-    const img = new window.Image()
-    img.onload = () => {
-      try {
-        // Scale down for faster scanning
-        const MAX_DIM = 150
-        const scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight))
-        const w = Math.round(img.naturalWidth * scale)
-        const h = Math.round(img.naturalHeight * scale)
-        const c = document.createElement('canvas')
-        c.width = w; c.height = h
-        const ctx = c.getContext('2d')
-        if (!ctx) { resolve(null); return }
-        ctx.drawImage(img, 0, 0, w, h)
-        const imgData = ctx.getImageData(0, 0, w, h)
-        const data = imgData.data
-        let minX = w, minY = h, maxX = 0, maxY = 0
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            if (data[(y * w + x) * 4 + 3] > 20) {
-              if (x < minX) minX = x
-              if (x > maxX) maxX = x
-              if (y < minY) minY = y
-              if (y > maxY) maxY = y
-            }
-          }
-        }
-        if (maxX >= minX && maxY >= minY) {
-          // Inset the anchor into the opaque content so the badge
-          // sits ON the product (like a shopping tag) rather than
-          // at the very edge of the bounding box.
-          const oW = maxX - minX
-          const oH = maxY - minY
-          const anchorY = (minY + oH * 0.08) / h
-          const anchorX = (maxX - oW * 0.08) / w
-          const result = {
-            top: anchorY,
-            right: 1 - anchorX,
-            imageData: data,
-            width: w,
-            height: h
-          }
-          _bboxCache.set(src, result)
-          resolve(result)
-        } else { resolve(null) }
-      } catch { resolve(null) }
-    }
-    img.onerror = () => resolve(null)
-    img.src = src
-  })
-}
-
-/**
- * Check if a click on an image element happened on an opaque pixel
- * @param {any} e - The click event (React MouseEvent)
- * @param {HTMLImageElement} img - The image element
- * @param {Uint8ClampedArray} imageData - The image pixel data
- * @param {number} w - The image data width
- * @param {number} h - The image data height
- * @returns {boolean} - True if click was on opaque pixel
- */
-function isClickOnOpaquePixel(e, img, imageData, w, h) {
-  try {
-    const rect = img.getBoundingClientRect()
-    // Get click position relative to image
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    // Convert to 0-1 range
-    const xPercent = x / rect.width
-    const yPercent = y / rect.height
-    // Map to imageData coordinates
-    const imgX = Math.floor(xPercent * w)
-    const imgY = Math.floor(yPercent * h)
-    // Check bounds
-    if (imgX < 0 || imgX >= w || imgY < 0 || imgY >= h) return false
-    // Get alpha value at this pixel
-    const alpha = imageData[(imgY * w + imgX) * 4 + 3]
-    // Consider alpha > 20 as opaque (same threshold as bbox computation)
-    return alpha > 20
-  } catch {
-    return true // Fallback to allowing click if detection fails
-  }
+function getBBox(src) {
+  return PRODUCT_BBOX[src] || null
 }
 
 export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
@@ -163,14 +79,11 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     }))
   }, [products])
 
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') logMissingAssets()
-  }, [])
-
   /* ---------------- View mode (stacks vs grid) ---------------- */
   const [viewMode, setViewMode] = useState(VIEW_STACKS)
   const [stackReversed, setStackReversed] = useState(false)
-  const categoryGroups = useMemo(() => groupByCategory(seed), [seed])
+  // Use pre-computed category groups (no client-side computation)
+  const categoryGroups = getCategoryGroups()
 
   useEffect(() => {
     try { sessionStorage.setItem('lb:view-mode', viewMode) } catch {}
@@ -185,144 +98,36 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       .reduce((sum, item) => sum + item.qty, 0)
   }, [cart.items])
 
-  /* ---------------- Badge anchors (opaque bounding box) + click detection ---------------- */
-  const [badgeAnchors, setBadgeAnchors] = useState(
-    /** @type {Record<string, {top:number, right:number, imageData?:Uint8ClampedArray, width?:number, height?:number}>} */ ({})
-  )
-
+  /* ---------------- Simplified hover (no pixel detection) ---------------- */
   useEffect(() => {
-    let cancelled = false
-    seed.forEach((/** @type {any} */ p) => {
-      const src = p.thumb || p.image
-      if (!src) return
-      computeOpaqueBBox(src).then((bbox) => {
-        if (cancelled || !bbox) return
-        setBadgeAnchors((prev) => prev[src] ? prev : { ...prev, [src]: bbox })
-      })
-    })
-    return () => { cancelled = true }
-  }, [seed])
-
-  /* ---------------- Hover detection on opaque pixels (GRID) ---------------- */
-  useEffect(() => {
-    if (viewMode !== VIEW_GRID) return
-
-    const handleMouseMove = (/** @type {any} */ e) => {
-      const tile = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.product-tile')
-      if (!tile) return
-
-      const img = tile.querySelector('.product-img')
-      if (!(img instanceof HTMLImageElement)) return
-
-      // Get product index from tile
-      const allTiles = Array.from(document.querySelectorAll('.shop-grid[data-view-mode="grid"] .product-tile'))
-      const idx = allTiles.indexOf(tile)
-      if (idx < 0 || idx >= seed.length) return
-
-      const p = seed[idx]
-      const src = p.thumb || p.image
-      const anchorData = badgeAnchors[src]
-
-      if (anchorData?.imageData && anchorData.width && anchorData.height) {
-        const isOpaque = isClickOnOpaquePixel(e, img, anchorData.imageData, anchorData.width, anchorData.height)
-        const box = tile.querySelector('.product-box')
-        if (box instanceof HTMLElement) {
-          if (isOpaque) {
-            box.classList.add('hover-opaque')
-          } else {
-            box.classList.remove('hover-opaque')
-          }
-        }
-      }
-    }
-
-    const handleMouseLeave = (/** @type {any} */ e) => {
-      const tile = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.product-tile')
+    const handleMouseEnter = (/** @type {any} */ e) => {
+      const tile = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.product-tile, .category-stack')
       if (!tile) return
       const box = tile.querySelector('.product-box')
       if (box instanceof HTMLElement) {
-        box.classList.remove('hover-opaque')
-      }
-    }
-
-    const grid = document.querySelector('.shop-grid[data-view-mode="grid"]')
-    if (grid) {
-      grid.addEventListener('mousemove', handleMouseMove)
-      grid.addEventListener('mouseleave', handleMouseLeave)
-      return () => {
-        grid.removeEventListener('mousemove', handleMouseMove)
-        grid.removeEventListener('mouseleave', handleMouseLeave)
-      }
-    }
-  }, [viewMode, seed, badgeAnchors])
-
-  /* ---------------- Hover detection on opaque pixels (STACKS) ---------------- */
-  useEffect(() => {
-    if (viewMode !== VIEW_STACKS) return
-
-    const handleMouseMove = (/** @type {any} */ e) => {
-      const stack = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.category-stack')
-      if (!stack) return
-
-      // Find which image is actually under the cursor (top-most due to z-index)
-      const elemAtPoint = document.elementFromPoint(e.clientX, e.clientY)
-      const img = elemAtPoint?.closest?.('.product-img')
-      if (!(img instanceof HTMLImageElement)) {
-        // Clear all hovers in this stack
-        stack.querySelectorAll('.product-box.hover-opaque').forEach(box => {
-          box.classList.remove('hover-opaque')
-        })
-        return
-      }
-
-      // Get the src from the image element
-      const src = img.src || img.getAttribute('src')
-      if (!src) return
-
-      // Extract just the path part (remove domain)
-      const srcPath = src.includes('/products/')
-        ? src.substring(src.indexOf('/products/'))
-        : src
-
-      const anchorData = badgeAnchors[srcPath]
-
-      if (anchorData?.imageData && anchorData.width && anchorData.height) {
-        const isOpaque = isClickOnOpaquePixel(e, img, anchorData.imageData, anchorData.width, anchorData.height)
-
-        // Clear all hovers first
-        stack.querySelectorAll('.product-box.hover-opaque').forEach(box => {
-          box.classList.remove('hover-opaque')
-        })
-
-        // Add hover to all boxes in stack if opaque
-        if (isOpaque) {
-          stack.querySelectorAll('.product-box').forEach(box => {
-            if (box instanceof HTMLElement) {
-              box.classList.add('hover-opaque')
-            }
-          })
-        }
+        box.classList.add('hover-active')
       }
     }
 
     const handleMouseLeave = (/** @type {any} */ e) => {
-      const stack = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.category-stack')
-      if (!stack) return
-      stack.querySelectorAll('.product-box.hover-opaque').forEach(box => {
-        box.classList.remove('hover-opaque')
-      })
-    }
-
-    const grid = document.querySelector('.shop-grid[data-view-mode="stacks"]')
-    if (grid) {
-      grid.addEventListener('mousemove', handleMouseMove)
-      grid.addEventListener('mouseleave', handleMouseLeave)
-      return () => {
-        grid.removeEventListener('mousemove', handleMouseMove)
-        grid.removeEventListener('mouseleave', handleMouseLeave)
+      const tile = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.product-tile, .category-stack')
+      if (!tile) return
+      const box = tile.querySelector('.product-box')
+      if (box instanceof HTMLElement) {
+        box.classList.remove('hover-active')
       }
     }
-  }, [viewMode, seed, badgeAnchors])
+
+    const grid = document.querySelector('.shop-grid')
+    if (grid) {
+      grid.addEventListener('mouseenter', handleMouseEnter, true)
+      grid.addEventListener('mouseleave', handleMouseLeave, true)
+      return () => {
+        grid.removeEventListener('mouseenter', handleMouseEnter, true)
+        grid.removeEventListener('mouseleave', handleMouseLeave, true)
+      }
+    }
+  }, [viewMode])
 
   /* ---------------- Overlay state ---------------- */
   const [overlayIdx, setOverlayIdx] = useState(/** @type {number|null} */ null)
@@ -626,15 +431,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   const onFirstThumbRef = useRef(false)
   const handleFirstDecode = useCallback(
-    (imgEl) => {
-      if (!imgEl || onFirstThumbRef.current) return
+    () => {
+      if (onFirstThumbRef.current) return
       onFirstThumbRef.current = true
-      try {
-        const run = () => sendReady()
-        imgEl.decode ? imgEl.decode().then(run).catch(run) : run()
-      } catch {
-        sendReady()
-      }
+      sendReady()
     },
     [sendReady]
   )
@@ -666,31 +466,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-
-                  // Check if click is on opaque part of the top-most image
-                  const elemAtPoint = document.elementFromPoint(e.clientX, e.clientY)
-                  const img = elemAtPoint?.closest?.('.product-img')
-
-                  if (img instanceof HTMLImageElement) {
-                    const src = img.src || img.getAttribute('src')
-                    const srcPath = src && src.includes('/products/')
-                      ? src.substring(src.indexOf('/products/'))
-                      : src
-
-                    const anchorData = srcPath ? badgeAnchors[srcPath] : null
-
-                    if (anchorData?.imageData && anchorData.width && anchorData.height) {
-                      const isOpaque = isClickOnOpaquePixel(
-                        e,
-                        img,
-                        anchorData.imageData,
-                        anchorData.width,
-                        anchorData.height
-                      )
-                      if (!isOpaque) return // Ignore clicks on transparent areas
-                    }
-                  }
-
                   revealGrid()
                 }}
                 onKeyDown={(e) => {
@@ -717,13 +492,11 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                           height={800}
                           className="product-img"
                           priority={i === 0}
+                          loading={i === 0 ? 'eager' : 'lazy'}
                           unoptimized
                           sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
-                          ref={(el) => {
-                            if (seedIndices[i] === 0 && el?.complete) handleFirstDecode(el)
-                          }}
-                          onLoad={(e) => {
-                            if (seedIndices[i] === 0) handleFirstDecode(e.currentTarget)
+                          onLoad={() => {
+                            if (seedIndices[i] === 0) handleFirstDecode()
                           }}
                         />
                       </div>
@@ -748,23 +521,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 // Prevent opening overlay immediately after revealing grid from stacks
                 if (Date.now() - gridRevealedAtRef.current < 500) return
 
-                // Check if click is on opaque part of image (not transparent background)
-                const src = p.thumb || p.image
-                const anchorData = badgeAnchors[src]
-                if (anchorData?.imageData && anchorData.width && anchorData.height) {
-                  const imgEl = e.currentTarget.querySelector('.product-img')
-                  if (imgEl instanceof HTMLImageElement) {
-                    const isOpaque = isClickOnOpaquePixel(
-                      e,
-                      imgEl,
-                      anchorData.imageData,
-                      anchorData.width,
-                      anchorData.height
-                    )
-                    if (!isOpaque) return // Ignore clicks on transparent areas
-                  }
-                }
-
                 const r = e.currentTarget.getBoundingClientRect()
                 openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
               }}
@@ -788,13 +544,11 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                     height={800}
                     className="product-img"
                     priority={idx === 0}
+                    loading={idx < 3 ? 'eager' : 'lazy'}
                     unoptimized
                     sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
-                    ref={(el) => {
-                      if (idx === 0 && el?.complete) handleFirstDecode(el)
-                    }}
-                    onLoad={(e) => {
-                      if (idx === 0) handleFirstDecode(e.currentTarget)
+                    onLoad={() => {
+                      if (idx === 0) handleFirstDecode()
                     }}
                     onError={(e) => {
                       const img = e.currentTarget
@@ -972,42 +726,39 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         .category-stack[data-stack-reversed='true'] .product-tile:nth-child(5) { z-index: 5; transform: translateX(0px); }
 
         /* Hover: items slide out while maintaining stacked z-order */
-        /* Explicitly set z-order so top item stays on top, items stay underneath */
-        /* Only trigger when hovering over opaque pixels (controlled by JS via .hover-opaque class) */
         @media (pointer: fine) {
-          .category-stack .product-box.hover-opaque:nth-child(1) { transform: translateX(0px) scale(1.05); z-index: 5; }
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(1) { z-index: 5; }
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(1) .product-box { transform: translateX(0px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(1) { z-index: 5; }
+          .category-stack:hover .product-tile:nth-child(1) .product-box { transform: translateX(0px) scale(1.05); }
 
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(2) { z-index: 4; }
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(2) .product-box { transform: translateX(16px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(2) { z-index: 4; }
+          .category-stack:hover .product-tile:nth-child(2) .product-box { transform: translateX(16px) scale(1.05); }
 
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(3) { z-index: 3; }
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(3) .product-box { transform: translateX(32px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(3) { z-index: 3; }
+          .category-stack:hover .product-tile:nth-child(3) .product-box { transform: translateX(32px) scale(1.05); }
 
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(4) { z-index: 2; }
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(4) .product-box { transform: translateX(48px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(4) { z-index: 2; }
+          .category-stack:hover .product-tile:nth-child(4) .product-box { transform: translateX(48px) scale(1.05); }
 
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(5) { z-index: 1; }
-          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(5) .product-box { transform: translateX(64px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(5) { z-index: 1; }
+          .category-stack:hover .product-tile:nth-child(5) .product-box { transform: translateX(64px) scale(1.05); }
         }
 
         /* Reversed state hover: maintain reversed z-order */
         @media (pointer: fine) {
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(1) { z-index: 1; }
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(1) .product-box { transform: translateX(-12px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) { z-index: 1; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) .product-box { transform: translateX(-12px) scale(1.05); }
 
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(2) { z-index: 2; }
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(2) .product-box { transform: translateX(4px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) { z-index: 2; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) .product-box { transform: translateX(4px) scale(1.05); }
 
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(3) { z-index: 3; }
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(3) .product-box { transform: translateX(20px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) { z-index: 3; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) .product-box { transform: translateX(20px) scale(1.05); }
 
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(4) { z-index: 4; }
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(4) .product-box { transform: translateX(36px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) { z-index: 4; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) .product-box { transform: translateX(36px) scale(1.05); }
 
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(5) { z-index: 5; }
-          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(5) .product-box { transform: translateX(52px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) { z-index: 5; }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) .product-box { transform: translateX(52px) scale(1.05); }
         }
 
         /* ---------- SHARED TILE STYLES ---------- */
@@ -1047,9 +798,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           transform: translateZ(0) scale(1) !important;
         }
 
-        /* Hover effect only when hovering over opaque pixels (controlled by JS) */
+        /* Hover effect */
         @media (pointer: fine) {
-          .shop-grid[data-view-mode='grid'] .product-tile .product-box.hover-opaque {
+          .shop-grid[data-view-mode='grid'] .product-tile .product-box:hover {
             transform: translateZ(0) scale(1.05);
           }
         }

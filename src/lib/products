@@ -62,24 +62,18 @@ export const PRODUCTS = [
 const products = PRODUCTS
 export default products
 
-/** @param {Product[]} list @returns {Map<string, Product[]>} */
-export function groupByCategory(list) {
-  const map = new Map()
-  for (const p of list) {
-    const cat = p.category || 'uncategorized'
-    if (!map.has(cat)) map.set(cat, [])
-    map.get(cat).push(p)
-  }
-  return map
+/** Pre-computed category groups (never recompute client-side) */
+const _categoryGroupsCache = new Map()
+for (const p of PRODUCTS) {
+  const cat = p.category || 'uncategorized'
+  if (!_categoryGroupsCache.has(cat)) _categoryGroupsCache.set(cat, [])
+  _categoryGroupsCache.get(cat).push(p)
 }
 
-// Helpful in dev to surface missing assets fast.
-export function logMissingAssets() {
-  if (typeof window === 'undefined') return
-  PRODUCTS.forEach((p) => {
-    const i = new Image()
-    i.onload = () => {}
-    i.onerror = () => console.warn('[asset-missing]', p.thumb || p.image)
-    i.src = (p.thumb || p.image) + '?v=' + Date.now()
-  })
+/** @returns {Map<string, Product[]>} */
+export function getCategoryGroups() {
+  return _categoryGroupsCache
 }
+
+// REMOVED: logMissingAssets() - use build-time checks instead
+// If you need to verify assets, run: node scripts/verify-assets.mjs
