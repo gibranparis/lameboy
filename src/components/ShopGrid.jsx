@@ -203,7 +203,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     return () => { cancelled = true }
   }, [seed])
 
-  /* ---------------- Hover detection on opaque pixels ---------------- */
+  /* ---------------- Hover detection on opaque pixels (GRID) ---------------- */
   useEffect(() => {
     if (viewMode !== VIEW_GRID) return
 
@@ -246,6 +246,74 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     }
 
     const grid = document.querySelector('.shop-grid[data-view-mode="grid"]')
+    if (grid) {
+      grid.addEventListener('mousemove', handleMouseMove)
+      grid.addEventListener('mouseleave', handleMouseLeave)
+      return () => {
+        grid.removeEventListener('mousemove', handleMouseMove)
+        grid.removeEventListener('mouseleave', handleMouseLeave)
+      }
+    }
+  }, [viewMode, seed, badgeAnchors])
+
+  /* ---------------- Hover detection on opaque pixels (STACKS) ---------------- */
+  useEffect(() => {
+    if (viewMode !== VIEW_STACKS) return
+
+    const handleMouseMove = (/** @type {any} */ e) => {
+      const stack = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.category-stack')
+      if (!stack) return
+
+      // Find which image is actually under the cursor (top-most due to z-index)
+      const elemAtPoint = document.elementFromPoint(e.clientX, e.clientY)
+      const img = elemAtPoint?.closest?.('.product-img')
+      if (!(img instanceof HTMLImageElement)) {
+        // Clear all hovers in this stack
+        stack.querySelectorAll('.product-box.hover-opaque').forEach(box => {
+          box.classList.remove('hover-opaque')
+        })
+        return
+      }
+
+      // Get the src from the image element
+      const src = img.src || img.getAttribute('src')
+      if (!src) return
+
+      // Extract just the path part (remove domain)
+      const srcPath = src.includes('/products/')
+        ? src.substring(src.indexOf('/products/'))
+        : src
+
+      const anchorData = badgeAnchors[srcPath]
+
+      if (anchorData?.imageData && anchorData.width && anchorData.height) {
+        const isOpaque = isClickOnOpaquePixel(e, img, anchorData.imageData, anchorData.width, anchorData.height)
+
+        // Clear all hovers first
+        stack.querySelectorAll('.product-box.hover-opaque').forEach(box => {
+          box.classList.remove('hover-opaque')
+        })
+
+        // Add hover to all boxes in stack if opaque
+        if (isOpaque) {
+          stack.querySelectorAll('.product-box').forEach(box => {
+            if (box instanceof HTMLElement) {
+              box.classList.add('hover-opaque')
+            }
+          })
+        }
+      }
+    }
+
+    const handleMouseLeave = (/** @type {any} */ e) => {
+      const stack = /** @type {HTMLElement|null} */ (e.target)?.closest?.('.category-stack')
+      if (!stack) return
+      stack.querySelectorAll('.product-box.hover-opaque').forEach(box => {
+        box.classList.remove('hover-opaque')
+      })
+    }
+
+    const grid = document.querySelector('.shop-grid[data-view-mode="stacks"]')
     if (grid) {
       grid.addEventListener('mousemove', handleMouseMove)
       grid.addEventListener('mouseleave', handleMouseLeave)
@@ -613,6 +681,31 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
+
+                  // Check if click is on opaque part of the top-most image
+                  const elemAtPoint = document.elementFromPoint(e.clientX, e.clientY)
+                  const img = elemAtPoint?.closest?.('.product-img')
+
+                  if (img instanceof HTMLImageElement) {
+                    const src = img.src || img.getAttribute('src')
+                    const srcPath = src && src.includes('/products/')
+                      ? src.substring(src.indexOf('/products/'))
+                      : src
+
+                    const anchorData = srcPath ? badgeAnchors[srcPath] : null
+
+                    if (anchorData?.imageData && anchorData.width && anchorData.height) {
+                      const isOpaque = isClickOnOpaquePixel(
+                        e,
+                        img,
+                        anchorData.imageData,
+                        anchorData.width,
+                        anchorData.height
+                      )
+                      if (!isOpaque) return // Ignore clicks on transparent areas
+                    }
+                  }
+
                   revealGrid()
                 }}
                 onKeyDown={(e) => {
@@ -733,6 +826,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                     const qty = getProductQty(p.id)
                     if (qty <= 0) return null
                     const anchor = badgeAnchors[p.thumb || p.image]
+
                     return (
                       <span
                         className="product-badge"
@@ -891,21 +985,41 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
         /* Hover: items slide out while maintaining stacked z-order */
         /* Explicitly set z-order so top item stays on top, items stay underneath */
+        /* Only trigger when hovering over opaque pixels (controlled by JS via .hover-opaque class) */
         @media (pointer: fine) {
-          .category-stack:hover .product-tile:nth-child(1) { transform: translateX(0px) scale(1.05); z-index: 5; }
-          .category-stack:hover .product-tile:nth-child(2) { transform: translateX(16px) scale(1.05); z-index: 4; }
-          .category-stack:hover .product-tile:nth-child(3) { transform: translateX(32px) scale(1.05); z-index: 3; }
-          .category-stack:hover .product-tile:nth-child(4) { transform: translateX(48px) scale(1.05); z-index: 2; }
-          .category-stack:hover .product-tile:nth-child(5) { transform: translateX(64px) scale(1.05); z-index: 1; }
+          .category-stack .product-box.hover-opaque:nth-child(1) { transform: translateX(0px) scale(1.05); z-index: 5; }
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(1) { z-index: 5; }
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(1) .product-box { transform: translateX(0px) scale(1.05); }
+
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(2) { z-index: 4; }
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(2) .product-box { transform: translateX(16px) scale(1.05); }
+
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(3) { z-index: 3; }
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(3) .product-box { transform: translateX(32px) scale(1.05); }
+
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(4) { z-index: 2; }
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(4) .product-box { transform: translateX(48px) scale(1.05); }
+
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(5) { z-index: 1; }
+          .category-stack .product-tile:has(.product-box.hover-opaque):nth-child(5) .product-box { transform: translateX(64px) scale(1.05); }
         }
 
         /* Reversed state hover: maintain reversed z-order */
         @media (pointer: fine) {
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) { transform: translateX(-12px) scale(1.05); z-index: 1; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) { transform: translateX(4px) scale(1.05); z-index: 2; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) { transform: translateX(20px) scale(1.05); z-index: 3; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) { transform: translateX(36px) scale(1.05); z-index: 4; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) { transform: translateX(52px) scale(1.05); z-index: 5; }
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(1) { z-index: 1; }
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(1) .product-box { transform: translateX(-12px) scale(1.05); }
+
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(2) { z-index: 2; }
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(2) .product-box { transform: translateX(4px) scale(1.05); }
+
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(3) { z-index: 3; }
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(3) .product-box { transform: translateX(20px) scale(1.05); }
+
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(4) { z-index: 4; }
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(4) .product-box { transform: translateX(36px) scale(1.05); }
+
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(5) { z-index: 5; }
+          .category-stack[data-stack-reversed='true'] .product-tile:has(.product-box.hover-opaque):nth-child(5) .product-box { transform: translateX(52px) scale(1.05); }
         }
 
         /* ---------- SHARED TILE STYLES ---------- */
@@ -927,6 +1041,14 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         }
         .shop-grid[data-view-mode='grid'] .product-tile .product-img-wrap,
         .shop-grid[data-view-mode='grid'] .product-tile .product-meta {
+          pointer-events: auto;
+        }
+
+        /* In stacks mode, make only the image area clickable */
+        .shop-grid[data-view-mode='stacks'] .category-stack {
+          pointer-events: none;
+        }
+        .shop-grid[data-view-mode='stacks'] .category-stack .product-img-wrap {
           pointer-events: auto;
         }
 

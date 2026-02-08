@@ -577,6 +577,16 @@ export default function ProductOverlay({
   const [heroZoomed, setHeroZoomed] = useState(false)
   const handleToggleZoom = useCallback(() => setHeroZoomed((v) => !v), [])
 
+  // Pinch zoom state
+  const [pinchZoom, setPinchZoom] = useState({ scale: 1, x: 0, y: 0 })
+  const pinchState = useRef({
+    initialDistance: 0,
+    initialScale: 1,
+    lastTouchX: 0,
+    lastTouchY: 0,
+    isPinching: false,
+  })
+
   // Canvas for alpha hit-testing (transparent pixel click-through)
   const alphaCanvasRef = useRef(/** @type {HTMLCanvasElement|null} */ (null))
 
@@ -857,6 +867,119 @@ export default function ProductOverlay({
     onSwipeBack: animateClose,
   })
 
+  // Pinch zoom handlers
+  const getTouchDistance = useCallback((/** @type {any} */ touches) => {
+    const dx = touches[0].clientX - touches[1].clientX
+    const dy = touches[0].clientY - touches[1].clientY
+    return Math.sqrt(dx * dx + dy * dy)
+  }, [])
+
+  const getTouchCenter = useCallback((/** @type {any} */ touches, /** @type {any} */ container) => {
+    const rect = container.getBoundingClientRect()
+    const x = (touches[0].clientX + touches[1].clientX) / 2 - rect.left
+    const y = (touches[0].clientY + touches[1].clientY) / 2 - rect.top
+    return { x, y }
+  }, [])
+
+  const handlePinchStart = useCallback((/** @type {any} */ e) => {
+    if (e.touches.length !== 2) return
+    pinchState.current.isPinching = true
+    pinchState.current.initialDistance = getTouchDistance(e.touches)
+    pinchState.current.initialScale = pinchZoom.scale
+  }, [getTouchDistance, pinchZoom.scale])
+
+  const handlePinchMove = useCallback((/** @type {any} */ e) => {
+    if (!pinchState.current.isPinching || e.touches.length !== 2) return
+    if (e.cancelable) e.preventDefault()
+
+    const currentDistance = getTouchDistance(e.touches)
+    const scaleChange = currentDistance / pinchState.current.initialDistance
+    let newScale = pinchState.current.initialScale * scaleChange
+
+    // Clamp scale between 1x and 4x
+    newScale = clamp(newScale, 1, 4)
+
+    const container = e.currentTarget
+    const center = getTouchCenter(e.touches, container)
+
+    // Calculate pan offset to keep zoom centered on pinch point
+    const offsetX = center.x - (container.offsetWidth / 2)
+    const offsetY = center.y - (container.offsetHeight / 2)
+
+    setPinchZoom({
+      scale: newScale,
+      x: newScale > 1 ? -offsetX * (newScale - 1) * 0.3 : 0,
+      y: newScale > 1 ? -offsetY * (newScale - 1) * 0.3 : 0,
+    })
+  }, [getTouchDistance, getTouchCenter])
+
+  const handlePinchEnd = useCallback(() => {
+    pinchState.current.isPinching = false
+    // Reset zoom if zoomed out to 1x
+    if (pinchZoom.scale <= 1.05) {
+      setPinchZoom({ scale: 1, x: 0, y: 0 })
+    }
+  }, [pinchZoom.scale])
+
+  // Pan when zoomed in (single finger drag while zoomed)
+  const handlePanStart = useCallback((/** @type {any} */ e) => {
+    if (e.touches.length !== 1 || pinchZoom.scale <= 1) return
+    const touch = e.touches[0]
+    pinchState.current.lastTouchX = touch.clientX
+    pinchState.current.lastTouchY = touch.clientY
+  }, [pinchZoom.scale])
+
+  const handlePanMove = useCallback((/** @type {any} */ e) => {
+    if (e.touches.length !== 1 || pinchZoom.scale <= 1) return
+    if (e.cancelable) e.preventDefault()
+
+    const touch = e.touches[0]
+    const dx = touch.clientX - pinchState.current.lastTouchX
+    const dy = touch.clientY - pinchState.current.lastTouchY
+
+    setPinchZoom((prev) => ({
+      scale: prev.scale,
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }))
+
+    pinchState.current.lastTouchX = touch.clientX
+    pinchState.current.lastTouchY = touch.clientY
+  }, [pinchZoom.scale])
+
+  // Combined touch handler
+  const handleTouchStart = useCallback((/** @type {any} */ e) => {
+    if (e.touches.length === 2) {
+      handlePinchStart(e)
+    } else if (e.touches.length === 1) {
+      if (pinchZoom.scale > 1) {
+        handlePanStart(e)
+      } else {
+        swipe.onDown(e)
+      }
+    }
+  }, [handlePinchStart, handlePanStart, swipe, pinchZoom.scale])
+
+  const handleTouchMove = useCallback((/** @type {any} */ e) => {
+    if (e.touches.length === 2) {
+      handlePinchMove(e)
+    } else if (e.touches.length === 1) {
+      if (pinchZoom.scale > 1) {
+        handlePanMove(e)
+      } else {
+        swipe.onMove(e)
+      }
+    }
+  }, [handlePinchMove, handlePanMove, swipe, pinchZoom.scale])
+
+  const handleTouchEnd = useCallback(() => {
+    if (pinchState.current.isPinching) {
+      handlePinchEnd()
+    } else {
+      swipe.onUp()
+    }
+  }, [handlePinchEnd, swipe])
+
   /* overlay flag */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open', '1')
@@ -864,12 +987,17 @@ export default function ProductOverlay({
   }, [])
 
   // Reset image index and zoom when product changes
-  useEffect(() => { setImgIdx(0); setHeroZoomed(false) }, [index])
+  useEffect(() => {
+    setImgIdx(0)
+    setHeroZoomed(false)
+    setPinchZoom({ scale: 1, x: 0, y: 0 })
+  }, [index])
 
   // Load the original (unoptimized) PNG for alpha hit-testing.
   // This bypasses Next.js image optimization so the raw alpha channel is preserved.
   useEffect(() => {
     alphaCanvasRef.current = null
+    setPinchZoom({ scale: 1, x: 0, y: 0 })  // Reset pinch zoom when image changes
     const src = imgs[clampedImgIdx]
     if (!src) return
     let cancelled = false
@@ -897,6 +1025,13 @@ export default function ProductOverlay({
   // Accounts for object-fit:contain letterboxing when mapping click → pixel coordinates.
   const handleHeroImgClick = useCallback(function (e) {
     e.stopPropagation()
+
+    // If pinch zoomed, reset zoom on click
+    if (pinchZoom.scale > 1) {
+      setPinchZoom({ scale: 1, x: 0, y: 0 })
+      return
+    }
+
     const cvs = alphaCanvasRef.current
     if (cvs) {
       try {
@@ -948,7 +1083,7 @@ export default function ProductOverlay({
       window.dispatchEvent(new CustomEvent('product-image-click'))
     } catch {}
     setHeroZoomed((v) => !v)
-  }, [animateClose])
+  }, [animateClose, pinchZoom.scale])
 
   // FLIP ENTER: useLayoutEffect positions hero BEFORE first paint (no flash)
   const isInitialMount = useRef(true)
@@ -1099,10 +1234,22 @@ export default function ProductOverlay({
             touchAction: 'none',
             marginTop: '-22vh',
           }}
-          onPointerDown={swipe.onDown}
-          onPointerMove={swipe.onMove}
-          onPointerUp={swipe.onUp}
-          onPointerCancel={swipe.onUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+          onPointerDown={(e) => {
+            if (e.pointerType !== 'touch') swipe.onDown(e)
+          }}
+          onPointerMove={(e) => {
+            if (e.pointerType !== 'touch') swipe.onMove(e)
+          }}
+          onPointerUp={(e) => {
+            if (e.pointerType !== 'touch') swipe.onUp()
+          }}
+          onPointerCancel={(e) => {
+            if (e.pointerType !== 'touch') swipe.onUp()
+          }}
           onClick={(e) => {
             // Clicks on buttons or the image are handled by their own handlers
             // (image uses stopPropagation). Anything else in the hero area = close.
@@ -1158,8 +1305,10 @@ export default function ProductOverlay({
                   data-ui="product-viewport"
                   style={{
                     width: '100%',
-                    transform: heroZoomed ? 'scale(1.09)' : 'scale(1)',
-                    transition: 'transform 0.2s cubic-bezier(.2,.8,.2,1)',
+                    transform: `translate(${pinchZoom.x}px, ${pinchZoom.y}px) scale(${
+                      heroZoomed && pinchZoom.scale === 1 ? 1.09 : pinchZoom.scale
+                    })`,
+                    transition: pinchState.current.isPinching ? 'none' : 'transform 0.2s cubic-bezier(.2,.8,.2,1)',
                   }}
                 >
                   <Image
