@@ -153,6 +153,25 @@ export default function CheckoutView({ onClose }) {
               </button>
             </div>
           )}
+
+          {/* Brand Signature - Bottom Left */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 24,
+              bottom: 40,
+              fontSize: 16,
+              fontFamily: "'Jalliya', var(--mono)",
+              color: night ? '#fff' : '#0f1115',
+              opacity: 1,
+              pointerEvents: 'none',
+              userSelect: 'none',
+              letterSpacing: '0.02em',
+              transition: 'color 0.35s ease',
+            }}
+          >
+            lameboy
+          </div>
         </div>
       </div>
     </div>

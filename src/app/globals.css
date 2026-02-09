@@ -12,7 +12,18 @@
   --mono:
     Menlo, Monaco, Consolas, 'SFMono-Regular', 'Liberation Mono', 'Courier New', ui-monospace,
     monospace;
+}
 
+/* Jalliya custom font for brand signature */
+@font-face {
+  font-family: 'Jalliya';
+  src: url('/fonts/Jalliya.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
   /* Shell (dark by default) */
   --bg: #f7f7f2;
   --panel: #1e1e1e;
