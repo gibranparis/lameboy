@@ -239,7 +239,11 @@ export default function OrbShell({
 
   const orbOverrideAllColor = inGateLike ? gateOverride : pressColor || null
   const orbHaloTint = inGateLike
-    ? null
+    ? gateOverride === RED
+      ? '#ff6644'        // warmer orange-red — pure red looks harsh as additive glow
+      : gateOverride === BLACK
+        ? '#444444'      // visible dark aura instead of near-invisible #111
+        : null
     : pressColor || null
 
   // Always keep glow meshes mounted so the visual footprint stays consistent
@@ -249,7 +253,7 @@ export default function OrbShell({
   const orbGlow = true
   const orbGlowOpacity = inGateLike
     ? loaderShow || isProceeding
-      ? 0
+      ? 0.12   // subtle halo survives into black phase (lerped smooth by useFrame)
       : gateSolid
         ? 1.0
         : gateStep >= 1
