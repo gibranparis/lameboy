@@ -158,9 +158,9 @@ export default function CheckoutView({ onClose }) {
           <div
             style={{
               position: 'absolute',
-              left: 24,
-              bottom: 40,
-              fontSize: 16,
+              left: 40,
+              bottom: 20,
+              fontSize: 58,
               fontFamily: "'Jalliya', var(--mono)",
               color: night ? '#fff' : '#0f1115',
               opacity: 1,
@@ -170,7 +170,7 @@ export default function CheckoutView({ onClose }) {
               transition: 'color 0.35s ease',
             }}
           >
-            lameboy
+            Lameboy
           </div>
         </div>
       </div>
