@@ -17,7 +17,7 @@ function Clouds() {
         style={{
           position:'absolute', inset:0, borderRadius:9999, overflow:'hidden', pointerEvents:'none',
           background:
-            'linear-gradient(180deg,#bfe7ff 0%, #dff4ff 60%, #ffffff 100%)',
+            'linear-gradient(180deg, rgba(191,231,255,.3) 0%, rgba(223,244,255,.2) 60%, rgba(255,255,255,.15) 100%)',
         }}
       />
       {/* front cloud wisp */}
@@ -101,7 +101,7 @@ export default function DayNightToggle({
     const moonSrc = (Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/moon-red.png');
     const sunSrc = '/toggle/sun.webp';
     const constellationSrc = '/toggle/virgo-constellation.webp';
-    const sunsetSrc = '/toggle/naples sunset.png';
+    const sunsetSrc = '/toggle/naples%20sunset.png';
     [moonSrc, sunSrc, constellationSrc, sunsetSrc].forEach(src => {
       const img = new Image();
       img.src = src;
@@ -163,11 +163,12 @@ export default function DayNightToggle({
         }}
       >
         <img
-          src="/toggle/naples sunset.png"
+          src="/toggle/naples%20sunset.png"
           alt=""
+          className="sunset-drift"
           style={{
-            position:'absolute', inset:0,
-            width:'100%', height:'100%',
+            position:'absolute',
+            width:'220%', height:'220%',
             objectFit:'cover',
             pointerEvents:'none',
           }}
@@ -281,6 +282,16 @@ export default function DayNightToggle({
         }
         .constellation-drift {
           animation: starDrift 30s ease-in-out infinite;
+        }
+        @keyframes sunsetDrift {
+          0%   { left: -100%; top: -100%; }
+          25%  { left: -100%; top: -20%; }
+          50%  { left: -20%;  top: -20%; }
+          75%  { left: -20%;  top: -100%; }
+          100% { left: -100%; top: -100%; }
+        }
+        .sunset-drift {
+          animation: sunsetDrift 30s ease-in-out infinite;
         }
       `}</style>
     </button>

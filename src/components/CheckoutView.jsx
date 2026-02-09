@@ -4,6 +4,7 @@ import { useCart } from '@/contexts/CartContext'
 import { useState, useEffect, useRef } from 'react'
 import CheckoutItem from './CheckoutItem'
 
+
 export default function CheckoutView({ onClose }) {
   const { items, total, count } = useCart()
   const [closing, setClosing] = useState(false)
@@ -76,11 +77,11 @@ export default function CheckoutView({ onClose }) {
           inset: 0,
           background: 'rgba(0,0,0,0.4)',
           opacity: slideOpen ? 1 : 0,
-          transition: 'opacity 300ms ease',
+          transition: 'opacity 250ms ease',
         }}
       />
 
-      {/* Side panel */}
+      {/* Panel — bubble reveal from purse */}
       <div
         ref={panelRef}
         style={{
@@ -92,7 +93,7 @@ export default function CheckoutView({ onClose }) {
           maxWidth: 460,
           background: night ? '#0f1115' : '#fafaf8',
           overflowY: 'auto',
-          transform: slideOpen ? 'translateX(0)' : 'translateX(100%)',
+          transform: slideOpen ? 'translateY(0)' : 'translateY(-100%)',
           transition: 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1)',
           boxShadow: '-4px 0 24px rgba(0,0,0,0.18)',
         }}

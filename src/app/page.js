@@ -22,6 +22,7 @@ const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRu
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
 const CartButton = nextDynamic(() => import('@/components/CartButton'), { ssr: false })
+const NewsletterForm = nextDynamic(() => import('@/components/NewsletterForm'), { ssr: false })
 
 const RUNNER_H = 14
 const LOADER_MS = 1400
@@ -216,6 +217,7 @@ export default function Page() {
 
   /* ===================== Checkout side panel ===================== */
   const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [newsletterOpen, setNewsletterOpen] = useState(false)
 
   useEffect(() => {
     const toggle = () => {
@@ -309,7 +311,12 @@ export default function Page() {
 
           <main style={{ paddingTop: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
-            {!loaderShow && <HeartBeatButton className="heart-submit" aria-label="Open login" onClick={() => {}} />}
+            {!loaderShow && (
+              <>
+                <HeartBeatButton className="heart-submit" aria-label="Newsletter signup" onClick={() => setNewsletterOpen((v) => !v)} />
+                <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
+              </>
+            )}
           </main>
 
           <div className="lb-chakra-runner">
