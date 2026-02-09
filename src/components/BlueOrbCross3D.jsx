@@ -50,6 +50,13 @@ function OrbCross({
     const u = group.current.userData
     if (!u) return
 
+    // Smooth lerp toward target base to prevent visual pop on color transitions
+    if (u.targetBase !== undefined && Math.abs(u.base - u.targetBase) > 0.001) {
+      u.base += (u.targetBase - u.base) * 0.09
+    } else if (u.targetBase !== undefined) {
+      u.base = u.targetBase
+    }
+
     const now = performance.now()
     const flashing = u.flashUntil && now < u.flashUntil
 
@@ -261,12 +268,14 @@ function OrbCross({
 
   useEffect(() => {
     if (!group.current) return
+    const prev = group.current.userData
     group.current.userData = {
       pulse: true,
-      base: haloBase,
+      base: prev?.base ?? haloBase, // preserve current lerped value
+      targetBase: haloBase,         // lerp toward this
       barHalo: barHaloMat,
       sphereHalos: sphereHaloMats,
-      flashUntil: 0,
+      flashUntil: prev?.flashUntil ?? 0,
       flashDecayMs,
     }
   }, [haloBase, barHaloMat, sphereHaloMats, flashDecayMs])
