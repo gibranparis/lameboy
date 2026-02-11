@@ -153,7 +153,7 @@ export default function HeartBeatButton({
         /* Pause animation cleanly (visibility or overlay) */
         .lb-heart[data-paused='1'] {
           animation-play-state: paused;
-          filter: drop-shadow(0 0 4px var(--hb-glow1)) drop-shadow(0 0 8px var(--hb-glow2));
+          filter: drop-shadow(0 0 2px var(--hb-glow1)) drop-shadow(0 0 5px var(--hb-glow2));
         }
 
         @keyframes lbBeat {
