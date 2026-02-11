@@ -138,8 +138,7 @@ export default function HeartBeatButton({
           --hb-glow1: var(--heart-neon, #ff2a4f);
           --hb-glow2: rgba(255, 42, 79, 0.55);
 
-          /* Tighter glow: no big red bubble, just a crisp neon edge */
-          filter: drop-shadow(0 0 6px var(--hb-glow1)) drop-shadow(0 0 12px var(--hb-glow2));
+          filter: drop-shadow(0 0 3px var(--hb-glow1)) drop-shadow(0 0 6px var(--hb-glow2));
 
           animation: lbBeat var(--hb-duration) ease-in-out infinite;
           transform-origin: 50% 58%;

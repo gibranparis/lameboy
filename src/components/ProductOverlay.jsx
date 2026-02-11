@@ -246,6 +246,8 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
   // Close size dropdown when product changes (scroll / swipe / arrow navigation)
   useEffect(() => {
     setOpen(false)
+    setPicked(null)
+    onSizePicked?.(null)
   }, [product])
 
   const glyph = picked ? picked : open ? '–' : '+'
@@ -285,18 +287,26 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
       </button>
 
       {showAdded && (
-        <span
-          aria-live="polite"
-          className="added-label"
-          style={{
-            position: 'absolute',
-            inset: 'auto auto 0 auto',
-            transform: 'translateY(2px)',
-            ...addedStyle,
-          }}
-        >
-          Added
-        </span>
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          marginTop: 10,
+        }}>
+          <span
+            aria-live="polite"
+            className="added-label"
+            style={{
+              ...addedStyle,
+              color: '#000',
+              whiteSpace: 'nowrap',
+              letterSpacing: 'normal',
+            }}
+          >{'Added:)'}</span>
+        </div>
       )}
 
       {/* Size pills – hidden once a size is picked */}
@@ -423,17 +433,17 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           width: 28px;
           height: 28px;
           padding: 0;
+          border: none;
           border-radius: 50%;
           font-weight: 700;
           font-size: 10px;
           letter-spacing: 0.02em;
           display: grid;
           place-items: center;
+          cursor: pointer;
           background: #fff;
           color: #0f1115;
-          box-shadow:
-            0 2px 10px rgba(0,0,0,.14),
-            inset 0 0 0 1px rgba(0,0,0,.10);
+          box-shadow: inset 0 0 0 1px rgba(0,0,0,.10);
           transition:
             transform 0.08s ease,
             box-shadow 0.2s ease,
@@ -443,9 +453,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         :root[data-theme='night'] .size-pill {
           background: rgba(255,255,255,0.10);
           color: #fff;
-          box-shadow:
-            0 2px 10px rgba(0,0,0,.14),
-            inset 0 0 0 1px rgba(255,255,255,.24);
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,.24);
         }
         .size-pill.is-selected {
           background: var(--hover-green, #0bf05f);
@@ -1618,18 +1626,18 @@ export default function ProductOverlay({
           to   { opacity: 1; transform: translateY(0); }
         }
         .dims-size {
-          font-size: 11px;
+          font-size: 15px;
           font-weight: 800;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: #0f1115;
-          margin-bottom: 2px;
+          margin-bottom: 3px;
         }
         :root[data-theme='night'] .dims-size {
           color: #fff;
         }
         .dims-row {
-          font-size: 10px;
+          font-size: 13px;
           font-weight: 600;
           letter-spacing: 0.04em;
           color: #0f1115;
