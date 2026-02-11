@@ -55,7 +55,7 @@ export default function OrbShell({
   /* ===================== Gate colors ===================== */
 
   const SEAFOAM = '#32ffc7'
-  const RED = '#ff001a'
+  const RED = '#cc0014'
   const YELLOW = '#ffd400'
   const GREEN = '#0bf05f'
   const BLACK = '#000'
@@ -68,7 +68,7 @@ export default function OrbShell({
     return null
   }, [gateStep, isProceeding, loaderShow])
 
-  const gateSolid = gateStep === 3 || isProceeding || loaderShow
+  const gateSolid = gateStep === 1 || gateStep === 3 || isProceeding || loaderShow
 
   /* ===================== Gate interactions ===================== */
 
@@ -240,7 +240,7 @@ export default function OrbShell({
   const orbOverrideAllColor = inGateLike ? gateOverride : pressColor || null
   const orbHaloTint = inGateLike
     ? gateOverride === RED
-      ? '#ff6644'        // warmer orange-red — pure red looks harsh as additive glow
+      ? '#880011'        // deep blood-crimson — evil moon glow
       : gateOverride === BLACK
         ? '#444444'      // visible dark aura instead of near-invisible #111
         : null
@@ -267,7 +267,9 @@ export default function OrbShell({
     ? gateSolid
       ? loaderShow || isProceeding
         ? BLACK
-        : GREEN
+        : gateStep === 1
+          ? RED
+          : GREEN
       : SEAFOAM
     : SEAFOAM
   const orbSolidOverride = inGateLike ? gateSolid : false

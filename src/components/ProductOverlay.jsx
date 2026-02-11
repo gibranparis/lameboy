@@ -139,8 +139,22 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi, isHot = false }) {
   )
 }
 
+/* ---------------- size chart (inches) ---------------- */
+const SIZE_CHART = {
+  XS:  { chest: '30-32', waist: '26-28', hips: '31-33' },
+  S:   { chest: '34-36', waist: '30-32', hips: '34-36' },
+  M:   { chest: '38-40', waist: '34-36', hips: '38-40' },
+  L:   { chest: '42-44', waist: '38-40', hips: '41-43' },
+  XL:  { chest: '46-48', waist: '42-44', hips: '44-46' },
+  '2XL': { chest: '50-52', waist: '46-48', hips: '47-49' },
+  '3XL': { chest: '54-56', waist: '50-52.5', hips: '51-53' },
+  '4XL': { chest: '58-60', waist: '55-57', hips: '55-57' },
+  '5XL': { chest: '62-64', waist: '59-61.5', hips: '59-61' },
+  '6XL': { chest: '66-68', waist: '64-66', hips: '63-65' },
+}
+
 /* ---------------- + / sizes ---------------- */
-function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, onAddedToCart, onToggleZoom }) {
+function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, onAddedToCart, onToggleZoom, onSizePicked }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState(null)
   const [hotSize, setHotSize] = useState(null)
@@ -163,35 +177,37 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
 
   const pick = useCallback((sz) => {
     setPicked(sz)
-    try {
-      window.dispatchEvent(
-        new CustomEvent('lb:add-to-cart', {
-          detail: {
-            product: product, // Pass full product object
-            size: sz,
-            qty: 1,
-          },
-        })
-      )
-    } catch {}
     setHotSize(sz)
     setPlusHot(true)
     clearTimeout(timers.current.plus)
     timers.current.plus = setTimeout(() => setPlusHot(false), 180)
+    clearTimeout(timers.current.hotSize)
+    timers.current.hotSize = setTimeout(() => setHotSize(null), 220)
+    onSizePicked?.(sz)
+  }, [onSizePicked])
 
+  const addToCart = useCallback(() => {
+    if (!picked) return
+    try {
+      window.dispatchEvent(
+        new CustomEvent('lb:add-to-cart', {
+          detail: { product, size: picked, qty: 1 },
+        })
+      )
+    } catch {}
+    setAdded(true)
     clearTimeout(timers.current.close)
     timers.current.close = setTimeout(() => {
       setOpen(false)
-      setHotSize(null)
-      setAdded(true)
-      clearTimeout(timers.current.hide)
+      setPicked(null)
+      onSizePicked?.(null)
       if (onAddedToCart) {
         timers.current.hide = setTimeout(() => onAddedToCart(), 300)
       } else {
         timers.current.hide = setTimeout(() => setAdded(false), 900)
       }
     }, 380)
-  }, [product, onAddedToCart])
+  }, [picked, product, onAddedToCart, onSizePicked])
 
   useEffect(
     () => () =>
@@ -296,7 +312,67 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         ))}
       </div>
 
+      {/* Add to Cart */}
+      <div
+        className={`atc-wrap ${picked && open ? 'is-visible' : ''}`}
+        style={{
+          position: 'absolute',
+          top: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginTop: 46,
+        }}
+      >
+        <button
+          type="button"
+          className="pill atc-pill"
+          onClick={addToCart}
+          aria-label="Add to cart"
+        >
+          Add to Cart
+        </button>
+      </div>
+
       <style jsx>{`
+        .atc-wrap {
+          overflow: hidden;
+          max-height: 0;
+          opacity: 0;
+          transition: max-height 0.22s ease, opacity 0.18s ease;
+          pointer-events: none;
+        }
+        .atc-wrap.is-visible {
+          max-height: 48px;
+          opacity: 1;
+          pointer-events: auto;
+        }
+        .atc-pill {
+          padding: 6px 18px;
+          border-radius: 9999px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          white-space: nowrap;
+          background: #fff;
+          color: #0f1115;
+          box-shadow:
+            0 2px 10px rgba(0,0,0,.14),
+            inset 0 0 0 1px rgba(0,0,0,.10);
+          transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
+        }
+        :root[data-theme='night'] .atc-pill {
+          background: rgba(255,255,255,0.10);
+          color: #fff;
+          box-shadow:
+            0 2px 10px rgba(0,0,0,.14),
+            inset 0 0 0 1px rgba(255,255,255,.24);
+        }
+        .atc-pill:active {
+          background: var(--hover-green, #0bf05f);
+          color: #000;
+          transform: scale(0.97);
+        }
         .plus-pill {
           width: 28px;
           height: 28px;
@@ -576,6 +652,10 @@ export default function ProductOverlay({
   // Subtle zoom pulse on image click
   const [heroZoomed, setHeroZoomed] = useState(false)
   const handleToggleZoom = useCallback(() => setHeroZoomed((v) => !v), [])
+
+  // Selected size for dimensions display
+  const [selectedSize, setSelectedSize] = useState(null)
+  const handleSizePicked = useCallback((sz) => setSelectedSize(sz), [])
 
   // Pinch zoom state
   const [pinchZoom, setPinchZoom] = useState({ scale: 1, x: 0, y: 0 })
@@ -1083,6 +1163,7 @@ export default function ProductOverlay({
     setImgIdx(0)
     setHeroZoomed(false)
     setPinchZoom({ scale: 1, x: 0, y: 0 })
+    setSelectedSize(null)
   }, [index])
 
   // Load the original (unoptimized) PNG for alpha hit-testing.
@@ -1436,6 +1517,30 @@ export default function ProductOverlay({
                       transition: pinchState.current.isPinching ? 'none' : 'transform 0.2s cubic-bezier(.2,.8,.2,1)',
                     }}
                   />
+
+                  {/* Size dimensions overlay – top-right of image */}
+                  {(() => {
+                    /** @type {any} */
+                    const dims = selectedSize ? SIZE_CHART[selectedSize] : null
+                    if (!dims) return null
+                    return (
+                      <div
+                        className="dims-overlay"
+                        style={{
+                          position: 'absolute',
+                          top: 16,
+                          right: 16,
+                          pointerEvents: 'none',
+                          zIndex: 10,
+                        }}
+                      >
+                        <span className="dims-size">{selectedSize}</span>
+                        <span className="dims-row">C {dims.chest}″</span>
+                        <span className="dims-row">W {dims.waist}″</span>
+                        <span className="dims-row">H {dims.hips}″</span>
+                      </div>
+                    )
+                  })()}
                 </div>
                 {imgs.length > 1 && (
                   <div
@@ -1478,7 +1583,7 @@ export default function ProductOverlay({
             {priceText}
           </div>
           <div style={{ marginTop: 20 }}>
-            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} />
+            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} />
           </div>
         </div>
       </div>
@@ -1498,6 +1603,39 @@ export default function ProductOverlay({
           background: var(--hover-green, #0bf05f);
           color: #000;
           box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+        }
+        .dims-overlay {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 2px;
+          animation: dims-in 0.22s ease both;
+        }
+        @keyframes dims-in {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .dims-size {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #0f1115;
+          margin-bottom: 2px;
+        }
+        :root[data-theme='night'] .dims-size {
+          color: #fff;
+        }
+        .dims-row {
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          color: rgba(15,17,21,0.6);
+          line-height: 1.4;
+          font-variant-numeric: tabular-nums;
+        }
+        :root[data-theme='night'] .dims-row {
+          color: rgba(255,255,255,0.55);
         }
       `}</style>
     </>
