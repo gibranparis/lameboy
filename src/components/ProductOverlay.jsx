@@ -140,6 +140,12 @@ function ArrowControl({ dir = 'up', night, onClick, dataUi, isHot = false }) {
 }
 
 /* ---------------- size chart (inches) ---------------- */
+/** @type {Record<string, string>} */
+const SIZE_NAMES = {
+  XS: 'Extra Small', S: 'Small', M: 'Medium', L: 'Large', XL: 'Extra Large',
+  '2XL': '2X Large', '3XL': '3X Large', '4XL': '4X Large', '5XL': '5X Large', '6XL': '6X Large',
+}
+/** @type {Record<string, {chest:string, waist:string, hips:string}>} */
 const SIZE_CHART = {
   XS:  { chest: '30-32', waist: '26-28', hips: '31-33' },
   S:   { chest: '34-36', waist: '30-32', hips: '34-36' },
@@ -164,11 +170,20 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
 
   const onToggle = useCallback(() => {
     if (showAdded) return
+    // If a size is picked, go back to size selection (not all the way to "+")
+    if (picked) {
+      setPicked(null)
+      onSizePicked?.(null)
+      setPlusHot(true)
+      clearTimeout(timers.current.plusTick)
+      timers.current.plusTick = setTimeout(() => setPlusHot(false), 160)
+      return
+    }
     setOpen((v) => !v)
     setPlusHot(true)
     clearTimeout(timers.current.plusTick)
     timers.current.plusTick = setTimeout(() => setPlusHot(false), 160)
-  }, [showAdded])
+  }, [showAdded, picked, onSizePicked])
 
   const onPlusClick = useCallback(() => {
     onToggle()
@@ -233,7 +248,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     setOpen(false)
   }, [product])
 
-  const glyph = open ? '–' : '+'
+  const glyph = picked ? picked : open ? '–' : '+'
   const addedStyle = {
     color: priceStyle?.color || 'inherit',
     fontSize: priceStyle?.fontSize || 'inherit',
@@ -259,7 +274,12 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         title={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
         style={{ width: 28, height: 28 }}
       >
-        <span aria-hidden style={{ opacity: showAdded ? 0 : 1 }}>
+        <span aria-hidden style={{
+          opacity: showAdded ? 0 : 1,
+          fontSize: picked ? 10 : undefined,
+          fontWeight: picked ? 700 : undefined,
+          letterSpacing: picked ? '0.02em' : undefined,
+        }}>
           {glyph}
         </span>
       </button>
@@ -279,10 +299,11 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         </span>
       )}
 
+      {/* Size pills – hidden once a size is picked */}
       <div
-        className={`row-nowrap size-panel ${open ? 'is-open' : ''}`}
+        className={`row-nowrap size-panel ${open && !picked ? 'is-open' : ''}`}
         data-ui="size-panel"
-        hidden={!open}
+        hidden={!open || !!picked}
         style={{
           gap: 8,
           position: 'absolute',
@@ -312,66 +333,43 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         ))}
       </div>
 
-      {/* Add to Cart */}
-      <div
-        className={`atc-wrap ${picked && open ? 'is-visible' : ''}`}
-        style={{
+      {/* Add to Cart – replaces size pills, centered under "-" */}
+      {picked && open && !showAdded && (
+        <div style={{
           position: 'absolute',
           top: '100%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          marginTop: 46,
-        }}
-      >
-        <button
-          type="button"
-          className="pill atc-pill"
-          onClick={addToCart}
-          aria-label="Add to cart"
-        >
-          Add to Cart
-        </button>
-      </div>
+          left: 0,
+          right: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          marginTop: 10,
+        }}>
+          <button
+            type="button"
+            className="atc-label"
+            onClick={addToCart}
+            aria-label="Add to cart"
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              ...addedStyle,
+            }}
+          >
+            Add to Cart
+          </button>
+        </div>
+      )}
 
       <style jsx>{`
-        .atc-wrap {
-          overflow: hidden;
-          max-height: 0;
-          opacity: 0;
-          transition: max-height 0.22s ease, opacity 0.18s ease;
-          pointer-events: none;
+        .atc-label {
+          animation: atc-in 0.22s ease both;
         }
-        .atc-wrap.is-visible {
-          max-height: 48px;
-          opacity: 1;
-          pointer-events: auto;
-        }
-        .atc-pill {
-          padding: 6px 18px;
-          border-radius: 9999px;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          white-space: nowrap;
-          background: #fff;
-          color: #0f1115;
-          box-shadow:
-            0 2px 10px rgba(0,0,0,.14),
-            inset 0 0 0 1px rgba(0,0,0,.10);
-          transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
-        }
-        :root[data-theme='night'] .atc-pill {
-          background: rgba(255,255,255,0.10);
-          color: #fff;
-          box-shadow:
-            0 2px 10px rgba(0,0,0,.14),
-            inset 0 0 0 1px rgba(255,255,255,.24);
-        }
-        .atc-pill:active {
-          background: var(--hover-green, #0bf05f);
-          color: #000;
-          transform: scale(0.97);
+        @keyframes atc-in {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
         .plus-pill {
           width: 28px;
@@ -783,6 +781,8 @@ export default function ProductOverlay({
     closingRef.current = true
     setAddToCartClosing(true)
     setHeroZoomed(false)
+    // Always reset grid to 5-col stacked deck after add-to-cart
+    pendingResetRef.current = true
 
     const hero = heroRef.current
     const fr = getFreshTileRect()
@@ -1521,23 +1521,25 @@ export default function ProductOverlay({
                   {/* Size dimensions overlay – top-right of image */}
                   {(() => {
                     /** @type {any} */
-                    const dims = selectedSize ? SIZE_CHART[selectedSize] : null
+                    /** @type {any} */
+                    const sz = selectedSize
+                    const dims = sz ? SIZE_CHART[sz] : null
                     if (!dims) return null
                     return (
                       <div
                         className="dims-overlay"
                         style={{
                           position: 'absolute',
-                          top: 16,
-                          right: 16,
+                          top: '8%',
+                          right: '12%',
                           pointerEvents: 'none',
                           zIndex: 10,
                         }}
                       >
-                        <span className="dims-size">{selectedSize}</span>
-                        <span className="dims-row">C {dims.chest}″</span>
-                        <span className="dims-row">W {dims.waist}″</span>
-                        <span className="dims-row">H {dims.hips}″</span>
+                        <span className="dims-size">{SIZE_NAMES[sz] || sz}</span>
+                        <span className="dims-row">Chest {dims.chest}″</span>
+                        <span className="dims-row">Waist {dims.waist}″</span>
+                        <span className="dims-row">Hips {dims.hips}″</span>
                       </div>
                     )
                   })()}
@@ -1607,7 +1609,7 @@ export default function ProductOverlay({
         .dims-overlay {
           display: flex;
           flex-direction: column;
-          align-items: flex-end;
+          align-items: flex-start;
           gap: 2px;
           animation: dims-in 0.22s ease both;
         }
@@ -1630,12 +1632,12 @@ export default function ProductOverlay({
           font-size: 10px;
           font-weight: 600;
           letter-spacing: 0.04em;
-          color: rgba(15,17,21,0.6);
+          color: #0f1115;
           line-height: 1.4;
           font-variant-numeric: tabular-nums;
         }
         :root[data-theme='night'] .dims-row {
-          color: rgba(255,255,255,0.55);
+          color: #fff;
         }
       `}</style>
     </>
