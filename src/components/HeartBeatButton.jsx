@@ -147,7 +147,7 @@ export default function HeartBeatButton({
         /* Boost = slightly faster & a hair brighter, no oversized scale */
         .lb-heart[data-boost='1'] {
           --hb-duration: calc(${beatMs}ms * 0.82);
-          filter: drop-shadow(0 0 7px var(--hb-glow1)) drop-shadow(0 0 16px var(--hb-glow2));
+          filter: drop-shadow(0 0 4px var(--hb-glow1)) drop-shadow(0 0 8px var(--hb-glow2));
         }
 
         /* Pause animation cleanly (visibility or overlay) */
