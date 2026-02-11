@@ -538,7 +538,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
               <div className="product-box">
                 <div className="product-img-wrap">
                   <Image
-                    src={p.thumb || p.image}
+                    src={cols <= 2 ? (p.image || p.thumb) : (p.thumb || p.image)}
                     alt={p.title || 'Product'}
                     width={800}
                     height={800}
@@ -546,7 +546,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                     priority={idx === 0}
                     loading={idx < 3 ? 'eager' : 'lazy'}
                     unoptimized
-                    sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
+                    sizes={cols <= 2 ? '100vw' : '(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw'}
                     onLoad={() => {
                       if (idx === 0) handleFirstDecode()
                     }}
