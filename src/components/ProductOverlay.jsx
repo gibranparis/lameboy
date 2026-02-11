@@ -305,7 +305,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
               whiteSpace: 'nowrap',
               letterSpacing: 'normal',
             }}
-          >{'Added:)'}</span>
+          >{'Added'}</span>
         </div>
       )}
 
