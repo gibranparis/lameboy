@@ -140,6 +140,7 @@ body {
   font-family: var(--mono);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scrollbar-gutter: stable;
 }
 
 :root[data-mode='gate'] .gate-flash {

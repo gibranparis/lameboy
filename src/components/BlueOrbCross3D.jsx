@@ -126,14 +126,14 @@ function OrbCross({
     if (includeZAxis) centers.push([0, 0, offset], [0, 0, -offset])
 
     const CHAKRA = {
-      root: '#ef4444',
-      sacral: '#f97316',
-      solar: '#facc15',
-      heart: '#22c55e',
-      throat: '#3b82f6',
-      thirdEye: '#4f46e5',
-      crownV: '#c084fc',
-      crownW: '#f6f3ff',
+      root: '#cc0014',
+      sacral: '#e05500',
+      solar: '#ffd400',
+      heart: '#00a832',
+      throat: '#0066ff',
+      thirdEye: '#3a00b5',
+      crownV: '#9333ea',
+      crownW: '#d8d0f0',
     }
 
     return {

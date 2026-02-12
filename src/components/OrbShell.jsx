@@ -108,7 +108,7 @@ export default function OrbShell({
 
   const MIN = 1
   const MAX = 5
-  const GREEN_ZOOM = '#0bf05f'
+  const GREEN_ZOOM = '#00a832'
   const RED_ZOOM = '#cc0014'
 
   // watch overlay-open attribute
