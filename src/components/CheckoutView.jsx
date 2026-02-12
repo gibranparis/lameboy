@@ -81,55 +81,72 @@ export default function CheckoutView({ onClose }) {
         }}
       />
 
-      {/* Panel — bubble reveal from purse */}
+      {/* Panel — slides up from bottom */}
       <div
         ref={panelRef}
         style={{
           position: 'absolute',
-          top: 0,
+          left: 0,
           right: 0,
           bottom: 0,
+          top: 'unset',
+          maxHeight: 'calc(100% - 60px)',
           width: '100%',
           maxWidth: 460,
+          marginLeft: 'auto',
+          marginRight: 'auto',
           background: night ? '#0f1115' : '#fafaf8',
           overflowY: 'auto',
-          transform: slideOpen ? 'translateY(0)' : 'translateY(-100%)',
+          transform: slideOpen ? 'translateY(0)' : 'translateY(100%)',
           transition: 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1)',
-          boxShadow: '-4px 0 24px rgba(0,0,0,0.18)',
+          boxShadow: '0 -4px 24px rgba(0,0,0,0.18)',
+          borderRadius: '18px 18px 0 0',
+          paddingBottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
         }}
       >
-        <div style={{ padding: '20px 24px 40px' }}>
-          {/* Header */}
-          <div style={{ marginBottom: 24 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>
-              {`(${count})`}
-            </h1>
+        {/* Sticky header */}
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+            background: night ? '#0f1115' : '#fafaf8',
+            padding: '20px 24px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          {/* Lameboy signature — top left */}
+          <div
+            style={{
+              fontSize: 32,
+              fontFamily: "'Jalliya', var(--mono)",
+              color: night ? '#fff' : '#0f1115',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              letterSpacing: '0.02em',
+              lineHeight: 1,
+            }}
+          >
+            Lameboy
           </div>
+          <h1 style={{ fontSize: 22, fontWeight: 600, color: night ? '#fff' : '#0f1115', margin: 0 }}>
+            {`(${count})`}
+          </h1>
+        </div>
 
-          {/* Empty state */}
-          {items.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: night ? '#999' : '#666' }}>
-              <p style={{ fontSize: 16 }}>Your cart is empty</p>
-            </div>
-          )}
-
-          {/* Items */}
-          <div style={{ display: 'grid', gap: 16 }}>
-            {items.map((item, i) => (
-              <CheckoutItem key={`${item.id}-${item.size}-${i}`} item={item} night={night} />
-            ))}
-          </div>
-
-          {/* Total */}
+        <div style={{ padding: '0 24px 40px' }}>
+          {/* Total + Checkout button at top */}
           {items.length > 0 && (
             <div
               style={{
-                marginTop: 40,
-                padding: '24px 0',
-                borderTop: `1px solid ${night ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                marginBottom: 24,
+                padding: '16px 0',
+                borderBottom: `1px solid ${night ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                 <span style={{ fontSize: 18, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>Total</span>
                 <span style={{ fontSize: 18, fontWeight: 600, color: night ? '#fff' : '#0f1115' }}>
                   ${(total / 100).toFixed(2)}
@@ -155,23 +172,18 @@ export default function CheckoutView({ onClose }) {
             </div>
           )}
 
-          {/* Brand Signature - Bottom Left */}
-          <div
-            style={{
-              position: 'absolute',
-              left: 40,
-              bottom: 20,
-              fontSize: 58,
-              fontFamily: "'Jalliya', var(--mono)",
-              color: night ? '#fff' : '#0f1115',
-              opacity: 1,
-              pointerEvents: 'none',
-              userSelect: 'none',
-              letterSpacing: '0.02em',
-              transition: 'color 0.35s ease',
-            }}
-          >
-            Lameboy
+          {/* Empty state */}
+          {items.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: night ? '#999' : '#666' }}>
+              <p style={{ fontSize: 16 }}>Your cart is empty</p>
+            </div>
+          )}
+
+          {/* Items */}
+          <div style={{ display: 'grid', gap: 16 }}>
+            {items.map((item, i) => (
+              <CheckoutItem key={`${item.id}-${item.size}-${i}`} item={item} night={night} />
+            ))}
           </div>
         </div>
       </div>

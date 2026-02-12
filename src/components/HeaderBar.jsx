@@ -22,16 +22,17 @@ export default function HeaderBar({ ctrlPx }) {
       className="w-full"
       style={{
         position: 'fixed',
-        inset: '0 0 auto 0',
+        inset: 'auto 0 0 0',
         zIndex: 800,
         height: headerPx,
         display: 'grid',
         gridTemplateColumns: 'var(--header-ctrl) 1fr var(--header-ctrl)',
         alignItems: 'center',
         padding: '0 var(--header-pad-x)',
-        background: 'transparent',
+        paddingBottom: 'var(--safe-bottom, 0px)',
+        background: 'var(--bg, #f7f7f2)',
         overflow: 'visible',
-        pointerEvents: 'none',
+        pointerEvents: 'auto',
       }}
     >
       <div className="flex items-center" style={{ lineHeight: 0, pointerEvents: 'auto' }}>

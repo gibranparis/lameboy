@@ -439,8 +439,81 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     [sendReady]
   )
 
+  /* ---------------- Pinch-to-zoom on grid tiles ---------------- */
+  const gridRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+
+  useEffect(() => {
+    const grid = gridRef.current
+    if (!grid) return
+
+    /** @type {{dist: number, scale: number, tile: HTMLElement|null, idx: number}} */
+    const ps = { dist: 0, scale: 1, tile: null, idx: -1 }
+
+    const getDist = (/** @type {TouchList} */ ts) =>
+      Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY)
+
+    const findTile = (/** @type {EventTarget|null} */ t) => {
+      const el = /** @type {HTMLElement|null} */ (t)
+      return el?.closest?.('.product-tile')
+    }
+
+    const onStart = (/** @type {TouchEvent} */ e) => {
+      if (e.touches.length !== 2) return
+      const tile = findTile(e.target)
+      if (!tile) return
+      ps.dist = getDist(e.touches)
+      ps.scale = 1
+      ps.tile = /** @type {HTMLElement} */ (tile)
+      const tiles = grid.querySelectorAll('.product-tile')
+      ps.idx = Array.from(tiles).indexOf(ps.tile)
+      ps.tile.style.transition = 'none'
+      ps.tile.style.zIndex = '100'
+    }
+
+    const onMove = (/** @type {TouchEvent} */ e) => {
+      if (e.touches.length !== 2 || !ps.tile) return
+      e.preventDefault()
+      const newDist = getDist(e.touches)
+      ps.scale = Math.min(2.5, Math.max(1, newDist / ps.dist))
+      ps.tile.style.transform = `scale(${ps.scale})`
+    }
+
+    const onEnd = () => {
+      if (!ps.tile) return
+      const tile = ps.tile
+      const scale = ps.scale
+      const idx = ps.idx
+
+      tile.style.transition = 'transform 0.2s ease'
+      tile.style.transform = 'scale(1)'
+      tile.style.zIndex = ''
+      setTimeout(() => { tile.style.transition = '' }, 220)
+
+      if (scale > 1.4 && idx >= 0) {
+        const r = tile.getBoundingClientRect()
+        openAt(idx, { left: r.left, top: r.top, width: r.width, height: r.height })
+      }
+
+      ps.tile = null
+      ps.idx = -1
+      ps.scale = 1
+    }
+
+    grid.addEventListener('touchstart', onStart, { passive: true })
+    grid.addEventListener('touchmove', onMove, { passive: false })
+    grid.addEventListener('touchend', onEnd)
+    grid.addEventListener('touchcancel', onEnd)
+    return () => {
+      grid.removeEventListener('touchstart', onStart)
+      grid.removeEventListener('touchmove', onMove)
+      grid.removeEventListener('touchend', onEnd)
+      grid.removeEventListener('touchcancel', onEnd)
+    }
+  }, [openAt])
+
   return (
     <div
+      ref={gridRef}
       className="shop-wrap"
       data-shop-root
       style={{

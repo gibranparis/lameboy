@@ -274,11 +274,15 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         onClick={onPlusClick}
         aria-label={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
         title={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
-        style={{ width: 28, height: 28 }}
+        style={{
+          width: open && !picked ? 22 : 28,
+          height: open && !picked ? 22 : 28,
+          transition: 'width 0.15s ease, height 0.15s ease',
+        }}
       >
         <span aria-hidden style={{
           opacity: showAdded ? 0 : 1,
-          fontSize: picked ? 10 : undefined,
+          fontSize: open && !picked ? 12 : picked ? 10 : undefined,
           fontWeight: picked ? 700 : undefined,
           letterSpacing: picked ? '0.02em' : undefined,
         }}>
@@ -366,6 +370,9 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
               cursor: 'pointer',
               whiteSpace: 'nowrap',
               ...addedStyle,
+              fontSize: 16,
+              fontWeight: 800,
+              letterSpacing: '0.04em',
             }}
           >
             Add to Cart
@@ -430,13 +437,13 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           max-height: 68px;
         }
         .size-pill {
-          width: 28px;
-          height: 28px;
+          width: 34px;
+          height: 34px;
           padding: 0;
           border: none;
           border-radius: 50%;
           font-weight: 700;
-          font-size: 10px;
+          font-size: 12px;
           letter-spacing: 0.02em;
           display: grid;
           place-items: center;
@@ -1399,7 +1406,7 @@ export default function ProductOverlay({
             left: 0,
             right: 0,
             bottom: 0,
-            top: 'var(--header-ctrl,64px)',
+            top: 0,
             background: 'transparent',
             pointerEvents: 'auto',
           }}
@@ -1413,7 +1420,7 @@ export default function ProductOverlay({
             textAlign: 'center',
             zIndex: pinchZoom.scale > 1 ? 523 : 521,
             touchAction: 'none',
-            marginTop: '-22vh',
+            marginTop: '-14vh',
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -1443,7 +1450,7 @@ export default function ProductOverlay({
             <div
               style={{
                 position: 'fixed',
-                left: `calc(max(12px, 13vw) + env(safe-area-inset-left,0px))`,
+                left: `calc(var(--header-pad-x, 16px) + env(safe-area-inset-left,0px))`,
                 top: '46%',
                 transform: 'translateY(-50%)',
                 display: 'grid',
@@ -1578,7 +1585,7 @@ export default function ProductOverlay({
         <div
           style={{
             position: 'fixed',
-            bottom: 'calc(18vh + env(safe-area-inset-bottom, 0px))',
+            bottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + 24px)',
             left: '50%',
             transform: 'translateX(-50%)',
             textAlign: 'center',
@@ -1588,8 +1595,25 @@ export default function ProductOverlay({
             transition: (closing || addToCartClosing) ? 'opacity 160ms ease' : undefined,
           }}
         >
-          <div className="product-hero-title">{product.title}</div>
-          <div ref={priceRef} className="product-hero-price" style={{ marginTop: 10 }}>
+          <div
+            className="product-hero-title"
+            onClick={() => {
+              setHeroZoomed(true)
+              setTimeout(() => setHeroZoomed(false), 200)
+              window.dispatchEvent(new Event('product-image-click'))
+            }}
+            style={{ cursor: 'pointer' }}
+          >{product.title}</div>
+          <div
+            ref={priceRef}
+            className="product-hero-price"
+            onClick={() => {
+              setHeroZoomed(true)
+              setTimeout(() => setHeroZoomed(false), 200)
+              window.dispatchEvent(new Event('product-image-click'))
+            }}
+            style={{ marginTop: 10, cursor: 'pointer' }}
+          >
             {priceText}
           </div>
           <div style={{ marginTop: 20 }}>

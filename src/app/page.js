@@ -316,11 +316,23 @@ export default function Page() {
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
-          <main style={{ paddingTop: ctrlPx }}>
+          <main style={{ paddingBottom: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
             {!loaderShow && (
               <>
-                <HeartBeatButton className="heart-submit" aria-label="Newsletter signup" onClick={() => setNewsletterOpen((v) => !v)} />
+                <HeartBeatButton
+                  className="heart-submit"
+                  aria-label={checkoutOpen ? 'Close cart' : 'Newsletter signup'}
+                  title={checkoutOpen ? 'Close cart' : 'submit'}
+                  mode={checkoutOpen ? 'close' : 'heart'}
+                  onClick={() => {
+                    if (checkoutOpen) {
+                      window.dispatchEvent(new Event('checkout:request-close'))
+                    } else {
+                      setNewsletterOpen((v) => !v)
+                    }
+                  }}
+                />
                 <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
               </>
             )}
@@ -334,7 +346,8 @@ export default function Page() {
         <div
           style={{
             position: 'fixed',
-            top: 0,
+            bottom: 'var(--safe-bottom, 0px)',
+            top: 'unset',
             right: 'var(--header-pad-x, 16px)',
             height: 'var(--header-ctrl, 64px)',
             width: 'var(--header-ctrl, 64px)',

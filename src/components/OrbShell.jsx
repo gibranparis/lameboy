@@ -28,28 +28,31 @@ export default function OrbShell({
   }, [ctrlPx, inGateLike])
 
   // Position the orb without moving it in the tree (no remount)
+  /** @type {React.CSSProperties} */
   const shellStyle = useMemo(() => {
     if (inGateLike) {
-      return {
+      return /** @type {React.CSSProperties} */ ({
         position: 'fixed',
         left: '50%',
         top: '50%',
         transform: 'translate(-50%, -50%)',
         zIndex: 10050,
         pointerEvents: 'auto',
-      }
+        transition: 'top 0.6s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.9, 0.2, 1), z-index 0s 0.6s',
+      })
     }
 
-    // Shop: center column of header
-    // We rely on your header being fixed and height = var(--header-ctrl)
-    return {
+    // Shop: center column of bottom header
+    // Use top + calc to keep the same property for smooth CSS transition from gate center
+    return /** @type {React.CSSProperties} */ ({
       position: 'fixed',
       left: '50%',
-      top: 'calc(var(--safe-top) + (var(--header-ctrl) / 2))',
+      top: 'calc(100% - var(--safe-bottom, 0px) - (var(--header-ctrl, 64px) / 2))',
       transform: 'translate(-50%, -50%)',
       zIndex: 650,
       pointerEvents: 'auto',
-    }
+      transition: 'top 0.6s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.9, 0.2, 1), z-index 0s 0.6s',
+    })
   }, [inGateLike])
 
   /* ===================== Gate colors ===================== */
@@ -286,11 +289,13 @@ export default function OrbShell({
     <div style={shellStyle}>
       <button
         type="button"
-        aria-label={inGateLike ? 'Orb' : 'Zoom products'}
+        aria-label={inGateLike ? 'Orb' : overlayOpen ? 'Back' : 'Zoom products'}
         title={
           inGateLike
             ? 'Advance gate (click) • Proceed (hold or double-click)'
-            : 'Zoom products (Click = Smart IN/OUT • Right-click = OUT • Wheel = IN/OUT)'
+            : overlayOpen
+              ? 'Back to grid'
+              : 'Zoom products (Click = Smart IN/OUT • Right-click = OUT • Wheel = IN/OUT)'
         }
         data-orb={inGateLike ? 'gate' : 'density'}
         style={{
@@ -302,9 +307,31 @@ export default function OrbShell({
           cursor: inGateLike && isProceeding ? 'default' : 'pointer',
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation',
+          position: 'relative',
         }}
         {...buttonHandlers}
       >
+        {/* Minus overlay when in overlay/back mode */}
+        {!inGateLike && overlayOpen && (
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'grid',
+              placeItems: 'center',
+              zIndex: 10,
+              fontSize: 28,
+              fontWeight: 900,
+              color: '#fff',
+              textShadow: '0 0 8px rgba(0,0,0,0.6)',
+              pointerEvents: 'none',
+              lineHeight: 1,
+            }}
+          >
+            −
+          </span>
+        )}
         <BlueOrbCross3D
           height={height}
           rpm={rpmValue}

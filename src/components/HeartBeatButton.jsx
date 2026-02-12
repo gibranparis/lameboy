@@ -19,6 +19,7 @@ export default function HeartBeatButton({
   bpm = 66, // base beats per minute (controls pulse speed)
   boostMs = 520, // how long the temporary boost lasts
   pauseOnOverlay = false, // set true if you want to freeze while overlay open
+  mode = 'heart', // 'heart' | 'close'
 }) {
   const btnRef = useRef(null)
   const [paused, setPaused] = useState(false)
@@ -106,29 +107,44 @@ export default function HeartBeatButton({
         ...style,
       }}
     >
-      {/* HEART ONLY — NO CIRCLE */}
-      <svg
-        viewBox="0 0 64 64"
-        width={size}
-        height={size}
-        aria-hidden="true"
-        className="lb-heart"
-        data-paused={paused ? '1' : '0'}
-        data-boost={boosted ? '1' : '0'}
-        style={{ display: 'block', pointerEvents: 'none' }}
-      >
-        <defs>
-          <linearGradient id="lbHeartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#ffe8ee" />
-            <stop offset="55%" stopColor="#ff9db0" />
-            <stop offset="100%" stopColor="var(--banned-neon, #ff073a)" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M32 51c-1.2 0-2.5-.4-3.4-1.2C22.3 45.9 14 39.3 10.8 33.4 8.4 29 9 23.5 12.4 20.1c3.6-3.6 9.5-3.9 13.6-.8 1.5 1.1 2.8 2.6 4 4.5 1.2-1.9 2.5-3.4 4-4.5 4.1-3.1 10-2.8 13.6.8 3.4 3.4 4 8.9 1.6 13.3-3.2 5.9-11.5 12.5-17.8 16.4-.9.6-2.2 1.2-3.4 1.2z"
-          fill="url(#lbHeartGrad)"
-        />
-      </svg>
+      {mode === 'close' ? (
+        /* X icon for closing cart */
+        <svg
+          viewBox="0 0 64 64"
+          width={size}
+          height={size}
+          aria-hidden="true"
+          className="lb-close"
+          style={{ display: 'block', pointerEvents: 'none' }}
+        >
+          <line x1="18" y1="18" x2="46" y2="46" stroke="#ff9db0" strokeWidth="4" strokeLinecap="round" />
+          <line x1="46" y1="18" x2="18" y2="46" stroke="#ff9db0" strokeWidth="4" strokeLinecap="round" />
+        </svg>
+      ) : (
+        /* HEART ONLY — NO CIRCLE */
+        <svg
+          viewBox="0 0 64 64"
+          width={size}
+          height={size}
+          aria-hidden="true"
+          className="lb-heart"
+          data-paused={paused ? '1' : '0'}
+          data-boost={boosted ? '1' : '0'}
+          style={{ display: 'block', pointerEvents: 'none' }}
+        >
+          <defs>
+            <linearGradient id="lbHeartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#ffe8ee" />
+              <stop offset="55%" stopColor="#ff9db0" />
+              <stop offset="100%" stopColor="var(--banned-neon, #ff073a)" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M32 51c-1.2 0-2.5-.4-3.4-1.2C22.3 45.9 14 39.3 10.8 33.4 8.4 29 9 23.5 12.4 20.1c3.6-3.6 9.5-3.9 13.6-.8 1.5 1.1 2.8 2.6 4 4.5 1.2-1.9 2.5-3.4 4-4.5 4.1-3.1 10-2.8 13.6.8 3.4 3.4 4 8.9 1.6 13.3-3.2 5.9-11.5 12.5-17.8 16.4-.9.6-2.2 1.2-3.4 1.2z"
+            fill="url(#lbHeartGrad)"
+          />
+        </svg>
+      )}
 
       <style jsx>{`
         .lb-heart {
@@ -176,6 +192,14 @@ export default function HeartBeatButton({
           80% {
             transform: scale(1.03);
           }
+        }
+
+        .lb-close {
+          filter: drop-shadow(0 0 3px #ff2a4f) drop-shadow(0 0 6px rgba(255, 42, 79, 0.55));
+          transition: transform 0.15s ease;
+        }
+        .hb:hover .lb-close {
+          transform: rotate(90deg) scale(1.1);
         }
 
         @media (prefers-reduced-motion: reduce) {
