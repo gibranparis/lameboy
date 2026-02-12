@@ -1544,10 +1544,10 @@ export default function ProductOverlay({
                           zIndex: 10,
                         }}
                       >
-                        <span className="dims-size">{SIZE_NAMES[sz] || sz}</span>
-                        <span className="dims-row">Chest {dims.chest}″</span>
-                        <span className="dims-row">Waist {dims.waist}″</span>
-                        <span className="dims-row">Hips {dims.hips}″</span>
+                        <span className="dims-size" style={{ color: night ? '#fff' : '#0f1115' }}>{SIZE_NAMES[sz] || sz}</span>
+                        <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Chest {dims.chest}″</span>
+                        <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Waist {dims.waist}″</span>
+                        <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Hips {dims.hips}″</span>
                       </div>
                     )
                   })()}
@@ -1633,7 +1633,8 @@ export default function ProductOverlay({
           color: #0f1115;
           margin-bottom: 3px;
         }
-        :root[data-theme='night'] .dims-size {
+        :root[data-theme='night'] .dims-size,
+        :root.dark .dims-size {
           color: #fff;
         }
         .dims-row {
@@ -1644,7 +1645,8 @@ export default function ProductOverlay({
           line-height: 1.4;
           font-variant-numeric: tabular-nums;
         }
-        :root[data-theme='night'] .dims-row {
+        :root[data-theme='night'] .dims-row,
+        :root.dark .dims-row {
           color: #fff;
         }
       `}</style>
