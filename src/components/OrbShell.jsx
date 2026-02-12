@@ -108,8 +108,8 @@ export default function OrbShell({
 
   const MIN = 1
   const MAX = 5
-  const GREEN_ZOOM = '#11ff4f'
-  const RED_ZOOM = '#ff001a'
+  const GREEN_ZOOM = '#0bf05f'
+  const RED_ZOOM = '#cc0014'
 
   // watch overlay-open attribute
   useEffect(() => {
@@ -176,6 +176,13 @@ export default function OrbShell({
   }, [pulse])
 
   const onShopClick = useCallback(() => fireZoom(nextDir), [fireZoom, nextDir])
+  const onShopTouchEnd = useCallback(
+    (e) => {
+      e.preventDefault() // prevent subsequent onClick from double-firing
+      fireZoom(nextDir)
+    },
+    [fireZoom, nextDir]
+  )
   const onShopContextMenu = useCallback(
     (e) => {
       e.preventDefault()
@@ -232,6 +239,7 @@ export default function OrbShell({
       }
     : {
         onClick: onShopClick,
+        onTouchEnd: onShopTouchEnd,
         onContextMenu: onShopContextMenu,
         onKeyDown: onShopKeyDown,
         onWheel: onShopWheel,
@@ -293,6 +301,7 @@ export default function OrbShell({
           lineHeight: 0,
           cursor: inGateLike && isProceeding ? 'default' : 'pointer',
           WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
         }}
         {...buttonHandlers}
       >
@@ -305,6 +314,7 @@ export default function OrbShell({
           armRatio={inGateLike ? 0.33 : 0.35}
           glow={orbGlow}
           glowOpacity={orbGlowOpacity}
+          includeYAxis={inGateLike || nextDir !== 'out'}
           includeZAxis
           respectReducedMotion={false}
           interactive={!inGateLike || (!isProceeding && !loaderShow)}

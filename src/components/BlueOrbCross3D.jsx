@@ -27,6 +27,7 @@ function OrbCross({
   glow = true,
   glowOpacity = 0.7,
   glowScale = 1.25,
+  includeYAxis = true,
   includeZAxis = true,
   onActivate = null,
   overrideAllColor = null,
@@ -120,9 +121,8 @@ function OrbCross({
       [0, 0, 0],
       [offset, 0, 0],
       [-offset, 0, 0],
-      [0, offset, 0],
-      [0, -offset, 0],
     ]
+    if (includeYAxis) centers.push([0, offset, 0], [0, -offset, 0])
     if (includeZAxis) centers.push([0, 0, offset], [0, 0, -offset])
 
     const CHAKRA = {
@@ -147,7 +147,7 @@ function OrbCross({
       centers,
       CHAKRA,
     }
-  }, [geomScale, armRatio, offsetFactor, includeZAxis])
+  }, [geomScale, armRatio, offsetFactor, includeYAxis, includeZAxis])
 
   const {
     sphereGeo,
@@ -313,7 +313,7 @@ function OrbCross({
     >
       {/* Bars */}
       <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
-      <mesh geometry={armGeoY} material={barCoreMat} />
+      {includeYAxis && <mesh geometry={armGeoY} material={barCoreMat} />}
       {includeZAxis && (
         <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
       )}
@@ -327,7 +327,7 @@ function OrbCross({
       {glow && (
         <>
           <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} />
-          <mesh geometry={armGlowGeoY} material={barHaloMat} />
+          {includeYAxis && <mesh geometry={armGlowGeoY} material={barHaloMat} />}
           {includeZAxis && (
             <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />
           )}
@@ -357,6 +357,7 @@ export default function BlueOrbCross3D({
   glow = true,
   glowOpacity = 0.7,
   glowScale = 1.25,
+  includeYAxis = true,
   includeZAxis = true,
   onActivate = null,
   overrideAllColor = null,
@@ -425,6 +426,7 @@ export default function BlueOrbCross3D({
           glow={glow}
           glowOpacity={glowOpacity}
           glowScale={glowScale}
+          includeYAxis={includeYAxis}
           includeZAxis={includeZAxis}
           onActivate={interactive ? onActivate : null}
           overrideAllColor={overrideAllColor}

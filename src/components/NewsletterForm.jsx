@@ -250,6 +250,15 @@ export default function NewsletterForm({ open, onClose }) {
       role="dialog"
       aria-label="Newsletter signup"
     >
+      <button
+        type="button"
+        className="nl-close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        &times;
+      </button>
+
       {submitted ? (
         <div className="nl-thanks">Thanks for subscribing!</div>
       ) : (
@@ -315,6 +324,45 @@ export default function NewsletterForm({ open, onClose }) {
           transition: opacity 0.22s ease, transform 0.22s ease;
           pointer-events: none;
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+        }
+
+        .nl-close {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: none;
+          border-radius: 50%;
+          color: rgba(255, 255, 255, 0.45);
+          font-size: 18px;
+          line-height: 1;
+          cursor: pointer;
+          padding: 0;
+          transition: color 0.15s ease, background 0.15s ease;
+          z-index: 1;
+        }
+
+        .nl-close:hover {
+          color: rgba(255, 255, 255, 0.85);
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .nl-close:active {
+          opacity: 0.6;
+        }
+
+        :global(html[data-theme='day']) .nl-close {
+          color: rgba(0, 0, 0, 0.35);
+        }
+
+        :global(html[data-theme='day']) .nl-close:hover {
+          color: rgba(0, 0, 0, 0.7);
+          background: rgba(0, 0, 0, 0.06);
         }
 
         .nl-panel--visible {
