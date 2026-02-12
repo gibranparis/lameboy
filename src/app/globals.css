@@ -164,7 +164,8 @@ body {
   }
 }
 
-html[data-overlay-open] {
+html[data-overlay-open],
+html[data-loader-active] {
   overflow: hidden;
 }
 
@@ -176,6 +177,7 @@ html[data-overlay-open] {
   --bg: #fff;
   --text: #000;
   background: #fff !important;
+  overflow: hidden;
 }
 :root[data-mode='gate'] .white-loader {
   transition-property: opacity !important;

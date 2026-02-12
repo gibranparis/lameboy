@@ -110,6 +110,17 @@ export default function Page() {
     }
   }, [theme, mode, inShop])
 
+  // Lock overflow during loader transition so shop content mounting
+  // doesn't create scrollbars that shift the fixed-position orb
+  useEffect(() => {
+    const root = document.documentElement
+    if (loaderShow) {
+      root.setAttribute('data-loader-active', '1')
+    } else {
+      root.removeAttribute('data-loader-active')
+    }
+  }, [loaderShow])
+
   useEffect(() => {
     const onTheme = (e) => setTheme(e?.detail?.theme === 'night' ? 'night' : 'day')
     window.addEventListener('theme-change', onTheme)
