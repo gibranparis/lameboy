@@ -1420,7 +1420,7 @@ export default function ProductOverlay({
             textAlign: 'center',
             zIndex: pinchZoom.scale > 1 ? 523 : 521,
             touchAction: 'none',
-            marginTop: '-14vh',
+            marginTop: 'clamp(-32vh, -18vw, -8vh)',
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}

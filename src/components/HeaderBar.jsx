@@ -30,7 +30,7 @@ export default function HeaderBar({ ctrlPx }) {
         alignItems: 'center',
         padding: '0 var(--header-pad-x)',
         paddingBottom: 'var(--safe-bottom, 0px)',
-        background: 'var(--bg, #f7f7f2)',
+        background: 'transparent',
         overflow: 'visible',
         pointerEvents: 'auto',
       }}

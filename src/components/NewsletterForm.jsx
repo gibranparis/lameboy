@@ -310,7 +310,7 @@ export default function NewsletterForm({ open, onClose }) {
         .nl-panel {
           position: fixed;
           right: max(var(--header-pad-x, 16px), env(safe-area-inset-right));
-          bottom: calc(var(--header-pad-x, 16px) + var(--runner-h, 10px) + 52px);
+          top: calc(var(--safe-top, 0px) + 12px + 44px + 8px);
           width: 260px;
           background: rgba(18, 18, 18, 0.92);
           backdrop-filter: blur(18px);
@@ -320,8 +320,9 @@ export default function NewsletterForm({ open, onClose }) {
           padding: 20px;
           z-index: 10009;
           opacity: 0;
-          transform: translateY(16px) scale(0.96);
-          transition: opacity 0.22s ease, transform 0.22s ease;
+          transform: scale(0);
+          transform-origin: top right;
+          transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
           pointer-events: none;
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
         }
@@ -367,7 +368,7 @@ export default function NewsletterForm({ open, onClose }) {
 
         .nl-panel--visible {
           opacity: 1;
-          transform: translateY(0) scale(1);
+          transform: scale(1);
           pointer-events: auto;
         }
 

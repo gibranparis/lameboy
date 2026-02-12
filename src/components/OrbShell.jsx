@@ -311,27 +311,6 @@ export default function OrbShell({
         }}
         {...buttonHandlers}
       >
-        {/* Minus overlay when in overlay/back mode */}
-        {!inGateLike && overlayOpen && (
-          <span
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'grid',
-              placeItems: 'center',
-              zIndex: 10,
-              fontSize: 28,
-              fontWeight: 900,
-              color: '#fff',
-              textShadow: '0 0 8px rgba(0,0,0,0.6)',
-              pointerEvents: 'none',
-              lineHeight: 1,
-            }}
-          >
-            −
-          </span>
-        )}
         <BlueOrbCross3D
           height={height}
           rpm={rpmValue}
@@ -341,8 +320,8 @@ export default function OrbShell({
           armRatio={inGateLike ? 0.33 : 0.35}
           glow={orbGlow}
           glowOpacity={orbGlowOpacity}
-          includeYAxis={inGateLike || nextDir !== 'out'}
-          includeZAxis
+          includeYAxis={inGateLike ? true : !overlayOpen && nextDir !== 'out'}
+          includeZAxis={inGateLike ? true : !overlayOpen}
           respectReducedMotion={false}
           interactive={!inGateLike || (!isProceeding && !loaderShow)}
           onActivate={null}

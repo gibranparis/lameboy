@@ -228,6 +228,15 @@ export default function Page() {
   const [newsletterOpen, setNewsletterOpen] = useState(false)
 
   useEffect(() => {
+    const root = document.documentElement
+    if (checkoutOpen) {
+      root.setAttribute('data-checkout-open', '1')
+    } else {
+      root.removeAttribute('data-checkout-open')
+    }
+  }, [checkoutOpen])
+
+  useEffect(() => {
     const toggle = () => {
       setCheckoutOpen((prev) => {
         if (prev) {
@@ -318,20 +327,14 @@ export default function Page() {
 
           <main style={{ paddingBottom: ctrlPx }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
-            {!loaderShow && (
+            {!loaderShow && !checkoutOpen && (
               <>
                 <HeartBeatButton
                   className="heart-submit"
-                  aria-label={checkoutOpen ? 'Close cart' : 'Newsletter signup'}
-                  title={checkoutOpen ? 'Close cart' : 'submit'}
-                  mode={checkoutOpen ? 'close' : 'heart'}
-                  onClick={() => {
-                    if (checkoutOpen) {
-                      window.dispatchEvent(new Event('checkout:request-close'))
-                    } else {
-                      setNewsletterOpen((v) => !v)
-                    }
-                  }}
+                  aria-label="Newsletter signup"
+                  title="submit"
+                  mode="heart"
+                  onClick={() => setNewsletterOpen((v) => !v)}
                 />
                 <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
               </>

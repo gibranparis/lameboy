@@ -81,24 +81,24 @@ export default function CheckoutView({ onClose }) {
         }}
       />
 
-      {/* Panel — slides up from bottom */}
+      {/* Panel — reveals from purse (bottom-right corner) */}
       <div
         ref={panelRef}
         style={{
           position: 'absolute',
-          left: 0,
           right: 0,
           bottom: 0,
           top: 'unset',
+          left: 'unset',
           maxHeight: 'calc(100% - 60px)',
           width: '100%',
           maxWidth: 460,
-          marginLeft: 'auto',
-          marginRight: 'auto',
           background: night ? '#0f1115' : '#fafaf8',
           overflowY: 'auto',
-          transform: slideOpen ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+          transform: slideOpen ? 'scale(1)' : 'scale(0)',
+          transformOrigin: 'bottom right',
+          opacity: slideOpen ? 1 : 0,
+          transition: 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
           boxShadow: '0 -4px 24px rgba(0,0,0,0.18)',
           borderRadius: '18px 18px 0 0',
           paddingBottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
@@ -131,9 +131,30 @@ export default function CheckoutView({ onClose }) {
           >
             Lameboy
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, color: night ? '#fff' : '#0f1115', margin: 0 }}>
-            {`(${count})`}
-          </h1>
+          {/* X close button — top right */}
+          <button
+            type="button"
+            aria-label="Close cart"
+            onClick={handleClose}
+            style={{
+              width: 36,
+              height: 36,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              borderRadius: '50%',
+              color: night ? '#fff' : '#0f1115',
+              transition: 'color 0.15s ease, background 0.15s ease',
+            }}
+          >
+            <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+              <line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+          </button>
         </div>
 
         <div style={{ padding: '0 24px 40px' }}>
@@ -185,6 +206,33 @@ export default function CheckoutView({ onClose }) {
               <CheckoutItem key={`${item.id}-${item.size}-${i}`} item={item} night={night} />
             ))}
           </div>
+        </div>
+
+        {/* Item count — bottom left, same level as purse button */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            height: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
+            display: 'grid',
+            placeItems: 'center',
+            paddingLeft: 24,
+            paddingBottom: 'var(--safe-bottom, 0px)',
+            pointerEvents: 'none',
+            zIndex: 2,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              color: night ? '#fff' : '#0f1115',
+              userSelect: 'none',
+            }}
+          >
+            {`(${count})`}
+          </span>
         </div>
       </div>
     </div>
