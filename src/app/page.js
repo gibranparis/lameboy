@@ -16,9 +16,6 @@ const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr:
 // Shop
 const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
-const ChakraBottomRunner = nextDynamic(() => import('@/components/ChakraBottomRunner'), {
-  ssr: false,
-})
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
 const CartButton = nextDynamic(() => import('@/components/CartButton'), { ssr: false })
@@ -252,7 +249,6 @@ export default function Page() {
       import('@/components/HeaderBar')
       import('@/components/ShopGrid')
       import('@/components/BannedLogin')
-      import('@/components/ChakraBottomRunner')
       import('@/components/HeartBeatButton')
       import('@/components/CheckoutView')
       import('@/components/OrbShell')
@@ -330,9 +326,6 @@ export default function Page() {
             )}
           </main>
 
-          <div className="lb-chakra-runner">
-            <ChakraBottomRunner height={RUNNER_H} speedSec={12} />
-          </div>
         </>
       )}
 
