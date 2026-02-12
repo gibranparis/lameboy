@@ -101,7 +101,7 @@ export default function DayNightToggle({
     const moonSrc = (Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/moon-red.png');
     const sunSrc = '/toggle/sun.webp';
     const constellationSrc = '/toggle/virgo-constellation.webp';
-    const sunsetSrc = '/toggle/naples%20sunset.png';
+    const sunsetSrc = '/toggle/white%20cloud.png';
     [moonSrc, sunSrc, constellationSrc, sunsetSrc].forEach(src => {
       const img = new Image();
       img.src = src;
@@ -152,7 +152,7 @@ export default function DayNightToggle({
         transition:'transform 120ms ease',
       }}
     >
-      {/* DAY BACKDROP (naples sunset + clouds) */}
+      {/* DAY BACKDROP (white cloud + clouds) */}
       <span
         aria-hidden
         style={{
@@ -163,7 +163,7 @@ export default function DayNightToggle({
         }}
       >
         <img
-          src="/toggle/naples%20sunset.png"
+          src="/toggle/white%20cloud.png"
           alt=""
           className="sunset-drift"
           style={{
