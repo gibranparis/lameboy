@@ -700,6 +700,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           transition:
             gap 220ms ease,
             padding 220ms ease;
+          /* Items start from bottom-right */
+          direction: rtl;
+          align-content: end;
+          min-height: calc(100dvh - var(--header-ctrl, 64px));
         }
 
         /* ---------- STACKED DECK VIEW ---------- */
@@ -722,6 +726,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           width: 100%;
           aspect-ratio: 1 / 1;
           animation: stack-wiggle 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+          /* Restore ltr inside each stack (parent grid is rtl) */
+          direction: ltr;
         }
 
         @keyframes stack-wiggle {
@@ -924,6 +930,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           transition: transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1);
           will-change: transform;
           transform: translateZ(0);
+          /* Restore ltr inside each tile (parent grid is rtl) */
+          direction: ltr;
         }
         .product-tile:focus-visible .product-box {
           box-shadow:
