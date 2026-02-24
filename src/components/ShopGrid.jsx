@@ -704,6 +704,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           direction: rtl;
           align-content: end;
           min-height: calc(100dvh - var(--header-ctrl, 64px));
+          padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(10px, 3vw, 24px));
         }
 
         /* ---------- STACKED DECK VIEW ---------- */
