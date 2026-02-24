@@ -697,13 +697,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           grid-template-columns: repeat(var(--grid-cols, 5), minmax(0, 1fr));
           gap: clamp(10px, 2vw, 18px);
           padding: clamp(10px, 3vw, 24px);
-          /* Keep bottom padding out of transition so cart clearance is always correct */
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
           transition: gap 220ms ease;
           /* Items start from bottom-right */
           direction: rtl;
           align-content: end;
-          min-height: 100dvh;
+          /* box-sizing: border-box ensures padding is INSIDE the 100dvh height,
+             preventing the grid from exceeding the viewport and getting clipped */
+          height: 100dvh;
+          box-sizing: border-box;
         }
 
         /* ---------- STACKED DECK VIEW ---------- */
@@ -714,7 +716,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           gap: clamp(10px, 2vw, 18px);
           padding: clamp(10px, 3vw, 24px);
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
-          min-height: 100dvh;
+          height: 100dvh;
+          box-sizing: border-box;
           align-items: end;
         }
 
