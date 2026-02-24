@@ -146,8 +146,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       gridEl.classList.add('overlay-fading')
       // Mark the active tile so it doesn't fade
       const tiles = gridEl.querySelectorAll('.product-tile')
-      tiles.forEach((tile, idx) => {
-        if (idx === i) {
+      tiles.forEach((tile) => {
+        const tileSeedIdx = parseInt(/** @type {HTMLElement} */ (tile).dataset.seedIdx ?? '-1')
+        if (tileSeedIdx === i) {
           tile.setAttribute('data-flip-active', 'true')
         } else {
           tile.removeAttribute('data-flip-active')
@@ -192,7 +193,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   const prevColsRef = useRef(cols)
 
   /* ---------- FLIP animation: smooth slide on density change ---------- */
-  const flipSnapshotRef = useRef(/** @type {Map<number,DOMRect>|null} */ (null))
+  const flipSnapshotRef = useRef(/** @type {Map<string,DOMRect>|null} */ (null))
 
   /** Capture tile positions, then update cols so useLayoutEffect can FLIP */
   const setColsWithFlip = useCallback((/** @type {number|((p:number)=>number)} */ v) => {
@@ -200,7 +201,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     if (grid) {
       const tiles = grid.querySelectorAll('.product-tile')
       const snap = new Map()
-      tiles.forEach((tile, idx) => snap.set(idx, tile.getBoundingClientRect()))
+      tiles.forEach((tile) => {
+        const key = /** @type {HTMLElement} */ (tile).dataset.productId
+        if (key) snap.set(key, tile.getBoundingClientRect())
+      })
       flipSnapshotRef.current = snap
     }
     setCols(v)
@@ -215,7 +219,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     if (grid) {
       const tiles = grid.querySelectorAll('.product-tile')
       const snap = new Map()
-      tiles.forEach((tile, idx) => snap.set(idx, tile.getBoundingClientRect()))
+      tiles.forEach((tile) => {
+        const key = /** @type {HTMLElement} */ (tile).dataset.productId
+        if (key) snap.set(key, tile.getBoundingClientRect())
+      })
       flipSnapshotRef.current = snap
     }
     gridRevealedAtRef.current = Date.now()
@@ -229,7 +236,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     if (grid) {
       const tiles = grid.querySelectorAll('.product-tile')
       const snap = new Map()
-      tiles.forEach((tile, idx) => snap.set(idx, tile.getBoundingClientRect()))
+      tiles.forEach((tile) => {
+        const key = /** @type {HTMLElement} */ (tile).dataset.productId
+        if (key) snap.set(key, tile.getBoundingClientRect())
+      })
       flipSnapshotRef.current = snap
     }
     setViewMode(VIEW_STACKS)
@@ -248,8 +258,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     const tiles = /** @type {HTMLElement[]} */ (Array.from(grid.querySelectorAll('.product-tile')))
 
     const flips = []
-    tiles.forEach((tile, idx) => {
-      const prev = snap.get(idx)
+    tiles.forEach((tile) => {
+      const key = tile.dataset.productId
+      const prev = key ? snap.get(key) : null
       if (!prev) return
       const next = tile.getBoundingClientRect()
       const dx = prev.left - next.left
@@ -464,8 +475,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       ps.dist = getDist(e.touches)
       ps.scale = 1
       ps.tile = /** @type {HTMLElement} */ (tile)
-      const tiles = grid.querySelectorAll('.product-tile')
-      ps.idx = Array.from(tiles).indexOf(ps.tile)
+      ps.idx = parseInt(ps.tile.dataset.seedIdx ?? '-1')
       ps.tile.style.transition = 'none'
       ps.tile.style.zIndex = '100'
     }
@@ -552,6 +562,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 {items.map((/** @type {any} */ p, /** @type {number} */ i) => (
                   <div
                     key={p.id ?? i}
+                    data-product-id={String(p.id ?? seedIndices[i])}
+                    data-seed-idx={String(seedIndices[i])}
                     ref={seedIndices[i] === 0 ? firstTileRef : undefined}
                     className="product-tile lb-tile"
                     aria-hidden="true"
@@ -580,10 +592,16 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
             )
           })
         ) : (
-          /* ---------- GRID VIEW (existing) ---------- */
-          seed.map((/** @type {any} */ p, /** @type {number} */ idx) => (
+          /* ---------- GRID VIEW ---------- */
+          /* Rendered in reverse DOM order so seed[0] (grey) lands in the last
+             CSS grid row → bottom-right with align-content:end + direction:rtl */
+          [...seed].reverse().map((/** @type {any} */ p, /** @type {number} */ i) => {
+            const idx = seed.length - 1 - i  // original seed index
+            return (
             <a
               key={p.id ?? idx}
+              data-product-id={String(p.id ?? idx)}
+              data-seed-idx={String(idx)}
               ref={idx === 0 ? firstTileRef : undefined}
               className="product-tile lb-tile"
               role="button"
@@ -671,7 +689,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
                 </div>
               )}
             </a>
-          ))
+            )
+          })
         )}
       </div>
 
