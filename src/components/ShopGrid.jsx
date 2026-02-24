@@ -697,14 +697,13 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           grid-template-columns: repeat(var(--grid-cols, 5), minmax(0, 1fr));
           gap: clamp(10px, 2vw, 18px);
           padding: clamp(10px, 3vw, 24px);
-          transition:
-            gap 220ms ease,
-            padding 220ms ease;
+          /* Keep bottom padding out of transition so cart clearance is always correct */
+          padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
+          transition: gap 220ms ease;
           /* Items start from bottom-right */
           direction: rtl;
           align-content: end;
-          min-height: calc(100dvh - var(--header-ctrl, 64px));
-          padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(10px, 3vw, 24px));
+          min-height: 100dvh;
         }
 
         /* ---------- STACKED DECK VIEW ---------- */
@@ -714,8 +713,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: clamp(10px, 2vw, 18px);
           padding: clamp(10px, 3vw, 24px);
-          min-height: calc(100dvh - var(--header-ctrl, 64px));
-          align-items: start;
+          padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
+          min-height: 100dvh;
+          align-items: end;
         }
 
         .category-stack {
@@ -788,57 +788,55 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         .shop-grid[data-stack-reversed='true'][data-view-mode='stacks'] .product-tile:nth-child(5),
         .shop-grid[data-stack-reversed='true'][data-view-mode='grid'] .product-tile:nth-child(5) { z-index: 5; }
 
-        /* Horizontal stack - each card offset to the right with slight vertical offset */
-        /* Creates a "pile of clothes" look where each color is visible */
+        /* Horizontal stack - each card offset to the LEFT so peek shows to the left */
         /* Gray on top (z-5), Blue on bottom (z-1) - flips after full zoom cycle */
         .category-stack .product-tile:nth-child(1) { z-index: 5; transform: translateX(0px); }
-        .category-stack .product-tile:nth-child(2) { z-index: 4; transform: translateX(3px); }
-        .category-stack .product-tile:nth-child(3) { z-index: 3; transform: translateX(6px); }
-        .category-stack .product-tile:nth-child(4) { z-index: 2; transform: translateX(9px); }
-        .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translateX(12px); }
+        .category-stack .product-tile:nth-child(2) { z-index: 4; transform: translateX(-3px); }
+        .category-stack .product-tile:nth-child(3) { z-index: 3; transform: translateX(-6px); }
+        .category-stack .product-tile:nth-child(4) { z-index: 2; transform: translateX(-9px); }
+        .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translateX(-12px); }
 
-        /* Reversed stack order after full zoom cycle - Blue on top, Gray on bottom */
-        /* Blue shifts right to show its natural position in sequence */
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(1) { z-index: 1; transform: translateX(-12px); }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(2) { z-index: 2; transform: translateX(-9px); }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(3) { z-index: 3; transform: translateX(-6px); }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(4) { z-index: 4; transform: translateX(-3px); }
+        /* Reversed stack order after full zoom cycle */
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(1) { z-index: 1; transform: translateX(12px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(2) { z-index: 2; transform: translateX(9px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(3) { z-index: 3; transform: translateX(6px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(4) { z-index: 4; transform: translateX(3px); }
         .category-stack[data-stack-reversed='true'] .product-tile:nth-child(5) { z-index: 5; transform: translateX(0px); }
 
-        /* Hover: items slide out while maintaining stacked z-order */
+        /* Hover: items fan out to the LEFT */
         @media (pointer: fine) {
           .category-stack:hover .product-tile:nth-child(1) { z-index: 5; }
           .category-stack:hover .product-tile:nth-child(1) .product-box { transform: translateX(0px) scale(1.05); }
 
           .category-stack:hover .product-tile:nth-child(2) { z-index: 4; }
-          .category-stack:hover .product-tile:nth-child(2) .product-box { transform: translateX(16px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(2) .product-box { transform: translateX(-16px) scale(1.05); }
 
           .category-stack:hover .product-tile:nth-child(3) { z-index: 3; }
-          .category-stack:hover .product-tile:nth-child(3) .product-box { transform: translateX(32px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(3) .product-box { transform: translateX(-32px) scale(1.05); }
 
           .category-stack:hover .product-tile:nth-child(4) { z-index: 2; }
-          .category-stack:hover .product-tile:nth-child(4) .product-box { transform: translateX(48px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(4) .product-box { transform: translateX(-48px) scale(1.05); }
 
           .category-stack:hover .product-tile:nth-child(5) { z-index: 1; }
-          .category-stack:hover .product-tile:nth-child(5) .product-box { transform: translateX(64px) scale(1.05); }
+          .category-stack:hover .product-tile:nth-child(5) .product-box { transform: translateX(-64px) scale(1.05); }
         }
 
-        /* Reversed state hover: maintain reversed z-order */
+        /* Reversed state hover: front card (nth-child 5) stays, others fan left */
         @media (pointer: fine) {
           .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) { z-index: 1; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) .product-box { transform: translateX(-12px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(1) .product-box { transform: translateX(-64px) scale(1.05); }
 
           .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) { z-index: 2; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) .product-box { transform: translateX(4px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(2) .product-box { transform: translateX(-48px) scale(1.05); }
 
           .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) { z-index: 3; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) .product-box { transform: translateX(20px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(3) .product-box { transform: translateX(-32px) scale(1.05); }
 
           .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) { z-index: 4; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) .product-box { transform: translateX(36px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(4) .product-box { transform: translateX(-16px) scale(1.05); }
 
           .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) { z-index: 5; }
-          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) .product-box { transform: translateX(52px) scale(1.05); }
+          .category-stack[data-stack-reversed='true']:hover .product-tile:nth-child(5) .product-box { transform: translateX(0px) scale(1.05); }
         }
 
         /* ---------- SHARED TILE STYLES ---------- */

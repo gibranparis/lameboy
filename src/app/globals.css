@@ -166,7 +166,8 @@ body {
 }
 
 html[data-overlay-open],
-html[data-loader-active] {
+html[data-loader-active],
+html[data-mode='shop'] {
   overflow: hidden;
 }
 
