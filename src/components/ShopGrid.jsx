@@ -806,6 +806,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           align-content: flex-end;
           gap: var(--col-gap);
           padding: clamp(16px, 3vw, 24px);
+          padding-right: var(--header-pad-x, 16px);
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
           transition: gap 220ms ease;
           box-sizing: border-box;
@@ -824,6 +825,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: clamp(10px, 2vw, 18px);
           padding: clamp(16px, 3vw, 24px);
+          padding-right: var(--header-pad-x, 16px);
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
           box-sizing: border-box;
         }
@@ -906,11 +908,11 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         .category-stack .product-tile:nth-child(4) { z-index: 2; transform: translateX(-9px); }
         .category-stack .product-tile:nth-child(5) { z-index: 1; transform: translateX(-12px); }
 
-        /* Reversed stack order after full zoom cycle */
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(1) { z-index: 1; transform: translateX(12px); }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(2) { z-index: 2; transform: translateX(9px); }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(3) { z-index: 3; transform: translateX(6px); }
-        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(4) { z-index: 4; transform: translateX(3px); }
+        /* Reversed stack order after full zoom cycle — peek stays LEFT (away from screen edge) */
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(1) { z-index: 1; transform: translateX(-12px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(2) { z-index: 2; transform: translateX(-9px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(3) { z-index: 3; transform: translateX(-6px); }
+        .category-stack[data-stack-reversed='true'] .product-tile:nth-child(4) { z-index: 4; transform: translateX(-3px); }
         .category-stack[data-stack-reversed='true'] .product-tile:nth-child(5) { z-index: 5; transform: translateX(0px); }
 
         /* Hover: items fan out to the LEFT */
