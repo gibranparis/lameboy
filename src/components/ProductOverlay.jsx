@@ -1591,26 +1591,36 @@ export default function ProductOverlay({
           >
             {priceText}
           </div>
-          {(() => {
-            const sz = selectedSize
-            const dims = sz ? SIZE_CHART[String(sz)] : null
-            if (!dims) return null
-            return (
-              <div
-                className="dims-overlay"
-                style={{ marginTop: 12, pointerEvents: 'none', textAlign: 'center' }}
-              >
-                <span className="dims-size" style={{ color: night ? '#fff' : '#0f1115' }}>{SIZE_NAMES[sz] || sz}</span>
-                <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Chest {dims.chest}″</span>
-                <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Waist {dims.waist}″</span>
-                <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Hips {dims.hips}″</span>
-              </div>
-            )
-          })()}
           <div style={{ marginTop: 12 }}>
             <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} />
           </div>
         </div>
+
+        {/* Size dimensions – top-right corner, above shoulder, never on top of image */}
+        {(() => {
+          const sz = selectedSize
+          const dims = sz ? SIZE_CHART[String(sz)] : null
+          if (!dims) return null
+          return (
+            <div
+              className="dims-overlay"
+              style={{
+                position: 'absolute',
+                top: 'calc(var(--safe-top, 0px) + 14px)',
+                right: 'calc(var(--header-pad-x, 16px) + 16px)',
+                pointerEvents: 'none',
+                textAlign: 'right',
+                alignItems: 'flex-end',
+                zIndex: 522,
+              }}
+            >
+              <span className="dims-size" style={{ color: night ? '#fff' : '#0f1115' }}>{SIZE_NAMES[String(sz)] || String(sz)}</span>
+              <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Chest {dims.chest}″</span>
+              <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Waist {dims.waist}″</span>
+              <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Hips {dims.hips}″</span>
+            </div>
+          )
+        })()}
       </div>
 
       <style jsx>{`
