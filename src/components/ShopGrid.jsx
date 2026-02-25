@@ -528,6 +528,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       data-shop-root
       style={{
         ['--grid-cols']: String(cols),
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
         background: 'var(--shop-offwhite, #F7F7F2)',
         minHeight: '100dvh',
       }}
@@ -723,7 +726,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           padding: clamp(10px, 3vw, 24px);
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
           transition: gap 220ms ease;
-          min-height: 100dvh;
           box-sizing: border-box;
         }
 
@@ -741,9 +743,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           gap: clamp(10px, 2vw, 18px);
           padding: clamp(10px, 3vw, 24px);
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
-          min-height: 100dvh;
           box-sizing: border-box;
-          align-items: end;
         }
 
         .category-stack {
