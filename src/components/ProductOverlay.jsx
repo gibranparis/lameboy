@@ -1506,7 +1506,6 @@ export default function ProductOverlay({
                     justifyContent: 'center',
                     position: 'relative',
                     left: product.title?.toLowerCase().includes('brown') ? '0.5vw' : product.title?.toLowerCase().includes('black') ? '0vw' : '-2vw',
-                    top: product.title?.toLowerCase().includes('brown') ? '2vh' : product.title?.toLowerCase().includes('blue') ? '1.5vh' : '0',
                   }}
                 >
                   <Image
@@ -1523,7 +1522,7 @@ export default function ProductOverlay({
                     style={{
                       width: '70vw',
                       height: 'auto',
-                      maxHeight: '58vh',
+                      maxHeight: '50vh',
                       objectFit: 'contain',
                       objectPosition: '45% center',
                       imageRendering: 'auto',
