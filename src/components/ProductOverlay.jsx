@@ -382,11 +382,23 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
 
       <style jsx>{`
         .atc-label {
-          animation: atc-in 0.22s ease both;
+          animation: atc-in 0.22s ease both, atc-glow 1.9s ease-in-out 0.3s infinite;
         }
         @keyframes atc-in {
           from { opacity: 0; transform: translateY(-4px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes atc-glow {
+          0%, 100% {
+            filter: none;
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            filter: drop-shadow(0 0 5px rgba(11,240,95,.9)) drop-shadow(0 0 14px rgba(11,240,95,.35));
+            transform: scale(1.03);
+            opacity: 0.92;
+          }
         }
         .plus-pill {
           width: 28px;
