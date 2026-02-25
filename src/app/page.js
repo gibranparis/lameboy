@@ -325,7 +325,7 @@ export default function Page() {
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
-          <main style={{ paddingBottom: ctrlPx }}>
+          <main>
             <ShopGrid products={products} autoOpenFirstOnMount />
             {!loaderShow && !checkoutOpen && (
               <>

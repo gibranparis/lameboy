@@ -617,7 +617,17 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         minHeight: '100dvh',
       }}
     >
-      <div className="shop-grid" data-component="shop-grid" data-view-mode={viewMode} data-stack-reversed={stackReversed ? 'true' : undefined}>
+      <div
+        className="shop-grid"
+        data-component="shop-grid"
+        data-view-mode={viewMode}
+        data-stack-reversed={stackReversed ? 'true' : undefined}
+        onClick={() => {
+          if (viewMode !== VIEW_GRID || overlayOpen) return
+          // Collapse back to stacks when tapping empty grid background
+          collapseToStacks()
+        }}
+      >
         {viewMode === VIEW_STACKS ? (
           /* ---------- STACKED DECK VIEW ---------- */
           Array.from(categoryGroups.entries()).map((/** @type {[string, any[]]} */ [category, items]) => {
@@ -694,6 +704,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
               aria-label={`Open ${p.title ?? 'product'} details`}
               onClick={(e) => {
                 e.preventDefault()
+                e.stopPropagation()
                 // Prevent opening overlay immediately after revealing grid from stacks
                 if (Date.now() - gridRevealedAtRef.current < 500) return
 
@@ -703,6 +714,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
+                  e.stopPropagation()
                   // Prevent opening overlay immediately after revealing grid from stacks
                   if (Date.now() - gridRevealedAtRef.current < 500) return
                   const el = /** @type {HTMLElement} */ (e.currentTarget)
