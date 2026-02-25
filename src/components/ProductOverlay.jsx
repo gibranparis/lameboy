@@ -1420,7 +1420,7 @@ export default function ProductOverlay({
             textAlign: 'center',
             zIndex: pinchZoom.scale > 1 ? 523 : 521,
             touchAction: 'none',
-            marginTop: 'clamp(-32vh, -18vw, -8vh)',
+            marginTop: 'clamp(6vh, 5vw, 12vh)',
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -1581,16 +1581,17 @@ export default function ProductOverlay({
           </div>
         </div>
 
-        {/* Text & buttons – fixed position, stays stationary when scrolling products */}
+        {/* Text & buttons – fixed position, anchored near top so expanding sizes never clash with bottom orb */}
         <div
           style={{
             position: 'fixed',
-            bottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + 24px)',
+            top: 'calc(var(--safe-top, 0px) + 18px)',
             left: '50%',
             transform: 'translateX(-50%)',
             textAlign: 'center',
             zIndex: 522,
             pointerEvents: 'auto',
+            width: 'min(92vw, 480px)',
             opacity: (closing || addToCartClosing) ? 0 : 1,
             transition: (closing || addToCartClosing) ? 'opacity 160ms ease' : undefined,
           }}
