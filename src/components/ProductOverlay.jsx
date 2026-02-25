@@ -1387,8 +1387,12 @@ export default function ProductOverlay({
           position: 'fixed',
           inset: 0,
           zIndex: 520,
-          display: 'grid',
-          placeItems: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          paddingTop: 'calc(var(--safe-top, 0px) + 6vh)',
+          paddingBottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + 24px)',
           background: 'transparent',
           pointerEvents: 'none',
           overscrollBehavior: 'contain',
@@ -1420,7 +1424,6 @@ export default function ProductOverlay({
             textAlign: 'center',
             zIndex: pinchZoom.scale > 1 ? 523 : 521,
             touchAction: 'none',
-            marginTop: 'clamp(6vh, 5vw, 12vh)',
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -1501,7 +1504,6 @@ export default function ProductOverlay({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    minHeight: '58vh',
                     position: 'relative',
                     left: product.title?.toLowerCase().includes('brown') ? '0.5vw' : product.title?.toLowerCase().includes('black') ? '0vw' : '-2vw',
                     top: product.title?.toLowerCase().includes('brown') ? '2vh' : product.title?.toLowerCase().includes('blue') ? '1.5vh' : '0',
@@ -1581,15 +1583,11 @@ export default function ProductOverlay({
           </div>
         </div>
 
-        {/* Text & buttons – fixed position, anchored near top so expanding sizes never clash with bottom orb */}
+        {/* Text & buttons – flows naturally below the image; no bottom anchor so expanding sizes never clash with the orb */}
         <div
           style={{
-            position: 'fixed',
-            top: 'calc(var(--safe-top, 0px) + 18px)',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            marginTop: 16,
             textAlign: 'center',
-            zIndex: 522,
             pointerEvents: 'auto',
             width: 'min(92vw, 480px)',
             opacity: (closing || addToCartClosing) ? 0 : 1,
