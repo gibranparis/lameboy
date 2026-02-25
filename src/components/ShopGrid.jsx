@@ -251,10 +251,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   useLayoutEffect(() => {
     // Pin scroll to bottom before first paint so overflow content clips from the top.
     // Runs synchronously before the browser paints — no visible snap.
+    // Track the scroll delta so the FLIP can compensate — without this, tiles
+    // animate upward because the snapshot was taken at a different scrollTop.
+    let scrollDeltaY = 0
     if (viewMode === VIEW_GRID) {
+      const scrollTopBefore = document.documentElement.scrollTop
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight
       if (maxScroll > 1) {
         document.documentElement.scrollTop = maxScroll
+        scrollDeltaY = document.documentElement.scrollTop - scrollTopBefore
       }
     }
 
@@ -273,7 +278,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       if (!prev) return
       const next = tile.getBoundingClientRect()
       const dx = prev.left - next.left
-      const dy = prev.top - next.top
+      // Compensate for scroll: the snapshot was taken before scrollTop changed,
+      // so adjust prev.top to the same reference frame as next.top.
+      const dy = (prev.top - scrollDeltaY) - next.top
       const sx = next.width > 0 ? prev.width / next.width : 1
       const sy = next.height > 0 ? prev.height / next.height : 1
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01) return
