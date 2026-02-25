@@ -1618,8 +1618,8 @@ export default function ProductOverlay({
               className="dims-overlay"
               style={{
                 position: 'fixed',
-                top: 'calc(var(--safe-top, 0px) + 64px)',
-                right: 'max(var(--header-pad-x, 16px), env(safe-area-inset-right, 0px))',
+                top: 'calc(var(--safe-top, 0px) + 4vh + 8vh)',
+                right: 'calc(15vw + 8px)',
                 pointerEvents: 'none',
                 textAlign: 'right',
                 alignItems: 'flex-end',
