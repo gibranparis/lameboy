@@ -593,10 +593,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           })
         ) : (
           /* ---------- GRID VIEW ---------- */
-          /* Rendered in reverse DOM order so seed[0] (grey) lands in the last
-             CSS grid row → bottom-right with align-content:end + direction:rtl */
-          [...seed].reverse().map((/** @type {any} */ p, /** @type {number} */ i) => {
-            const idx = seed.length - 1 - i  // original seed index
+          /* Normal DOM order: flex-wrap:wrap-reverse + direction:rtl puts seed[0]
+             at bottom-right naturally; partial rows float to the top */
+          seed.map((/** @type {any} */ p, /** @type {number} */ i) => {
+            const idx = i  // original seed index
             return (
             <a
               key={p.id ?? idx}
@@ -711,20 +711,26 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         }
 
         /* ---------- GRID VIEW ---------- */
+        /* flex-wrap:wrap-reverse fills bottom row first (seed[0] → bottom-right),
+           then adds rows upward — partial/overflow rows naturally land at the top */
         .shop-grid {
-          display: grid;
-          grid-template-columns: repeat(var(--grid-cols, 5), minmax(0, 1fr));
-          gap: clamp(10px, 2vw, 18px);
+          --col-gap: clamp(10px, 2vw, 18px);
+          display: flex;
+          flex-wrap: wrap-reverse;
+          direction: rtl;
+          align-content: flex-end;
+          gap: var(--col-gap);
           padding: clamp(10px, 3vw, 24px);
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
           transition: gap 220ms ease;
-          /* Items start from bottom-right */
-          direction: rtl;
-          align-content: end;
-          /* box-sizing: border-box ensures padding is INSIDE the 100dvh height,
-             preventing the grid from exceeding the viewport and getting clipped */
-          height: 100dvh;
+          min-height: 100dvh;
           box-sizing: border-box;
+        }
+
+        /* Each tile fills exactly 1/cols of the available width */
+        .shop-grid[data-view-mode='grid'] .product-tile {
+          flex: 0 0 calc((100% - var(--col-gap) * (var(--grid-cols, 5) - 1)) / var(--grid-cols, 5));
+          min-width: 0;
         }
 
         /* ---------- STACKED DECK VIEW ---------- */
@@ -735,7 +741,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           gap: clamp(10px, 2vw, 18px);
           padding: clamp(10px, 3vw, 24px);
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
-          height: 100dvh;
+          min-height: 100dvh;
           box-sizing: border-box;
           align-items: end;
         }
