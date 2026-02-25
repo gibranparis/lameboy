@@ -141,6 +141,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scrollbar-gutter: stable;
+  /* prevent horizontal scroll that causes edge clipping on mobile */
+  overflow-x: clip;
 }
 
 :root[data-mode='gate'] .gate-flash {
@@ -428,6 +430,8 @@ html[data-loader-active] {
    ========================================================================== */
 .shop-wrap {
   padding: 18px var(--header-pad-x) 56px;
+  /* clip horizontal overflow so the 16px side padding acts as cushion */
+  overflow-x: clip;
 }
 .shop-grid {
   --gap: clamp(10px, 1.2vw, 18px);

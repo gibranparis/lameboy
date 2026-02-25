@@ -732,7 +732,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           direction: rtl;
           align-content: flex-end;
           gap: var(--col-gap);
-          padding: clamp(10px, 3vw, 24px);
+          padding: clamp(16px, 3vw, 24px);
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
           transition: gap 220ms ease;
           box-sizing: border-box;
@@ -750,7 +750,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: clamp(10px, 2vw, 18px);
-          padding: clamp(10px, 3vw, 24px);
+          padding: clamp(16px, 3vw, 24px);
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
           box-sizing: border-box;
         }
