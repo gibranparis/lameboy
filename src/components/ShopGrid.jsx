@@ -530,6 +530,79 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     }
   }, [openAt])
 
+  /* ---------------- Horizontal rubber-band pull (mobile) ---------------- */
+  // Lets users pull the whole view sideways; snaps back with a spring on release.
+  const pullSnapTimerRef = useRef(/** @type {ReturnType<typeof setTimeout>|null} */ (null))
+  // Keep a ref to overlayOpen so the effect closure doesn't go stale
+  const overlayOpenRef = useRef(overlayOpen)
+  useEffect(() => { overlayOpenRef.current = overlayOpen }, [overlayOpen])
+
+  useEffect(() => {
+    const wrap = gridRef.current
+    if (!wrap) return
+
+    /** @type {{ startX: number, startY: number, active: boolean, pulling: boolean }} */
+    const ps = { startX: 0, startY: 0, active: false, pulling: false }
+
+    const onStart = (/** @type {TouchEvent} */ e) => {
+      if (e.touches.length !== 1) return          // ignore pinch
+      if (overlayOpenRef.current) return           // no pull while overlay is open
+      ps.startX = e.touches[0].clientX
+      ps.startY = e.touches[0].clientY
+      ps.active = true
+      ps.pulling = false
+    }
+
+    const onMove = (/** @type {TouchEvent} */ e) => {
+      if (!ps.active || e.touches.length !== 1) return
+      const rawDx = e.touches[0].clientX - ps.startX
+      const rawDy = e.touches[0].clientY - ps.startY
+
+      if (!ps.pulling) {
+        const moved = Math.max(Math.abs(rawDx), Math.abs(rawDy))
+        if (moved < 10) return
+        // Only commit to horizontal pull if it's clearly sideways
+        if (Math.abs(rawDy) > Math.abs(rawDx)) { ps.active = false; return }
+        ps.pulling = true
+        clearTimeout(pullSnapTimerRef.current ?? undefined)
+        pullSnapTimerRef.current = null
+      }
+
+      // Rubber-band: resistance increases with distance, asymptotes at maxPull
+      const maxPull = 60
+      const falloff = 90
+      const damped = Math.sign(rawDx) * maxPull * (1 - Math.exp(-Math.abs(rawDx) / falloff))
+      wrap.style.transition = 'none'
+      wrap.style.transform = `translateX(${damped}px) translateZ(0)`
+    }
+
+    const onEnd = () => {
+      ps.active = false
+      if (!ps.pulling) return
+      ps.pulling = false
+      // Spring back — slight overshoot gives a natural bounce feel
+      wrap.style.transition = 'transform 440ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+      wrap.style.transform = 'translateX(0) translateZ(0)'
+      pullSnapTimerRef.current = setTimeout(() => {
+        wrap.style.transition = ''
+        wrap.style.transform = ''
+        pullSnapTimerRef.current = null
+      }, 460)
+    }
+
+    wrap.addEventListener('touchstart', onStart, { passive: true })
+    wrap.addEventListener('touchmove', onMove, { passive: true })
+    wrap.addEventListener('touchend', onEnd)
+    wrap.addEventListener('touchcancel', onEnd)
+    return () => {
+      wrap.removeEventListener('touchstart', onStart)
+      wrap.removeEventListener('touchmove', onMove)
+      wrap.removeEventListener('touchend', onEnd)
+      wrap.removeEventListener('touchcancel', onEnd)
+      clearTimeout(pullSnapTimerRef.current ?? undefined)
+    }
+  }, []) // refs keep values fresh — no deps needed
+
   return (
     <div
       ref={gridRef}
