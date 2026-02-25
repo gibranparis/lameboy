@@ -307,6 +307,20 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     return () => clearTimeout(t)
   }, [cols, viewMode])
 
+  /** After grid layout settles, scroll to the bottom so the primary items are visible.
+   *  Users scroll UP to see overflow rows above. */
+  useEffect(() => {
+    if (viewMode !== VIEW_GRID) return
+    // Wait for FLIP animation to finish before snapping to bottom
+    const t = setTimeout(() => {
+      const maxScroll = document.body.scrollHeight - window.innerHeight
+      if (maxScroll > 1) {
+        window.scrollTo({ top: maxScroll, behavior: 'instant' })
+      }
+    }, 420)
+    return () => clearTimeout(t)
+  }, [cols, viewMode])
+
   const broadcastDensity = useCallback((/** @type {number} */ density, /** @type {string} */ mode) => {
     const detail = { density, value: density, viewMode: mode }
     try {
