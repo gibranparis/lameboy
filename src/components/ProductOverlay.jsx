@@ -1024,11 +1024,8 @@ export default function ProductOverlay({
 
   const handlePinchEnd = useCallback(() => {
     pinchState.current.isPinching = false
-    // Reset zoom if zoomed out to 1x
-    if (pinchZoom.scale <= 1.05) {
-      setPinchZoom({ scale: 1, x: 0, y: 0 })
-    }
-  }, [pinchZoom.scale])
+    setPinchZoom({ scale: 1, x: 0, y: 0 })
+  }, [])
 
   // Pan when zoomed in (single finger drag while zoomed)
   const handlePanStart = useCallback((/** @type {any} */ e) => {
@@ -1405,6 +1402,10 @@ export default function ProductOverlay({
             e.stopPropagation()
             animateClose()
           }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
           style={{
             position: 'fixed',
             left: 0,
@@ -1413,6 +1414,7 @@ export default function ProductOverlay({
             top: 0,
             background: 'transparent',
             pointerEvents: 'auto',
+            touchAction: 'none',
           }}
         />
 
