@@ -1536,31 +1536,6 @@ export default function ProductOverlay({
                     }}
                   />
 
-                  {/* Size dimensions overlay – top-right of image */}
-                  {(() => {
-                    /** @type {any} */
-                    /** @type {any} */
-                    const sz = selectedSize
-                    const dims = sz ? SIZE_CHART[sz] : null
-                    if (!dims) return null
-                    return (
-                      <div
-                        className="dims-overlay"
-                        style={{
-                          position: 'absolute',
-                          top: '8%',
-                          right: '12%',
-                          pointerEvents: 'none',
-                          zIndex: 10,
-                        }}
-                      >
-                        <span className="dims-size" style={{ color: night ? '#fff' : '#0f1115' }}>{SIZE_NAMES[sz] || sz}</span>
-                        <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Chest {dims.chest}″</span>
-                        <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Waist {dims.waist}″</span>
-                        <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Hips {dims.hips}″</span>
-                      </div>
-                    )
-                  })()}
                 </div>
                 {imgs.length > 1 && (
                   <div
@@ -1616,7 +1591,23 @@ export default function ProductOverlay({
           >
             {priceText}
           </div>
-          <div style={{ marginTop: 20 }}>
+          {(() => {
+            const sz = selectedSize
+            const dims = sz ? SIZE_CHART[String(sz)] : null
+            if (!dims) return null
+            return (
+              <div
+                className="dims-overlay"
+                style={{ marginTop: 12, pointerEvents: 'none', textAlign: 'center' }}
+              >
+                <span className="dims-size" style={{ color: night ? '#fff' : '#0f1115' }}>{SIZE_NAMES[sz] || sz}</span>
+                <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Chest {dims.chest}″</span>
+                <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Waist {dims.waist}″</span>
+                <span className="dims-row" style={{ color: night ? '#fff' : '#0f1115' }}>Hips {dims.hips}″</span>
+              </div>
+            )
+          })()}
+          <div style={{ marginTop: 12 }}>
             <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} />
           </div>
         </div>
