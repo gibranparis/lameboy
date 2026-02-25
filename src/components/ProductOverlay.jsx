@@ -1608,7 +1608,7 @@ export default function ProductOverlay({
           </div>
         </div>
 
-        {/* Size dimensions – top-right corner, above shoulder, never on top of image */}
+        {/* Size dimensions – top-right, below heart button, never on top of image */}
         {(() => {
           const sz = selectedSize
           const dims = sz ? SIZE_CHART[String(sz)] : null
@@ -1617,9 +1617,9 @@ export default function ProductOverlay({
             <div
               className="dims-overlay"
               style={{
-                position: 'absolute',
-                top: 'calc(var(--safe-top, 0px) + 14px)',
-                right: 'calc(var(--header-pad-x, 16px) + 16px)',
+                position: 'fixed',
+                top: 'calc(var(--safe-top, 0px) + 64px)',
+                right: 'max(var(--header-pad-x, 16px), env(safe-area-inset-right, 0px))',
                 pointerEvents: 'none',
                 textAlign: 'right',
                 alignItems: 'flex-end',
@@ -1654,7 +1654,7 @@ export default function ProductOverlay({
         .dims-overlay {
           display: flex;
           flex-direction: column;
-          align-items: flex-start;
+          align-items: flex-end;
           gap: 2px;
           animation: dims-in 0.22s ease both;
         }
