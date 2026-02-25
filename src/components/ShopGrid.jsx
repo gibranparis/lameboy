@@ -249,6 +249,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   /** After React re-renders with new cols, FLIP tiles from old → new pos */
   useLayoutEffect(() => {
+    // Pin scroll to bottom before first paint so overflow content clips from the top.
+    // Runs synchronously before the browser paints — no visible snap.
+    if (viewMode === VIEW_GRID) {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight
+      if (maxScroll > 1) {
+        document.documentElement.scrollTop = maxScroll
+      }
+    }
+
     const snap = flipSnapshotRef.current
     if (!snap || !snap.size) return
     flipSnapshotRef.current = null
@@ -304,20 +313,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       })
     }, 400)
 
-    return () => clearTimeout(t)
-  }, [cols, viewMode])
-
-  /** After grid layout settles, scroll to the bottom so the primary items are visible.
-   *  Users scroll UP to see overflow rows above. */
-  useEffect(() => {
-    if (viewMode !== VIEW_GRID) return
-    // Wait for FLIP animation to finish before snapping to bottom
-    const t = setTimeout(() => {
-      const maxScroll = document.body.scrollHeight - window.innerHeight
-      if (maxScroll > 1) {
-        window.scrollTo({ top: maxScroll, behavior: 'instant' })
-      }
-    }, 420)
     return () => clearTimeout(t)
   }, [cols, viewMode])
 
