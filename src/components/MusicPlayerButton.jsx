@@ -90,7 +90,6 @@ export default function MusicPlayerButton({
       <style jsx>{`
         .ipod-btn {
           transition: transform 0.1s ease;
-          filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.22));
         }
 
         /* Paused — subtle lift on hover */
@@ -104,8 +103,6 @@ export default function MusicPlayerButton({
         /* Playing — gentle floating bob */
         .ipod-btn[data-playing='1'] {
           animation: ipod-float 2.4s ease-in-out infinite;
-          filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.28))
-                  drop-shadow(0 0 18px rgba(180, 200, 255, 0.25));
         }
         .ipod-btn[data-playing='1']:hover {
           animation-play-state: paused;

@@ -360,7 +360,7 @@ export default function Page() {
           }}
         >
           {/* Add your audio file to /public and set src, e.g. src="/music/track.mp3" */}
-          <MusicPlayerButton size={52} src="" />
+          <MusicPlayerButton size={34} src="" />
         </div>
       )}
 
