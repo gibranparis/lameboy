@@ -20,6 +20,7 @@ const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton')
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
 const CartButton = nextDynamic(() => import('@/components/CartButton'), { ssr: false })
 const NewsletterForm = nextDynamic(() => import('@/components/NewsletterForm'), { ssr: false })
+const MusicPlayerButton = nextDynamic(() => import('@/components/MusicPlayerButton'), { ssr: false })
 
 const RUNNER_H = 14
 const LOADER_MS = 1400
@@ -342,6 +343,25 @@ export default function Page() {
           </main>
 
         </>
+      )}
+
+      {/* Music player — top-left, mirrors cart button position */}
+      {inShop && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 'calc(var(--safe-top, 0px) + 12px)',
+            left: 'max(var(--header-pad-x, 16px), env(safe-area-inset-left))',
+            height: 'var(--header-ctrl, 64px)',
+            width: 'var(--header-ctrl, 64px)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 9999,
+          }}
+        >
+          {/* Add your audio file to /public and set src, e.g. src="/music/track.mp3" */}
+          <MusicPlayerButton size={36} src="" />
+        </div>
       )}
 
       {/* Cart button — independent of header so it stays above checkout */}
