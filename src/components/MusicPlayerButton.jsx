@@ -2,17 +2,23 @@
 // @ts-check
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 
 /**
- * Floating music player button — top-left of the shop view.
- * Shows animated equalizer bars while playing, static note when paused.
+ * iPod-style music player button — top-left of the shop view.
+ * Image: place your iPod PNG at /public/music/ipod.png
  *
- * @param {{ src?: string, size?: number }} props
- *   src  — URL of the audio file to play (add your track to /public and reference it here)
- *   size — button hit-area size in px (default 44)
+ * @param {{ src?: string, size?: number, imgSrc?: string }} props
+ *   src    — URL of the audio file to play (e.g. "/music/track.mp3")
+ *   size   — rendered image size in px (default 56)
+ *   imgSrc — iPod image path (default "/music/ipod.png")
  */
-export default function MusicPlayerButton({ src = '', size = 44 }) {
+export default function MusicPlayerButton({
+  src = '',
+  size = 56,
+  imgSrc = '/music/ipod.png',
+}) {
   const [playing, setPlaying] = useState(false)
   const audioRef = useRef(/** @type {HTMLAudioElement|null} */ (null))
 
@@ -42,8 +48,6 @@ export default function MusicPlayerButton({ src = '', size = 44 }) {
     }
   }
 
-  const iconSize = Math.round(size * 0.75)
-
   return (
     <>
       <button
@@ -51,46 +55,32 @@ export default function MusicPlayerButton({ src = '', size = 44 }) {
         onClick={toggle}
         aria-label={playing ? 'Pause music' : 'Play music'}
         title={playing ? 'Pause' : 'Play'}
-        className="music-btn"
+        data-playing={playing ? '1' : '0'}
+        className="ipod-btn"
         style={{
-          width: size,
-          height: size,
-          display: 'grid',
-          placeItems: 'center',
-          background: 'transparent',
+          background: 'none',
           border: 'none',
           padding: 0,
           cursor: src ? 'pointer' : 'default',
           WebkitTapHighlightColor: 'transparent',
           outline: 'none',
+          display: 'block',
+          lineHeight: 0,
         }}
       >
-        <svg
-          viewBox="0 0 36 36"
-          width={iconSize}
-          height={iconSize}
-          aria-hidden="true"
-          style={{ display: 'block', overflow: 'visible' }}
-        >
-          {playing ? (
-            /* Equalizer bars — animate when playing */
-            <g className="eq-bars" transform="translate(4, 4)">
-              <rect className="bar bar1" x="0" y="0" width="5" height="28" rx="2.5" />
-              <rect className="bar bar2" x="9" y="0" width="5" height="28" rx="2.5" />
-              <rect className="bar bar3" x="18" y="0" width="5" height="28" rx="2.5" />
-            </g>
-          ) : (
-            /* Music note — static when paused */
-            <g transform="translate(5, 3)" opacity="0.85">
-              {/* Note head */}
-              <ellipse cx="7" cy="26" rx="6" ry="4.5" />
-              {/* Stem */}
-              <rect x="12" y="4" width="2.5" height="22" rx="1.25" />
-              {/* Flag */}
-              <path d="M14.5 4 C20 6, 24 10, 22 18 C20 14, 17 11, 14.5 10 Z" />
-            </g>
-          )}
-        </svg>
+        <Image
+          src={imgSrc}
+          alt={playing ? 'Now playing' : 'Play music'}
+          width={size}
+          height={Math.round(size * 1.22)}
+          style={{
+            objectFit: 'contain',
+            display: 'block',
+            userSelect: 'none',
+            pointerEvents: 'none',
+          }}
+          priority
+        />
 
         {src && (
           <audio ref={audioRef} src={src} loop preload="none" style={{ display: 'none' }} />
@@ -98,71 +88,48 @@ export default function MusicPlayerButton({ src = '', size = 44 }) {
       </button>
 
       <style jsx>{`
-        .music-btn {
-          transition: transform 0.08s ease, opacity 0.15s ease;
-          opacity: ${src ? '1' : '0.35'};
-        }
-        .music-btn:hover {
-          transform: scale(1.08);
-        }
-        .music-btn:active {
-          transform: scale(0.96);
-        }
-        .music-btn:focus-visible {
-          outline: 2px solid rgba(0, 0, 0, 0.7);
-          outline-offset: 4px;
-          border-radius: 8px;
-        }
-        :global(html[data-theme='night']) .music-btn:focus-visible {
-          outline-color: rgba(255, 255, 255, 0.8);
+        .ipod-btn {
+          transition: transform 0.1s ease;
+          filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.22));
         }
 
-        /* Icon fill — theme-aware */
-        svg rect,
-        svg ellipse,
-        svg path {
-          fill: #111;
-          filter: drop-shadow(0 0 2px rgba(0,0,0,0.18));
+        /* Paused — subtle lift on hover */
+        .ipod-btn:hover {
+          transform: scale(1.06) translateY(-1px);
         }
-        :global(html[data-theme='night']) svg rect,
-        :global(html[data-theme='night']) svg ellipse,
-        :global(html[data-theme='night']) svg path {
-          fill: #fff;
-          filter: drop-shadow(0 0 3px rgba(255,255,255,0.3));
+        .ipod-btn:active {
+          transform: scale(0.97);
         }
 
-        /* Equalizer bar animation */
-        .bar {
-          transform-origin: center bottom;
-          transform-box: fill-box;
+        /* Playing — gentle floating bob */
+        .ipod-btn[data-playing='1'] {
+          animation: ipod-float 2.4s ease-in-out infinite;
+          filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.28))
+                  drop-shadow(0 0 18px rgba(180, 200, 255, 0.25));
         }
-        .bar1 {
-          animation: eq1 0.7s ease-in-out infinite alternate;
-        }
-        .bar2 {
-          animation: eq2 0.55s ease-in-out infinite alternate;
-          animation-delay: 0.12s;
-        }
-        .bar3 {
-          animation: eq3 0.65s ease-in-out infinite alternate;
-          animation-delay: 0.24s;
+        .ipod-btn[data-playing='1']:hover {
+          animation-play-state: paused;
+          transform: scale(1.06) translateY(-2px);
         }
 
-        @keyframes eq1 {
-          0%   { transform: scaleY(0.3); }
-          100% { transform: scaleY(1); }
+        @keyframes ipod-float {
+          0%   { transform: translateY(0px) rotate(-0.5deg); }
+          30%  { transform: translateY(-5px) rotate(0.5deg); }
+          60%  { transform: translateY(-2px) rotate(-0.3deg); }
+          100% { transform: translateY(0px) rotate(-0.5deg); }
         }
-        @keyframes eq2 {
-          0%   { transform: scaleY(0.6); }
-          100% { transform: scaleY(0.2); }
+
+        .ipod-btn:focus-visible {
+          outline: 2px solid rgba(0, 0, 0, 0.6);
+          outline-offset: 6px;
+          border-radius: 6px;
         }
-        @keyframes eq3 {
-          0%   { transform: scaleY(0.9); }
-          100% { transform: scaleY(0.4); }
+        :global(html[data-theme='night']) .ipod-btn:focus-visible {
+          outline-color: rgba(255, 255, 255, 0.7);
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .bar1, .bar2, .bar3 {
+          .ipod-btn[data-playing='1'] {
             animation: none !important;
           }
         }
