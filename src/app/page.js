@@ -350,8 +350,8 @@ export default function Page() {
         <div
           style={{
             position: 'fixed',
-            top: 'calc(var(--safe-top, 0px) + 12px)',
-            left: 'max(var(--header-pad-x, 16px), env(safe-area-inset-left))',
+            top: 'calc(var(--safe-top, 0px) + 4px)',
+            left: 'max(8px, env(safe-area-inset-left))',
             height: 'var(--header-ctrl, 64px)',
             width: 'var(--header-ctrl, 64px)',
             display: 'grid',
