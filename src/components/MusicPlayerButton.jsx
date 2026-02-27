@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 export default function MusicPlayerButton({
   src = '',
   size = 56,
-  imgSrc = '/music/ipod.png',
+  imgSrc = '/music/ipod classic day.png',
 }) {
   const [playing, setPlaying] = useState(false)
   const audioRef = useRef(/** @type {HTMLAudioElement|null} */ (null))
