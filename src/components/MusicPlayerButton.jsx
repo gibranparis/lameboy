@@ -7,22 +7,23 @@ import { useEffect, useRef, useState } from 'react'
 
 /**
  * iPod-style music player button — top-left of the shop view.
+ * Click opens an embedded YouTube playlist player at the top of the page.
  *
- * @param {{ src?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
- *   src         — URL of the audio file to play (e.g. "/music/track.mp3")
+ * @param {{ playlistId?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
+ *   playlistId  — YouTube playlist ID (default: LaMEBOY playlist)
  *   size        — rendered image size in px (default 56)
- *   dayImgSrc   — iPod image for day mode (default "/music/ipod classic day.png")
- *   nightImgSrc — iPod image for night mode (default "/music/ipod classic night.png")
+ *   dayImgSrc   — iPod image for day mode
+ *   nightImgSrc — iPod image for night mode
  */
 export default function MusicPlayerButton({
-  src = '',
+  playlistId = 'PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd',
   size = 56,
   dayImgSrc = '/music/ipod classic day.png',
   nightImgSrc = '/music/ipod classic night.png',
 }) {
-  const [playing, setPlaying] = useState(false)
+  const [open, setOpen] = useState(false)
   const [theme, setTheme] = useState('day')
-  const audioRef = useRef(/** @type {HTMLAudioElement|null} */ (null))
+  const overlayRef = useRef(/** @type {HTMLDivElement|null} */ (null))
 
   // Sync with the day/night toggle
   useEffect(() => {
@@ -34,46 +35,40 @@ export default function MusicPlayerButton({
     return () => document.removeEventListener('theme-change', onThemeChange)
   }, [])
 
+  // Close on Escape
   useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    const onPlay = () => setPlaying(true)
-    const onPause = () => setPlaying(false)
-    const onEnded = () => setPlaying(false)
-    audio.addEventListener('play', onPlay)
-    audio.addEventListener('pause', onPause)
-    audio.addEventListener('ended', onEnded)
-    return () => {
-      audio.removeEventListener('play', onPlay)
-      audio.removeEventListener('pause', onPause)
-      audio.removeEventListener('ended', onEnded)
+    if (!open) return
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
+      if (e.key === 'Escape') setOpen(false)
     }
-  }, [])
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
 
-  const toggle = () => {
-    const audio = audioRef.current
-    if (!audio || !src) return
-    if (playing) {
-      audio.pause()
-    } else {
-      audio.play().catch(() => {})
-    }
+  // Close when clicking outside the player panel
+  const handleOverlayClick = (/** @type {React.MouseEvent<HTMLDivElement>} */ e) => {
+    if (e.target === overlayRef.current) setOpen(false)
   }
+
+  const embedSrc = playlistId
+    ? `https://www.youtube.com/embed/videoseries?list=${playlistId}&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&autoplay=1&color=white&fs=0`
+    : ''
 
   return (
     <>
+      {/* iPod button */}
       <button
         type="button"
-        onClick={toggle}
-        aria-label={playing ? 'Pause music' : 'Play music'}
-        title={playing ? 'Pause' : 'Play'}
-        data-playing={playing ? '1' : '0'}
+        onClick={() => setOpen((v) => !v)}
+        aria-label={open ? 'Close music player' : 'Open music player'}
+        title={open ? 'Close' : 'Play'}
+        data-playing={open ? '1' : '0'}
         className="ipod-btn"
         style={{
           background: 'none',
           border: 'none',
           padding: 0,
-          cursor: src ? 'pointer' : 'default',
+          cursor: 'pointer',
           WebkitTapHighlightColor: 'transparent',
           outline: 'none',
           display: 'block',
@@ -82,7 +77,7 @@ export default function MusicPlayerButton({
       >
         <Image
           src={theme === 'night' ? nightImgSrc : dayImgSrc}
-          alt={playing ? 'Now playing' : 'Play music'}
+          alt={open ? 'Now playing' : 'Play music'}
           width={size}
           height={Math.round(size * 1.22)}
           style={{
@@ -93,11 +88,40 @@ export default function MusicPlayerButton({
           }}
           priority
         />
-
-        {src && (
-          <audio ref={audioRef} src={src} loop preload="none" style={{ display: 'none' }} />
-        )}
       </button>
+
+      {/* YouTube player panel — fixed, centered at top of page */}
+      {open && embedSrc && (
+        <div
+          ref={overlayRef}
+          onClick={handleOverlayClick}
+          className="yt-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Music player"
+        >
+          <div className="yt-panel">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="yt-close"
+              aria-label="Close music player"
+            >
+              ×
+            </button>
+            <div className="yt-frame-wrap">
+              <iframe
+                src={embedSrc}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen={false}
+                title="Music player"
+                className="yt-frame"
+                loading="eager"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .ipod-btn {
@@ -141,6 +165,75 @@ export default function MusicPlayerButton({
           .ipod-btn[data-playing='1'] {
             animation: none !important;
           }
+        }
+
+        /* ---- YouTube overlay ---- */
+        .yt-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 19999;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          padding-top: calc(var(--header-ctrl, 64px) + 12px);
+          background: transparent;
+          pointer-events: none;
+        }
+
+        .yt-panel {
+          pointer-events: all;
+          position: relative;
+          width: min(480px, calc(100vw - 24px));
+          border-radius: 14px;
+          overflow: hidden;
+          background: #000;
+          box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+          animation: yt-drop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        @keyframes yt-drop {
+          from { opacity: 0; transform: translateY(-18px) scale(0.94); }
+          to   { opacity: 1; transform: translateY(0)     scale(1); }
+        }
+
+        .yt-close {
+          position: absolute;
+          top: 8px;
+          right: 10px;
+          z-index: 2;
+          background: rgba(0, 0, 0, 0.6);
+          border: none;
+          color: #fff;
+          font-size: 22px;
+          line-height: 1;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          transition: background 0.15s;
+        }
+        .yt-close:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 16:9 aspect ratio wrapper */
+        .yt-frame-wrap {
+          position: relative;
+          width: 100%;
+          padding-bottom: 56.25%;
+        }
+
+        .yt-frame {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          border: none;
+          display: block;
         }
       `}</style>
     </>

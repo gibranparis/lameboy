@@ -359,8 +359,7 @@ export default function Page() {
             zIndex: 9999,
           }}
         >
-          {/* Add your audio file to /public and set src, e.g. src="/music/track.mp3" */}
-          <MusicPlayerButton size={34} src="" />
+          <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
         </div>
       )}
 
