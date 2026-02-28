@@ -303,7 +303,7 @@ export default function MusicPlayerButton({
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
         .yt-panel {
-          width: min(480px, calc(100vw - 32px));
+          width: min(480px, calc(100vw - 2 * var(--header-ctrl, 64px)));
           background: #000;
           pointer-events: all;
         }
