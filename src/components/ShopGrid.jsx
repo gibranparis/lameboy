@@ -213,9 +213,18 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   /** Track when grid was revealed to prevent immediate overlay opening */
   const gridRevealedAtRef = useRef(0)
 
-  /** Transition from stacked deck → grid.
-   *  No FLIP here — tiles appear via CSS fade-in so there's zero upward movement. */
+  /** Transition from stacked deck → grid with FLIP animation */
   const revealGrid = useCallback(() => {
+    const grid = document.querySelector('[data-component="shop-grid"]')
+    if (grid) {
+      const tiles = grid.querySelectorAll('.product-tile')
+      const snap = new Map()
+      tiles.forEach((tile) => {
+        const key = /** @type {HTMLElement} */ (tile).dataset.productId
+        if (key) snap.set(key, tile.getBoundingClientRect())
+      })
+      flipSnapshotRef.current = snap
+    }
     gridRevealedAtRef.current = Date.now()
     setViewMode(VIEW_GRID)
     setCols(MAX_COLS)
