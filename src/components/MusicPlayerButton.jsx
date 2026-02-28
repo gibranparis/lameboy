@@ -71,9 +71,9 @@ export default function MusicPlayerButton({
       if (!document.getElementById(playerIdRef.current) || !win.YT?.Player) return
 
       player = new win.YT.Player(playerIdRef.current, {
-        listType: 'playlist',
-        list: playlistId,
         playerVars: {
+          listType: 'playlist',
+          list: playlistId,
           autoplay: 1,
           controls: 0,
           modestbranding: 1,
@@ -86,6 +86,8 @@ export default function MusicPlayerButton({
         },
         events: {
           onReady: (/** @type {any} */ e) => {
+            // Explicitly start playback — autoplay param alone isn't reliable
+            e.target.playVideo()
             const data = e.target.getVideoData()
             if (data?.video_id) fetchAspectRatio(data.video_id)
           },
