@@ -271,6 +271,7 @@ export default function MusicPlayerButton({
           opacity: 0;
           visibility: hidden;
           pointer-events: none !important;
+          transition: none;
         }
         .yt-wrap {
           position: relative;
