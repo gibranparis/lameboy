@@ -217,6 +217,7 @@ export default function NewsletterForm({ open, onClose }) {
   useEffect(() => {
     if (!open) return
     const onClick = (e) => {
+      if (e.target.closest('.heart-submit')) return // let the toggle handle it
       if (panelRef.current && !panelRef.current.contains(e.target)) {
         onClose()
       }
