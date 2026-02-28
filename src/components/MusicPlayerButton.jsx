@@ -261,7 +261,7 @@ export default function MusicPlayerButton({
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
         .yt-panel {
-          width: min(480px, 100vw);
+          width: min(480px, calc(100vw - 32px));
           background: #000;
           pointer-events: all;
           animation: yt-drop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
