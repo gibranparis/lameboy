@@ -620,7 +620,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         flexDirection: 'column',
         justifyContent: 'flex-end',
         background: 'var(--shop-offwhite, #F7F7F2)',
-        minHeight: '100dvh',
+        minHeight: 'calc(100dvh - var(--player-h, 0px))',
       }}
     >
       <div

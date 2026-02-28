@@ -326,7 +326,7 @@ export default function Page() {
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
-          <main>
+          <main style={{ paddingTop: 'var(--player-h, 0px)' }}>
             {/* Fixed anchor for the YouTube player panel — portaled here from MusicPlayerButton.
                 Fixed so it floats in the empty space above items without pushing them. */}
             <div

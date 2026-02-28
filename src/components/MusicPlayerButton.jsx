@@ -30,6 +30,8 @@ export default function MusicPlayerButton({
   const clickTimerRef = useRef(/** @type {ReturnType<typeof setTimeout>|null} */ (null))
   // If user clicks before onReady fires, queue the play for when it does
   const pendingPlayRef = useRef(false)
+  // Ref on the panel div — used by ResizeObserver to track player height
+  const panelRef = useRef(/** @type {HTMLDivElement|null} */ (null))
 
   // Theme sync
   useEffect(() => {
@@ -202,6 +204,21 @@ export default function MusicPlayerButton({
     }
   }
 
+  // Track panel height → set --player-h on :root so ShopGrid and <main> can respond
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const root = document.documentElement
+    const ro = new ResizeObserver(() => {
+      root.style.setProperty('--player-h', `${el.offsetHeight}px`)
+    })
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      root.style.setProperty('--player-h', '0px')
+    }
+  }, []) // ResizeObserver handles all updates; no deps needed
+
   // Tapping the video area pauses/resumes — user gesture, works on mobile
   const handleBlockerClick = () => {
     if (!ytPlayerRef.current) return
@@ -219,7 +236,7 @@ export default function MusicPlayerButton({
   ].filter(Boolean).join(' ')
 
   const panel = (
-    <div className={panelClass}>
+    <div ref={panelRef} className={panelClass}>
       <div className="yt-wrap" style={{ paddingBottom: `${aspectPb}%` }}>
         {/* YT API replaces this div with an iframe */}
         <div id={playerIdRef.current} />
