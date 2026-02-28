@@ -306,11 +306,6 @@ html[data-loader-active] {
   background: var(--bg, #f7f7f2) !important;
 }
 
-/* YouTube panel anchor: only add header offset when the panel is visually open */
-#yt-panel-anchor:has(.yt-panel--open) {
-  margin-top: var(--header-ctrl, 64px);
-}
-
 .cart-fab {
   position: relative;
   display: inline-flex;
