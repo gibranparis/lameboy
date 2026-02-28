@@ -194,8 +194,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   /* ---------- FLIP animation: smooth slide on density change ---------- */
   const flipSnapshotRef = useRef(/** @type {Map<string,DOMRect>|null} */ (null))
-  /** When true, the next FLIP should only animate horizontally (no upward bump) */
-  const flipHorizontalOnlyRef = useRef(false)
 
   /** Capture tile positions, then update cols so useLayoutEffect can FLIP */
   const setColsWithFlip = useCallback((/** @type {number|((p:number)=>number)} */ v) => {
@@ -215,19 +213,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
   /** Track when grid was revealed to prevent immediate overlay opening */
   const gridRevealedAtRef = useRef(0)
 
-  /** Transition from stacked deck → grid with FLIP animation */
+  /** Transition from stacked deck → grid.
+   *  No FLIP here — tiles appear via CSS fade-in so there's zero upward movement. */
   const revealGrid = useCallback(() => {
-    const grid = document.querySelector('[data-component="shop-grid"]')
-    if (grid) {
-      const tiles = grid.querySelectorAll('.product-tile')
-      const snap = new Map()
-      tiles.forEach((tile) => {
-        const key = /** @type {HTMLElement} */ (tile).dataset.productId
-        if (key) snap.set(key, tile.getBoundingClientRect())
-      })
-      flipSnapshotRef.current = snap
-    }
-    flipHorizontalOnlyRef.current = true
     gridRevealedAtRef.current = Date.now()
     setViewMode(VIEW_GRID)
     setCols(MAX_COLS)
@@ -250,12 +238,17 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     setStackReversed((prev) => !prev)
   }, [])
 
-  /** After React re-renders with new cols, FLIP tiles from old → new pos */
+  /** After React re-renders with new cols, FLIP tiles from old → new pos.
+   *  Only runs for density changes (collapseToStacks / setColsWithFlip),
+   *  NOT for the stacks→grid reveal (revealGrid takes no snapshot). */
   useLayoutEffect(() => {
-    // Pin scroll to bottom before first paint so overflow content clips from the top.
-    // Runs synchronously before the browser paints — no visible snap.
-    // Track the scroll delta so the FLIP can compensate — without this, tiles
-    // animate upward because the snapshot was taken at a different scrollTop.
+    const snap = flipSnapshotRef.current
+    if (!snap || !snap.size) return
+    flipSnapshotRef.current = null
+
+    // Pin scroll to bottom so overflow content clips from the top.
+    // Only happens here (density changes), never on the stacks→grid reveal,
+    // so there's no surprise viewport jump when opening the stack.
     let scrollDeltaY = 0
     if (viewMode === VIEW_GRID) {
       const scrollTopBefore = document.documentElement.scrollTop
@@ -265,12 +258,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         scrollDeltaY = document.documentElement.scrollTop - scrollTopBefore
       }
     }
-
-    const snap = flipSnapshotRef.current
-    if (!snap || !snap.size) return
-    flipSnapshotRef.current = null
-    const horizontalOnly = flipHorizontalOnlyRef.current
-    flipHorizontalOnlyRef.current = false
 
     const grid = document.querySelector('[data-component="shop-grid"]')
     if (!grid) return
@@ -283,12 +270,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       if (!prev) return
       const next = tile.getBoundingClientRect()
       const dx = prev.left - next.left
-      // For stacks→grid: only slide horizontally — no vertical movement or scale.
-      // Scale with top-left origin causes a vertical nudge even when dy=0.
-      // For density changes: full FLIP with scroll compensation.
-      const dy = horizontalOnly ? 0 : (prev.top - scrollDeltaY) - next.top
-      const sx = horizontalOnly ? 1 : (next.width > 0 ? prev.width / next.width : 1)
-      const sy = horizontalOnly ? 1 : (next.height > 0 ? prev.height / next.height : 1)
+      const dy = (prev.top - scrollDeltaY) - next.top
+      const sx = next.width > 0 ? prev.width / next.width : 1
+      const sy = next.height > 0 ? prev.height / next.height : 1
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01) return
       flips.push({ tile, dx, dy, sx, sy })
     })
@@ -841,6 +825,18 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         .shop-grid[data-view-mode='grid'] .product-tile {
           flex: 0 0 calc((100% - var(--col-gap) * (var(--grid-cols, 5) - 1)) / var(--grid-cols, 5));
           min-width: 0;
+          animation: tile-fade-in 240ms ease both;
+        }
+
+        /* Stacks → Grid reveal: tiles appear in place with no positional movement */
+        @keyframes tile-fade-in {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+
+        /* Don't replay fade-in when the FLIP overrides inline transform */
+        :global(html[data-overlay-open='1']) .product-tile {
+          animation: none;
         }
 
         /* ---------- STACKED DECK VIEW ---------- */
