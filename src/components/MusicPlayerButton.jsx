@@ -28,6 +28,8 @@ export default function MusicPlayerButton({
   if (!playerIdRef.current) playerIdRef.current = `yt${Math.floor(Math.random() * 1e9)}`
   const ytPlayerRef = useRef(/** @type {any} */ (null))
   const clickTimerRef = useRef(/** @type {ReturnType<typeof setTimeout>|null} */ (null))
+  // If user clicks before onReady fires, queue the play for when it does
+  const pendingPlayRef = useRef(false)
 
   // Theme sync
   useEffect(() => {
@@ -37,10 +39,15 @@ export default function MusicPlayerButton({
     return () => document.removeEventListener('theme-change', onChange)
   }, [])
 
-  // Escape closes player
+  // Escape closes player + pauses
   useEffect(() => {
     if (!open) return
-    const onKey = (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Escape') setOpen(false) }
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
+      if (e.key === 'Escape') {
+        setOpen(false)
+        ytPlayerRef.current?.pauseVideo()
+      }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
@@ -67,9 +74,11 @@ export default function MusicPlayerButton({
     setPortalTarget(document.getElementById('yt-panel-anchor'))
   }, [])
 
-  // YouTube IFrame API — waits for portalTarget so placeholder div is in the DOM
+  // Pre-initialize the YouTube player as soon as the anchor div is in the DOM.
+  // This is critical for mobile (iOS): playVideo() must be called synchronously
+  // inside a user-gesture handler, which is only possible if the player already exists.
   useEffect(() => {
-    if (!open || !portalTarget) return
+    if (!portalTarget) return
 
     const fetchAspectRatio = async (/** @type {string} */ videoId) => {
       if (!videoId) return
@@ -93,7 +102,7 @@ export default function MusicPlayerButton({
         playerVars: {
           listType: 'playlist',
           list: playlistId,
-          autoplay: 1,
+          autoplay: 0,     // No auto-play — we call playVideo() on first user click
           controls: 0,
           modestbranding: 1,
           rel: 0,
@@ -105,7 +114,14 @@ export default function MusicPlayerButton({
         },
         events: {
           onReady: (/** @type {any} */ e) => {
-            e.target.playVideo()
+            ytPlayerRef.current = player
+            // If the user clicked before the player was ready, honour that intent.
+            // Note: on iOS this async path may still be blocked — the synchronous
+            // path in handleClick is the reliable one.
+            if (pendingPlayRef.current) {
+              pendingPlayRef.current = false
+              e.target.playVideo()
+            }
             const data = e.target.getVideoData()
             if (data?.video_id) fetchAspectRatio(data.video_id)
           },
@@ -146,16 +162,26 @@ export default function MusicPlayerButton({
       ytPlayerRef.current = null
       setPlaying(false)
     }
-  }, [open, playlistId, portalTarget])
+  }, [playlistId, portalTarget]) // no 'open' — player lives independently of panel visibility
 
-  // Single click: open → play | playing → pause | paused → resume
+  // First click: open panel + play synchronously within the gesture (required on iOS).
+  // Subsequent clicks when open: single = pause/resume, double = skip.
   const handleClick = () => {
-    if (clickTimerRef.current) return // double-click pending — ignore
+    if (!open) {
+      setOpen(true)
+      if (ytPlayerRef.current) {
+        // Synchronous call inside user gesture — this is what makes iOS work
+        ytPlayerRef.current.playVideo()
+      } else {
+        // Player not ready yet (very fast first click); play when onReady fires
+        pendingPlayRef.current = true
+      }
+      return
+    }
+    if (clickTimerRef.current) return
     clickTimerRef.current = setTimeout(() => {
       clickTimerRef.current = null
-      if (!open) {
-        setOpen(true)
-      } else if (playing) {
+      if (playing) {
         ytPlayerRef.current?.pauseVideo()
       } else {
         ytPlayerRef.current?.playVideo()
@@ -176,13 +202,29 @@ export default function MusicPlayerButton({
     }
   }
 
+  // Tapping the video area pauses/resumes — user gesture, works on mobile
+  const handleBlockerClick = () => {
+    if (!ytPlayerRef.current) return
+    if (playing) {
+      ytPlayerRef.current.pauseVideo()
+    } else {
+      ytPlayerRef.current.playVideo()
+    }
+  }
+
+  const panelClass = [
+    'yt-panel',
+    open ? 'yt-panel--open' : 'yt-panel--closed',
+    overlayOpen ? 'yt-panel--overlay' : '',
+  ].filter(Boolean).join(' ')
+
   const panel = (
-    <div className={`yt-panel${overlayOpen ? ' yt-panel--hidden' : ''}`}>
+    <div className={panelClass}>
       <div className="yt-wrap" style={{ paddingBottom: `${aspectPb}%` }}>
         {/* YT API replaces this div with an iframe */}
         <div id={playerIdRef.current} />
-        {/* Blocks YouTube hover popups (Watch Later, Share, etc.) */}
-        <div className="yt-blocker" />
+        {/* Intercepts YouTube hover UI; tap = play/pause */}
+        <div className="yt-blocker" onClick={handleBlockerClick} />
       </div>
     </div>
   )
@@ -222,8 +264,8 @@ export default function MusicPlayerButton({
         />
       </button>
 
-      {/* Portal into #yt-panel-anchor (inside <main>) so player is in document flow */}
-      {open && portalTarget && createPortal(panel, portalTarget)}
+      {/* Always portal when anchor exists — player stays alive across open/close */}
+      {portalTarget && createPortal(panel, portalTarget)}
 
       {/* Scoped — iPod button only */}
       <style jsx>{`
@@ -264,14 +306,22 @@ export default function MusicPlayerButton({
           width: min(480px, calc(100vw - 32px));
           background: #000;
           pointer-events: all;
-          animation: yt-drop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-          transition: opacity 0.2s ease, visibility 0.2s ease;
         }
-        .yt-panel--hidden {
+        /* Visible state */
+        .yt-panel--open {
+          animation: yt-drop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        /* Collapsed — zero layout height, player iframe stays alive */
+        .yt-panel--closed {
+          height: 0;
+          overflow: hidden;
+          pointer-events: none;
+        }
+        /* Overlay open — hide visually but keep layout + audio */
+        .yt-panel--overlay {
           opacity: 0;
           visibility: hidden;
           pointer-events: none !important;
-          transition: none;
         }
         .yt-wrap {
           position: relative;
@@ -292,7 +342,7 @@ export default function MusicPlayerButton({
           inset: 0;
           z-index: 1;
           pointer-events: all;
-          cursor: default;
+          cursor: pointer;
         }
       `}</style>
     </>
