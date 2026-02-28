@@ -7,20 +7,32 @@ import { useEffect, useRef, useState } from 'react'
 
 /**
  * iPod-style music player button — top-left of the shop view.
- * Image: place your iPod PNG at /public/music/ipod.png
  *
- * @param {{ src?: string, size?: number, imgSrc?: string }} props
- *   src    — URL of the audio file to play (e.g. "/music/track.mp3")
- *   size   — rendered image size in px (default 56)
- *   imgSrc — iPod image path (default "/music/ipod.png")
+ * @param {{ src?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
+ *   src         — URL of the audio file to play (e.g. "/music/track.mp3")
+ *   size        — rendered image size in px (default 56)
+ *   dayImgSrc   — iPod image for day mode (default "/music/ipod classic day.png")
+ *   nightImgSrc — iPod image for night mode (default "/music/ipod classic night.png")
  */
 export default function MusicPlayerButton({
   src = '',
   size = 56,
-  imgSrc = '/music/ipod classic day.png',
+  dayImgSrc = '/music/ipod classic day.png',
+  nightImgSrc = '/music/ipod classic night.png',
 }) {
   const [playing, setPlaying] = useState(false)
+  const [theme, setTheme] = useState('day')
   const audioRef = useRef(/** @type {HTMLAudioElement|null} */ (null))
+
+  // Sync with the day/night toggle
+  useEffect(() => {
+    setTheme(document.documentElement.dataset.theme === 'night' ? 'night' : 'day')
+    const onThemeChange = (/** @type {any} */ e) => {
+      setTheme(e.detail?.theme === 'night' ? 'night' : 'day')
+    }
+    document.addEventListener('theme-change', onThemeChange)
+    return () => document.removeEventListener('theme-change', onThemeChange)
+  }, [])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -69,7 +81,7 @@ export default function MusicPlayerButton({
         }}
       >
         <Image
-          src={imgSrc}
+          src={theme === 'night' ? nightImgSrc : dayImgSrc}
           alt={playing ? 'Now playing' : 'Play music'}
           width={size}
           height={Math.round(size * 1.22)}
