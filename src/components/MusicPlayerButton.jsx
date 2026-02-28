@@ -51,7 +51,7 @@ export default function MusicPlayerButton({
   }
 
   const embedSrc = playlistId
-    ? `https://www.youtube.com/embed/videoseries?list=${playlistId}&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&autoplay=1&color=white&fs=0`
+    ? `https://www.youtube.com/embed/videoseries?list=${playlistId}&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&autoplay=1&color=white&fs=0&controls=0`
     : ''
 
   return (
@@ -187,7 +187,6 @@ export default function MusicPlayerButton({
           border-radius: 14px;
           overflow: hidden;
           background: #000;
-          box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
           animation: yt-drop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
 
@@ -220,18 +219,20 @@ export default function MusicPlayerButton({
           background: rgba(255, 255, 255, 0.2);
         }
 
-        /* 16:9 aspect ratio wrapper */
+        /* 16:9 aspect ratio wrapper — oversize iframe to crop black bars */
         .yt-frame-wrap {
           position: relative;
           width: 100%;
           padding-bottom: 56.25%;
+          overflow: hidden;
         }
 
         .yt-frame {
           position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
+          top: -8%;
+          left: -8%;
+          width: 116%;
+          height: 116%;
           border: none;
           display: block;
         }
