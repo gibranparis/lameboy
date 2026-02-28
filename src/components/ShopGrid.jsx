@@ -618,7 +618,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         ['--grid-cols']: String(cols),
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'flex-end',
+        justifyContent: 'flex-start',
         background: 'var(--shop-offwhite, #F7F7F2)',
         minHeight: '100dvh',
       }}
