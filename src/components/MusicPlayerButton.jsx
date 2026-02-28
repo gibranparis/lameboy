@@ -262,7 +262,6 @@ export default function MusicPlayerButton({
         }
         .yt-panel {
           width: min(480px, 100vw);
-          margin-top: var(--header-ctrl, 64px);
           background: #000;
           pointer-events: all;
           animation: yt-drop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
