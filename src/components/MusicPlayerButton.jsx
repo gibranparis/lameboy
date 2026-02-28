@@ -10,10 +10,6 @@ import { useEffect, useRef, useState } from 'react'
  * Click opens an embedded YouTube playlist player at the top of the page.
  *
  * @param {{ playlistId?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
- *   playlistId  — YouTube playlist ID (default: LaMEBOY playlist)
- *   size        — rendered image size in px (default 56)
- *   dayImgSrc   — iPod image for day mode
- *   nightImgSrc — iPod image for night mode
  */
 export default function MusicPlayerButton({
   playlistId = 'PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd',
@@ -23,7 +19,13 @@ export default function MusicPlayerButton({
 }) {
   const [open, setOpen] = useState(false)
   const [theme, setTheme] = useState('day')
-  const overlayRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  // aspect ratio as padding-bottom % (56.25 = 16:9, 75 = 4:3, etc.)
+  const [aspectPb, setAspectPb] = useState(56.25)
+
+  // Stable player container ID across renders
+  const playerIdRef = useRef(/** @type {string} */ (''))
+  if (!playerIdRef.current) playerIdRef.current = `yt${Math.floor(Math.random() * 1e9)}`
+  const ytPlayerRef = useRef(/** @type {any} */ (null))
 
   // Sync with the day/night toggle
   useEffect(() => {
@@ -45,14 +47,81 @@ export default function MusicPlayerButton({
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  // Close when clicking outside the player panel
-  const handleOverlayClick = (/** @type {React.MouseEvent<HTMLDivElement>} */ e) => {
-    if (e.target === overlayRef.current) setOpen(false)
-  }
+  // YouTube IFrame API — init player and auto-detect each video's aspect ratio
+  useEffect(() => {
+    if (!open) return
 
-  const embedSrc = playlistId
-    ? `https://www.youtube.com/embed/videoseries?list=${playlistId}&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&autoplay=1&color=white&fs=0&controls=0`
-    : ''
+    // Fetch oEmbed to get actual width/height of the current video
+    const fetchAspectRatio = async (/** @type {string} */ videoId) => {
+      if (!videoId) return
+      try {
+        const r = await fetch(
+          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+        )
+        const d = await r.json()
+        if (d.width && d.height) setAspectPb((d.height / d.width) * 100)
+      } catch {}
+    }
+
+    let player = /** @type {any} */ (null)
+
+    const win = /** @type {any} */ (window)
+
+    const initPlayer = () => {
+      if (!document.getElementById(playerIdRef.current) || !win.YT?.Player) return
+
+      player = new win.YT.Player(playerIdRef.current, {
+        listType: 'playlist',
+        list: playlistId,
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          iv_load_policy: 3,
+          playsinline: 1,
+          fs: 0,
+          color: 'white',
+          disablekb: 1,
+        },
+        events: {
+          onReady: (/** @type {any} */ e) => {
+            const data = e.target.getVideoData()
+            if (data?.video_id) fetchAspectRatio(data.video_id)
+          },
+          onStateChange: (/** @type {any} */ e) => {
+            // PLAYING = 1 — detect format whenever a new video starts
+            if (e.data === win.YT?.PlayerState?.PLAYING) {
+              const data = e.target.getVideoData()
+              if (data?.video_id) fetchAspectRatio(data.video_id)
+            }
+          },
+        },
+      })
+      ytPlayerRef.current = player
+    }
+
+    if (win.YT?.Player) {
+      initPlayer()
+    } else {
+      // Chain onto any existing callback so we don't clobber other listeners
+      const prev = win.onYouTubeIframeAPIReady
+      win.onYouTubeIframeAPIReady = () => {
+        if (typeof prev === 'function') prev()
+        initPlayer()
+      }
+      if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+        const s = document.createElement('script')
+        s.src = 'https://www.youtube.com/iframe_api'
+        document.head.appendChild(s)
+      }
+    }
+
+    return () => {
+      if (player) { try { player.destroy() } catch {} }
+      ytPlayerRef.current = null
+    }
+  }, [open, playlistId])
 
   return (
     <>
@@ -91,33 +160,23 @@ export default function MusicPlayerButton({
       </button>
 
       {/* YouTube player panel — fixed, centered at top of page */}
-      {open && embedSrc && (
+      {open && (
         <div
-          ref={overlayRef}
-          onClick={handleOverlayClick}
           className="yt-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Music player"
+          onClick={(/** @type {any} */ e) => { if (e.target === e.currentTarget) setOpen(false) }}
         >
           <div className="yt-panel">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="yt-close"
-              aria-label="Close music player"
-            >
-              ×
-            </button>
-            <div className="yt-frame-wrap">
-              <iframe
-                src={embedSrc}
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowFullScreen={false}
-                title="Music player"
-                className="yt-frame"
-                loading="eager"
-              />
+            {/*
+              yt-wrap: padding-bottom trick for aspect ratio.
+              Transitions smoothly when aspectPb changes (e.g. 4:3 ↔ 16:9).
+              YT API replaces #playerIdRef div with an <iframe>, which ends up
+              as a direct child of yt-wrap → targeted via :global(.yt-wrap iframe).
+            */}
+            <div className="yt-wrap" style={{ paddingBottom: `${aspectPb}%` }}>
+              <div id={playerIdRef.current} />
+              {/* Transparent blocker — sits on top of the iframe, intercepts
+                  mouse events so YouTube never shows Watch Later / Share overlays */}
+              <div className="yt-blocker" />
             </div>
           </div>
         </div>
@@ -127,16 +186,12 @@ export default function MusicPlayerButton({
         .ipod-btn {
           transition: transform 0.1s ease;
         }
-
-        /* Paused — subtle lift on hover */
         .ipod-btn:hover {
           transform: scale(1.06) translateY(-1px);
         }
         .ipod-btn:active {
           transform: scale(0.97);
         }
-
-        /* Playing — gentle floating bob */
         .ipod-btn[data-playing='1'] {
           animation: ipod-float 2.4s ease-in-out infinite;
         }
@@ -144,14 +199,12 @@ export default function MusicPlayerButton({
           animation-play-state: paused;
           transform: scale(1.06) translateY(-2px);
         }
-
         @keyframes ipod-float {
           0%   { transform: translateY(0px) rotate(-0.5deg); }
           30%  { transform: translateY(-5px) rotate(0.5deg); }
           60%  { transform: translateY(-2px) rotate(-0.3deg); }
           100% { transform: translateY(0px) rotate(-0.5deg); }
         }
-
         .ipod-btn:focus-visible {
           outline: 2px solid rgba(0, 0, 0, 0.6);
           outline-offset: 6px;
@@ -160,11 +213,8 @@ export default function MusicPlayerButton({
         :global(html[data-theme='night']) .ipod-btn:focus-visible {
           outline-color: rgba(255, 255, 255, 0.7);
         }
-
         @media (prefers-reduced-motion: reduce) {
-          .ipod-btn[data-playing='1'] {
-            animation: none !important;
-          }
+          .ipod-btn[data-playing='1'] { animation: none !important; }
         }
 
         /* ---- YouTube overlay ---- */
@@ -176,65 +226,47 @@ export default function MusicPlayerButton({
           justify-content: center;
           align-items: flex-start;
           padding-top: calc(var(--header-ctrl, 64px) + 12px);
-          background: transparent;
           pointer-events: none;
         }
 
         .yt-panel {
           pointer-events: all;
-          position: relative;
           width: min(480px, calc(100vw - 24px));
-          border-radius: 14px;
-          overflow: hidden;
           background: #000;
           animation: yt-drop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
 
         @keyframes yt-drop {
           from { opacity: 0; transform: translateY(-18px) scale(0.94); }
-          to   { opacity: 1; transform: translateY(0)     scale(1); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        .yt-close {
-          position: absolute;
-          top: 8px;
-          right: 10px;
-          z-index: 2;
-          background: rgba(0, 0, 0, 0.6);
-          border: none;
-          color: #fff;
-          font-size: 22px;
-          line-height: 1;
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          transition: background 0.15s;
-        }
-        .yt-close:hover {
-          background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* 16:9 aspect ratio wrapper — oversize iframe to crop black bars */
-        .yt-frame-wrap {
+        /* Aspect ratio container — padding-bottom animates when video format changes */
+        .yt-wrap {
           position: relative;
           width: 100%;
-          padding-bottom: 56.25%;
           overflow: hidden;
+          transition: padding-bottom 0.35s ease;
         }
 
-        .yt-frame {
+        /* YT API replaces the placeholder div with an iframe inside .yt-wrap */
+        :global(.yt-wrap iframe) {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          border: none !important;
+          display: block !important;
+        }
+
+        /* Intercepts all mouse events — prevents YouTube hover UI (Watch Later, Share, etc.) */
+        .yt-blocker {
           position: absolute;
-          top: -8%;
-          left: -8%;
-          width: 116%;
-          height: 116%;
-          border: none;
-          display: block;
+          inset: 0;
+          z-index: 1;
+          pointer-events: all;
+          cursor: default;
+          background: transparent;
         }
       `}</style>
     </>
