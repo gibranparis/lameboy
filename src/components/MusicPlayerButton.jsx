@@ -67,35 +67,6 @@ export default function MusicPlayerButton({
     setPortalTarget(document.getElementById('yt-panel-anchor'))
   }, [])
 
-  // When player opens: scroll down by its height so stacks stay in view.
-  // When player closes: scroll back up the same amount.
-  useEffect(() => {
-    if (!open || !portalTarget) return
-    const anchor = /** @type {HTMLElement} */ (portalTarget)
-    let playerHeight = 0
-    let compensated = false
-
-    const ro = new ResizeObserver(() => {
-      const h = anchor.getBoundingClientRect().height
-      if (!compensated && h > 0) {
-        playerHeight = h
-        document.documentElement.scrollTop += h
-        compensated = true
-      }
-    })
-    ro.observe(anchor)
-
-    return () => {
-      ro.disconnect()
-      if (compensated && playerHeight > 0) {
-        document.documentElement.scrollTop = Math.max(
-          0,
-          document.documentElement.scrollTop - playerHeight
-        )
-      }
-    }
-  }, [open, portalTarget])
-
   // YouTube IFrame API — waits for portalTarget so placeholder div is in the DOM
   useEffect(() => {
     if (!open || !portalTarget) return
