@@ -3,7 +3,7 @@
 
 export const dynamic = 'force-static'
 
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import nextDynamic from 'next/dynamic'
 import products from '@/lib/products'
 
@@ -252,29 +252,6 @@ export default function Page() {
     return () => window.removeEventListener('checkout:toggle', toggle)
   }, [])
 
-  /* ===================== Fixed shop header measurement ===================== */
-  const shopHeaderRef = useRef(null)
-
-  // Measure the fixed top header (iPod row + player panel) and push main down by that height.
-  // A single ResizeObserver is simpler and more reliable than computing --player-h from JS.
-  useLayoutEffect(() => {
-    const el = shopHeaderRef.current
-    if (!el) return
-    const root = document.documentElement
-    const update = () => {
-      root.style.setProperty('--shop-header-h', `${el.offsetHeight}px`)
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    window.addEventListener('resize', update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', update)
-      root.style.setProperty('--shop-header-h', '0px')
-    }
-  }, [inShop])
-
   // Pre-warm client bundles and preload images while idle
   useEffect(() => {
     const run = () => {
@@ -349,31 +326,36 @@ export default function Page() {
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
-          {/* ── Fixed top header: iPod (left) + heart (right) + player panel below ── */}
+          {/* ── Fixed control row: iPod (left) + heart (right) ── */}
+          {/* Player panel is NOT here — it lives in-flow inside main so items push it up */}
           <div
-            ref={shopHeaderRef}
             style={{
               position: 'fixed',
               top: 0,
               left: 0,
               right: 0,
+              height: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
               zIndex: 9990,
               pointerEvents: 'none',
             }}
           >
-            {/* Control row */}
             <div
               style={{
-                height: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
                 paddingTop: 'var(--safe-top, 0px)',
+                height: '100%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                paddingLeft: 'max(2px, env(safe-area-inset-left))',
                 paddingRight: 'max(var(--header-pad-x, 16px), env(safe-area-inset-right))',
               }}
             >
-              <div style={{ pointerEvents: 'auto' }}>
+              <div style={{
+                pointerEvents: 'auto',
+                width: 'var(--header-ctrl, 64px)',
+                height: 'var(--header-ctrl, 64px)',
+                display: 'grid',
+                placeItems: 'center',
+              }}>
                 <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
               </div>
               {!loaderShow && !checkoutOpen && (
@@ -389,16 +371,24 @@ export default function Page() {
                 </div>
               )}
             </div>
-
-            {/* Player panel portal target — lives inside the measured wrapper */}
-            <div
-              id="yt-panel-anchor"
-              style={{ display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}
-            />
           </div>
 
-          {/* Main content — padded below the fixed header */}
-          <main style={{ paddingTop: 'var(--shop-header-h, 0px)' }}>
+          {/* Main — flex column, justify-content: flex-end pins [player + items] to viewport bottom.
+              As items grow they push the player panel up naturally. No JS needed. */}
+          <main
+            style={{
+              paddingTop: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+              minHeight: '100dvh',
+            }}
+          >
+            {/* Player panel — in-flow, sits directly above ShopGrid */}
+            <div
+              id="yt-panel-anchor"
+              style={{ display: 'flex', justifyContent: 'center' }}
+            />
             <ShopGrid products={products} autoOpenFirstOnMount />
             {!loaderShow && !checkoutOpen && (
               <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />

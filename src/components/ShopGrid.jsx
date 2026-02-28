@@ -255,26 +255,20 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     if (!snap || !snap.size) return
     flipSnapshotRef.current = null
 
-    // Pin scroll to bottom so overflow content clips from the top.
-    // Only happens here (density changes), never on the stacks→grid reveal,
-    // so there's no surprise viewport jump when opening the stack.
-    if (viewMode === VIEW_GRID) {
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight
-      if (maxScroll > 1) {
-        document.documentElement.scrollTop = maxScroll
-      }
-    }
-
     const grid = document.querySelector('[data-component="shop-grid"]')
     if (!grid) return
     const tiles = /** @type {HTMLElement[]} */ (Array.from(grid.querySelectorAll('.product-tile')))
 
+    const vh = window.innerHeight
     const flips = []
     tiles.forEach((tile) => {
       const key = tile.dataset.productId
       const prev = key ? snap.get(key) : null
       if (!prev) return
       const next = tile.getBoundingClientRect()
+      // Skip tiles that are off-screen in the new layout — they'd animate from/to
+      // off-screen positions and create jank without adding visual value.
+      if (next.top > vh || next.top + next.height < 0) return
       const dx = prev.left - next.left
       const dy = prev.top - next.top
       const sx = next.width > 0 ? prev.width / next.width : 1
@@ -615,9 +609,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         ['--grid-cols']: String(cols),
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'flex-end',
         background: 'var(--shop-offwhite, #F7F7F2)',
-        minHeight: '100dvh',
       }}
     >
       <div
