@@ -194,6 +194,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
   /* ---------- FLIP animation: smooth slide on density change ---------- */
   const flipSnapshotRef = useRef(/** @type {Map<string,DOMRect>|null} */ (null))
+  /** When true, the next FLIP should only animate horizontally (no upward bump) */
+  const flipHorizontalOnlyRef = useRef(false)
 
   /** Capture tile positions, then update cols so useLayoutEffect can FLIP */
   const setColsWithFlip = useCallback((/** @type {number|((p:number)=>number)} */ v) => {
@@ -225,6 +227,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       })
       flipSnapshotRef.current = snap
     }
+    flipHorizontalOnlyRef.current = true
     gridRevealedAtRef.current = Date.now()
     setViewMode(VIEW_GRID)
     setCols(MAX_COLS)
@@ -266,6 +269,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     const snap = flipSnapshotRef.current
     if (!snap || !snap.size) return
     flipSnapshotRef.current = null
+    const horizontalOnly = flipHorizontalOnlyRef.current
+    flipHorizontalOnlyRef.current = false
 
     const grid = document.querySelector('[data-component="shop-grid"]')
     if (!grid) return
@@ -278,9 +283,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       if (!prev) return
       const next = tile.getBoundingClientRect()
       const dx = prev.left - next.left
-      // Compensate for scroll: the snapshot was taken before scrollTop changed,
-      // so adjust prev.top to the same reference frame as next.top.
-      const dy = (prev.top - scrollDeltaY) - next.top
+      // For stacks→grid, skip vertical FLIP so tiles don't bump upward.
+      // For density changes, compensate for any scroll adjustment.
+      const dy = horizontalOnly ? 0 : (prev.top - scrollDeltaY) - next.top
       const sx = next.width > 0 ? prev.width / next.width : 1
       const sy = next.height > 0 ? prev.height / next.height : 1
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01) return
