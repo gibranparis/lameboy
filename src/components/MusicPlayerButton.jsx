@@ -204,13 +204,23 @@ export default function MusicPlayerButton({
     }
   }
 
-  // Track panel height → set --player-h on :root so ShopGrid and <main> can respond
+  // Track panel height → set --player-h on :root so ShopGrid and <main> can respond.
+  // --player-h = header-ctrl + video height when open, 0 when closed.
+  // This equals the full viewport y-position of the player's bottom edge.
   useEffect(() => {
     const el = panelRef.current
     if (!el) return
     const root = document.documentElement
     const ro = new ResizeObserver(() => {
-      root.style.setProperty('--player-h', `${el.offsetHeight}px`)
+      const h = el.offsetHeight
+      if (h > 0) {
+        const headerCtrl = parseFloat(
+          getComputedStyle(root).getPropertyValue('--header-ctrl')
+        ) || 64
+        root.style.setProperty('--player-h', `${h + headerCtrl}px`)
+      } else {
+        root.style.setProperty('--player-h', '0px')
+      }
     })
     ro.observe(el)
     return () => {
