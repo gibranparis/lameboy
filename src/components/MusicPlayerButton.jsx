@@ -3,12 +3,10 @@
 'use client'
 
 import Image from 'next/image'
+import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
 
 /**
- * iPod-style music player button — top-left of the shop view.
- * Click opens an embedded YouTube playlist player at the top of the page.
- *
  * @param {{ playlistId?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
  */
 export default function MusicPlayerButton({
@@ -18,40 +16,55 @@ export default function MusicPlayerButton({
   nightImgSrc = '/music/ipod classic night.png',
 }) {
   const [open, setOpen] = useState(false)
+  const [playing, setPlaying] = useState(false)
   const [theme, setTheme] = useState('day')
-  // aspect ratio as padding-bottom % (56.25 = 16:9, 75 = 4:3, etc.)
   const [aspectPb, setAspectPb] = useState(56.25)
+  // True when checkout/overlay is open — hide video but keep audio
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  // Set after first commit so portal finds #yt-panel-anchor in DOM
+  const [portalTarget, setPortalTarget] = useState(/** @type {Element|null} */ (null))
 
-  // Stable player container ID across renders
   const playerIdRef = useRef(/** @type {string} */ (''))
   if (!playerIdRef.current) playerIdRef.current = `yt${Math.floor(Math.random() * 1e9)}`
   const ytPlayerRef = useRef(/** @type {any} */ (null))
+  const clickTimerRef = useRef(/** @type {ReturnType<typeof setTimeout>|null} */ (null))
 
-  // Sync with the day/night toggle
+  // Theme sync
   useEffect(() => {
     setTheme(document.documentElement.dataset.theme === 'night' ? 'night' : 'day')
-    const onThemeChange = (/** @type {any} */ e) => {
-      setTheme(e.detail?.theme === 'night' ? 'night' : 'day')
-    }
-    document.addEventListener('theme-change', onThemeChange)
-    return () => document.removeEventListener('theme-change', onThemeChange)
+    const onChange = (/** @type {any} */ e) => setTheme(e.detail?.theme === 'night' ? 'night' : 'day')
+    document.addEventListener('theme-change', onChange)
+    return () => document.removeEventListener('theme-change', onChange)
   }, [])
 
-  // Close on Escape
+  // Escape closes player
   useEffect(() => {
     if (!open) return
-    const onKey = (/** @type {KeyboardEvent} */ e) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
+    const onKey = (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Escape') setOpen(false) }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  // YouTube IFrame API — init player and auto-detect each video's aspect ratio
+  // Watch for checkout — hide panel visually but keep audio running
   useEffect(() => {
-    if (!open) return
+    const obs = new MutationObserver(() => {
+      setOverlayOpen(document.documentElement.hasAttribute('data-checkout-open'))
+    })
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-checkout-open'] })
+    return () => obs.disconnect()
+  }, [])
 
-    // Fetch oEmbed to get actual width/height of the current video
+  // Grab portal anchor after commit (#yt-panel-anchor is in DOM once inShop=true)
+  useEffect(() => {
+    if (open && !portalTarget) {
+      setPortalTarget(document.getElementById('yt-panel-anchor'))
+    }
+  }, [open, portalTarget])
+
+  // YouTube IFrame API — waits for portalTarget so placeholder div is in the DOM
+  useEffect(() => {
+    if (!open || !portalTarget) return
+
     const fetchAspectRatio = async (/** @type {string} */ videoId) => {
       if (!videoId) return
       try {
@@ -64,11 +77,11 @@ export default function MusicPlayerButton({
     }
 
     let player = /** @type {any} */ (null)
-
+    let active = true
     const win = /** @type {any} */ (window)
 
     const initPlayer = () => {
-      if (!document.getElementById(playerIdRef.current) || !win.YT?.Player) return
+      if (!active || !document.getElementById(playerIdRef.current) || !win.YT?.Player) return
 
       player = new win.YT.Player(playerIdRef.current, {
         playerVars: {
@@ -86,16 +99,18 @@ export default function MusicPlayerButton({
         },
         events: {
           onReady: (/** @type {any} */ e) => {
-            // Explicitly start playback — autoplay param alone isn't reliable
             e.target.playVideo()
             const data = e.target.getVideoData()
             if (data?.video_id) fetchAspectRatio(data.video_id)
           },
           onStateChange: (/** @type {any} */ e) => {
-            // PLAYING = 1 — detect format whenever a new video starts
-            if (e.data === win.YT?.PlayerState?.PLAYING) {
+            const S = win.YT?.PlayerState
+            if (e.data === S?.PLAYING) {
+              setPlaying(true)
               const data = e.target.getVideoData()
               if (data?.video_id) fetchAspectRatio(data.video_id)
+            } else if (e.data === S?.PAUSED || e.data === S?.ENDED) {
+              setPlaying(false)
             }
           },
         },
@@ -106,9 +121,9 @@ export default function MusicPlayerButton({
     if (win.YT?.Player) {
       initPlayer()
     } else {
-      // Chain onto any existing callback so we don't clobber other listeners
       const prev = win.onYouTubeIframeAPIReady
       win.onYouTubeIframeAPIReady = () => {
+        if (!active) return
         if (typeof prev === 'function') prev()
         initPlayer()
       }
@@ -120,20 +135,60 @@ export default function MusicPlayerButton({
     }
 
     return () => {
+      active = false
       if (player) { try { player.destroy() } catch {} }
       ytPlayerRef.current = null
+      setPlaying(false)
     }
-  }, [open, playlistId])
+  }, [open, playlistId, portalTarget])
+
+  // Single click: open → play | playing → pause | paused → resume
+  const handleClick = () => {
+    if (clickTimerRef.current) return // double-click pending — ignore
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null
+      if (!open) {
+        setOpen(true)
+      } else if (playing) {
+        ytPlayerRef.current?.pauseVideo()
+      } else {
+        ytPlayerRef.current?.playVideo()
+      }
+    }, 220)
+  }
+
+  // Double-click: skip to next video
+  const handleDoubleClick = () => {
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current)
+      clickTimerRef.current = null
+    }
+    if (ytPlayerRef.current) {
+      ytPlayerRef.current.nextVideo()
+    } else {
+      setOpen(true)
+    }
+  }
+
+  const panel = (
+    <div className={`yt-panel${overlayOpen ? ' yt-panel--hidden' : ''}`}>
+      <div className="yt-wrap" style={{ paddingBottom: `${aspectPb}%` }}>
+        {/* YT API replaces this div with an iframe */}
+        <div id={playerIdRef.current} />
+        {/* Blocks YouTube hover popups (Watch Later, Share, etc.) */}
+        <div className="yt-blocker" />
+      </div>
+    </div>
+  )
 
   return (
     <>
-      {/* iPod button */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={open ? 'Close music player' : 'Open music player'}
-        title={open ? 'Close' : 'Play'}
-        data-playing={open ? '1' : '0'}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        aria-label={!open ? 'Open music player' : playing ? 'Pause music' : 'Resume music'}
+        data-playing={playing ? '1' : '0'}
         className="ipod-btn"
         style={{
           background: 'none',
@@ -148,7 +203,7 @@ export default function MusicPlayerButton({
       >
         <Image
           src={theme === 'night' ? nightImgSrc : dayImgSrc}
-          alt={open ? 'Now playing' : 'Play music'}
+          alt={playing ? 'Now playing' : 'Play music'}
           width={size}
           height={Math.round(size * 1.22)}
           style={{
@@ -161,42 +216,15 @@ export default function MusicPlayerButton({
         />
       </button>
 
-      {/* YouTube player panel — fixed, centered at top of page */}
-      {open && (
-        <div
-          className="yt-overlay"
-          onClick={(/** @type {any} */ e) => { if (e.target === e.currentTarget) setOpen(false) }}
-        >
-          <div className="yt-panel">
-            {/*
-              yt-wrap: padding-bottom trick for aspect ratio.
-              Transitions smoothly when aspectPb changes (e.g. 4:3 ↔ 16:9).
-              YT API replaces #playerIdRef div with an <iframe>, which ends up
-              as a direct child of yt-wrap → targeted via :global(.yt-wrap iframe).
-            */}
-            <div className="yt-wrap" style={{ paddingBottom: `${aspectPb}%` }}>
-              <div id={playerIdRef.current} />
-              {/* Transparent blocker — sits on top of the iframe, intercepts
-                  mouse events so YouTube never shows Watch Later / Share overlays */}
-              <div className="yt-blocker" />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Portal into #yt-panel-anchor (inside <main>) so player is in document flow */}
+      {open && portalTarget && createPortal(panel, portalTarget)}
 
+      {/* Scoped — iPod button only */}
       <style jsx>{`
-        .ipod-btn {
-          transition: transform 0.1s ease;
-        }
-        .ipod-btn:hover {
-          transform: scale(1.06) translateY(-1px);
-        }
-        .ipod-btn:active {
-          transform: scale(0.97);
-        }
-        .ipod-btn[data-playing='1'] {
-          animation: ipod-float 2.4s ease-in-out infinite;
-        }
+        .ipod-btn { transition: transform 0.1s ease; }
+        .ipod-btn:hover { transform: scale(1.06) translateY(-1px); }
+        .ipod-btn:active { transform: scale(0.97); }
+        .ipod-btn[data-playing='1'] { animation: ipod-float 2.4s ease-in-out infinite; }
         .ipod-btn[data-playing='1']:hover {
           animation-play-state: paused;
           transform: scale(1.06) translateY(-2px);
@@ -218,41 +246,33 @@ export default function MusicPlayerButton({
         @media (prefers-reduced-motion: reduce) {
           .ipod-btn[data-playing='1'] { animation: none !important; }
         }
+      `}</style>
 
-        /* ---- YouTube overlay ---- */
-        .yt-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 19999;
-          display: flex;
-          justify-content: center;
-          align-items: flex-start;
-          padding-top: calc(var(--header-ctrl, 64px) + 12px);
-          pointer-events: none;
-        }
-
-        .yt-panel {
-          pointer-events: all;
-          width: min(480px, calc(100vw - 24px));
-          background: #000;
-          animation: yt-drop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-        }
-
+      {/* Global — panel lives outside component tree via portal */}
+      <style jsx global>{`
         @keyframes yt-drop {
-          from { opacity: 0; transform: translateY(-18px) scale(0.94); }
+          from { opacity: 0; transform: translateY(-10px) scale(0.97); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-
-        /* Aspect ratio container — padding-bottom animates when video format changes */
+        .yt-panel {
+          width: min(480px, 100vw);
+          background: #000;
+          pointer-events: all;
+          animation: yt-drop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+          transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        .yt-panel--hidden {
+          opacity: 0;
+          visibility: hidden;
+          pointer-events: none !important;
+        }
         .yt-wrap {
           position: relative;
           width: 100%;
           overflow: hidden;
           transition: padding-bottom 0.35s ease;
         }
-
-        /* YT API replaces the placeholder div with an iframe inside .yt-wrap */
-        :global(.yt-wrap iframe) {
+        .yt-wrap iframe {
           position: absolute !important;
           inset: 0 !important;
           width: 100% !important;
@@ -260,15 +280,12 @@ export default function MusicPlayerButton({
           border: none !important;
           display: block !important;
         }
-
-        /* Intercepts all mouse events — prevents YouTube hover UI (Watch Later, Share, etc.) */
         .yt-blocker {
           position: absolute;
           inset: 0;
           z-index: 1;
           pointer-events: all;
           cursor: default;
-          background: transparent;
         }
       `}</style>
     </>

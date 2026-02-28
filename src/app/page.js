@@ -327,6 +327,19 @@ export default function Page() {
           <HeaderBar ctrlPx={ctrlPx} />
 
           <main>
+            {/* Sticky anchor for the YouTube player panel — portaled here from MusicPlayerButton.
+                Empty (height 0) when closed; gains height when player opens, pushing grid down. */}
+            <div
+              id="yt-panel-anchor"
+              style={{
+                position: 'sticky',
+                top: 'var(--header-ctrl, 64px)',
+                zIndex: 9998,
+                display: 'flex',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+              }}
+            />
             <ShopGrid products={products} autoOpenFirstOnMount />
             {!loaderShow && !checkoutOpen && (
               <>
