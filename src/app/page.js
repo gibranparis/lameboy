@@ -3,7 +3,7 @@
 
 export const dynamic = 'force-static'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import nextDynamic from 'next/dynamic'
 import products from '@/lib/products'
 
@@ -252,6 +252,29 @@ export default function Page() {
     return () => window.removeEventListener('checkout:toggle', toggle)
   }, [])
 
+  /* ===================== Fixed shop header measurement ===================== */
+  const shopHeaderRef = useRef(null)
+
+  // Measure the fixed top header (iPod row + player panel) and push main down by that height.
+  // A single ResizeObserver is simpler and more reliable than computing --player-h from JS.
+  useLayoutEffect(() => {
+    const el = shopHeaderRef.current
+    if (!el) return
+    const root = document.documentElement
+    const update = () => {
+      root.style.setProperty('--shop-header-h', `${el.offsetHeight}px`)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener('resize', update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', update)
+      root.style.setProperty('--shop-header-h', '0px')
+    }
+  }, [inShop])
+
   // Pre-warm client bundles and preload images while idle
   useEffect(() => {
     const run = () => {
@@ -326,56 +349,63 @@ export default function Page() {
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
-          <main style={{ paddingTop: 'var(--player-h, 0px)' }}>
-            {/* Fixed anchor for the YouTube player panel — portaled here from MusicPlayerButton.
-                Fixed so it floats in the empty space above items without pushing them. */}
+          {/* ── Fixed top header: iPod (left) + heart (right) + player panel below ── */}
+          <div
+            ref={shopHeaderRef}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 9990,
+              pointerEvents: 'none',
+            }}
+          >
+            {/* Control row */}
+            <div
+              style={{
+                height: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
+                paddingTop: 'var(--safe-top, 0px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingLeft: 'max(2px, env(safe-area-inset-left))',
+                paddingRight: 'max(var(--header-pad-x, 16px), env(safe-area-inset-right))',
+              }}
+            >
+              <div style={{ pointerEvents: 'auto' }}>
+                <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
+              </div>
+              {!loaderShow && !checkoutOpen && (
+                <div style={{ pointerEvents: 'auto' }}>
+                  <HeartBeatButton
+                    className="heart-submit"
+                    style={{ position: 'relative', top: 'auto', right: 'auto', contain: 'none' }}
+                    aria-label="Newsletter signup"
+                    title="submit"
+                    mode="heart"
+                    onClick={() => setNewsletterOpen((v) => !v)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Player panel portal target — lives inside the measured wrapper */}
             <div
               id="yt-panel-anchor"
-              style={{
-                position: 'fixed',
-                top: 'var(--header-ctrl, 64px)',
-                left: 0,
-                right: 0,
-                display: 'flex',
-                justifyContent: 'center',
-                zIndex: 9990,
-                pointerEvents: 'none',
-              }}
+              style={{ display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}
             />
+          </div>
+
+          {/* Main content — padded below the fixed header */}
+          <main style={{ paddingTop: 'var(--shop-header-h, 0px)' }}>
             <ShopGrid products={products} autoOpenFirstOnMount />
             {!loaderShow && !checkoutOpen && (
-              <>
-                <HeartBeatButton
-                  className="heart-submit"
-                  aria-label="Newsletter signup"
-                  title="submit"
-                  mode="heart"
-                  onClick={() => setNewsletterOpen((v) => !v)}
-                />
-                <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
-              </>
+              <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
             )}
           </main>
 
         </>
-      )}
-
-      {/* Music player — top-left, mirrors cart button position */}
-      {inShop && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 'calc(var(--safe-top, 0px) + 4px)',
-            left: 'max(2px, env(safe-area-inset-left))',
-            height: 'var(--header-ctrl, 64px)',
-            width: 'var(--header-ctrl, 64px)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 9999,
-          }}
-        >
-          <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
-        </div>
       )}
 
       {/* Cart button — independent of header so it stays above checkout */}

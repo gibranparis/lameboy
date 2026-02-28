@@ -258,13 +258,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     // Pin scroll to bottom so overflow content clips from the top.
     // Only happens here (density changes), never on the stacks→grid reveal,
     // so there's no surprise viewport jump when opening the stack.
-    let scrollDeltaY = 0
     if (viewMode === VIEW_GRID) {
-      const scrollTopBefore = document.documentElement.scrollTop
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight
       if (maxScroll > 1) {
         document.documentElement.scrollTop = maxScroll
-        scrollDeltaY = document.documentElement.scrollTop - scrollTopBefore
       }
     }
 
@@ -279,7 +276,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       if (!prev) return
       const next = tile.getBoundingClientRect()
       const dx = prev.left - next.left
-      const dy = (prev.top - scrollDeltaY) - next.top
+      const dy = prev.top - next.top
       const sx = next.width > 0 ? prev.width / next.width : 1
       const sy = next.height > 0 ? prev.height / next.height : 1
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01) return
@@ -620,7 +617,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         flexDirection: 'column',
         justifyContent: 'flex-end',
         background: 'var(--shop-offwhite, #F7F7F2)',
-        minHeight: 'var(--shop-min-h, 100dvh)',
+        minHeight: '100dvh',
       }}
     >
       <div

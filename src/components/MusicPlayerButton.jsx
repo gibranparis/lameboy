@@ -204,43 +204,6 @@ export default function MusicPlayerButton({
     }
   }
 
-  // Track panel height → set --player-h and --shop-min-h on :root.
-  // --player-h  = total reserved height (header + video) when open, 0 when closed.
-  // --shop-min-h = concrete pixel min-height for ShopGrid so items stay below the player.
-  // Must depend on portalTarget: useEffect([]) runs before portalTarget state is set,
-  // so panelRef.current would be null and the ResizeObserver would never attach.
-  useEffect(() => {
-    const el = panelRef.current
-    if (!el) return
-    const root = document.documentElement
-
-    const update = () => {
-      const h = el.offsetHeight
-      if (h > 0) {
-        const headerCtrl = parseFloat(getComputedStyle(root).getPropertyValue('--header-ctrl')) || 64
-        const playerFull = h + headerCtrl
-        root.style.setProperty('--player-h', `${playerFull}px`)
-        // Use a concrete px value — avoids calc() rounding that can trigger ShopGrid's
-        // scroll-to-bottom during FLIP and cause a flash at large tile sizes.
-        root.style.setProperty('--shop-min-h', `${Math.max(0, document.documentElement.clientHeight - playerFull)}px`)
-      } else {
-        root.style.setProperty('--player-h', '0px')
-        root.style.setProperty('--shop-min-h', '100dvh')
-      }
-    }
-
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    window.addEventListener('resize', update)
-
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', update)
-      root.style.setProperty('--player-h', '0px')
-      root.style.setProperty('--shop-min-h', '100dvh')
-    }
-  }, [portalTarget]) // re-run once portalTarget is set so panelRef.current is live
-
   // Tapping the video area pauses/resumes — user gesture, works on mobile
   const handleBlockerClick = () => {
     if (!ytPlayerRef.current) return
