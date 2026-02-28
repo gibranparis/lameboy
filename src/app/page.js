@@ -331,14 +331,7 @@ export default function Page() {
                 Empty (height 0) when closed; gains height when player opens, pushing grid down. */}
             <div
               id="yt-panel-anchor"
-              style={{
-                position: 'sticky',
-                top: 'var(--header-ctrl, 64px)',
-                zIndex: 9998,
-                display: 'flex',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-              }}
+              style={{ display: 'flex', justifyContent: 'center' }}
             />
             <ShopGrid products={products} autoOpenFirstOnMount />
             {!loaderShow && !checkoutOpen && (

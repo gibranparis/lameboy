@@ -4,7 +4,7 @@
 
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 /**
  * @param {{ playlistId?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
@@ -54,10 +54,37 @@ export default function MusicPlayerButton({
     return () => obs.disconnect()
   }, [])
 
-  // Grab portal anchor after commit (#yt-panel-anchor is in DOM once inShop=true)
+  // Grab portal anchor synchronously on mount — both elements are committed together
+  useLayoutEffect(() => {
+    setPortalTarget(document.getElementById('yt-panel-anchor'))
+  }, [])
+
+  // When player opens: scroll down by its height so stacks stay in view.
+  // When player closes: scroll back up the same amount.
   useEffect(() => {
-    if (open && !portalTarget) {
-      setPortalTarget(document.getElementById('yt-panel-anchor'))
+    if (!open || !portalTarget) return
+    const anchor = /** @type {HTMLElement} */ (portalTarget)
+    let playerHeight = 0
+    let compensated = false
+
+    const ro = new ResizeObserver(() => {
+      const h = anchor.getBoundingClientRect().height
+      if (!compensated && h > 0) {
+        playerHeight = h
+        document.documentElement.scrollTop += h
+        compensated = true
+      }
+    })
+    ro.observe(anchor)
+
+    return () => {
+      ro.disconnect()
+      if (compensated && playerHeight > 0) {
+        document.documentElement.scrollTop = Math.max(
+          0,
+          document.documentElement.scrollTop - playerHeight
+        )
+      }
     }
   }, [open, portalTarget])
 
