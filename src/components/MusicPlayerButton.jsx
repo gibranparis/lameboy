@@ -45,12 +45,20 @@ export default function MusicPlayerButton({
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  // Watch for checkout — hide panel visually but keep audio running
+  // Watch for checkout OR product overlay — hide panel visually but keep audio running
   useEffect(() => {
-    const obs = new MutationObserver(() => {
-      setOverlayOpen(document.documentElement.hasAttribute('data-checkout-open'))
+    const check = () => {
+      const html = document.documentElement
+      setOverlayOpen(
+        html.hasAttribute('data-checkout-open') ||
+        html.hasAttribute('data-overlay-open')
+      )
+    }
+    const obs = new MutationObserver(check)
+    obs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-checkout-open', 'data-overlay-open'],
     })
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-checkout-open'] })
     return () => obs.disconnect()
   }, [])
 
