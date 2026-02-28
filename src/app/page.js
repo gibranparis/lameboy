@@ -326,7 +326,7 @@ export default function Page() {
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
-          <main style={{ paddingTop: 'var(--header-ctrl, 64px)' }}>
+          <main>
             {/* Anchor for the YouTube player panel — portaled here from MusicPlayerButton.
                 In document flow so grid sits below when player is open. */}
             <div
