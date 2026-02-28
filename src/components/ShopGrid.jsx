@@ -283,11 +283,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       if (!prev) return
       const next = tile.getBoundingClientRect()
       const dx = prev.left - next.left
-      // For stacks→grid, skip vertical FLIP so tiles don't bump upward.
-      // For density changes, compensate for any scroll adjustment.
+      // For stacks→grid: only slide horizontally — no vertical movement or scale.
+      // Scale with top-left origin causes a vertical nudge even when dy=0.
+      // For density changes: full FLIP with scroll compensation.
       const dy = horizontalOnly ? 0 : (prev.top - scrollDeltaY) - next.top
-      const sx = next.width > 0 ? prev.width / next.width : 1
-      const sy = next.height > 0 ? prev.height / next.height : 1
+      const sx = horizontalOnly ? 1 : (next.width > 0 ? prev.width / next.width : 1)
+      const sy = horizontalOnly ? 1 : (next.height > 0 ? prev.height / next.height : 1)
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01) return
       flips.push({ tile, dx, dy, sx, sy })
     })
