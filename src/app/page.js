@@ -399,7 +399,7 @@ export default function Page() {
               style={{ display: 'flex', justifyContent: 'center' }}
             />
             {/* Spacer — shrinks as grid grows, keeping grid pinned to the bottom */}
-            <div style={{ flex: 1 }} />
+            <div style={{ flex: 1, pointerEvents: 'none' }} />
             <ShopGrid products={products} autoOpenFirstOnMount />
             {!loaderShow && (
               <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
