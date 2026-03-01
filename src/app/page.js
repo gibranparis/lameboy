@@ -358,7 +358,7 @@ export default function Page() {
               }}>
                 <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
               </div>
-              {!loaderShow && !checkoutOpen && (
+              {!loaderShow && (
                 <div style={{ pointerEvents: 'auto' }}>
                   <HeartBeatButton
                     className="heart-submit"
@@ -390,7 +390,7 @@ export default function Page() {
               style={{ display: 'flex', justifyContent: 'center' }}
             />
             <ShopGrid products={products} autoOpenFirstOnMount />
-            {!loaderShow && !checkoutOpen && (
+            {!loaderShow && (
               <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
             )}
           </main>

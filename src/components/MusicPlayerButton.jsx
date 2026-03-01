@@ -117,12 +117,19 @@ export default function MusicPlayerButton({
         events: {
           onReady: (/** @type {any} */ e) => {
             ytPlayerRef.current = player
+            // Pick a random starting track so each page load begins on a different song
+            const list = e.target.getPlaylist()
+            const randomIdx = (list && list.length > 1)
+              ? Math.floor(Math.random() * list.length)
+              : 0
             // If the user clicked before the player was ready, honour that intent.
             // Note: on iOS this async path may still be blocked — the synchronous
             // path in handleClick is the reliable one.
             if (pendingPlayRef.current) {
               pendingPlayRef.current = false
-              e.target.playVideo()
+              e.target.playVideoAt(randomIdx)
+            } else if (randomIdx > 0) {
+              e.target.cuePlaylist({ list: playlistId, listType: 'playlist', index: randomIdx })
             }
             const data = e.target.getVideoData()
             if (data?.video_id) fetchAspectRatio(data.video_id)
