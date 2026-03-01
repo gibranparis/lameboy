@@ -398,12 +398,14 @@ export default function Page() {
               id="yt-panel-anchor"
               style={{ display: 'flex', justifyContent: 'center' }}
             />
-            {/* Spacer — shrinks as grid grows, keeping grid pinned to the bottom */}
-            <div style={{ flex: 1, pointerEvents: 'none' }} />
-            <ShopGrid products={products} autoOpenFirstOnMount />
-            {!loaderShow && (
-              <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
-            )}
+            {/* marginTop:auto pushes grid to bottom — no DOM element in the dead zone,
+                so iOS touches in that gap pass directly to <main> with no interference */}
+            <div style={{ marginTop: 'auto' }}>
+              <ShopGrid products={products} autoOpenFirstOnMount />
+              {!loaderShow && (
+                <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
+              )}
+            </div>
           </main>
 
         </>

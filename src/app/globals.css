@@ -198,6 +198,11 @@ html[data-loader-active] {
   color: #000 !important;
 }
 
+/* Prevent iOS rubber-band bounce in the dead zone between player and grid */
+:root[data-mode='shop'] {
+  overscroll-behavior: none;
+}
+
 /* Shop tokens */
 :root[data-mode='shop'][data-theme='day'] {
   --bg: var(--shop-offwhite);
