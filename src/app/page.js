@@ -383,22 +383,23 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Main — flex column, justify-content: flex-end pins [player + items] to viewport bottom.
-              As items grow they push the player panel up naturally. No JS needed. */}
+          {/* Main — flex column. Player anchor at top, spacer pushes grid to bottom.
+              As items grow, spacer shrinks and grid fills upward. No overlap with player. */}
           <main
             style={{
               paddingTop: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'flex-end',
               minHeight: '100dvh',
             }}
           >
-            {/* Player panel — in-flow, sits directly above ShopGrid */}
+            {/* Player panel — in-flow, sits just below the header buttons */}
             <div
               id="yt-panel-anchor"
               style={{ display: 'flex', justifyContent: 'center' }}
             />
+            {/* Spacer — shrinks as grid grows, keeping grid pinned to the bottom */}
+            <div style={{ flex: 1 }} />
             <ShopGrid products={products} autoOpenFirstOnMount />
             {!loaderShow && (
               <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
