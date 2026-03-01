@@ -217,6 +217,16 @@ export default function Page() {
     return () => clearTimeout(timer)
   }, [sequenceActive, gateStep, inGate, triggerProceed])
 
+  // Enter key on the gate triggers the same sequence as clicking the orb
+  useEffect(() => {
+    if (!inGate) return
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
+      if (e.key === 'Enter') advanceGate()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [inGate, advanceGate])
+
   // cleanup any pending timer if component unmounts
   useEffect(() => {
     return () => {
