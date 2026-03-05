@@ -336,8 +336,22 @@ export default function Page() {
         <>
           <HeaderBar ctrlPx={ctrlPx} />
 
+          {/* Player panel anchor — fixed just below the header buttons */}
+          <div
+            id="yt-panel-anchor"
+            style={{
+              position: 'fixed',
+              top: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
+              left: 0,
+              right: 0,
+              zIndex: 9980,
+              display: 'flex',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+            }}
+          />
+
           {/* ── Fixed control row: iPod (left) + heart (right) ── */}
-          {/* Player panel is NOT here — it lives in-flow inside main so items push it up */}
           <div
             style={{
               position: 'fixed',
@@ -383,8 +397,7 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Main — flex column. Player anchor at top, spacer pushes grid to bottom.
-              As items grow, spacer shrinks and grid fills upward. No overlap with player. */}
+          {/* Main — flex column. Spacer pushes grid to bottom. */}
           <main
             style={{
               paddingTop: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
@@ -393,11 +406,6 @@ export default function Page() {
               minHeight: '100dvh',
             }}
           >
-            {/* Player panel — in-flow, sits just below the header buttons */}
-            <div
-              id="yt-panel-anchor"
-              style={{ display: 'flex', justifyContent: 'center' }}
-            />
             {/* marginTop:auto pushes grid to bottom — no DOM element in the dead zone,
                 so iOS touches in that gap pass directly to <main> with no interference */}
             <div style={{ marginTop: 'auto' }}>
