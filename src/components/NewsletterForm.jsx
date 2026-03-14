@@ -231,6 +231,8 @@ export default function NewsletterForm({ open, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    // Blur submit button before it's removed from DOM to prevent focus drifting to heart button
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     // TODO: wire to actual newsletter API
     setSubmitted(true)
     setTimeout(() => {
@@ -418,6 +420,7 @@ export default function NewsletterForm({ open, onClose }) {
           background: #ff69b4;
           color: #fff;
           border: none;
+          outline: none;
           border-radius: 8px;
           font-size: 13px;
           font-weight: 700;
@@ -426,6 +429,7 @@ export default function NewsletterForm({ open, onClose }) {
           cursor: pointer;
           transition: opacity 0.15s ease, background 0.15s ease;
           font-family: inherit;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .nl-submit:hover {
