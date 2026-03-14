@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react'
 import DayNightToggle from '@/components/DayNightToggle'
-export default function HeaderBar({ ctrlPx }) {
+export default function HeaderBar({ ctrlPx, shopReady = true }) {
   const headerPx = useMemo(() => {
     const n = Number(ctrlPx)
     return Number.isFinite(n) && n > 0 ? n : 64
@@ -33,6 +33,13 @@ export default function HeaderBar({ ctrlPx }) {
         background: 'transparent',
         overflow: 'visible',
         pointerEvents: 'auto',
+        // Reveal: DayNightToggle slides in from center-right to bottom-left
+        opacity: shopReady ? 1 : 0,
+        transform: shopReady
+          ? 'none'
+          : 'translate(calc(50vw - var(--header-pad-x, 16px) - var(--header-ctrl, 64px) / 2), calc(-50vh + var(--header-ctrl, 64px) / 2))',
+        transition: 'transform 0.6s cubic-bezier(0.2,0.9,0.2,1), opacity 0.5s ease',
+        transitionDelay: shopReady ? '0s' : '0s',
       }}
     >
       <div className="flex items-center" style={{ lineHeight: 0, pointerEvents: 'auto' }}>

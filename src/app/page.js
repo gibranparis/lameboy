@@ -234,6 +234,24 @@ export default function Page() {
     }
   }, [])
 
+  /* ===================== Shop reveal animation ===================== */
+
+  // All UI items start at screen center (where the orb was) and fly to their positions
+  // after the orb finishes its transition (600ms) once the loader hides
+  const [shopReady, setShopReady] = useState(false)
+
+  useEffect(() => {
+    if (!inShop || loaderShow) {
+      setShopReady(false)
+      return
+    }
+    // fire as soon as loader hides — orb is the hero at screen center, everything bursts from there
+    const t = setTimeout(() => setShopReady(true), 80)
+    return () => clearTimeout(t)
+  }, [inShop, loaderShow])
+
+  const REVEAL_T = 'transform 0.6s cubic-bezier(0.2,0.9,0.2,1), opacity 0.5s ease'
+
   /* ===================== Checkout side panel ===================== */
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [newsletterOpen, setNewsletterOpen] = useState(false)
@@ -334,7 +352,7 @@ export default function Page() {
       {/* Shop */}
       {inShop && (
         <>
-          <HeaderBar ctrlPx={ctrlPx} />
+          <HeaderBar ctrlPx={ctrlPx} shopReady={shopReady} />
 
           {/* Player panel anchor — fixed just below the header buttons */}
           <div
@@ -361,6 +379,13 @@ export default function Page() {
               height: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
               zIndex: 9990,
               pointerEvents: 'none',
+              // Reveal: top row flies up from center
+              opacity: shopReady ? 1 : 0,
+              transform: shopReady
+                ? 'none'
+                : 'translateY(calc(50vh - var(--header-ctrl, 64px) / 2))',
+              transition: REVEAL_T,
+              transitionDelay: shopReady ? '0.12s' : '0s',
             }}
           >
             <div
@@ -404,6 +429,11 @@ export default function Page() {
               display: 'flex',
               flexDirection: 'column',
               minHeight: '100dvh',
+              // Reveal: product grid scales up from center
+              opacity: shopReady ? 1 : 0,
+              transform: shopReady ? 'none' : 'scale(0.94) translateY(20px)',
+              transition: REVEAL_T,
+              transitionDelay: shopReady ? '0.22s' : '0s',
             }}
           >
             {/* marginTop:auto pushes grid to bottom — no DOM element in the dead zone,
@@ -432,6 +462,13 @@ export default function Page() {
             display: 'grid',
             placeItems: 'center',
             zIndex: 9999,
+            // Reveal: cart slides in from center-left to bottom-right
+            opacity: shopReady ? 1 : 0,
+            transform: shopReady
+              ? 'none'
+              : 'translate(calc(-50vw + var(--header-ctrl, 64px) / 2 + var(--header-pad-x, 16px)), calc(-50vh + var(--header-ctrl, 64px) / 2))',
+            transition: REVEAL_T,
+            transitionDelay: shopReady ? '0.05s' : '0s',
           }}
         >
           <CartButton
