@@ -392,12 +392,13 @@ export default function Page() {
               style={{
                 paddingTop: 'var(--safe-top, 0px)',
                 height: '100%',
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: '1fr auto 1fr',
                 alignItems: 'center',
-                justifyContent: 'space-between',
                 paddingRight: 'max(var(--header-pad-x, 16px), env(safe-area-inset-right))',
               }}
             >
+              {/* Left: iPod / music player */}
               <div style={{
                 pointerEvents: 'auto',
                 width: 'var(--header-ctrl, 64px)',
@@ -407,18 +408,55 @@ export default function Page() {
               }}>
                 <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
               </div>
-              {!loaderShow && (
-                <div style={{ pointerEvents: 'auto' }}>
-                  <HeartBeatButton
-                    className="heart-submit"
-                    style={{ position: 'relative', top: 'auto', right: 'auto', contain: 'none' }}
-                    aria-label="Newsletter signup"
-                    title="submit"
-                    mode="heart"
-                    onClick={() => setNewsletterOpen((v) => !v)}
-                  />
-                </div>
-              )}
+
+              {/* Center: LAME logo reset button */}
+              <button
+                aria-label="Reset"
+                onClick={() => {
+                  window.dispatchEvent(new Event('lb:reset'))
+                  setNewsletterOpen(false)
+                  window.dispatchEvent(new Event('checkout:request-close'))
+                  setCheckoutOpen(false)
+                }}
+                style={{
+                  pointerEvents: 'auto',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  display: 'grid',
+                  placeItems: 'center',
+                  opacity: 1,
+                  transition: 'transform 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'none' }}
+              >
+                <img
+                  src="/Blue hand-drawn symbol with _LAME_.png"
+                  alt="LAME"
+                  width={38}
+                  height={38}
+                  style={{ objectFit: 'contain', display: 'block' }}
+                  draggable={false}
+                />
+              </button>
+
+              {/* Right: heart / newsletter */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {!loaderShow && (
+                  <div style={{ pointerEvents: 'auto' }}>
+                    <HeartBeatButton
+                      className="heart-submit"
+                      style={{ position: 'relative', top: 'auto', right: 'auto', contain: 'none' }}
+                      aria-label="Newsletter signup"
+                      title="submit"
+                      mode="heart"
+                      onClick={() => setNewsletterOpen((v) => !v)}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

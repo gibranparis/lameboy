@@ -54,6 +54,16 @@ export default function MusicPlayerButton({
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
+  // lb:reset closes player + pauses
+  useEffect(() => {
+    const onReset = () => {
+      setOpen(false)
+      ytPlayerRef.current?.pauseVideo()
+    }
+    window.addEventListener('lb:reset', onReset)
+    return () => window.removeEventListener('lb:reset', onReset)
+  }, [])
+
   // Watch for product overlay — hide panel visually but keep audio running.
   // Checkout open is intentionally excluded: let the panel fade naturally with the backdrop.
   useEffect(() => {

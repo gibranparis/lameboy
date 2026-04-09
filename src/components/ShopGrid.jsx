@@ -420,6 +420,16 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     }
   }, [overlayIdx, setColsWithFlip, viewMode, cols, revealGrid, collapseToStacks])
 
+  /* ---------------- Reset: collapse to stacks + close overlay ---------------- */
+  useEffect(() => {
+    const onReset = () => {
+      close()
+      if (viewMode !== VIEW_STACKS) collapseToStacks()
+    }
+    window.addEventListener('lb:reset', onReset)
+    return () => window.removeEventListener('lb:reset', onReset)
+  }, [close, collapseToStacks, viewMode])
+
   /* ---------------- Signal "shop ready" (redundant safety) ---------------- */
   const readySent = useRef(false)
   const sendReady = useCallback(() => {
