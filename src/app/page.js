@@ -440,7 +440,11 @@ export default function Page() {
                   alt="LAME"
                   width={38}
                   height={38}
-                  style={{ objectFit: 'contain', display: 'block' }}
+                  style={{
+                    objectFit: 'contain',
+                    display: 'block',
+                    filter: theme === 'night' ? 'brightness(0) invert(1)' : 'none'
+                  }}
                   draggable={false}
                 />
               </button>

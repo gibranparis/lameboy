@@ -55,7 +55,7 @@ export default function DayNightToggle({
   onChange,                      /** @type {(t: Theme) => void | undefined} */
   circlePx = 24,
   trackPad = 1,
-  moonImages = ['/toggle/moon-red.png','/toggle/moon-blue.png'],
+  moonImages = ['/toggle/Blue%20hand-drawn%20symbol%20with%20_LAME_.png','/toggle/moon-blue.png'],
   onThemeChange,                 /** @type {(t: Theme) => void | undefined} */
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
@@ -98,7 +98,7 @@ export default function DayNightToggle({
 
   // preload moon, sun, and constellation to avoid first-switch flash
   useEffect(() => {
-    const moonSrc = (Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/moon-red.png');
+    const moonSrc = (Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/Blue%20hand-drawn%20symbol%20with%20_LAME_.png');
     const sunSrc = '/toggle/sun.webp';
     const constellationSrc = '/toggle/virgo-constellation.webp';
     const sunsetSrc = '/toggle/white%20cloud.png';
