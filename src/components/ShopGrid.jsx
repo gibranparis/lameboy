@@ -269,8 +269,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
       // Skip tiles that are off-screen in the new layout — they'd animate from/to
       // off-screen positions and create jank without adding visual value.
       if (next.top > vh || next.top + next.height < 0) return
-      const dx = prev.left - next.left
-      const dy = prev.top - next.top
+      const dx = (prev.left + prev.width / 2) - (next.left + next.width / 2)
+      const dy = (prev.top + prev.height / 2) - (next.top + next.height / 2)
       const sx = next.width > 0 ? prev.width / next.width : 1
       const sy = next.height > 0 ? prev.height / next.height : 1
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01) return
@@ -281,7 +281,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
     // Invert — place each tile at its OLD position
     flips.forEach(({ tile, dx, dy, sx, sy }) => {
-      tile.style.transformOrigin = '0 0'
+      tile.style.transformOrigin = '50% 50%'
       tile.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
       tile.style.transition = 'none'
     })
