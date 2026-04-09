@@ -279,6 +279,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
     if (!flips.length) return
 
+    // Suppress tile-fade-in during FLIP — fill-mode:both would snap opacity to 0
+    // before the first paint, causing a visible flash on viewMode transitions.
+    /** @type {HTMLElement} */ (grid).dataset.flipping = '1'
+
     // Invert — place each tile at its OLD position
     flips.forEach(({ tile, dx, dy, sx, sy }) => {
       tile.style.transformOrigin = '50% 50%'
@@ -304,9 +308,10 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         tile.style.transform = ''
         tile.style.transformOrigin = ''
       })
-      // Re-enable CSS transitions next frame
+      // Re-enable CSS transitions and clear flipping flag next frame
       requestAnimationFrame(() => {
         flips.forEach(({ tile }) => { tile.style.transition = '' })
+        delete /** @type {HTMLElement} */ (grid).dataset.flipping
       })
     }, 400)
 
@@ -843,7 +848,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         }
 
         /* Don't replay fade-in when the FLIP overrides inline transform */
-        :global(html[data-overlay-open='1']) .product-tile {
+        :global(html[data-overlay-open='1']) .product-tile,
+        .shop-grid[data-flipping='1'] .product-tile {
           animation: none;
         }
 
