@@ -84,6 +84,22 @@ export default function MusicPlayerButton({
     setPortalTarget(document.getElementById('yt-panel-anchor'))
   }, [])
 
+  // Broadcast panel height as --yt-panel-h so <main> can clip content behind the player.
+  // Depends on portalTarget: panelRef.current is null until the portal first renders.
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const obs = new ResizeObserver(([entry]) => {
+      const h = entry?.borderBoxSize?.[0]?.blockSize ?? el.offsetHeight
+      document.documentElement.style.setProperty('--yt-panel-h', `${Math.round(h)}px`)
+    })
+    obs.observe(el)
+    return () => {
+      obs.disconnect()
+      document.documentElement.style.setProperty('--yt-panel-h', '0px')
+    }
+  }, [portalTarget]) // re-run once portal is in DOM so panelRef.current is set
+
   // Pre-initialize the YouTube player as soon as the anchor div is in the DOM.
   // This is critical for mobile (iOS): playVideo() must be called synchronously
   // inside a user-gesture handler, which is only possible if the player already exists.

@@ -354,7 +354,8 @@ export default function Page() {
         <>
           <HeaderBar ctrlPx={ctrlPx} shopReady={shopReady} />
 
-          {/* Player panel anchor — fixed just below the header buttons */}
+          {/* Player panel anchor — fixed just below the header buttons.
+              background spans full width so grid items are occluded behind it. */}
           <div
             id="yt-panel-anchor"
             style={{
@@ -366,6 +367,7 @@ export default function Page() {
               display: 'flex',
               justifyContent: 'center',
               pointerEvents: 'none',
+              background: 'var(--bg, #f5f5f0)',
             }}
           />
 
@@ -379,6 +381,7 @@ export default function Page() {
               height: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
               zIndex: 9990,
               pointerEvents: 'none',
+              background: 'var(--bg, #f5f5f0)',
               // Reveal: top row flies up from center
               opacity: shopReady ? 1 : 0,
               transform: shopReady
@@ -475,8 +478,14 @@ export default function Page() {
             }}
           >
             {/* marginTop:auto pushes grid to bottom — no DOM element in the dead zone,
-                so iOS touches in that gap pass directly to <main> with no interference */}
-            <div style={{ marginTop: 'auto' }}>
+                so iOS touches in that gap pass directly to <main> with no interference.
+                paddingTop matches the open player height so scrolling all the way up
+                reveals the full top item above the player boundary. */}
+            <div style={{
+              marginTop: 'auto',
+              paddingTop: 'var(--yt-panel-h, 0px)',
+              transition: 'padding-top 0.28s ease',
+            }}>
               <ShopGrid products={products} autoOpenFirstOnMount />
               {!loaderShow && (
                 <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
