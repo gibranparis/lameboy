@@ -339,6 +339,8 @@ export default function MusicPlayerButton({
           width: min(480px, calc(100vw - 2 * var(--header-ctrl, 64px)));
           background: #000;
           pointer-events: all;
+          border-top: 1px solid var(--bg);
+          border-bottom: 1px solid var(--bg);
         }
         /* Visible state */
         .yt-panel--open {

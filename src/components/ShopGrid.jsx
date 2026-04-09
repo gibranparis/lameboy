@@ -259,16 +259,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
     if (!grid) return
     const tiles = /** @type {HTMLElement[]} */ (Array.from(grid.querySelectorAll('.product-tile')))
 
-    const vh = window.innerHeight
     const flips = []
     tiles.forEach((tile) => {
       const key = tile.dataset.productId
       const prev = key ? snap.get(key) : null
       if (!prev) return
       const next = tile.getBoundingClientRect()
-      // Skip tiles that are off-screen in the new layout — they'd animate from/to
-      // off-screen positions and create jank without adding visual value.
-      if (next.top > vh || next.top + next.height < 0) return
       const dx = (prev.left + prev.width / 2) - (next.left + next.width / 2)
       const dy = (prev.top + prev.height / 2) - (next.top + next.height / 2)
       const sx = next.width > 0 ? prev.width / next.width : 1
@@ -838,13 +834,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         .shop-grid[data-view-mode='grid'] .product-tile {
           flex: 0 0 calc((100% - var(--col-gap) * (var(--grid-cols, 5) - 1)) / var(--grid-cols, 5));
           min-width: 0;
-          animation: tile-fade-in 240ms ease both;
         }
 
-        /* Stacks → Grid reveal: tiles appear in place with no positional movement */
+        /* Stacks → Grid reveal: tiles fade in (only during explicit reveal, not density FLIP) */
         @keyframes tile-fade-in {
           from { opacity: 0; }
           to   { opacity: 1; }
+        }
+        .shop-grid[data-view-mode='grid'][data-reveal='1'] .product-tile {
+          animation: tile-fade-in 240ms ease both;
         }
 
         /* Don't replay fade-in when the FLIP overrides inline transform */
