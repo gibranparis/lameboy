@@ -58,10 +58,24 @@ export default function OrbShell({
   /* ===================== Gate colors ===================== */
 
   const SEAFOAM = '#32ffc7'
+  const WHITE = '#ffffff'
   const RED = '#cc0014'
   const YELLOW = '#ffd400'
   const GREEN = '#0bf05f'
   const BLACK = '#000'
+
+  const [isNight, setIsNight] = useState(false)
+  useEffect(() => {
+    const onTheme = (e) => setIsNight(e?.detail?.theme === 'night')
+    window.addEventListener('theme-change', onTheme)
+    document.addEventListener('theme-change', onTheme)
+    // sync with current html data-theme on mount
+    setIsNight(document.documentElement.dataset.theme === 'night')
+    return () => {
+      window.removeEventListener('theme-change', onTheme)
+      document.removeEventListener('theme-change', onTheme)
+    }
+  }, [])
 
   const gateOverride = useMemo(() => {
     if (loaderShow || isProceeding) return BLACK
@@ -282,7 +296,9 @@ export default function OrbShell({
           ? RED
           : GREEN
       : SEAFOAM
-    : SEAFOAM
+    : isNight
+      ? WHITE
+      : SEAFOAM
   const orbSolidOverride = inGateLike ? gateSolid : false
 
   return (
