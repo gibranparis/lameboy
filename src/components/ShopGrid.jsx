@@ -11,7 +11,7 @@ import { useCart } from '@/contexts/CartContext'
 
 /** Storage key for saved grid density */
 const KEY_DENSITY = 'lb:grid-cols'
-const MIN_COLS = 1
+const MIN_COLS = 3
 const MAX_COLS = 5
 
 const VIEW_STACKS = 'stacks'
@@ -392,26 +392,20 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
         return
       }
       if (dir === 'out') {
-        // Zoom out: increase cols (1->2->3->4->5)
-        // If already at max cols (5), go back to stacks
+        // Zoom out: increase cols (3->4->5->3 wrap)
         if (cols >= MAX_COLS) {
-          collapseToStacks()
+          setColsWithFlip(MIN_COLS)
           return
         }
         setColsWithFlip((p) => clampCols(p + step))
         return
       }
 
-      // No direction specified - toggle behavior
-      if (cols <= MIN_COLS) {
-        // At min cols, zoom back out
-        setColsWithFlip((p) => clampCols(p + 1))
-      } else if (cols >= MAX_COLS) {
-        // At max cols, toggle to stacks
-        collapseToStacks()
+      // No direction specified - advance loop
+      if (cols >= MAX_COLS) {
+        setColsWithFlip(MIN_COLS)
       } else {
-        // In between, zoom in
-        setColsWithFlip((p) => clampCols(p - 1))
+        setColsWithFlip((p) => clampCols(p + 1))
       }
     }
 

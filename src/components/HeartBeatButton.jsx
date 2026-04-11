@@ -24,6 +24,18 @@ export default function HeartBeatButton({
   const btnRef = useRef(null)
   const [paused, setPaused] = useState(false)
   const [boosted, setBoosted] = useState(false)
+  const [isNight, setIsNight] = useState(false)
+
+  useEffect(() => {
+    const onTheme = (e) => setIsNight(e?.detail?.theme === 'night')
+    window.addEventListener('theme-change', onTheme)
+    document.addEventListener('theme-change', onTheme)
+    setIsNight(document.documentElement.dataset.theme === 'night')
+    return () => {
+      window.removeEventListener('theme-change', onTheme)
+      document.removeEventListener('theme-change', onTheme)
+    }
+  }, [])
 
   // clamp BPM and compute period
   const clampedBpm = Math.min(140, Math.max(40, bpm | 0))
@@ -130,7 +142,7 @@ export default function HeartBeatButton({
           className="lb-heart"
           data-paused={paused ? '1' : '0'}
           data-boost={boosted ? '1' : '0'}
-          style={{ display: 'block', pointerEvents: 'none' }}
+          style={{ display: 'block', pointerEvents: 'none', ...(isNight ? { filter: 'brightness(0) invert(1)' } : {}) }}
         >
           <defs>
             <linearGradient id="lbHeartGrad" x1="0%" y1="0%" x2="0%" y2="100%">

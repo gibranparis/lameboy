@@ -5,30 +5,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import BlueOrbCross3D from '@/components/BlueOrbCross3D'
 
-const MIN = 1
-const MAX = 5
 const FIRE_COOLDOWN_MS = 150
 const SEAFOAM = '#32ffc7'
 const GREEN_ZOOM = '#11ff4f'
-const RED_ZOOM = '#ff001a'
 const ORB_HEIGHT = '52px'
 
 export default function BottomZoomOrb() {
   const lastFireRef = useRef(0)
   const [pressColor, setPressColor] = useState(null)
-  const [nextDir, setNextDir] = useState('in')
-
-  // Track current density to know which direction to go next
-  useEffect(() => {
-    const onDensity = (e) => {
-      const d = Number(e?.detail?.density ?? e?.detail?.value)
-      if (!Number.isFinite(d)) return
-      if (d <= MIN) setNextDir('out')
-      else if (d >= MAX) setNextDir('in')
-    }
-    document.addEventListener('lb:grid-density', onDensity)
-    return () => document.removeEventListener('lb:grid-density', onDensity)
-  }, [])
 
   const pulse = useCallback((c) => {
     setPressColor(c)
@@ -36,71 +20,48 @@ export default function BottomZoomOrb() {
     return () => clearTimeout(t)
   }, [])
 
-  const fireZoom = useCallback(
-    (dir) => {
-      const now = performance.now()
-      if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
-      lastFireRef.current = now
+  const fireZoom = useCallback(() => {
+    const now = performance.now()
+    if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
+    lastFireRef.current = now
 
-      pulse(dir === 'in' ? GREEN_ZOOM : RED_ZOOM)
+    pulse(GREEN_ZOOM)
 
-      const detail = { step: 1, dir }
-      document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
-      document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
-      document.dispatchEvent(new CustomEvent('grid-density', { detail }))
-      setNextDir(dir)
-    },
-    [pulse]
-  )
+    const detail = { step: 1, dir: 'out' }
+    document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
+    document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
+    document.dispatchEvent(new CustomEvent('grid-density', { detail }))
+  }, [pulse])
 
   // Mirror external zoom pulses visually
   useEffect(() => {
     const onExternal = (ev) => {
-      const d = ev?.detail || {}
-      if (d.dir === 'in') pulse(GREEN_ZOOM)
-      if (d.dir === 'out') pulse(RED_ZOOM)
-      if (d.dir === 'in' || d.dir === 'out') setNextDir(d.dir)
+      if (ev?.detail?.dir) pulse(GREEN_ZOOM)
     }
     document.addEventListener('lb:zoom', onExternal)
     return () => document.removeEventListener('lb:zoom', onExternal)
   }, [pulse])
 
-  const onClick = useCallback(() => fireZoom(nextDir), [fireZoom, nextDir])
-
-  const onContextMenu = useCallback(
-    (e) => {
-      e.preventDefault()
-      fireZoom('out')
-    },
-    [fireZoom]
-  )
-
+  const onClick = useCallback(() => fireZoom(), [fireZoom])
+  const onContextMenu = useCallback((e) => { e.preventDefault() }, [])
   const onKeyDown = useCallback(
     (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
-        fireZoom(nextDir)
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault()
-        fireZoom('in')
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault()
-        fireZoom('out')
+        fireZoom()
       }
     },
-    [fireZoom, nextDir]
+    [fireZoom]
   )
-
   const onWheel = useCallback(
     (e) => {
       e.preventDefault()
-      if (e.deltaY < 0) fireZoom('in')
-      if (e.deltaY > 0) fireZoom('out')
+      fireZoom()
     },
     [fireZoom]
   )
 
-  const rpmValue = nextDir === 'out' ? -44 : 44
+  const rpmValue = 44
 
   return (
     <div

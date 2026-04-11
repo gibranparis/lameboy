@@ -18,6 +18,18 @@ const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
 export default function CartButton({ size = 48, inHeader = false, imgSrc, onClick }) {
   const [count, setCount] = useState(0)
   const [pulse, setPulse] = useState(false)
+  const [isNight, setIsNight] = useState(false)
+
+  useEffect(() => {
+    const onTheme = (e) => setIsNight(e?.detail?.theme === 'night')
+    window.addEventListener('theme-change', onTheme)
+    document.addEventListener('theme-change', onTheme)
+    setIsNight(document.documentElement.dataset.theme === 'night')
+    return () => {
+      window.removeEventListener('theme-change', onTheme)
+      document.removeEventListener('theme-change', onTheme)
+    }
+  }, [])
 
   // If imgSrc is provided, use that exact image.
   // Otherwise, build a candidate list starting from a random Birkin
@@ -120,6 +132,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
       display: 'block',
       userSelect: 'none',
       pointerEvents: 'none',
+      filter: isNight ? 'brightness(0) invert(1)' : 'none',
     },
     badge: {
       position: 'absolute',

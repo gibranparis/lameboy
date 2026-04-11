@@ -119,14 +119,10 @@ export default function OrbShell({
   const lastFireRef = useRef(0)
   const FIRE_COOLDOWN_MS = 150
 
-  const [pressColor, setPressColor] = useState(null) // '#11ff4f' | '#ff001a' | null
+  const [pressColor, setPressColor] = useState(null) // '#00a832' | null
   const [overlayOpen, setOverlayOpen] = useState(false)
-  const [nextDir, setNextDir] = useState('in')
 
-  const MIN = 1
-  const MAX = 5
   const GREEN_ZOOM = '#00a832'
-  const RED_ZOOM = '#cc0014'
 
   // watch overlay-open attribute
   useEffect(() => {
@@ -141,105 +137,66 @@ export default function OrbShell({
     return () => mo.disconnect()
   }, [])
 
-  // read density to set "edge behavior"
-  useEffect(() => {
-    const onDensity = (e) => {
-      const mode = e?.detail?.viewMode
-      // In stacks mode, orb should always zoom "in" (to reveal grid)
-      if (mode === 'stacks') { setNextDir('in'); return }
-      const d = Number(e?.detail?.density ?? e?.detail?.value)
-      if (!Number.isFinite(d)) return
-      // Only change direction at minimum (1 item) - this creates the flow:
-      // stacks → 5 → 4 → 3 → 2 → 1 → reverse → 2 → 3 → 4 → 5 → stacks
-      if (d <= MIN) setNextDir('out')
-    }
-    document.addEventListener('lb:grid-density', onDensity)
-    return () => document.removeEventListener('lb:grid-density', onDensity)
-  }, [])
-
   const pulse = useCallback((c) => {
     setPressColor(c)
     const t = setTimeout(() => setPressColor(null), 210)
     return () => clearTimeout(t)
   }, [])
 
-  const fireZoom = useCallback(
-    (dir) => {
-      const now = performance.now()
-      if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
-      lastFireRef.current = now
+  const fireZoom = useCallback(() => {
+    const now = performance.now()
+    if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
+    lastFireRef.current = now
 
-      pulse(dir === 'in' ? GREEN_ZOOM : RED_ZOOM)
+    pulse(GREEN_ZOOM)
 
-      const detail = { step: 1, dir }
-      document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
-      document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
-      document.dispatchEvent(new CustomEvent('grid-density', { detail })) // legacy
-      setNextDir(dir)
-    },
-    [pulse]
-  )
+    const detail = { step: 1, dir: 'out' }
+    document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
+    document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
+    document.dispatchEvent(new CustomEvent('grid-density', { detail })) // legacy
+  }, [pulse])
 
-  // external zoom pulses
+  // mirror external zoom pulses visually
   useEffect(() => {
     const onExternal = (ev) => {
-      const d = ev?.detail || {}
-      if (d.dir === 'in') pulse(GREEN_ZOOM)
-      if (d.dir === 'out') pulse(RED_ZOOM)
-      if (d.dir === 'in' || d.dir === 'out') setNextDir(d.dir)
+      if (ev?.detail?.dir) pulse(GREEN_ZOOM)
     }
     document.addEventListener('lb:zoom', onExternal)
     return () => document.removeEventListener('lb:zoom', onExternal)
   }, [pulse])
 
-  const onShopClick = useCallback(() => fireZoom(nextDir), [fireZoom, nextDir])
+  const onShopClick = useCallback(() => fireZoom(), [fireZoom])
   const onShopTouchEnd = useCallback(
     (e) => {
       e.preventDefault() // prevent subsequent onClick from double-firing
-      fireZoom(nextDir)
-    },
-    [fireZoom, nextDir]
-  )
-  const onShopContextMenu = useCallback(
-    (e) => {
-      e.preventDefault()
-      fireZoom('out')
+      fireZoom()
     },
     [fireZoom]
   )
+  const onShopContextMenu = useCallback((e) => { e.preventDefault() }, [])
 
   const onShopKeyDown = useCallback(
     (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault()
-        fireZoom(nextDir)
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault()
-        fireZoom('in')
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault()
-        fireZoom('out')
+        fireZoom()
       }
     },
-    [fireZoom, nextDir]
+    [fireZoom]
   )
 
   const onShopWheel = useCallback(
     (e) => {
       e.preventDefault()
-      const y = e.deltaY
-      if (y < 0) fireZoom('in')
-      if (y > 0) fireZoom('out')
+      fireZoom()
     },
     [fireZoom]
   )
 
-  // reverse spin when overlay open or when “next action” is OUT (matches your prior feel)
   const rpmValue = useMemo(() => {
-    const base = 44
     if (inGateLike) return 44
-    return (overlayOpen || nextDir === 'out' ? -1 : 1) * base
-  }, [inGateLike, overlayOpen, nextDir])
+    return overlayOpen ? -44 : 44
+  }, [inGateLike, overlayOpen])
 
   /* ===================== Unified render ===================== */
 
@@ -262,14 +219,14 @@ export default function OrbShell({
         onWheel: onShopWheel,
       }
 
-  const orbOverrideAllColor = inGateLike ? gateOverride : pressColor || null
+  const orbOverrideAllColor = inGateLike ? gateOverride : pressColor || (isNight ? WHITE : null)
   const orbHaloTint = inGateLike
     ? gateOverride === RED
       ? '#880011'        // deep blood-crimson — evil moon glow
       : gateOverride === BLACK
         ? '#444444'      // visible dark aura instead of near-invisible #111
         : null
-    : pressColor || null
+    : pressColor || (isNight ? WHITE : null)
 
   // Always keep glow meshes mounted so the visual footprint stays consistent
   // across color transitions. Opacity (orbGlowOpacity) already goes to 0

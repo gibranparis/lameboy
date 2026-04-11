@@ -149,7 +149,8 @@ export default function DayNightToggle({
         WebkitTapHighlightColor:'transparent',
         isolation:'isolate',
         outline:'none',
-        transition:'transform 120ms ease',
+        transition:'transform 120ms ease, filter 300ms ease',
+        filter: isNight ? 'brightness(0) invert(1)' : 'none',
       }}
     >
       {/* DAY BACKDROP (white cloud + clouds) */}

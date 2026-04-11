@@ -50,7 +50,7 @@ export default function ChakraOrbButton({
   // If gate is open, do not render the “fixed orb” at all.
   if (gateOpen) return null
 
-  const MIN = 1,
+  const MIN = 3,
     MAX = 5
 
   useEffect(() => {
