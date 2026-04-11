@@ -1,0 +1,159 @@
+// src/components/BannedLogin.jsx
+'use client'
+
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+
+export default function BannedLogin({ onAdvanceGate, onProceed }) {
+  const [now, setNow] = useState(() => new Date())
+  const [location, setLocation] = useState('Florida, USA') // Default fallback
+  const [timezone, setTimezone] = useState(null) // Visitor's timezone
+
+  // IMPORTANT: while this gate is mounted, hide any "global/header" orb duplicates
+  // (Your ChakraOrbButton watches this.)
+  useEffect(() => {
+    document.documentElement.setAttribute('data-gate-open', '1')
+    return () => {
+      document.documentElement.removeAttribute('data-gate-open')
+    }
+  }, [])
+
+  // Fetch user's location and timezone from IP
+  useEffect(() => {
+    async function fetchLocation() {
+      try {
+        const response = await fetch('https://ipapi.co/json/')
+        const data = await response.json()
+        
+        if (data.city && data.country_code) {
+          // Use country_code (e.g., "US") instead of country_name ("United States")
+          const countryCode = data.country_code === 'US' ? 'USA' : data.country_code
+          setLocation(`${data.city}, ${countryCode}`)
+        }
+        
+        // Set timezone for clock
+        if (data.timezone) {
+          setTimezone(data.timezone)
+        }
+      } catch (error) {
+        console.log('Location detection failed, using default')
+        // Keep defaults
+      }
+    }
+
+    fetchLocation()
+  }, [])
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const clockText = useMemo(() => {
+    // If we have visitor's timezone, use it; otherwise use their local time
+    const options = {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+    }
+    
+    if (timezone) {
+      options.timeZone = timezone
+    }
+    
+    return now.toLocaleTimeString([], options)
+  }, [now, timezone])
+
+  // Long-press handling on text (optional parity with orb)
+  const pressTimer = useRef(null)
+  const startPressTimer = useCallback(() => {
+    clearTimeout(pressTimer.current)
+    pressTimer.current = setTimeout(() => {
+      if (typeof onProceed === 'function') onProceed()
+    }, 650)
+  }, [onProceed])
+
+  const clearPressTimer = useCallback(() => clearTimeout(pressTimer.current), [])
+
+  const advanceGate = useCallback(() => {
+    if (typeof onAdvanceGate === 'function') onAdvanceGate()
+  }, [onAdvanceGate])
+
+  const triggerProceed = useCallback(() => {
+    if (typeof onProceed === 'function') onProceed()
+  }, [onProceed])
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        background: '#fff',
+        zIndex: 1000,
+      }}
+    >
+      {/* Time */}
+      <button
+        type="button"
+        onClick={advanceGate}
+        onMouseDown={startPressTimer}
+        onMouseUp={clearPressTimer}
+        onMouseLeave={clearPressTimer}
+        onTouchStart={startPressTimer}
+        onTouchEnd={clearPressTimer}
+        onDoubleClick={triggerProceed}
+        style={{
+          marginTop: 150, // leaves room for the persistent OrbShell orb centered behind
+          textAlign: 'center',
+          fontSize: 'clamp(12px, 1.2vw, 14px)',
+          fontWeight: 800,
+          letterSpacing: '0.06em',
+          color: '#000',
+          opacity: 0.9,
+          textTransform: 'uppercase',
+          lineHeight: 1.2,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+        }}
+      >
+        {clockText}
+      </button>
+
+      {/* Dynamic location */}
+      <button
+        type="button"
+        onClick={advanceGate}
+        onMouseDown={startPressTimer}
+        onMouseUp={clearPressTimer}
+        onMouseLeave={clearPressTimer}
+        onTouchStart={startPressTimer}
+        onTouchEnd={clearPressTimer}
+        onDoubleClick={triggerProceed}
+        style={{
+          marginTop: 6,
+          textAlign: 'center',
+          fontSize: 'clamp(12px, 1.2vw, 14px)',
+          fontWeight: 800,
+          letterSpacing: '0.06em',
+          color: '#000',
+          opacity: 0.9,
+          textTransform: 'uppercase',
+          cursor: 'pointer',
+          userSelect: 'none',
+          outline: 'none',
+          lineHeight: 1.2,
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+        }}
+      >
+        {location}
+      </button>
+    </div>
+  )
+}
