@@ -25,6 +25,7 @@ export default function ChakraOrbButton({
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [gateOpen, setGateOpen] = useState(false)
   const [cycleStep, setCycleStep] = useState(0)
+  const [viewMode, setViewMode] = useState('stacks')
 
   // NEW: hide this component entirely while the gate is open
   useEffect(() => {
@@ -201,7 +202,7 @@ onClick(
             zIndex: 1,
           }}
         >
-          {cycleStep < 3 ? '−' : '+'}
+          {overlayOpen ? '−' : (isStacks ? '−' : (cycleStep < 3 ? '−' : '+'))}
         </span>
       </button>
     </div>
