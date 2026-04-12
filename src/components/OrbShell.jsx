@@ -124,6 +124,7 @@ export default function OrbShell({
   const [cycleStep, setCycleStep] = useState(0)
 
   const GREEN_ZOOM = '#00a832'
+  const BLACK_GLOW = '#000000'
   const cycleLabels = ['5', '4', '3', '4', '5', 'stack']
   const nextCycleLabel = cycleLabels[cycleStep] || '5'
 
@@ -152,7 +153,7 @@ export default function OrbShell({
       if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
       lastFireRef.current = now
 
-      pulse(GREEN_ZOOM)
+      pulse(BLACK_GLOW)
 
       const detail = { step: 1, ...(dir ? { dir } : {}) }
       document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
@@ -174,7 +175,7 @@ export default function OrbShell({
   // mirror external zoom pulses visually
   useEffect(() => {
     const onExternal = (ev) => {
-      if (ev?.detail?.dir) pulse(GREEN_ZOOM)
+      if (ev?.detail?.dir) pulse(BLACK_GLOW)
     }
     document.addEventListener('lb:zoom', onExternal)
     return () => document.removeEventListener('lb:zoom', onExternal)
@@ -217,8 +218,8 @@ export default function OrbShell({
 
   const rpmValue = useMemo(() => {
     if (inGateLike) return 44
-    return overlayOpen ? -44 : 44
-  }, [inGateLike, overlayOpen])
+    return cycleStep === 0 || cycleStep >= 4 ? 44 : -44
+  }, [inGateLike, cycleStep])
 
   /* ===================== Unified render ===================== */
 
@@ -248,7 +249,9 @@ export default function OrbShell({
       : gateOverride === BLACK
         ? '#444444'      // visible dark aura instead of near-invisible #111
         : null
-    : pressColor || (isNight ? WHITE : null)
+    : pressColor === BLACK_GLOW
+      ? '#444444'
+      : pressColor || (isNight ? WHITE : null)
 
   // Always keep glow meshes mounted so the visual footprint stays consistent
   // across color transitions. Opacity (orbGlowOpacity) already goes to 0
@@ -315,8 +318,8 @@ export default function OrbShell({
           armRatio={inGateLike ? 0.33 : 0.35}
           glow={orbGlow}
           glowOpacity={orbGlowOpacity}
-          includeYAxis={inGateLike ? true : !overlayOpen}
-          includeZAxis={inGateLike ? true : !overlayOpen}
+          includeYAxis={inGateLike ? true : cycleStep === 0 || cycleStep >= 4}
+          includeZAxis={true}
           respectReducedMotion={false}
           interactive={!inGateLike || (!isProceeding && !loaderShow)}
           onActivate={null}

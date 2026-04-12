@@ -150,12 +150,8 @@ export default function HeartBeatButton({
       <style jsx>{`
         .lb-heart {
           --hb-duration: ${beatMs}ms; /* base tempo from bpm */
-          --hb-scale-a: 1.1; /* first thump */
-          --hb-scale-b: 1.04; /* aftershock */
-          --hb-glow1: var(--heart-neon, #ff2a4f);
-          --hb-glow2: rgba(255, 42, 79, 0.55);
-
-          filter: drop-shadow(0 0 3px var(--hb-glow1)) drop-shadow(0 0 6px var(--hb-glow2));
+          --hb-scale-a: 1.05; /* first thump - more subtle */
+          --hb-scale-b: 1.02; /* aftershock - more subtle */
 
           animation: lbBeat var(--hb-duration) ease-in-out infinite;
           transform-origin: 50% 58%;
@@ -164,13 +160,11 @@ export default function HeartBeatButton({
         /* Boost = slightly faster & a hair brighter, no oversized scale */
         .lb-heart[data-boost='1'] {
           --hb-duration: calc(${beatMs}ms * 0.82);
-          filter: drop-shadow(0 0 4px var(--hb-glow1)) drop-shadow(0 0 8px var(--hb-glow2));
         }
 
         /* Pause animation cleanly (visibility or overlay) */
         .lb-heart[data-paused='1'] {
           animation-play-state: paused;
-          filter: drop-shadow(0 0 2px var(--hb-glow1)) drop-shadow(0 0 5px var(--hb-glow2));
         }
 
         @keyframes lbBeat {
@@ -182,16 +176,16 @@ export default function HeartBeatButton({
             transform: scale(var(--hb-scale-a));
           }
           32% {
-            transform: scale(1.02);
+            transform: scale(1.01);
           }
           48% {
             transform: scale(var(--hb-scale-b));
           }
           64% {
-            transform: scale(1.01);
+            transform: scale(1.005);
           }
           80% {
-            transform: scale(1.03);
+            transform: scale(1.015);
           }
         }
 

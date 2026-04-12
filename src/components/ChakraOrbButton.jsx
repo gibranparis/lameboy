@@ -128,7 +128,9 @@ export default function ChakraOrbButton({
   }
 
   const px = typeof size === 'number' ? `${size}px` : size
-  const rpmValue = (overlayOpen || nextDir === 'out' ? -1 : 1) * rpm
+  const rpmValue = (overlayOpen || nextDir === 'out' || cycleStep < 3 ? -1 : 1) * rpm
+
+  const isStacks = cycleStep === 0
 
   const HIT_INSET = tightHitbox ? 4 : 0
   const innerPx = `calc(${px} - ${HIT_INSET * 2}px)`
@@ -186,6 +188,7 @@ export default function ChakraOrbButton({
           glow={glow}
           glowOpacity={pressColor ? 1.0 : glowOpacity}
           includeZAxis={includeZAxis}
+          includeYAxis={cycleStep >= 3}
           respectReducedMotion={false}
           onActivate={onClick}
           overrideAllColor={pressColor || null}

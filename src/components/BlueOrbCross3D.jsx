@@ -136,6 +136,20 @@ function OrbCross({
       crownW: '#d8d0f0',
     }
 
+    const chakraColors = [
+      { core: CHAKRA.crownW, halo: CHAKRA.crownV },
+      { core: CHAKRA.root, halo: CHAKRA.root },
+      { core: CHAKRA.sacral, halo: CHAKRA.sacral },
+      ...(includeYAxis ? [
+        { core: CHAKRA.solar, halo: CHAKRA.solar },
+        { core: CHAKRA.heart, halo: CHAKRA.heart }
+      ] : []),
+      ...(includeZAxis ? [
+        { core: CHAKRA.throat, halo: CHAKRA.throat },
+        { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye }
+      ] : []),
+    ]
+
     return {
       sphereGeo,
       armGeoX,
@@ -145,7 +159,7 @@ function OrbCross({
       armGlowGeoY,
       armGlowGeoZ,
       centers,
-      CHAKRA,
+      chakraColors,
     }
   }, [geomScale, armRatio, offsetFactor, includeYAxis, includeZAxis])
 
@@ -158,8 +172,19 @@ function OrbCross({
     armGlowGeoY,
     armGlowGeoZ,
     centers,
-    CHAKRA,
+    chakraColors,
   } = memo
+
+  const CHAKRA = {
+    root: '#cc0014',
+    sacral: '#e05500',
+    solar: '#ffd400',
+    heart: '#00a832',
+    throat: '#0066ff',
+    thirdEye: '#3a00b5',
+    crownV: '#9333ea',
+    crownW: '#d8d0f0',
+  }
 
   const useOverride = !!overrideAllColor
   const barColor = useOverride ? overrideAllColor : color
@@ -217,19 +242,11 @@ function OrbCross({
         halo: haloColor,
         haloOp: haloBase,
       })
-    : [
-        {
-          core: CHAKRA.crownW,
-          halo: CHAKRA.crownV,
-          haloOp: 0.85 * (coarse ? 0.55 : 1.0),
-        },
-        { core: CHAKRA.root, halo: CHAKRA.root, haloOp: haloBase },
-        { core: CHAKRA.sacral, halo: CHAKRA.sacral, haloOp: haloBase },
-        { core: CHAKRA.solar, halo: CHAKRA.solar, haloOp: haloBase },
-        { core: CHAKRA.heart, halo: CHAKRA.heart, haloOp: haloBase },
-        { core: CHAKRA.throat, halo: CHAKRA.throat, haloOp: haloBase },
-        { core: CHAKRA.thirdEye, halo: CHAKRA.thirdEye, haloOp: haloBase },
-      ]
+    : chakraColors.map(({ core, halo }) => ({
+        core,
+        halo,
+        haloOp: core === CHAKRA.crownW ? 0.85 * (coarse ? 0.55 : 1.0) : haloBase,
+      }))
 
   const sphereCoreMats = useMemo(() => {
     return sphereDefs.map(
