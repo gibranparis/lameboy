@@ -134,8 +134,8 @@ export default function HeartBeatButton({
         </svg>
       ) : (
         /* HEART ONLY — NO CIRCLE */
-        <svg
-          viewBox="0 0 64 64"
+        <img
+          src="/human heart zero.png"
           width={size}
           height={size}
           aria-hidden="true"
@@ -143,19 +143,8 @@ export default function HeartBeatButton({
           data-paused={paused ? '1' : '0'}
           data-boost={boosted ? '1' : '0'}
           style={{ display: 'block', pointerEvents: 'none', ...(isNight ? { filter: 'brightness(0) invert(1)' } : {}) }}
-        >
-          <defs>
-            <linearGradient id="lbHeartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#ffe8ee" />
-              <stop offset="55%" stopColor="#ff9db0" />
-              <stop offset="100%" stopColor="var(--banned-neon, #ff073a)" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M32 51c-1.2 0-2.5-.4-3.4-1.2C22.3 45.9 14 39.3 10.8 33.4 8.4 29 9 23.5 12.4 20.1c3.6-3.6 9.5-3.9 13.6-.8 1.5 1.1 2.8 2.6 4 4.5 1.2-1.9 2.5-3.4 4-4.5 4.1-3.1 10-2.8 13.6.8 3.4 3.4 4 8.9 1.6 13.3-3.2 5.9-11.5 12.5-17.8 16.4-.9.6-2.2 1.2-3.4 1.2z"
-            fill="url(#lbHeartGrad)"
-          />
-        </svg>
+          alt="heart"
+        />
       )}
 
       <style jsx>{`
