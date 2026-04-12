@@ -20,14 +20,14 @@ export default function BottomZoomOrb() {
     return () => clearTimeout(t)
   }, [])
 
-  const fireZoom = useCallback(() => {
+  const fireZoom = useCallback((dir = null) => {
     const now = performance.now()
     if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
     lastFireRef.current = now
 
     pulse(GREEN_ZOOM)
 
-    const detail = { step: 1, dir: 'out' }
+    const detail = { step: 1, ...(dir ? { dir } : {}) }
     document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
     document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
     document.dispatchEvent(new CustomEvent('grid-density', { detail }))
@@ -43,7 +43,10 @@ export default function BottomZoomOrb() {
   }, [pulse])
 
   const onClick = useCallback(() => fireZoom(), [fireZoom])
-  const onContextMenu = useCallback((e) => { e.preventDefault() }, [])
+  const onContextMenu = useCallback((e) => {
+    e.preventDefault()
+    fireZoom('out')
+  }, [fireZoom])
   const onKeyDown = useCallback(
     (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -56,7 +59,8 @@ export default function BottomZoomOrb() {
   const onWheel = useCallback(
     (e) => {
       try { e.preventDefault() } catch {}
-      fireZoom()
+      const dir = e.deltaY < 0 ? 'in' : 'out'
+      fireZoom(dir)
     },
     [fireZoom]
   )
