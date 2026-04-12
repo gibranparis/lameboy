@@ -293,7 +293,7 @@ export default function OrbShell({
           armRatio={inGateLike ? 0.33 : 0.35}
           glow={orbGlow}
           glowOpacity={orbGlowOpacity}
-          includeYAxis={inGateLike ? true : !overlayOpen && nextDir !== 'out'}
+          includeYAxis={inGateLike ? true : !overlayOpen}
           includeZAxis={inGateLike ? true : !overlayOpen}
           respectReducedMotion={false}
           interactive={!inGateLike || (!isProceeding && !loaderShow)}
