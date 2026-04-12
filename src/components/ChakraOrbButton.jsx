@@ -155,7 +155,7 @@ export default function ChakraOrbButton({
         onKeyDown={onKeyDown}
         onWheel={onWheel}
         style={{
-          position: 'absolute',
+          position: 'relative',
           left: HIT_INSET,
           top: HIT_INSET,
           width: innerPx,
@@ -190,6 +190,22 @@ export default function ChakraOrbButton({
           haloTint={pressColor || null}
           flashDecayMs={140}
         />
+        <span
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: 'white',
+            textShadow: '0 0 4px rgba(0,0,0,0.8)',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        >
+          {nextDir === 'in' ? '−' : '+'}
+        </span>
       </button>
     </div>
   )

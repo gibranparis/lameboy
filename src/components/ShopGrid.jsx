@@ -387,23 +387,25 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
 
       // In grid mode
       if (dir === 'in') {
-        // Zoom in: decrease cols (5->4->3->2->1)
-        setColsWithFlip((p) => clampCols(p - step))
+        // Zoom in: decrease cols (5->4->3->2->1), but stop at 3
+        if (cols > MIN_COLS) {
+          setColsWithFlip((p) => clampCols(p - step))
+        }
         return
       }
       if (dir === 'out') {
-        // Zoom out: increase cols (3->4->5->3 wrap)
-        if (cols >= MAX_COLS) {
-          setColsWithFlip(MIN_COLS)
-          return
+        // Zoom out: increase cols (3->4->5->stacks)
+        if (cols < MAX_COLS) {
+          setColsWithFlip((p) => clampCols(p + step))
+        } else {
+          collapseToStacks()
         }
-        setColsWithFlip((p) => clampCols(p + step))
         return
       }
 
-      // No direction specified - advance loop
+      // No direction specified - advance loop (for bottom orb)
       if (cols >= MAX_COLS) {
-        setColsWithFlip(MIN_COLS)
+        collapseToStacks()
       } else {
         setColsWithFlip((p) => clampCols(p + 1))
       }
