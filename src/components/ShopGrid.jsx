@@ -41,7 +41,7 @@ function getBBox(src) {
   return PRODUCT_BBOX[src] || null
 }
 
-export default function ShopGrid({ products, autoOpenFirstOnMount = false }) {
+export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopReady = true }) {
   /* ---------------- Seed products ---------------- */
   const seed = useMemo(() => {
     const fromProp = Array.isArray(products) ? products : null

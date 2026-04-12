@@ -97,8 +97,10 @@ export default function ChakraOrbButton({
   ]
 onClick(
   const onClick = () => {
-    actions[cycleStep]()
-    setCycleStep((prev) => (prev + 1) % 6)
+    if (window.shopGridReady) {
+      actions[cycleStep]()
+      setCycleStep((prev) => (prev + 1) % 6)
+    }
   }
   const onContextMenu = (e) => {
     e.preventDefault()

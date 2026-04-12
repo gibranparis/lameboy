@@ -490,7 +490,7 @@ export default function Page() {
               paddingTop: 'var(--yt-panel-h, 0px)',
               transition: 'padding-top 0.28s ease',
             }}>
-              <ShopGrid products={products} autoOpenFirstOnMount />
+              <ShopGrid products={products} autoOpenFirstOnMount shopReady={shopReady} />
               {!loaderShow && (
                 <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
               )}
