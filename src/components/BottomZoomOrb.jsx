@@ -55,7 +55,7 @@ export default function BottomZoomOrb() {
   )
   const onWheel = useCallback(
     (e) => {
-      e.preventDefault()
+      try { e.preventDefault() } catch {}
       fireZoom()
     },
     [fireZoom]

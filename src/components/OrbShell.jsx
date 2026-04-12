@@ -168,7 +168,7 @@ export default function OrbShell({
   const onShopClick = useCallback(() => fireZoom(), [fireZoom])
   const onShopTouchEnd = useCallback(
     (e) => {
-      e.preventDefault() // prevent subsequent onClick from double-firing
+      try { e.preventDefault() } catch {} // prevent subsequent onClick from double-firing
       fireZoom()
     },
     [fireZoom]
@@ -187,7 +187,7 @@ export default function OrbShell({
 
   const onShopWheel = useCallback(
     (e) => {
-      e.preventDefault()
+      try { e.preventDefault() } catch {}
       fireZoom()
     },
     [fireZoom]
