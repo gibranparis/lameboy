@@ -23,8 +23,8 @@ export default function ChakraOrbButton({
 
   const [pressColor, setPressColor] = useState(null)
   const [overlayOpen, setOverlayOpen] = useState(false)
-  const [nextDir, setNextDir] = useState('in')
   const [gateOpen, setGateOpen] = useState(false)
+  const [cycleStep, setCycleStep] = useState(0)
 
   // NEW: hide this component entirely while the gate is open
   useEffect(() => {
@@ -50,19 +50,6 @@ export default function ChakraOrbButton({
   // If gate is open, do not render the “fixed orb” at all.
   if (gateOpen) return null
 
-  const MIN = 3,
-    MAX = 5
-
-  useEffect(() => {
-    const onDensity = (e) => {
-      const d = Number(e?.detail?.density ?? e?.detail?.value)
-      if (!Number.isFinite(d)) return
-      if (d <= MIN) setNextDir('out')
-      else if (d >= MAX) setNextDir('in')
-    }
-    document.addEventListener('lb:grid-density', onDensity)
-    return () => document.removeEventListener('lb:grid-density', onDensity)
-  }, [])
 
   const GREEN = '#11ff4f'
   const RED = '#ff001a'
@@ -85,7 +72,6 @@ export default function ChakraOrbButton({
       document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
       document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
       document.dispatchEvent(new CustomEvent('grid-density', { detail }))
-      setNextDir(dir)
     },
     [pulse]
   )
@@ -96,12 +82,23 @@ export default function ChakraOrbButton({
       if (d.dir === 'in') pulse(GREEN)
       if (d.dir === 'out') pulse(RED)
       if (d.dir === 'in' || d.dir === 'out') setNextDir(d.dir)
-    }
     document.addEventListener('lb:zoom', onExternal)
     return () => document.removeEventListener('lb:zoom', onExternal)
   }, [pulse])
 
-  const onClick = () => fireZoom(nextDir)
+  const actions = [
+    () => fireZoom('in'),  // stacks -> 5
+    () => fireZoom('in'),  // 5 -> 4
+    () => fireZoom('in'),  // 4 -> 3
+    () => fireZoom('out'), // 3 -> 4
+    () => fireZoom('out'), // 4 -> 5
+    () => fireZoom('out'), // 5 -> stacks
+  ]
+onClick(
+  const onClick = () => {
+    actions[cycleStep]()
+    setCycleStep((prev) => (prev + 1) % 6)
+  }
   const onContextMenu = (e) => {
     e.preventDefault()
     fireZoom('out')
@@ -148,7 +145,7 @@ export default function ChakraOrbButton({
       <button
         type="button"
         aria-label="Zoom products"
-        title="Zoom products (Click = Smart IN/OUT • Right-click = OUT • Wheel = IN/OUT)"
+        title="Zoom products (Click = Cycle IN/OUT • Right-click = OUT • Wheel = IN/OUT)"
         data-orb="density"
         onClick={onClick}
         onContextMenu={onContextMenu}
@@ -204,7 +201,7 @@ export default function ChakraOrbButton({
             zIndex: 1,
           }}
         >
-          {nextDir === 'in' ? '−' : '+'}
+          {cycleStep < 3 ? '−' : '+'}
         </span>
       </button>
     </div>
