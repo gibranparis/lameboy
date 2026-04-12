@@ -14,7 +14,7 @@ import WhiteLoader from '@/components/orb/WhiteLoader'
 const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
 
 // Shop
-const ShopGrid = nextDynamic(() => import('@/components/ShopGrid'), { ssr: false })
+import ShopGrid from '@/components/ShopGrid'
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
