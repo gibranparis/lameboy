@@ -802,7 +802,7 @@ export default function ProductOverlay({
     }, 300)
   }, [finishClose, reduceMotion, getFreshTileRect])
 
-  /* zoom-back close after add-to-cart: item stays visible while shrinking to grid */
+  /* zoom-to-cart close after add-to-cart: item stays visible while shrinking to cart button */
   const animateCloseAfterAdd = useCallback(() => {
     if (closingRef.current) return
     closingRef.current = true
@@ -812,11 +812,37 @@ export default function ProductOverlay({
     pendingResetRef.current = true
 
     const hero = heroRef.current
-    const fr = getFreshTileRect()
-    const canZoomBack = hero && fr && !reduceMotion
+    // Find the cart button position instead of grid position
+    const cartContainer = document.querySelector('[data-cart-container]')
+    const cartRect = cartContainer ? cartContainer.getBoundingClientRect() : null
+    const canZoomToCart = hero && cartRect && !reduceMotion
 
-    if (!canZoomBack) {
-      window.setTimeout(finishClose, 160)
+    if (!canZoomToCart) {
+      // Fallback to original behavior if cart button not found
+      const fr = getFreshTileRect()
+      if (hero && fr && !reduceMotion) {
+        const from = hero.getBoundingClientRect()
+        const to = fr
+        const fromCx = from.left + from.width / 2
+        const fromCy = from.top + from.height / 2
+        const toCx = to.left + to.width / 2
+        const toCy = to.top + to.height / 2
+        const sx = to.width / Math.max(1, from.width)
+        const sy = to.height / Math.max(1, from.height)
+        const s = Math.max(sx, sy)
+        const dx = toCx - fromCx
+        const dy = toCy - fromCy
+        hero.style.willChange = 'transform'
+        hero.style.transition = 'transform 340ms cubic-bezier(.2,.8,.2,1)'
+        hero.style.transformOrigin = 'center center'
+        hero.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`
+        window.setTimeout(() => {
+          hero.style.willChange = ''
+          finishClose()
+        }, 360)
+      } else {
+        window.setTimeout(finishClose, 160)
+      }
       return
     }
 
@@ -829,9 +855,9 @@ export default function ProductOverlay({
     }, 60)
 
     const from = hero.getBoundingClientRect()
-    const to = fr
+    const to = cartRect
 
-    // Center-to-center with uniform scale (symmetric with open animation)
+    // Center-to-center with uniform scale
     const fromCx = from.left + from.width / 2
     const fromCy = from.top + from.height / 2
     const toCx = to.left + to.width / 2
@@ -839,12 +865,12 @@ export default function ProductOverlay({
 
     const sx = to.width / Math.max(1, from.width)
     const sy = to.height / Math.max(1, from.height)
-    const s = Math.max(sx, sy)
+    const s = Math.max(sx, sy) * 0.6 // Make it smaller to fit in the bag
 
     const dx = toCx - fromCx
     const dy = toCy - fromCy
 
-    // Item stays fully visible — just shrinks into grid position
+    // Item stays fully visible — just shrinks into cart position
     hero.style.willChange = 'transform'
     hero.style.transition = 'transform 340ms cubic-bezier(.2,.8,.2,1)'
     hero.style.transformOrigin = 'center center'

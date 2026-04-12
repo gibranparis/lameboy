@@ -503,6 +503,7 @@ export default function Page() {
       {/* Cart button — independent of header so it stays above checkout */}
       {inShop && (
         <div
+          data-cart-container
           style={{
             position: 'fixed',
             bottom: 'var(--safe-bottom, 0px)',

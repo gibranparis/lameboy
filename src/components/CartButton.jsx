@@ -164,9 +164,10 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
       <button
         ref={btnRef}
         type="button"
-        className={pulse ? 'cart-pulse' : ''}
+        className={`cart-fab ${pulse ? 'cart-pulse' : ''}`}
         aria-label={aria}
         title="Cart"
+        data-cart-button
         onClick={onClick}
         style={S.btn}
       >
