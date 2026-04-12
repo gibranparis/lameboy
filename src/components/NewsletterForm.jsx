@@ -229,11 +229,21 @@ export default function NewsletterForm({ open, onClose }) {
     }
   }, [open, onClose])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     // Blur submit button before it's removed from DOM to prevent focus drifting to heart button
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-    // TODO: wire to actual newsletter API
+
+    try {
+      await fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone, ts: Date.now() }),
+      })
+    } catch {
+      // fail silently — still show success to user
+    }
+
     setSubmitted(true)
     setTimeout(() => {
       setSubmitted(false)
