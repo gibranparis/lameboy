@@ -29,6 +29,8 @@ export async function POST(req) {
 
     if (resendKey && notifyTo) {
       const resend = new Resend(resendKey);
+
+      // ── Notify you ────────────────────────────────────────────────────────
       await resend.emails.send({
         from: 'lameboy <onboarding@resend.dev>',
         to: notifyTo,
@@ -44,7 +46,75 @@ export async function POST(req) {
             UA: ${payload.ua}
           </p>
         `,
-      }).catch((err) => console.error('[lead] resend error', err));
+      }).catch((err) => console.error('[lead] resend notify error', err));
+
+      // ── Welcome email to subscriber ───────────────────────────────────────
+      if (cleanEmail) {
+        const firstName = cleanName ? cleanName.split(' ')[0] : null;
+        const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
+        await resend.emails.send({
+          from: 'Lameboy <eden@lameboy.com>',
+          to: cleanEmail,
+          subject: 'Welcome to Lameboy',
+          html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  body {
+    margin: 0; padding: 0;
+    background: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #111;
+  }
+  .wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+  .rainbow {
+    display: block;
+    height: 3px;
+    background: linear-gradient(90deg,
+      #ef4444, #f97316, #facc15, #22c55e, #3b82f6, #4f46e5, #c084fc);
+    margin-bottom: 40px;
+    border-radius: 2px;
+  }
+  .logo {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 28px;
+    letter-spacing: -0.01em;
+  }
+  p {
+    font-size: 15px;
+    line-height: 1.7;
+    color: #444;
+    margin: 0 0 16px;
+  }
+  .footer {
+    margin-top: 48px;
+    font-size: 11px;
+    color: #bbb;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="rainbow"></span>
+  <div class="logo">LAMEBOY, USA &mdash; Florida</div>
+  <p>welcome, ${firstName || 'friend'}.</p>
+  <p>you're officially on the news list. we'll let you know when new drops land or something goes live.</p>
+  <p>no spam.</p>
+  <p>email <a href="mailto:Eden@lameboy.com" style="color:#111;">Eden@lameboy.com</a> for support.</p>
+  <div class="footer">lameboy &mdash; let all mankind evolve</div>
+</div>
+</body>
+</html>`,
+        }).catch((err) => console.error('[lead] resend welcome error', err));
+      }
     }
 
     // ── Optional legacy webhook ────────────────────────────────────────────
