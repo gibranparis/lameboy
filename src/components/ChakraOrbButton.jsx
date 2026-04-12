@@ -26,6 +26,7 @@ export default function ChakraOrbButton({
   const [gateOpen, setGateOpen] = useState(false)
   const [cycleStep, setCycleStep] = useState(0)
   const [viewMode, setViewMode] = useState('stacks')
+  const [nextDir, setNextDir] = useState('in')
 
   // NEW: hide this component entirely while the gate is open
   useEffect(() => {
@@ -83,6 +84,7 @@ export default function ChakraOrbButton({
       if (d.dir === 'in') pulse(GREEN)
       if (d.dir === 'out') pulse(RED)
       if (d.dir === 'in' || d.dir === 'out') setNextDir(d.dir)
+    }
     document.addEventListener('lb:zoom', onExternal)
     return () => document.removeEventListener('lb:zoom', onExternal)
   }, [pulse])
@@ -95,7 +97,7 @@ export default function ChakraOrbButton({
     () => fireZoom('out'), // 4 -> 5
     () => fireZoom('out'), // 5 -> stacks
   ]
-onClick(
+
   const onClick = () => {
     if (window.shopGridReady) {
       actions[cycleStep]()

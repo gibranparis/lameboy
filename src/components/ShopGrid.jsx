@@ -433,6 +433,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     if (readySent.current) return
     readySent.current = true
     try {
+      window.shopGridReady = true
+    } catch {}
+    try {
       window.dispatchEvent(new Event('lb:shop-ready'))
     } catch {}
   }, [])

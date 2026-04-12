@@ -121,8 +121,11 @@ export default function OrbShell({
 
   const [pressColor, setPressColor] = useState(null) // '#00a832' | null
   const [overlayOpen, setOverlayOpen] = useState(false)
+  const [cycleStep, setCycleStep] = useState(0)
 
   const GREEN_ZOOM = '#00a832'
+  const cycleLabels = ['5', '4', '3', '4', '5', 'stack']
+  const nextCycleLabel = cycleLabels[cycleStep] || '5'
 
   // watch overlay-open attribute
   useEffect(() => {
@@ -143,18 +146,30 @@ export default function OrbShell({
     return () => clearTimeout(t)
   }, [])
 
-  const fireZoom = useCallback(() => {
-    const now = performance.now()
-    if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
-    lastFireRef.current = now
+  const fireZoom = useCallback(
+    (dir = null) => {
+      const now = performance.now()
+      if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
+      lastFireRef.current = now
 
-    pulse(GREEN_ZOOM)
+      pulse(GREEN_ZOOM)
 
-    const detail = { step: 1, dir: 'out' }
-    document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
-    document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
-    document.dispatchEvent(new CustomEvent('grid-density', { detail })) // legacy
-  }, [pulse])
+      const detail = { step: 1, ...(dir ? { dir } : {}) }
+      document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
+      document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
+      document.dispatchEvent(new CustomEvent('grid-density', { detail })) // legacy
+    },
+    [pulse]
+  )
+
+  const actions = [
+    () => fireZoom('in'),  // stacks -> 5
+    () => fireZoom('in'),  // 5 -> 4
+    () => fireZoom('in'),  // 4 -> 3
+    () => fireZoom('out'), // 3 -> 4
+    () => fireZoom('out'), // 4 -> 5
+    () => fireZoom('out'), // 5 -> stacks
+  ]
 
   // mirror external zoom pulses visually
   useEffect(() => {
@@ -165,13 +180,18 @@ export default function OrbShell({
     return () => document.removeEventListener('lb:zoom', onExternal)
   }, [pulse])
 
-  const onShopClick = useCallback(() => fireZoom(), [fireZoom])
+  const onShopClick = useCallback(() => {
+    actions[cycleStep]()
+    setCycleStep((prev) => (prev + 1) % actions.length)
+  }, [actions, cycleStep])
+
   const onShopTouchEnd = useCallback(
     (e) => {
       try { e.preventDefault() } catch {} // prevent subsequent onClick from double-firing
-      fireZoom()
+      actions[cycleStep]()
+      setCycleStep((prev) => (prev + 1) % actions.length)
     },
-    [fireZoom]
+    [actions, cycleStep]
   )
   const onShopContextMenu = useCallback((e) => { e.preventDefault() }, [])
 
@@ -179,18 +199,20 @@ export default function OrbShell({
     (e) => {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault()
-        fireZoom()
+        actions[cycleStep]()
+        setCycleStep((prev) => (prev + 1) % actions.length)
       }
     },
-    [fireZoom]
+    [actions, cycleStep]
   )
 
   const onShopWheel = useCallback(
     (e) => {
       try { e.preventDefault() } catch {}
-      fireZoom()
+      actions[cycleStep]()
+      setCycleStep((prev) => (prev + 1) % actions.length)
     },
-    [fireZoom]
+    [actions, cycleStep]
   )
 
   const rpmValue = useMemo(() => {
@@ -303,6 +325,26 @@ export default function OrbShell({
           flashDecayMs={inGateLike ? 0 : 140}
           solidOverride={orbSolidOverride}
         />
+        {!inGateLike && !overlayOpen && (
+          <span
+            style={{
+              position: 'absolute',
+              bottom: '-18px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: '12px',
+              lineHeight: 1,
+              color: 'white',
+              background: 'rgba(0, 0, 0, 0.5)',
+              padding: '2px 6px',
+              borderRadius: '999px',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {`Next: ${nextCycleLabel}`}
+          </span>
+        )}
       </button>
     </div>
   )
