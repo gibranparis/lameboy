@@ -1013,3 +1013,19 @@ html[data-overlay-open] #yt-panel-anchor {
   box-shadow: none !important;
   contain: paint;
 }
+
+/* ==========================================================================
+   13) CART OPEN FADE EFFECTS
+   ========================================================================== */
+:root[data-checkout-open] .music-player-container {
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+}
+:root[data-checkout-open] .heart-submit {
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+}
+:root[data-checkout-open] .yt-panel {
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+}

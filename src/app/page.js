@@ -411,7 +411,7 @@ export default function Page() {
                 height: 'var(--header-ctrl, 64px)',
                 display: 'grid',
                 placeItems: 'center',
-              }}>
+              }} className="music-player-container">
                 <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
               </div>
 
