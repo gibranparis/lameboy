@@ -106,7 +106,7 @@ export default function OrbShell({
     burstTimers.current = []
   }, [])
 
-  const startChakraBurst = useCallback(() => {
+  const startChakraBurst = useCallback((callback) => {
     if (!inGateLike) return
     if (isProceeding) return
     clearBurstTimers()
@@ -118,6 +118,15 @@ export default function OrbShell({
         }, index * 80)
       )
     })
+
+    // After burst completes, trigger callback (gate advance or proceed)
+    burstTimers.current.push(
+      window.setTimeout(() => {
+        if (callback && typeof callback === 'function') {
+          callback()
+        }
+      }, CHAKRA_BURST_COLORS.length * 80)
+    )
   }, [CHAKRA_BURST_COLORS, clearBurstTimers, inGateLike, isProceeding])
 
   useEffect(() => {
@@ -143,14 +152,14 @@ export default function OrbShell({
   const onGateClick = useCallback(() => {
     if (!inGateLike) return
     if (isProceeding) return
-    onAdvanceGate && onAdvanceGate()
-  }, [inGateLike, isProceeding, onAdvanceGate])
+    startChakraBurst(onAdvanceGate)
+  }, [inGateLike, isProceeding, onAdvanceGate, startChakraBurst])
 
   const onGateDouble = useCallback(() => {
     if (!inGateLike) return
     if (isProceeding) return
-    onProceed && onProceed()
-  }, [inGateLike, isProceeding, onProceed])
+    startChakraBurst(onProceed)
+  }, [inGateLike, isProceeding, onProceed, startChakraBurst])
 
   /* ===================== Shop density logic (ported from ChakraOrbButton) ===================== */
 
