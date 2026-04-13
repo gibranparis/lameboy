@@ -95,7 +95,7 @@ export default function OrbShell({
 
   const gateSolid = gateStep >= 1 || isProceeding || loaderShow
   const CHAKRA_BURST_COLORS = useMemo(
-    () => ['#cc0014', '#e05500', '#ffd400', '#00a832', '#0066ff', '#3a00b5', '#9333ea'],
+    () => ['#cc0014', '#e05500', '#ffd400', '#00a832', '#0066ff', '#3a00b5', '#9333ea', '#000'],
     []
   )
   const burstTimers = useRef([])
@@ -118,12 +118,6 @@ export default function OrbShell({
         }, index * 80)
       )
     })
-
-    burstTimers.current.push(
-      window.setTimeout(() => {
-        setBurstColor(null)
-      }, CHAKRA_BURST_COLORS.length * 80 + 80)
-    )
   }, [CHAKRA_BURST_COLORS, clearBurstTimers, inGateLike, isProceeding])
 
   useEffect(() => {
