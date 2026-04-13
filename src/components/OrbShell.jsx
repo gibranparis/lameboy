@@ -59,14 +59,14 @@ export default function OrbShell({
 
   const SEAFOAM = '#32ffc7'
   const WHITE = '#ffffff'
-  const RED = '#cc0014'
-  const ORANGE = '#e05500'
-  const YELLOW = '#ffd400'
-  const GREEN = '#0bf05f'
-  const BLUE = '#0066ff'
-  const PURPLE = '#9333ea'
-  const PINK = '#ff3399'
-  const BLACK = '#000'
+  const RED    = '#cc0014'  // root chakra
+  const ORANGE = '#e05500'  // sacral chakra
+  const YELLOW = '#ffd400'  // solar chakra
+  const GREEN  = '#00a832'  // heart chakra
+  const BLUE   = '#0066ff'  // throat chakra
+  const PURPLE = '#3a00b5'  // third-eye chakra
+  const PINK   = '#9333ea'  // crown chakra (warm violet)
+  const BLACK  = '#000'
 
   const [isNight, setIsNight] = useState(false)
   useEffect(() => {
@@ -149,16 +149,14 @@ export default function OrbShell({
   const onGateClick = useCallback(() => {
     if (!inGateLike) return
     if (isProceeding) return
-    startChakraBurst()
     onAdvanceGate && onAdvanceGate()
-  }, [inGateLike, isProceeding, onAdvanceGate, startChakraBurst])
+  }, [inGateLike, isProceeding, onAdvanceGate])
 
   const onGateDouble = useCallback(() => {
     if (!inGateLike) return
     if (isProceeding) return
-    startChakraBurst()
     onProceed && onProceed()
-  }, [inGateLike, isProceeding, onProceed, startChakraBurst])
+  }, [inGateLike, isProceeding, onProceed])
 
   /* ===================== Shop density logic (ported from ChakraOrbButton) ===================== */
 
