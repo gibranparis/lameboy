@@ -36,6 +36,7 @@ function OrbCross({
   haloTint = null,
   solidOverride = false,
   flashDecayMs = 140,
+  skipColorLerp = false,
 }) {
   const group = useRef()
 
@@ -51,8 +52,8 @@ function OrbCross({
     const u = group.current.userData
     if (!u) return
 
-    // Smooth lerp toward target base to prevent visual pop on color transitions
-    if (u.targetBase !== undefined && Math.abs(u.base - u.targetBase) > 0.001) {
+    // Smooth lerp toward target base to prevent visual pop on color transitions (skip during burst)
+    if (!skipColorLerp && u.targetBase !== undefined && Math.abs(u.base - u.targetBase) > 0.001) {
       u.base += (u.targetBase - u.base) * 0.09
     } else if (u.targetBase !== undefined) {
       u.base = u.targetBase
@@ -386,6 +387,7 @@ export default function BlueOrbCross3D({
   haloTint = null,
   flashDecayMs = 140,
   solidOverride = false,
+  skipColorLerp = false,
 }) {
   const [maxDpr, setMaxDpr] = useState(2)
   const [reduced, setReduced] = useState(false)
@@ -452,6 +454,7 @@ export default function BlueOrbCross3D({
           haloTint={haloTint}
           flashDecayMs={flashDecayMs}
           solidOverride={solidOverride}
+          skipColorLerp={skipColorLerp}
         />
       </Canvas>
     </div>

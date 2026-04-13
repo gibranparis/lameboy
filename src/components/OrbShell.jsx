@@ -115,34 +115,37 @@ export default function OrbShell({
     // Mark burst as active to block gate color overrides
     setBurstActive(true)
 
-    // Set first color immediately (synchronously) for instant burst
-    setBurstColor(CHAKRA_BURST_COLORS[0])
+    let frameCount = 0
+    const framesPerColor = 5 // ~80ms at 60fps = ~4.8 frames, so 5 frames
+    const totalFrames = CHAKRA_BURST_COLORS.length * framesPerColor
 
-    // Set remaining colors with staggered delays
-    for (let index = 1; index < CHAKRA_BURST_COLORS.length; index++) {
-      burstTimers.current.push(
-        window.setTimeout(() => {
-          setBurstColor(CHAKRA_BURST_COLORS[index])
-        }, index * 80)
-      )
-    }
-
-    // After burst completes (all colors shown + black held for 80ms), trigger callback
-    burstTimers.current.push(
-      window.setTimeout(() => {
+    const loop = () => {
+      const colorIndex = Math.floor(frameCount / framesPerColor)
+      if (colorIndex < CHAKRA_BURST_COLORS.length) {
+        setBurstColor(CHAKRA_BURST_COLORS[colorIndex])
+        frameCount++
+        burstTimers.current.push(window.requestAnimationFrame(loop))
+      } else {
+        // Burst complete
         setBurstActive(false)
         if (callback && typeof callback === 'function') {
           callback()
         }
-      }, CHAKRA_BURST_COLORS.length * 80 + 80)
-    )
+      }
+    }
+
+    burstTimers.current.push(window.requestAnimationFrame(loop))
   }, [CHAKRA_BURST_COLORS, clearBurstTimers, inGateLike, isProceeding])
 
   useEffect(() => {
     return () => {
       clearBurstTimers()
-      setBurstActive(false)
-      setBurstColor(null)
+      burstTimers.current.forEach((id) => {
+        if (typeof id === 'number' && id > 0) {
+          cancelAnimationFrame(id)
+        }
+      })
+      burstTimers.current = []
     }
   }, [clearBurstTimers])
   /* ===================== Gate interactions ===================== */
@@ -396,6 +399,7 @@ export default function OrbShell({
           haloTint={orbHaloTint}
           flashDecayMs={inGateLike ? 0 : 140}
           solidOverride={orbSolidOverride}
+          skipColorLerp={burstActive}
         />
         {!inGateLike && !overlayOpen && (
           <span
