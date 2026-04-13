@@ -437,6 +437,7 @@ export default function Page() {
                 }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none' }}
+                className="lame-logo-button"
               >
                 <img
                   src="/Blue hand-drawn symbol with _LAME_.png"
@@ -472,6 +473,7 @@ export default function Page() {
 
           {/* Main — flex column. Spacer pushes grid to bottom. */}
           <main
+            className="shop-main"
             style={{
               paddingTop: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
               display: 'flex',
