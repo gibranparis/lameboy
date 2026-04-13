@@ -100,6 +100,7 @@ export default function OrbShell({
   )
   const burstTimers = useRef([])
   const [burstColor, setBurstColor] = useState(null)
+  const [burstActive, setBurstActive] = useState(false)
 
   const clearBurstTimers = useCallback(() => {
     burstTimers.current.forEach((t) => clearTimeout(t))
@@ -111,27 +112,37 @@ export default function OrbShell({
     if (isProceeding) return
     clearBurstTimers()
 
-    CHAKRA_BURST_COLORS.forEach((color, index) => {
+    // Mark burst as active to block gate color overrides
+    setBurstActive(true)
+
+    // Set first color immediately (synchronously) for instant burst
+    setBurstColor(CHAKRA_BURST_COLORS[0])
+
+    // Set remaining colors with staggered delays
+    for (let index = 1; index < CHAKRA_BURST_COLORS.length; index++) {
       burstTimers.current.push(
         window.setTimeout(() => {
-          setBurstColor(color)
+          setBurstColor(CHAKRA_BURST_COLORS[index])
         }, index * 80)
       )
-    })
+    }
 
-    // After burst completes, trigger callback (gate advance or proceed)
+    // After burst completes (all colors shown + black held for 80ms), trigger callback
     burstTimers.current.push(
       window.setTimeout(() => {
+        setBurstActive(false)
         if (callback && typeof callback === 'function') {
           callback()
         }
-      }, CHAKRA_BURST_COLORS.length * 80)
+      }, CHAKRA_BURST_COLORS.length * 80 + 80)
     )
   }, [CHAKRA_BURST_COLORS, clearBurstTimers, inGateLike, isProceeding])
 
   useEffect(() => {
     return () => {
       clearBurstTimers()
+      setBurstActive(false)
+      setBurstColor(null)
     }
   }, [clearBurstTimers])
   /* ===================== Gate interactions ===================== */
@@ -289,13 +300,19 @@ export default function OrbShell({
         onWheel: onShopWheel,
       }
 
-  const orbOverrideAllColor = inGateLike ? burstColor || gateOverride : pressColor || (isNight ? WHITE : null)
+  const orbOverrideAllColor = inGateLike
+    ? burstColor !== null
+      ? burstColor
+      : gateOverride
+    : pressColor || (isNight ? WHITE : null)
   const orbHaloTint = inGateLike
-    ? gateOverride === RED
-      ? '#880011'        // deep blood-crimson — evil moon glow
-      : gateOverride === BLACK
-        ? '#444444'      // visible dark aura instead of near-invisible #111
-        : null
+    ? burstActive
+      ? null
+      : gateOverride === RED
+        ? '#880011'        // deep blood-crimson — evil moon glow
+        : gateOverride === BLACK
+          ? '#444444'      // visible dark aura instead of near-invisible #111
+          : null
     : pressColor === BLACK_GLOW
       ? '#444444'
       : pressColor || (isNight ? WHITE : null)
