@@ -7,7 +7,7 @@ import BlueOrbCross3D from '@/components/BlueOrbCross3D'
 export default function OrbShell({
   mode, // 'gate' | 'shop'
   loaderShow, // boolean
-  gateStep, // 0..3
+  gateStep, // 0..7
   isProceeding, // boolean
   onAdvanceGate, // fn
   onProceed, // fn
@@ -60,8 +60,12 @@ export default function OrbShell({
   const SEAFOAM = '#32ffc7'
   const WHITE = '#ffffff'
   const RED = '#cc0014'
+  const ORANGE = '#e05500'
   const YELLOW = '#ffd400'
   const GREEN = '#0bf05f'
+  const BLUE = '#0066ff'
+  const PURPLE = '#9333ea'
+  const PINK = '#ff3399'
   const BLACK = '#000'
 
   const [isNight, setIsNight] = useState(false)
@@ -80,13 +84,53 @@ export default function OrbShell({
   const gateOverride = useMemo(() => {
     if (loaderShow || isProceeding) return BLACK
     if (gateStep === 1) return RED
-    if (gateStep === 2) return YELLOW
-    if (gateStep === 3) return GREEN
+    if (gateStep === 2) return ORANGE
+    if (gateStep === 3) return YELLOW
+    if (gateStep === 4) return GREEN
+    if (gateStep === 5) return BLUE
+    if (gateStep === 6) return PURPLE
+    if (gateStep === 7) return PINK
     return null
   }, [gateStep, isProceeding, loaderShow])
 
-  const gateSolid = gateStep === 1 || gateStep === 3 || isProceeding || loaderShow
+  const gateSolid = gateStep >= 1 || isProceeding || loaderShow
+  const CHAKRA_BURST_COLORS = useMemo(
+    () => ['#cc0014', '#e05500', '#ffd400', '#00a832', '#0066ff', '#3a00b5', '#9333ea'],
+    []
+  )
+  const burstTimers = useRef([])
+  const [burstColor, setBurstColor] = useState(null)
 
+  const clearBurstTimers = useCallback(() => {
+    burstTimers.current.forEach((t) => clearTimeout(t))
+    burstTimers.current = []
+  }, [])
+
+  const startChakraBurst = useCallback(() => {
+    if (!inGateLike) return
+    if (isProceeding) return
+    clearBurstTimers()
+
+    CHAKRA_BURST_COLORS.forEach((color, index) => {
+      burstTimers.current.push(
+        window.setTimeout(() => {
+          setBurstColor(color)
+        }, index * 80)
+      )
+    })
+
+    burstTimers.current.push(
+      window.setTimeout(() => {
+        setBurstColor(null)
+      }, CHAKRA_BURST_COLORS.length * 80 + 80)
+    )
+  }, [CHAKRA_BURST_COLORS, clearBurstTimers, inGateLike, isProceeding])
+
+  useEffect(() => {
+    return () => {
+      clearBurstTimers()
+    }
+  }, [clearBurstTimers])
   /* ===================== Gate interactions ===================== */
 
   const pressTimer = useRef(null)
@@ -105,14 +149,16 @@ export default function OrbShell({
   const onGateClick = useCallback(() => {
     if (!inGateLike) return
     if (isProceeding) return
+    startChakraBurst()
     onAdvanceGate && onAdvanceGate()
-  }, [inGateLike, isProceeding, onAdvanceGate])
+  }, [inGateLike, isProceeding, onAdvanceGate, startChakraBurst])
 
   const onGateDouble = useCallback(() => {
     if (!inGateLike) return
     if (isProceeding) return
+    startChakraBurst()
     onProceed && onProceed()
-  }, [inGateLike, isProceeding, onProceed])
+  }, [inGateLike, isProceeding, onProceed, startChakraBurst])
 
   /* ===================== Shop density logic (ported from ChakraOrbButton) ===================== */
 
@@ -242,7 +288,7 @@ export default function OrbShell({
         onWheel: onShopWheel,
       }
 
-  const orbOverrideAllColor = inGateLike ? gateOverride : pressColor || (isNight ? WHITE : null)
+  const orbOverrideAllColor = inGateLike ? burstColor || gateOverride : pressColor || (isNight ? WHITE : null)
   const orbHaloTint = inGateLike
     ? gateOverride === RED
       ? '#880011'        // deep blood-crimson — evil moon glow
@@ -274,9 +320,14 @@ export default function OrbShell({
     ? gateSolid
       ? loaderShow || isProceeding
         ? BLACK
-        : gateStep === 1
-          ? RED
-          : GREEN
+        : gateStep === 1 ? RED
+        : gateStep === 2 ? ORANGE
+        : gateStep === 3 ? YELLOW
+        : gateStep === 4 ? GREEN
+        : gateStep === 5 ? BLUE
+        : gateStep === 6 ? PURPLE
+        : gateStep === 7 ? PINK
+        : SEAFOAM
       : SEAFOAM
     : isNight
       ? WHITE

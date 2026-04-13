@@ -58,7 +58,7 @@ export default function Page() {
 
   /* ===================== Gate state ===================== */
 
-  const [gateStep, setGateStep] = useState(0) // 0..3
+  const [gateStep, setGateStep] = useState(0) // 0..7
   const [isProceeding, setIsProceeding] = useState(false)
   const [sequenceActive, setSequenceActive] = useState(false)
 
@@ -82,7 +82,7 @@ export default function Page() {
       setGateStep(1)
       setSequenceActive(true)
     } else {
-      setGateStep((s) => (s >= 3 ? 3 : s + 1))
+      setGateStep((s) => (s >= 7 ? 7 : s + 1))
     }
   }, [inGate, isProceeding, gateStep])
 
@@ -175,10 +175,10 @@ export default function Page() {
     })
   }, [handleEnterShop, inGate])
 
-  // When we hit green via manual clicks (not auto-sequence), proceed after a brief pause
+  // When we hit pink via manual clicks (not auto-sequence), proceed after a brief pause
   useEffect(() => {
     if (!inGate) return
-    if (gateStep !== 3) return
+    if (gateStep !== 7) return
     if (proceedFired.current || isProceeding) return
     if (sequenceActive) return // auto-sequence handles its own timing
 
@@ -190,8 +190,11 @@ export default function Page() {
     return () => clearTimeout(proceedDelayTimer.current)
   }, [gateStep, inGate, isProceeding, triggerProceed, sequenceActive])
 
-  // Auto-advance through color sequence, aligned to clock-second boundaries.
-  // Each color change fires when the clock's seconds digit ticks.
+  // Auto-advance through color sequence.
+  // RED holds until the next clock-second boundary (min 600ms), then each subsequent
+  // color (orange→yellow→green→blue→purple→pink) fires every 333ms so the total
+  // time to black stays the same as the original 3-step sequence (~3 s).
+  const STEP_MS = 333
   useEffect(() => {
     if (!sequenceActive || !inGate) return
 
@@ -200,18 +203,18 @@ export default function Page() {
     const msToNextSec = 1000 - (Date.now() % 1000)
 
     if (gateStep === 1) {
-      // RED → YELLOW at next second boundary (ensure at least 600ms so RED doesn't feel rushed)
+      // RED → ORANGE at next second boundary (ensure at least 600ms so RED doesn't feel rushed)
       const redDelay = msToNextSec < 600 ? msToNextSec + 1000 : msToNextSec
       timer = setTimeout(() => setGateStep(2), redDelay)
-    } else if (gateStep === 2) {
-      // YELLOW → GREEN at next second boundary
-      timer = setTimeout(() => setGateStep(3), msToNextSec)
-    } else if (gateStep === 3) {
-      // GREEN → BLACK at next second boundary, then proceed
+    } else if (gateStep >= 2 && gateStep <= 6) {
+      // ORANGE → YELLOW → GREEN → BLUE → PURPLE, each holding for STEP_MS
+      timer = setTimeout(() => setGateStep((s) => s + 1), STEP_MS)
+    } else if (gateStep === 7) {
+      // PINK → BLACK + proceed after one last STEP_MS
       timer = setTimeout(() => {
         setSequenceActive(false)
         triggerProceed()
-      }, msToNextSec)
+      }, STEP_MS)
     }
 
     return () => clearTimeout(timer)
