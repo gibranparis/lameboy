@@ -119,7 +119,7 @@ export default function CheckoutView({ onClose }) {
         >
           {/* Lameboy signature — top left */}
           <img
-            src="/cart/lameboy school boy rainbow.png"
+            src="/rbw.png"
             alt="Lameboy"
             style={{
               height: 40,
