@@ -122,10 +122,11 @@ export default function CheckoutView({ onClose }) {
             src="/rbw.png"
             alt="Lameboy"
             style={{
-              height: 40,
+              height: 50,
               width: 'auto',
               pointerEvents: 'none',
               userSelect: 'none',
+              transform: 'rotate(8deg)',
             }}
           />
           {/* X close button — top right */}
