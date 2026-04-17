@@ -160,7 +160,7 @@ const SIZE_CHART = {
 }
 
 /* ---------------- + / sizes ---------------- */
-function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, onAddedToCart, onToggleZoom, onSizePicked }) {
+function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, onAddedToCart, onToggleZoom, onSizePicked, triggerRef }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState(null)
   const [hotSize, setHotSize] = useState(null)
@@ -223,6 +223,11 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
       }
     }, 380)
   }, [picked, product, onAddedToCart, onSizePicked])
+
+  useEffect(() => {
+    if (!triggerRef) return
+    triggerRef.current = picked ? addToCart : null
+  }, [triggerRef, picked, addToCart])
 
   useEffect(
     () => () =>
@@ -1399,6 +1404,7 @@ export default function ProductOverlay({
 
   const priceRef = useRef(null)
   const [priceStyle, setPriceStyle] = useState(null)
+  const addToCartTriggerRef = useRef(null)
   useEffect(() => {
     if (!priceRef.current) return
     const cs = getComputedStyle(priceRef.current)
@@ -1630,7 +1636,7 @@ export default function ProductOverlay({
             {priceText}
           </div>
           <div style={{ marginTop: 12 }}>
-            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} />
+            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} triggerRef={addToCartTriggerRef} />
           </div>
         </div>
 
@@ -1659,6 +1665,27 @@ export default function ProductOverlay({
             </div>
           )
         })()}
+
+        {/* Tap zone: the area below the product content and above the bottom header adds to cart */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation()
+            if (addToCartTriggerRef.current) {
+              addToCartTriggerRef.current()
+            } else {
+              window.dispatchEvent(new CustomEvent('product-image-click'))
+            }
+          }}
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
+            height: 140,
+            pointerEvents: 'auto',
+            zIndex: 521,
+          }}
+        />
       </div>
 
       <style jsx>{`
