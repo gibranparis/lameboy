@@ -111,24 +111,36 @@ export default function CheckoutView({ onClose }) {
             top: 0,
             zIndex: 2,
             background: night ? '#0f1115' : '#fafaf8',
-            padding: '20px 24px 12px',
+            padding: '15px 18px 12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
           {/* Lameboy signature — top left */}
-          <img
-            src="/rbw.png"
-            alt="Lameboy"
-            style={{
-              height: 50,
-              width: 'auto',
-              pointerEvents: 'none',
-              userSelect: 'none',
-              transform: 'rotate(8deg)',
-            }}
-          />
+          <div style={{ position: 'relative', height: 50, pointerEvents: 'none', userSelect: 'none', transform: 'rotate(8deg)' }}>
+            <img
+              src="/rbw-text.png"
+              alt="Lameboy"
+              style={{
+                height: 50,
+                width: 'auto',
+                display: 'block',
+                filter: night ? 'invert(1)' : 'none',
+              }}
+            />
+            <img
+              src="/rbw-strokes.png"
+              alt=""
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                height: 50,
+                width: 'auto',
+              }}
+            />
+          </div>
           {/* X close button — top right */}
           <button
             type="button"
