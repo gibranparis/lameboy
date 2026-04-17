@@ -118,19 +118,16 @@ export default function CheckoutView({ onClose }) {
           }}
         >
           {/* Lameboy signature — top left */}
-          <div
+          <img
+            src="/cart/lameboy school boy rainbow.png"
+            alt="Lameboy"
             style={{
-              fontSize: 32,
-              fontFamily: "'Jalliya', var(--mono)",
-              color: night ? '#fff' : '#0f1115',
+              height: 40,
+              width: 'auto',
               pointerEvents: 'none',
               userSelect: 'none',
-              letterSpacing: '0.02em',
-              lineHeight: 1,
             }}
-          >
-            Lameboy
-          </div>
+          />
           {/* X close button — top right */}
           <button
             type="button"
