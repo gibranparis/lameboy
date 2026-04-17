@@ -118,12 +118,12 @@ export default function CheckoutView({ onClose }) {
           }}
         >
           {/* Lameboy signature — top left */}
-          <div style={{ position: 'relative', height: 50, pointerEvents: 'none', userSelect: 'none', transform: 'rotate(8deg)' }}>
+          <div style={{ position: 'relative', height: 60, pointerEvents: 'none', userSelect: 'none', transform: 'rotate(8deg)' }}>
             <img
               src="/rbw-text.png"
               alt="Lameboy"
               style={{
-                height: 50,
+                height: 60,
                 width: 'auto',
                 display: 'block',
                 filter: night ? 'invert(1)' : 'none',
@@ -136,7 +136,7 @@ export default function CheckoutView({ onClose }) {
                 position: 'absolute',
                 top: 0,
                 left: 0,
-                height: 50,
+                height: 60,
                 width: 'auto',
               }}
             />
