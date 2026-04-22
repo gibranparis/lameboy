@@ -443,24 +443,18 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         }
 
         .size-panel {
-          overflow: hidden;
-          max-height: 0;
-          transition: max-height 0.26s ease;
           display: flex;
           flex-wrap: nowrap;
           justify-content: center;
         }
-        .size-panel.is-open {
-          max-height: 68px;
-        }
         .size-pill {
-          width: 34px;
-          height: 34px;
+          width: 40px;
+          height: 40px;
           padding: 0;
           border: none;
           border-radius: 50%;
           font-weight: 700;
-          font-size: 12px;
+          font-size: 13px;
           letter-spacing: 0.02em;
           display: grid;
           place-items: center;
@@ -1666,26 +1660,24 @@ export default function ProductOverlay({
           )
         })()}
 
-        {/* Tap zone: the area below the product content and above the bottom header adds to cart */}
-        <div
-          onClick={(e) => {
-            e.stopPropagation()
-            if (addToCartTriggerRef.current) {
-              addToCartTriggerRef.current()
-            } else {
-              window.dispatchEvent(new CustomEvent('product-image-click'))
-            }
-          }}
-          style={{
-            position: 'fixed',
-            left: 0,
-            right: 0,
-            bottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
-            height: 140,
-            pointerEvents: 'auto',
-            zIndex: 521,
-          }}
-        />
+        {/* Tap zone: active only after a size is picked (implies "+" was pressed) — tapping adds to cart */}
+        {!!selectedSize && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation()
+              addToCartTriggerRef.current?.()
+            }}
+            style={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              bottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
+              height: 140,
+              pointerEvents: 'auto',
+              zIndex: 521,
+            }}
+          />
+        )}
       </div>
 
       <style jsx>{`
