@@ -448,35 +448,43 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           justify-content: center;
         }
         .size-pill {
-          width: 40px;
-          height: 40px;
+          width: 28px;
+          height: 28px;
           padding: 0;
           border: none;
           border-radius: 50%;
-          font-weight: 700;
-          font-size: 13px;
+          font-weight: 800;
+          font-size: 11px;
           letter-spacing: 0.02em;
           display: grid;
           place-items: center;
           cursor: pointer;
           background: #fff;
           color: #0f1115;
-          box-shadow: inset 0 0 0 1px rgba(0,0,0,.10);
+          box-shadow:
+            0 2px 10px rgba(0,0,0,.14),
+            inset 0 0 0 1px rgba(0,0,0,.10);
           transition:
-            transform 0.08s ease,
-            box-shadow 0.2s ease,
             background 0.12s ease,
+            box-shadow 0.12s ease,
+            transform 0.08s ease,
             color 0.12s ease;
         }
         :root[data-theme='night'] .size-pill {
           background: rgba(255,255,255,0.10);
           color: #fff;
-          box-shadow: inset 0 0 0 1px rgba(255,255,255,.24);
+          box-shadow:
+            0 2px 10px rgba(0,0,0,.14),
+            inset 0 0 0 1px rgba(255,255,255,.24);
         }
-        .size-pill.is-selected {
+        .size-pill.is-selected,
+        .size-pill.is-hot {
           background: var(--hover-green, #0bf05f);
           color: #000;
-          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+          box-shadow:
+            inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+            0 2px 10px rgba(0, 0, 0, 0.12);
+          transform: translateZ(0) scale(1.02);
         }
       `}</style>
     </div>
