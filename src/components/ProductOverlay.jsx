@@ -346,6 +346,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
             onClick={() => pick(sz)}
             aria-label={`Size ${sz}`}
             title={`Size ${sz}`}
+            style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, padding: 0 }}
           >
             {sz}
           </button>
