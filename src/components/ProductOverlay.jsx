@@ -318,40 +318,40 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         </div>
       )}
 
-      {/* Size pills – hidden once a size is picked */}
-      <div
-        className={`row-nowrap size-panel ${open && !picked ? 'is-open' : ''}`}
-        data-ui="size-panel"
-        hidden={!open || !!picked}
-        style={{
-          gap: 8,
-          position: 'absolute',
-          top: '100%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          marginTop: 10,
-        }}
-      >
-        {sizes.map((sz) => (
-          <button
-            key={sz}
-            type="button"
-            className={[
-              'pill',
-              'size-pill',
-              picked === sz ? 'is-selected' : '',
-              hotSize === sz ? 'is-hot' : '',
-            ].join(' ')}
-            data-size={sz}
-            onClick={() => pick(sz)}
-            aria-label={`Size ${sz}`}
-            title={`Size ${sz}`}
-            style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, padding: 0 }}
-          >
-            {sz}
-          </button>
-        ))}
-      </div>
+      {/* Size pills – only rendered when + is open and no size picked yet */}
+      {open && !picked && (
+        <div
+          className="row-nowrap size-panel"
+          data-ui="size-panel"
+          style={{
+            gap: 8,
+            position: 'absolute',
+            top: '100%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            marginTop: 10,
+          }}
+        >
+          {sizes.map((sz) => (
+            <button
+              key={sz}
+              type="button"
+              className={[
+                'pill',
+                'size-pill',
+                hotSize === sz ? 'is-hot' : '',
+              ].join(' ')}
+              data-size={sz}
+              onClick={() => pick(sz)}
+              aria-label={`Size ${sz}`}
+              title={`Size ${sz}`}
+              style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, padding: 0 }}
+            >
+              {sz}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Add to Cart – replaces size pills, centered under "-" */}
       {picked && open && !showAdded && (
