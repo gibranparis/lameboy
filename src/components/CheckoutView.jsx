@@ -85,6 +85,7 @@ export default function CheckoutView({ onClose }) {
         bottom: 'calc(var(--safe-bottom, 0px) + var(--header-ctrl, 64px) + 8px)',
         width: 'min(300px, calc(100vw - 32px))',
         maxHeight: 'min(420px, calc(100dvh - var(--header-ctrl, 64px) * 2 - 32px))',
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         background: bg,
@@ -147,7 +148,7 @@ export default function CheckoutView({ onClose }) {
       </div>
 
       {/* Scrollable items */}
-      <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, padding: '0 8px' }}>
+      <div style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1, minHeight: 0, padding: '0 8px', touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
         {items.length === 0 ? (
           <div style={{
             textAlign: 'center',
