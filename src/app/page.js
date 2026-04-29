@@ -18,7 +18,6 @@ import ShopGrid from '@/components/ShopGrid'
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
-const CartButton = nextDynamic(() => import('@/components/CartButton'), { ssr: false })
 const NewsletterForm = nextDynamic(() => import('@/components/NewsletterForm'), { ssr: false })
 const MusicPlayerButton = nextDynamic(() => import('@/components/MusicPlayerButton'), { ssr: false })
 
@@ -505,37 +504,6 @@ export default function Page() {
         </>
       )}
 
-      {/* Cart button — independent of header so it stays above checkout */}
-      {inShop && (
-        <div
-          data-cart-container
-          style={{
-            position: 'fixed',
-            bottom: 'var(--safe-bottom, 0px)',
-            top: 'unset',
-            right: 'var(--header-pad-x, 16px)',
-            height: 'var(--header-ctrl, 64px)',
-            width: 'var(--header-ctrl, 64px)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 9999,
-            // Reveal: cart slides in from center-left to bottom-right
-            opacity: shopReady ? 1 : 0,
-            transform: shopReady
-              ? 'none'
-              : 'translate(calc(-50vw + var(--header-ctrl, 64px) / 2 + var(--header-pad-x, 16px)), calc(-50vh + var(--header-ctrl, 64px) / 2))',
-            transition: REVEAL_T,
-            transitionDelay: shopReady ? '0.05s' : '0s',
-          }}
-        >
-          <CartButton
-            size={36}
-            inHeader
-            imgSrc={null}
-            onClick={() => window.dispatchEvent(new Event('checkout:toggle'))}
-          />
-        </div>
-      )}
 
       {/* Checkout side panel */}
       {checkoutOpen && <CheckoutView onClose={() => setCheckoutOpen(false)} />}

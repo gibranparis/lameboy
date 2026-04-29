@@ -3,6 +3,7 @@
 
 import { useMemo } from 'react'
 import DayNightToggle from '@/components/DayNightToggle'
+import CartButton from '@/components/CartButton'
 export default function HeaderBar({ ctrlPx, shopReady = true }) {
   const headerPx = useMemo(() => {
     const n = Number(ctrlPx)
@@ -63,8 +64,14 @@ export default function HeaderBar({ ctrlPx, shopReady = true }) {
       {/* Center column intentionally empty: OrbShell is fixed-positioned and moves here */}
       <div className="flex items-center justify-center" style={{ lineHeight: 0 }} />
 
-      {/* Right column: cart button rendered independently at page level */}
-      <div />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
+        <CartButton
+          size={36}
+          inHeader
+          imgSrc={null}
+          onClick={() => window.dispatchEvent(new Event('checkout:toggle'))}
+        />
+      </div>
     </header>
   )
 }
