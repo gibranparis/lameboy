@@ -273,7 +273,7 @@ export default function NewsletterForm({ open, onClose }) {
       </button>
 
       {submitted ? (
-        <div className="nl-thanks">Thanks for subscribing!</div>
+        <div className="nl-thanks">let all mankind evolve</div>
       ) : (
         <form onSubmit={handleSubmit} className="nl-form">
           <div className="nl-title"><ChakraText text="Join the list" /></div>
@@ -315,7 +315,7 @@ export default function NewsletterForm({ open, onClose }) {
             />
           </label>
 
-          <button type="submit" className="nl-submit">Subscribe</button>
+          <button type="submit" className="nl-submit">Start</button>
         </form>
       )}
 
