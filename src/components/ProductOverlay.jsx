@@ -1457,7 +1457,7 @@ export default function ProductOverlay({
             position: 'fixed',
             left: 0,
             right: 0,
-            bottom: 0,
+            bottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
             top: 0,
             background: 'transparent',
             pointerEvents: 'auto',
