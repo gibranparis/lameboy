@@ -54,20 +54,24 @@ export async function swellCheckoutUrl() {
   return cart?.checkoutUrl ?? null
 }
 
+// Local image fallback keyed by Swell product slug
+const LOCAL_IMAGES = {
+  'hoodie-gray':  { image: '/products/gray.webp',  thumb: '/products/gray-thumb.webp' },
+  'hoodie-brown': { image: '/products/brown.webp', thumb: '/products/brown-thumb.webp' },
+  'hoodie-black': { image: '/products/black.webp', thumb: '/products/black-thumb.webp' },
+  'hoodie-green': { image: '/products/green.webp', thumb: '/products/green-thumb.webp' },
+  'hoodie-blue':  { image: '/products/blue.webp',  thumb: '/products/blue-thumb.webp' },
+}
+
 /** Normalize a Swell product to our internal Product shape */
 function normalizeProduct(p) {
-  const images = (p.images ?? []).map((img) => img.file?.url ?? img.url ?? '')
-  const thumb = images[0] ?? ''
-  const image = images[0] ?? ''
+  const swellImages = (p.images ?? []).map((img) => img.file?.url ?? img.url ?? '').filter(Boolean)
+  const local = LOCAL_IMAGES[p.slug] ?? {}
 
-  const sizes = (p.variants?.results ?? [])
-    .flatMap((v) => v.optionValueIds ?? [])
-    .filter(Boolean)
+  const image = swellImages[0] || local.image || ''
+  const thumb = swellImages[0] || local.thumb || ''
 
-  // Try to extract size option values
-  const sizeOption = (p.options ?? []).find(
-    (o) => o.name?.toLowerCase() === 'size'
-  )
+  const sizeOption = (p.options ?? []).find((o) => o.name?.toLowerCase() === 'size')
   const sizeValues = sizeOption
     ? (sizeOption.values ?? []).map((v) => v.name)
     : ['S', 'M', 'L', 'XL']
@@ -77,11 +81,11 @@ function normalizeProduct(p) {
     swellId: p.id,
     title: p.name,
     name: p.name,
-    price: Math.round((p.price ?? 0) * 100), // convert to cents
+    price: Math.round((p.price ?? 0) * 100),
     category: p.categories?.[0]?.name ?? 'hoodies',
     image,
     thumb,
-    images: images.length ? images : [image],
+    images: swellImages.length ? swellImages : [image],
     sizes: sizeValues,
     slug: p.slug,
   }
