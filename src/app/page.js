@@ -5,7 +5,8 @@ export const dynamic = 'force-static'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import nextDynamic from 'next/dynamic'
-import products from '@/lib/products'
+import { PRODUCTS } from '@/lib/products'
+import { fetchSwellProducts } from '@/lib/swell'
 
 import OrbShell from '@/components/OrbShell'
 import WhiteLoader from '@/components/orb/WhiteLoader'
@@ -47,6 +48,14 @@ function useHeaderCtrlPx(defaultPx = 64) {
 
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
+
+  const [swellProducts, setSwellProducts] = useState(PRODUCTS)
+
+  useEffect(() => {
+    fetchSwellProducts()
+      .then((p) => { if (p?.length) setSwellProducts(p) })
+      .catch(() => {})
+  }, [])
 
   const [mode, setMode] = useState('gate') // 'gate' | 'shop'
   const [theme, setTheme] = useState('day')
@@ -297,7 +306,7 @@ export default function Page() {
       // Preload FULL-RES images in background during gate
       // Thumbs are tiny and load instantly, so preload the big ones
       if (mode === 'gate' && gateStep >= 0) {
-        products.forEach((p, idx) => {
+        swellProducts.forEach((p, idx) => {
           setTimeout(() => {
             // Preload full-res image for detail view
             const fullImg = new Image()
@@ -326,7 +335,7 @@ export default function Page() {
       if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(id)
       else clearTimeout(id)
     }
-  }, [mode, gateStep])
+  }, [mode, gateStep, swellProducts])
 
   return (
     <div
@@ -494,7 +503,7 @@ export default function Page() {
               paddingTop: 'var(--yt-panel-h, 0px)',
               transition: 'padding-top 0.28s ease',
             }}>
-              <ShopGrid products={products} autoOpenFirstOnMount shopReady={shopReady} />
+              <ShopGrid products={swellProducts} autoOpenFirstOnMount shopReady={shopReady} />
               {!loaderShow && (
                 <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
               )}

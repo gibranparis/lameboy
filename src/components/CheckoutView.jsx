@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import CheckoutItem from './CheckoutItem'
 
 export default function CheckoutView({ onClose }) {
-  const { items, total, count } = useCart()
+  const { items, total, count, goToCheckout } = useCart()
   const [visible, setVisible] = useState(false)
   const [night, setNight] = useState(false)
   const panelRef = useRef(null)
@@ -196,7 +196,7 @@ export default function CheckoutView({ onClose }) {
               fontFamily: 'inherit',
               WebkitTapHighlightColor: 'transparent',
             }}
-            onClick={() => alert('Checkout flow to be integrated with Swell')}
+            onClick={goToCheckout}
           >
             Checkout
           </button>
