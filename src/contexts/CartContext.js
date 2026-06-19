@@ -113,10 +113,17 @@ export function CartProvider({ children }) {
 
   const goToCheckout = async () => {
     try {
-      const url = checkoutUrl ?? (await swellCartGet())?.checkoutUrl
-      if (url) window.location.href = url
+      const cart = await swellCartGet()
+      // Swell returns a checkout_url pointing to lameboy.com/checkout/{token}
+      // Rewrite it to Swell's hosted checkout so the full payment flow works
+      const raw = cart?.checkoutUrl ?? ''
+      const token = raw.split('/checkout/')[1]
+      const url = token
+        ? `https://lameboyzent.swell.store/checkout/${token}`
+        : 'https://lameboyzent.swell.store/checkout'
+      window.location.href = url
     } catch (err) {
-      console.error('Checkout URL failed', err)
+      console.error('Checkout failed', err)
     }
   }
 
