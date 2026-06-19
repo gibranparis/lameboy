@@ -3,6 +3,8 @@ import swell from 'swell-js'
 
 let initialized = false
 
+export function getSwellClient() { return getClient() }
+
 function getClient() {
   if (!initialized && typeof window !== 'undefined') {
     swell.init(

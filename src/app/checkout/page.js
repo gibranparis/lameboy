@@ -1,9 +1,9 @@
-import CheckoutView from '@/components/CheckoutView'
+import CheckoutFlow from '@/components/CheckoutFlow'
 
 export const metadata = {
   title: 'Checkout - LAMEBOY',
 }
 
 export default function CheckoutPage() {
-  return <CheckoutView />
+  return <CheckoutFlow />
 }

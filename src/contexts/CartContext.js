@@ -111,20 +111,8 @@ export function CartProvider({ children }) {
     setBumpKey((k) => k + 1)
   }
 
-  const goToCheckout = async () => {
-    try {
-      const cart = await swellCartGet()
-      // Swell returns a checkout_url pointing to lameboy.com/checkout/{token}
-      // Rewrite it to Swell's hosted checkout so the full payment flow works
-      const raw = cart?.checkoutUrl ?? ''
-      const token = raw.split('/checkout/')[1]
-      const url = token
-        ? `https://lameboyzent.swell.store/checkout/${token}`
-        : 'https://lameboyzent.swell.store/checkout'
-      window.location.href = url
-    } catch (err) {
-      console.error('Checkout failed', err)
-    }
+  const goToCheckout = () => {
+    window.location.href = '/checkout'
   }
 
   useEffect(() => {
