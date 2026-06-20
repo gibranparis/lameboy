@@ -298,6 +298,7 @@ export default function OrbShell({
           overrideAllColor={orbOverrideAllColor}
           haloTint={orbHaloTint}
           flashDecayMs={inGateLike ? 0 : 140}
+          colorTransitionMs={inGateLike ? Math.round(60000 / 44) : 0}
           solidOverride={orbSolidOverride}
         />
       </button>

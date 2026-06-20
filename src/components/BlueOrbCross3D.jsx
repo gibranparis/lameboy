@@ -37,6 +37,7 @@ function OrbCross({
   solidOverride = false,
   flashDecayMs = 140,
   skipColorLerp = false,
+  colorTransitionMs = 0,
 }) {
   const group = useRef()
 
@@ -57,6 +58,18 @@ function OrbCross({
       u.base += (u.targetBase - u.base) * 0.09
     } else if (u.targetBase !== undefined) {
       u.base = u.targetBase
+    }
+
+    // Color lerp — drives material colors each frame so the transition is as smooth as the spin
+    if (u.colorLerpSpeed > 0 && u.currentColor && u.targetColor && u.barCore) {
+      const factor = 1 - Math.exp(-dt * u.colorLerpSpeed)
+      u.currentColor.lerp(u.targetColor, factor)
+      const c = u.currentColor
+      u.barCore.color.copy(c)
+      u.barCore.emissive.copy(c)
+      u.sphereCores.forEach((m) => { m.color.copy(c); m.emissive.copy(c) })
+      u.barHalo.color.copy(c)
+      u.sphereHalos.forEach((m) => m.color.copy(c))
     }
 
     const now = performance.now()
@@ -287,16 +300,38 @@ function OrbCross({
   useEffect(() => {
     if (!group.current) return
     const prev = group.current.userData
+
+    const newTarget = new THREE.Color(barColor)
+    const lerpSpeed = colorTransitionMs > 0 ? 3000 / colorTransitionMs : 0
+
+    let startColor
+    if (lerpSpeed > 0 && prev?.currentColor) {
+      // Start from wherever the last lerp left off so there's no pop
+      startColor = prev.currentColor.clone()
+      barCoreMat.color.copy(startColor)
+      barCoreMat.emissive.copy(startColor)
+      sphereCoreMats.forEach((m) => { m.color.copy(startColor); m.emissive.copy(startColor) })
+      barHaloMat.color.copy(startColor)
+      sphereHaloMats.forEach((m) => m.color.copy(startColor))
+    } else {
+      startColor = newTarget.clone()
+    }
+
     group.current.userData = {
       pulse: true,
-      base: prev?.base ?? haloBase, // preserve current lerped value
-      targetBase: haloBase,         // lerp toward this
+      base: prev?.base ?? haloBase,
+      targetBase: haloBase,
       barHalo: barHaloMat,
       sphereHalos: sphereHaloMats,
       flashUntil: prev?.flashUntil ?? 0,
       flashDecayMs,
+      currentColor: startColor,
+      targetColor: newTarget,
+      barCore: barCoreMat,
+      sphereCores: sphereCoreMats,
+      colorLerpSpeed: lerpSpeed,
     }
-  }, [haloBase, barHaloMat, sphereHaloMats, flashDecayMs])
+  }, [haloBase, barHaloMat, sphereHaloMats, flashDecayMs, barColor, barCoreMat, sphereCoreMats, colorTransitionMs])
 
   const triggerFlash = () => {
     if (!group.current?.userData) return
@@ -388,6 +423,7 @@ export default function BlueOrbCross3D({
   flashDecayMs = 140,
   solidOverride = false,
   skipColorLerp = false,
+  colorTransitionMs = 0,
 }) {
   const [maxDpr, setMaxDpr] = useState(2)
   const [reduced, setReduced] = useState(false)
@@ -455,6 +491,7 @@ export default function BlueOrbCross3D({
           flashDecayMs={flashDecayMs}
           solidOverride={solidOverride}
           skipColorLerp={skipColorLerp}
+          colorTransitionMs={colorTransitionMs}
         />
       </Canvas>
     </div>
