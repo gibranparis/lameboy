@@ -268,9 +268,9 @@ export default function CheckoutFlow() {
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{
                     fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
-                    color: i <= stepIndex - 1 ? '#0bf05f' : i === stepIndex ? '#000' : '#ccc',
+                    color: i <= stepIndex - 1 ? '#0bf05f' : i > stepIndex ? '#ccc' : 'inherit',
                   }}>
-                    {label}
+                    {i === stepIndex ? <RainbowText text={label} /> : label}
                   </span>
                   {i < 3 && <span style={{ color: '#ccc', fontSize: 12 }}>›</span>}
                 </div>
@@ -288,7 +288,6 @@ export default function CheckoutFlow() {
           {/* Step: Contact */}
           {step === 'contact' && (
             <form onSubmit={handleContact} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}><RainbowText text="Contact" /></h2>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <Field label="First name">
                   <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" required />
