@@ -23,8 +23,8 @@ const INPUT = {
 
 const BTN = {
   width: '100%',
-  background: '#000',
-  color: '#fff',
+  background: 'var(--hover-green, #0bf05f)',
+  color: '#000',
   border: 'none',
   padding: '14px 0',
   borderRadius: 28,
@@ -35,6 +35,18 @@ const BTN = {
   textTransform: 'uppercase',
   fontFamily: 'inherit',
   transition: 'opacity 0.15s',
+}
+
+const CHAKRA = ['#FF0000','#FF8C00','#FFD700','#00C853','#00BFFF','#6A0DAD','#EE82EE']
+
+function RainbowText({ text }) {
+  return (
+    <span>
+      {text.split('').map((ch, i) => (
+        <span key={i} style={{ color: ch === ' ' ? 'inherit' : CHAKRA[i % 7] }}>{ch}</span>
+      ))}
+    </span>
+  )
 }
 
 const COUNTRIES = [
@@ -276,7 +288,7 @@ export default function CheckoutFlow() {
           {/* Step: Contact */}
           {step === 'contact' && (
             <form onSubmit={handleContact} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Contact</h2>
+              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}><RainbowText text="Contact" /></h2>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <Field label="First name">
                   <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" required />
@@ -297,7 +309,7 @@ export default function CheckoutFlow() {
             <form onSubmit={handleAddress} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button type="button" onClick={() => setStep('contact')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888' }}>←</button>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Shipping Address</h2>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}><RainbowText text="Shipping Address" /></h2>
               </div>
               <Field label="Country">
                 <Select value={country} onChange={e => { setCountry(e.target.value); setState('') }}>
@@ -341,7 +353,7 @@ export default function CheckoutFlow() {
             <form onSubmit={handleShipping} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button type="button" onClick={() => setStep('address')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888' }}>←</button>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Shipping Method</h2>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}><RainbowText text="Shipping Method" /></h2>
               </div>
               {shippingRates.length === 0 ? (
                 <p style={{ color: '#888', fontSize: 14 }}>No shipping rates available for this address.</p>
@@ -378,7 +390,7 @@ export default function CheckoutFlow() {
             <form onSubmit={handlePayment} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button type="button" onClick={() => setStep('shipping')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888' }}>←</button>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Payment</h2>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}><RainbowText text="Payment" /></h2>
               </div>
               <Field label="Name on card">
                 <Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Jane Doe" required />
@@ -392,7 +404,7 @@ export default function CheckoutFlow() {
               <p style={{ margin: 0, fontSize: 12, color: '#888', textAlign: 'center' }}>
                 🔒 Payments are processed securely by Stripe
               </p>
-              <button type="submit" style={{ ...BTN, background: 'var(--hover-green, #0bf05f)', color: '#000', opacity: loading ? 0.6 : 1 }} disabled={loading}>
+              <button type="submit" style={{ ...BTN, opacity: loading ? 0.6 : 1 }} disabled={loading}>
                 {loading ? 'Processing...' : `Pay $${((total) / 100).toFixed(2)}`}
               </button>
             </form>
@@ -402,14 +414,14 @@ export default function CheckoutFlow() {
           {step === 'confirmation' && order && (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-              <h2 style={{ margin: '0 0 8px', fontSize: 26, fontWeight: 700 }}>Order placed!</h2>
+              <h2 style={{ margin: '0 0 8px', fontSize: 26, fontWeight: 700 }}><RainbowText text="Order placed!" /></h2>
               <p style={{ margin: '0 0 6px', color: '#555', fontSize: 15 }}>
                 Order #{order.number}
               </p>
               <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
                 A confirmation has been sent to {order.account?.email ?? email}
               </p>
-              <a href="/" style={{ ...BTN, display: 'inline-block', textDecoration: 'none', padding: '14px 40px', width: 'auto', borderRadius: 28 }}>
+              <a href="/" style={{ ...BTN, display: 'inline-block', textDecoration: 'none', padding: '14px 40px', width: 'auto' }}>
                 Back to shop
               </a>
             </div>
