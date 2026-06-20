@@ -248,13 +248,10 @@ export default function CheckoutFlow() {
   return (
     <div style={{ minHeight: '100dvh', background: '#f7f7f5', fontFamily: 'inherit' }}>
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <a href="/" style={{ textDecoration: 'none' }}>
           <img src="/Blue hand-drawn symbol with _LAME_.png" alt="LAME" style={{ height: 32, display: 'block' }} />
         </a>
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#888' }}>
-          Checkout
-        </span>
       </div>
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,380px)', gap: 32, alignItems: 'start' }}>
