@@ -111,6 +111,20 @@ export default function CheckoutFlow() {
 
   const swell = getSwellClient()
 
+  // Pre-fill from newsletter signup
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('lb:lead') || 'null')
+      if (!saved) return
+      if (saved.email) setEmail(saved.email)
+      if (saved.name) {
+        const parts = saved.name.trim().split(/\s+/)
+        setFirstName(parts[0] || '')
+        setLastName(parts.slice(1).join(' ') || '')
+      }
+    } catch {}
+  }, [])
+
   // Redirect if cart is empty and no order — wait for cart to load first
   useEffect(() => {
     if (cartReady && !order && count === 0) {

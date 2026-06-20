@@ -244,6 +244,11 @@ export default function NewsletterForm({ open, onClose }) {
       // fail silently — still show success to user
     }
 
+    // Save for checkout pre-fill
+    try {
+      localStorage.setItem('lb:lead', JSON.stringify({ name, email, phone }))
+    } catch {}
+
     setSubmitted(true)
     setTimeout(() => {
       setSubmitted(false)
