@@ -22,6 +22,7 @@ export function CartProvider({ children }) {
   const [items, setItems] = useState([])
   const [bumpKey, setBumpKey] = useState(0)
   const [checkoutUrl, setCheckoutUrl] = useState(null)
+  const [cartReady, setCartReady] = useState(false)
   const syncingRef = useRef(false)
 
   const count = useMemo(() => items.reduce((s, i) => s + i.qty, 0), [items])
@@ -39,6 +40,7 @@ export function CartProvider({ children }) {
       console.error('Cart sync failed', err)
     } finally {
       syncingRef.current = false
+      setCartReady(true)
     }
   }
 
@@ -125,8 +127,8 @@ export function CartProvider({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ items, count, total, add, remove, updateQty, reset, bumpKey, goToCheckout }),
-    [items, count, total, bumpKey, checkoutUrl]
+    () => ({ items, count, total, add, remove, updateQty, reset, bumpKey, goToCheckout, cartReady }),
+    [items, count, total, bumpKey, checkoutUrl, cartReady]
   )
 
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>

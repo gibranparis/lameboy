@@ -88,7 +88,7 @@ function Select({ style, children, ...props }) {
 }
 
 export default function CheckoutFlow() {
-  const { items, total, count, reset } = useCart()
+  const { items, total, count, reset, cartReady } = useCart()
   const [step, setStep] = useState('contact')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -111,12 +111,12 @@ export default function CheckoutFlow() {
 
   const swell = getSwellClient()
 
-  // Redirect if cart is empty and no order
+  // Redirect if cart is empty and no order — wait for cart to load first
   useEffect(() => {
-    if (!order && count === 0) {
+    if (cartReady && !order && count === 0) {
       window.location.href = '/'
     }
-  }, [count, order])
+  }, [cartReady, count, order])
 
   // Mount Stripe card element when reaching payment step
   useEffect(() => {
