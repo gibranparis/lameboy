@@ -49,6 +49,28 @@ function RainbowText({ text }) {
   )
 }
 
+// Maps product name keywords → their actual color
+const HOODIE_COLORS = {
+  gray:  '#999999',
+  grey:  '#999999',
+  brown: '#8B5E3C',
+  black: '#111111',
+  green: '#00C853',
+  blue:  '#00BFFF',
+  white: '#cccccc',
+  red:   '#FF0000',
+  pink:  '#FF69B4',
+  purple:'#6A0DAD',
+}
+
+function hoodieColor(name = '') {
+  const lower = name.toLowerCase()
+  for (const [key, color] of Object.entries(HOODIE_COLORS)) {
+    if (lower.includes(key)) return color
+  }
+  return null
+}
+
 const COUNTRIES = [
   ['US','United States'],['CA','Canada'],['GB','United Kingdom'],['AU','Australia'],
   ['FR','France'],['DE','Germany'],['JP','Japan'],['MX','Mexico'],['BR','Brazil'],
@@ -76,15 +98,33 @@ function Field({ label, error, children }) {
   )
 }
 
-function Input({ style, ...props }) {
+function Input({ style, value, onChange, ...props }) {
   const [focused, setFocused] = useState(false)
+  const str = String(value ?? '')
   return (
-    <input
-      {...props}
-      style={{ ...INPUT, borderColor: focused ? '#000' : '#e0e0e0', ...style }}
-      onFocus={() => setFocused(true)}
-      onBlur={(e) => { setFocused(false); props.onBlur?.(e) }}
-    />
+    <div style={{ position: 'relative', width: '100%' }}>
+      {/* Chakra-colored display overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+        padding: '12px 14px', fontSize: 15, fontWeight: 600, fontFamily: 'inherit',
+        pointerEvents: 'none', overflow: 'hidden', zIndex: 1, whiteSpace: 'pre',
+      }}>
+        {str ? str.split('').map((ch, i) => (
+          <span key={i} style={{ color: CHAKRA[i % 7] }}>{ch}</span>
+        )) : (
+          <span style={{ color: '#bbb', fontWeight: 400 }}>{props.placeholder}</span>
+        )}
+      </div>
+      <input
+        {...props}
+        value={value}
+        onChange={onChange}
+        placeholder=""
+        style={{ ...INPUT, color: 'transparent', caretColor: '#555', borderColor: focused ? '#000' : '#e0e0e0', ...style }}
+        onFocus={() => setFocused(true)}
+        onBlur={(e) => { setFocused(false); props.onBlur?.(e) }}
+      />
+    </div>
   )
 }
 
@@ -303,10 +343,7 @@ export default function CheckoutFlow() {
           {/* Step: Address */}
           {step === 'address' && (
             <form onSubmit={handleAddress} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button type="button" onClick={() => setStep('contact')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888' }}>←</button>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}><RainbowText text="Shipping Address" /></h2>
-              </div>
+              <button type="button" onClick={() => setStep('contact')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
               <Field label="Country">
                 <Select value={country} onChange={e => { setCountry(e.target.value); setState('') }}>
                   {COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
@@ -347,10 +384,7 @@ export default function CheckoutFlow() {
           {/* Step: Shipping Method */}
           {step === 'shipping' && (
             <form onSubmit={handleShipping} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button type="button" onClick={() => setStep('address')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888' }}>←</button>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}><RainbowText text="Shipping Method" /></h2>
-              </div>
+              <button type="button" onClick={() => setStep('address')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
               {shippingRates.length === 0 ? (
                 <p style={{ color: '#888', fontSize: 14 }}>No shipping rates available for this address.</p>
               ) : (
@@ -384,10 +418,7 @@ export default function CheckoutFlow() {
           {/* Step: Payment */}
           {step === 'payment' && (
             <form onSubmit={handlePayment} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button type="button" onClick={() => setStep('shipping')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888' }}>←</button>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}><RainbowText text="Payment" /></h2>
-              </div>
+              <button type="button" onClick={() => setStep('shipping')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
               <Field label="Name on card">
                 <Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Jane Doe" required />
               </Field>
@@ -410,7 +441,6 @@ export default function CheckoutFlow() {
           {step === 'confirmation' && order && (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-              <h2 style={{ margin: '0 0 8px', fontSize: 26, fontWeight: 700 }}><RainbowText text="Order placed!" /></h2>
               <p style={{ margin: '0 0 6px', color: '#555', fontSize: 15 }}>
                 Order #{order.number}
               </p>
@@ -434,7 +464,7 @@ export default function CheckoutFlow() {
               {items.map((item, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
                   <div>
-                    <span style={{ fontWeight: 700 }}>{item.name}</span>
+                    <span style={{ fontWeight: 700, color: hoodieColor(item.name) ?? '#111' }}>{item.name}</span>
                     <span style={{ color: '#888', marginLeft: 6 }}>
                       {item.size && `${item.size} · `}×{item.qty}
                     </span>
