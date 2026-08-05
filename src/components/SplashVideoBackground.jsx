@@ -29,13 +29,13 @@ function killCaptions(player) {
 }
 
 // Push for the best quality YouTube will offer this connection — 'highres'
-// requests above-1080p if available, falling back to whatever the viewer's
-// bandwidth actually supports (YouTube still auto-adapts under the hood,
-// this just biases it toward the top of that range instead of the default).
+// requests the top of the available ladder (up to 4K on this source),
+// falling back to whatever the viewer's bandwidth actually supports
+// (YouTube still auto-adapts under the hood; this just biases it toward
+// the top of that range instead of defaulting lower on capable connections).
 function forceHighQuality(player) {
   try {
     player.setPlaybackQuality?.('highres')
-    player.setPlaybackQualityRange?.('highres', 'hd1080')
   } catch {}
 }
 
@@ -89,7 +89,6 @@ export default function SplashVideoBackground({ onRevealed }) {
           iv_load_policy: 3,
           cc_load_policy: 0,
           fs: 0,
-          vq: 'hd1080',
           start: FALLBACK_START_SECONDS,
         },
         events: {
@@ -199,12 +198,12 @@ export default function SplashVideoBackground({ onRevealed }) {
           visibility: revealed ? 'visible' : 'hidden',
         }}
       >
-        {/* Oversized 16:9 iframe, biased upward so the extra crop is spent
-            pushing the top-of-frame overlay text further off-screen */}
+        {/* Oversized 16:9 iframe, cropped evenly on all sides so the frame
+            stays centered (rather than biased toward one edge) */}
         <div
           style={{
             position: 'absolute',
-            top: '42%',
+            top: '50%',
             left: '50%',
             width: '150vw',
             height: '84.4vw', // 16:9 of 150vw
