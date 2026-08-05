@@ -141,10 +141,11 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
           fontSize: 'clamp(12px, 1.2vw, 14px)',
           fontWeight: 800,
           letterSpacing: '0.06em',
-          color: '#000',
-          opacity: 0.9,
+          color: '#fff',
+          opacity: 0.95,
           textTransform: 'uppercase',
           lineHeight: 1.2,
+          textShadow: '0 1px 4px rgba(0,0,0,0.55), 0 0 12px rgba(0,0,0,0.35)',
         }}
       >
         {clockText}
@@ -158,10 +159,11 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
           fontSize: 'clamp(12px, 1.2vw, 14px)',
           fontWeight: 800,
           letterSpacing: '0.06em',
-          color: '#000',
-          opacity: 0.9,
+          color: '#fff',
+          opacity: 0.95,
           textTransform: 'uppercase',
           lineHeight: 1.2,
+          textShadow: '0 1px 4px rgba(0,0,0,0.55), 0 0 12px rgba(0,0,0,0.35)',
         }}
       >
         {displayLocation}

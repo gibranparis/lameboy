@@ -36,6 +36,7 @@ export default function SplashVideoBackground() {
           playsinline: 1,
           disablekb: 1,
           iv_load_policy: 3,
+          cc_load_policy: 0,
           fs: 0,
           start: START_SECONDS,
         },
@@ -43,6 +44,10 @@ export default function SplashVideoBackground() {
           onReady: (e) => {
             try {
               e.target.mute()
+              // Force captions off even if the viewer's YouTube account
+              // defaults to them on
+              e.target.unloadModule?.('captions')
+              e.target.setOption?.('captions', 'track', {})
               e.target.playVideo()
             } catch {}
           },
@@ -105,15 +110,6 @@ export default function SplashVideoBackground() {
       >
         <div id="lb-splash-yt-bg" style={{ width: '100%', height: '100%' }} />
       </div>
-
-      {/* Soft veil so the white/black gate text stays readable over footage */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(255,255,255,0.55)',
-        }}
-      />
     </div>
   )
 }
