@@ -24,6 +24,20 @@ function killCaptions(player) {
 export default function SplashVideoBackground() {
   const playerRef = useRef(null)
   const [revealed, setRevealed] = useState(false)
+  const readyAtRef = useRef(0)
+  const isPlayingRef = useRef(false)
+  const revealedRef = useRef(false)
+
+  const tryReveal = () => {
+    if (revealedRef.current) return
+    // Only ever reveal once the player has actually reported PLAYING —
+    // otherwise we might unveil onto a paused frame with the big play
+    // button still showing (autoplay can be briefly blocked/delayed)
+    if (!isPlayingRef.current) return
+    if (Date.now() - readyAtRef.current < REVEAL_DELAY_MS) return
+    revealedRef.current = true
+    setRevealed(true)
+  }
 
   // Load the YouTube IFrame API script once (safe alongside YoutubePlayer.jsx,
   // which does the same existence check + onYouTubeIframeAPIReady chaining)
@@ -58,6 +72,7 @@ export default function SplashVideoBackground() {
         },
         events: {
           onReady: (e) => {
+            readyAtRef.current = Date.now()
             try {
               e.target.mute()
               e.target.playVideo()
@@ -68,15 +83,35 @@ export default function SplashVideoBackground() {
             ;[300, 800, 1500, 2500].forEach((ms) =>
               setTimeout(() => killCaptions(e.target), ms)
             )
-            // Only fade the video in once it's had time to buffer past
-            // any loading spinner / thumbnail / control flash
-            setTimeout(() => setRevealed(true), REVEAL_DELAY_MS)
+            // Re-attempt play in case autoplay was briefly blocked/delayed
+            ;[200, 600, 1200].forEach((ms) =>
+              setTimeout(() => {
+                try {
+                  if (!isPlayingRef.current) e.target.playVideo()
+                } catch {}
+              }, ms)
+            )
+            setTimeout(tryReveal, REVEAL_DELAY_MS)
+            // Hard fallback — never leave the screen black forever, even
+            // if PLAYING somehow never fires
+            setTimeout(() => {
+              isPlayingRef.current = true
+              tryReveal()
+            }, REVEAL_DELAY_MS + 4000)
           },
           onApiChange: (e) => killCaptions(e.target),
           // Loop back to the chosen start point rather than 0
           onStateChange: (e) => {
             if (e.data === window.YT.PlayerState.PLAYING) {
               killCaptions(e.target)
+              isPlayingRef.current = true
+              tryReveal()
+            } else if (
+              e.data === window.YT.PlayerState.PAUSED ||
+              e.data === window.YT.PlayerState.BUFFERING ||
+              e.data === window.YT.PlayerState.CUED
+            ) {
+              isPlayingRef.current = false
             }
             if (e.data === window.YT.PlayerState.ENDED) {
               try {
