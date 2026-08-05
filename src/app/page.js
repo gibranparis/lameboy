@@ -9,7 +9,6 @@ import { PRODUCTS } from '@/lib/products'
 import { fetchSwellProducts } from '@/lib/swell'
 
 import OrbShell from '@/components/OrbShell'
-import WhiteLoader from '@/components/orb/WhiteLoader'
 import SplashVideoBackground from '@/components/SplashVideoBackground'
 
 // Gate (text only now)
@@ -364,7 +363,16 @@ export default function Page() {
     <div
       className="lb-screen w-full font-bold"
       style={{
-        background: videoRevealed ? 'transparent' : 'var(--bg,#000)',
+        // Solid black (not the white curtain) covers the handoff from the
+        // moment the orb is actually pressed through — the video is force-
+        // hidden below for this exact same window, so there's nothing
+        // left underneath that could flash a stray YouTube button
+        background:
+          isProceeding || loaderShow
+            ? '#000'
+            : videoRevealed
+              ? 'transparent'
+              : 'var(--bg,#000)',
         color: 'var(--text,#fff)',
       }}
     >
@@ -373,6 +381,7 @@ export default function Page() {
       <SplashVideoBackground
         onRevealed={() => setVideoRevealed(true)}
         onHidden={() => setVideoRevealed(false)}
+        forceHidden={isProceeding || loaderShow}
       />
 
       {/* SINGLE persistent orb (never remounts) */}
@@ -553,14 +562,6 @@ export default function Page() {
 
       {/* Checkout side panel */}
       {checkoutOpen && <CheckoutView onClose={() => setCheckoutOpen(false)} />}
-
-      {/* White curtain overlay (no WebGL inside) */}
-      {/* Restored unconditionally — during this transition BannedLogin's
-          own backdrop is already transparent (since the video is up), so
-          this curtain is the only thing covering any brief real player
-          state blip (e.g. a mid-stream quality-switch rebuffer) that would
-          otherwise flash raw YouTube UI with nothing masking it. */}
-      <WhiteLoader show={loaderShow} />
     </div>
   )
 }

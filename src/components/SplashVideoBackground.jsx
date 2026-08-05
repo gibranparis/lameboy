@@ -39,7 +39,7 @@ function forceHighQuality(player) {
   } catch {}
 }
 
-export default function SplashVideoBackground({ onRevealed, onHidden }) {
+export default function SplashVideoBackground({ onRevealed, onHidden, forceHidden = false }) {
   const playerRef = useRef(null)
   const [revealed, setRevealed] = useState(false)
   const readyAtRef = useRef(0)
@@ -300,7 +300,7 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
         style={{
           position: 'absolute',
           inset: 0,
-          visibility: revealed ? 'visible' : 'hidden',
+          visibility: revealed && !forceHidden ? 'visible' : 'hidden',
         }}
       >
         {/* Cover sizing computed from real measured pixels (see effect
