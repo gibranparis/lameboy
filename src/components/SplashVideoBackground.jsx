@@ -9,6 +9,11 @@ const FALLBACK_START_SECONDS = 4158
 // How long to keep the video hidden behind black while it buffers/starts,
 // so no player chrome, thumbnail flash, or caption flicker is ever visible
 const REVEAL_DELAY_MS = 5000
+// Extra settle time after the video itself becomes visible before firing
+// onRevealed (which auto-starts the orb sequence) — gives any residual
+// YouTube button/chrome a moment to fully clear before anything else
+// changes on screen, so the two things aren't happening at the same instant
+const AUTO_TRIGGER_SETTLE_MS = 1200
 
 function randomStart(duration) {
   // Keep clear of the very end so a loop-seek isn't triggered instantly
@@ -39,7 +44,7 @@ function forceHighQuality(player) {
   } catch {}
 }
 
-export default function SplashVideoBackground({ onRevealed, onHidden, forceHidden = false }) {
+export default function SplashVideoBackground({ onRevealed, onHidden }) {
   const playerRef = useRef(null)
   const [revealed, setRevealed] = useState(false)
   const readyAtRef = useRef(0)
@@ -68,9 +73,15 @@ export default function SplashVideoBackground({ onRevealed, onHidden, forceHidde
     if (Date.now() - readyAtRef.current < REVEAL_DELAY_MS) return
     revealedRef.current = true
     setRevealed(true)
-    try {
-      onRevealed?.()
-    } catch {}
+    // Delay the callback that auto-starts the orb sequence — the video
+    // itself becomes visible right away, but the trigger waits a beat
+    // longer so it only fires once any residual button/chrome is long gone
+    setTimeout(() => {
+      if (!revealedRef.current) return // got hidden again in the meantime
+      try {
+        onRevealed?.()
+      } catch {}
+    }, AUTO_TRIGGER_SETTLE_MS)
   }
 
   // Load the YouTube IFrame API script once (safe alongside YoutubePlayer.jsx,

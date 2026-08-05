@@ -363,16 +363,7 @@ export default function Page() {
     <div
       className="lb-screen w-full font-bold"
       style={{
-        // Solid black (not the white curtain) covers the handoff from the
-        // moment the orb is actually pressed through — the video is force-
-        // hidden below for this exact same window, so there's nothing
-        // left underneath that could flash a stray YouTube button
-        background:
-          isProceeding || loaderShow
-            ? '#000'
-            : videoRevealed
-              ? 'transparent'
-              : 'var(--bg,#000)',
+        background: videoRevealed ? 'transparent' : 'var(--bg,#000)',
         color: 'var(--text,#fff)',
       }}
     >
@@ -381,7 +372,6 @@ export default function Page() {
       <SplashVideoBackground
         onRevealed={() => setVideoRevealed(true)}
         onHidden={() => setVideoRevealed(false)}
-        forceHidden={isProceeding || loaderShow}
       />
 
       {/* SINGLE persistent orb (never remounts) */}
