@@ -54,8 +54,8 @@ export default function SplashVideoBackground({ onRevealed }) {
     const create = () => {
       if (playerRef.current) return
       playerRef.current = new window.YT.Player('lb-splash-yt-bg', {
-        width: '100%',
-        height: '100%',
+        width: '1920',
+        height: '1080',
         videoId: VIDEO_ID,
         playerVars: {
           autoplay: 1,
@@ -184,6 +184,20 @@ export default function SplashVideoBackground({ onRevealed }) {
           <div id="lb-splash-yt-bg" style={{ width: '100%', height: '100%' }} />
         </div>
       </div>
+
+      {/* Force the YT-generated <iframe> to always fill its wrapper exactly —
+          the player's own width/height attributes are unreliable at
+          non-16:9 or percentage sizes and can leave a sliver uncovered */}
+      <style jsx global>{`
+        #lb-splash-yt-bg iframe {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          border: 0 !important;
+          display: block !important;
+        }
+      `}</style>
     </div>
   )
 }
