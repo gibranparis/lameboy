@@ -90,6 +90,10 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
     return now.toLocaleTimeString([], options)
   }, [now, displayTimezone])
 
+  // Video snaps in only after it's actually playing; until then the gate
+  // stays plain white with black text
+  const [videoRevealed, setVideoRevealed] = useState(false)
+
   // Long-press handling on text (optional parity with orb)
   const pressTimer = useRef(null)
   const startPressTimer = useCallback(() => {
@@ -125,13 +129,13 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        background: 'transparent',
+        background: videoRevealed ? 'transparent' : '#fff',
         zIndex: 10010,
         cursor: 'pointer',
         userSelect: 'none',
       }}
     >
-      <SplashVideoBackground />
+      <SplashVideoBackground onRevealed={() => setVideoRevealed(true)} />
 
       {/* Time */}
       <span
@@ -141,11 +145,13 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
           fontSize: 'clamp(12px, 1.2vw, 14px)',
           fontWeight: 800,
           letterSpacing: '0.06em',
-          color: '#fff',
+          color: videoRevealed ? '#fff' : '#000',
           opacity: 0.95,
           textTransform: 'uppercase',
           lineHeight: 1.2,
-          textShadow: '0 1px 4px rgba(0,0,0,0.55), 0 0 12px rgba(0,0,0,0.35)',
+          textShadow: videoRevealed
+            ? '0 1px 4px rgba(0,0,0,0.55), 0 0 12px rgba(0,0,0,0.35)'
+            : 'none',
         }}
       >
         {clockText}
@@ -159,11 +165,13 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
           fontSize: 'clamp(12px, 1.2vw, 14px)',
           fontWeight: 800,
           letterSpacing: '0.06em',
-          color: '#fff',
+          color: videoRevealed ? '#fff' : '#000',
           opacity: 0.95,
           textTransform: 'uppercase',
           lineHeight: 1.2,
-          textShadow: '0 1px 4px rgba(0,0,0,0.55), 0 0 12px rgba(0,0,0,0.35)',
+          textShadow: videoRevealed
+            ? '0 1px 4px rgba(0,0,0,0.55), 0 0 12px rgba(0,0,0,0.35)'
+            : 'none',
         }}
       >
         {displayLocation}

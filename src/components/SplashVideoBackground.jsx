@@ -21,7 +21,7 @@ function killCaptions(player) {
   } catch {}
 }
 
-export default function SplashVideoBackground() {
+export default function SplashVideoBackground({ onRevealed }) {
   const playerRef = useRef(null)
   const [revealed, setRevealed] = useState(false)
   const readyAtRef = useRef(0)
@@ -37,6 +37,9 @@ export default function SplashVideoBackground() {
     if (Date.now() - readyAtRef.current < REVEAL_DELAY_MS) return
     revealedRef.current = true
     setRevealed(true)
+    try {
+      onRevealed?.()
+    } catch {}
   }
 
   // Load the YouTube IFrame API script once (safe alongside YoutubePlayer.jsx,
@@ -149,19 +152,19 @@ export default function SplashVideoBackground() {
         position: 'fixed',
         inset: 0,
         overflow: 'hidden',
-        background: '#000',
+        background: 'transparent',
         pointerEvents: 'none',
         zIndex: 0,
       }}
     >
-      {/* Held fully invisible over solid black until REVEAL_DELAY_MS has
-          passed, so no thumbnail/spinner/control flash is ever visible */}
+      {/* Fully hidden (no transition) until the player has confirmed it's
+          actually PLAYING — the page underneath stays plain white/black
+          text until this snaps in, so there's nothing to "fade away" */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          opacity: revealed ? 1 : 0,
-          transition: 'opacity 1.2s ease',
+          visibility: revealed ? 'visible' : 'hidden',
         }}
       >
         {/* Oversized 16:9 iframe, centered, so it always covers the viewport
