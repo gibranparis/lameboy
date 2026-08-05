@@ -141,6 +141,24 @@ export default function MusicPlayerButton({
         events: {
           onReady: (/** @type {any} */ e) => {
             ytPlayerRef.current = player
+            // Strip the iframe's native fullscreen capability outright —
+            // fs:0 alone doesn't stop iOS Safari from taking a played
+            // video fullscreen (e.g. on a double-tap), which exposes
+            // YouTube's own title/controls. No allowfullscreen = no way in.
+            try {
+              const iframe = document.getElementById(playerIdRef.current)
+              if (iframe && iframe.tagName === 'IFRAME') {
+                iframe.removeAttribute('allowfullscreen')
+                iframe.setAttribute('webkit-playsinline', '1')
+                iframe.setAttribute('playsinline', '1')
+                const allow = (iframe.getAttribute('allow') || '')
+                  .split(';')
+                  .map((s) => s.trim())
+                  .filter((s) => s && !s.toLowerCase().startsWith('fullscreen'))
+                  .join('; ')
+                iframe.setAttribute('allow', allow)
+              }
+            } catch {}
             // Pick a random starting track so each page load begins on a different song
             const list = e.target.getPlaylist()
             const randomIdx = (list && list.length > 1)

@@ -103,6 +103,22 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
         events: {
           onReady: (e) => {
             readyAtRef.current = Date.now()
+            // Strip native fullscreen capability so iOS Safari can't take
+            // the wallpaper fullscreen and expose YouTube's own chrome
+            try {
+              const iframe = document.getElementById('lb-splash-yt-bg')
+              if (iframe && iframe.tagName === 'IFRAME') {
+                iframe.removeAttribute('allowfullscreen')
+                iframe.setAttribute('webkit-playsinline', '1')
+                iframe.setAttribute('playsinline', '1')
+                const allow = (iframe.getAttribute('allow') || '')
+                  .split(';')
+                  .map((s) => s.trim())
+                  .filter((s) => s && !s.toLowerCase().startsWith('fullscreen'))
+                  .join('; ')
+                iframe.setAttribute('allow', allow)
+              }
+            } catch {}
             try {
               e.target.mute()
               const duration = e.target.getDuration?.() || 0

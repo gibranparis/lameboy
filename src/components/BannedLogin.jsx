@@ -70,7 +70,9 @@ export default function BannedLogin({
   const displayLocation = useMemo(() => {
     if (isProceeding) return 'Let All Mankind Evolve'
     if (gateStep === 0) return 'Lameboy, USA'
-    if (gateStep === 1) return visitorRegion?.toLowerCase() === 'florida' ? 'Cape Coral, USA' : visitorLocation
+    // Right after the orb is pressed, bring "Lameboy, USA" straight back
+    // instead of jumping to the visitor's location
+    if (gateStep === 1) return 'Lameboy, USA'
     if (gateStep === 2) return 'Naples, USA'
     if (gateStep === 3) return 'Florida, USA'
     return visitorLocation
