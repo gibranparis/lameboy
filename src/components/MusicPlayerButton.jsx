@@ -364,11 +364,16 @@ export default function MusicPlayerButton({
         .yt-panel--open {
           animation: yt-drop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
-        /* Collapsed — zero layout height, player iframe stays alive */
+        /* Collapsed — zero layout height, player iframe stays alive.
+           Borders live on .yt-panel itself, which doesn't go away at
+           height:0 — so they get explicitly zeroed out here too, otherwise
+           a ~2px line sits under the header even while "closed". */
         .yt-panel--closed {
           height: 0;
           overflow: hidden;
           pointer-events: none;
+          border-top: none;
+          border-bottom: none;
         }
         /* Overlay open — hide visually but keep layout + audio */
         .yt-panel--overlay {
