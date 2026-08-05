@@ -39,12 +39,21 @@ function forceHighQuality(player) {
   } catch {}
 }
 
-export default function SplashVideoBackground({ onRevealed }) {
+export default function SplashVideoBackground({ onRevealed, onHidden }) {
   const playerRef = useRef(null)
   const [revealed, setRevealed] = useState(false)
   const readyAtRef = useRef(0)
   const isPlayingRef = useRef(false)
   const revealedRef = useRef(false)
+
+  const unreveal = () => {
+    if (!revealedRef.current) return
+    revealedRef.current = false
+    setRevealed(false)
+    try {
+      onHidden?.()
+    } catch {}
+  }
 
   const tryReveal = () => {
     if (revealedRef.current) return
@@ -174,6 +183,30 @@ export default function SplashVideoBackground({ onRevealed }) {
       } catch {}
       playerRef.current = null
     }
+  }, [])
+
+  // If the browser backgrounds this tab, YouTube can pause itself and — on
+  // return — briefly show its own paused-state UI (center play button,
+  // ±10s skip icons) even with controls disabled. Catch the tab regaining
+  // focus, hide the video instantly if it's not actually playing, nudge
+  // playback again, and let the normal PLAYING handler bring it back.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      const player = playerRef.current
+      if (!player) return
+      try {
+        const state = player.getPlayerState?.()
+        const playing = state === window.YT?.PlayerState?.PLAYING
+        if (!playing) {
+          isPlayingRef.current = false
+          unreveal()
+          player.playVideo?.()
+        }
+      } catch {}
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
   return (

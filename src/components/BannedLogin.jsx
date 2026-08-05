@@ -135,7 +135,10 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
         userSelect: 'none',
       }}
     >
-      <SplashVideoBackground onRevealed={() => setVideoRevealed(true)} />
+      <SplashVideoBackground
+        onRevealed={() => setVideoRevealed(true)}
+        onHidden={() => setVideoRevealed(false)}
+      />
 
       {/* Time */}
       <span
