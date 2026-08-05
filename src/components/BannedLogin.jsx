@@ -156,25 +156,29 @@ export default function BannedLogin({
         {clockText}
       </span>
 
-      {/* Dynamic location */}
-      <span
-        style={{
-          marginTop: 6,
-          textAlign: 'center',
-          fontSize: 'clamp(12px, 1.2vw, 14px)',
-          fontWeight: 800,
-          letterSpacing: '0.06em',
-          color: videoRevealed ? '#fff' : '#000',
-          opacity: 0.95,
-          textTransform: 'uppercase',
-          lineHeight: 1.2,
-          textShadow: videoRevealed
-            ? '0 1px 4px rgba(0,0,0,0.55), 0 0 12px rgba(0,0,0,0.35)'
-            : 'none',
-        }}
-      >
-        {displayLocation}
-      </span>
+      {/* Dynamic location — hidden once the text goes white and the orb
+          hasn't been pressed yet (idle wallpaper view), reappears the
+          moment the orb is triggered */}
+      {!(videoRevealed && gateStep === 0) && (
+        <span
+          style={{
+            marginTop: 6,
+            textAlign: 'center',
+            fontSize: 'clamp(12px, 1.2vw, 14px)',
+            fontWeight: 800,
+            letterSpacing: '0.06em',
+            color: videoRevealed ? '#fff' : '#000',
+            opacity: 0.95,
+            textTransform: 'uppercase',
+            lineHeight: 1.2,
+            textShadow: videoRevealed
+              ? '0 1px 4px rgba(0,0,0,0.55), 0 0 12px rgba(0,0,0,0.35)'
+              : 'none',
+          }}
+        >
+          {displayLocation}
+        </span>
+      )}
     </div>
   )
 }
