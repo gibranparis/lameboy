@@ -7,7 +7,7 @@ const VIDEO_ID = 'UJEBdsASj_0'
 const START_SECONDS = 4900
 // How long to keep the video hidden behind black while it buffers/starts,
 // so no player chrome, thumbnail flash, or caption flicker is ever visible
-const REVEAL_DELAY_MS = 4000
+const REVEAL_DELAY_MS = 5000
 
 // Aggressively strip captions — some viewers have a browser/account-level
 // "always show captions" preference that overrides cc_load_policy, and the
@@ -136,10 +136,10 @@ export default function SplashVideoBackground() {
             position: 'absolute',
             top: '50%',
             left: '50%',
-            width: '100vw',
-            height: '56.25vw', // 16:9
-            minHeight: '100vh',
-            minWidth: '177.78vh', // 16:9
+            width: '124vw',
+            height: '69.75vw', // 16:9 of 124vw
+            minHeight: '124vh',
+            minWidth: '220.4vh', // 16:9 of 124vh
             transform: 'translate(-50%, -50%)',
           }}
         >
