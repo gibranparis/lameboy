@@ -45,6 +45,10 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
   const readyAtRef = useRef(0)
   const isPlayingRef = useRef(false)
   const revealedRef = useRef(false)
+  // Measured in real pixels via JS rather than trusted to vh/dvh — iOS
+  // Safari's viewport units can still mismatch the actual visible area
+  // depending on the toolbar's current state, leaving gaps top or bottom.
+  const [viewport, setViewport] = useState({ w: 0, h: 0 })
 
   const unreveal = () => {
     if (!revealedRef.current) return
@@ -225,6 +229,44 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
+  // Measure the *real* visible viewport in pixels — window.visualViewport
+  // reflects the current visible area even as Safari's toolbar shows/hides,
+  // which plain CSS vh/dvh units don't reliably track when combined with
+  // position:fixed. Re-measure on every resize/scroll of it.
+  useEffect(() => {
+    const measure = () => {
+      const vv = window.visualViewport
+      setViewport({
+        w: Math.ceil(vv?.width ?? window.innerWidth),
+        h: Math.ceil(vv?.height ?? window.innerHeight),
+      })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    window.visualViewport?.addEventListener('resize', measure)
+    window.visualViewport?.addEventListener('scroll', measure)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.visualViewport?.removeEventListener('resize', measure)
+      window.visualViewport?.removeEventListener('scroll', measure)
+    }
+  }, [])
+
+  // Cover math done in real pixels — always exactly fills {w,h} with no
+  // unit-mismatch gaps, cropping whichever axis the source overshoots
+  const { w: vw, h: vh } = viewport
+  let coverW = vw
+  let coverH = vh
+  if (vw && vh) {
+    if (vw / vh > 16 / 9) {
+      coverW = vw
+      coverH = Math.ceil((vw * 9) / 16)
+    } else {
+      coverH = vh
+      coverW = Math.ceil((vh * 16) / 9)
+    }
+  }
+
   return (
     <div
       aria-hidden
@@ -247,39 +289,22 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
           visibility: revealed ? 'visible' : 'hidden',
         }}
       >
-        {/* Classic full-bleed "cover" sizing: scales to match whichever
-            axis the viewport needs, then overflows (and gets clipped by
-            the wrapper) on the other. On typical/narrower-than-16:9 screens
-            that means left/right get cropped and top/bottom stay untouched;
-            on wider-than-16:9 (ultrawide) monitors it flips, so the frame
-            still goes fully edge-to-edge instead of leaving side gaps. */}
-        <div className="lb-splash-cover">
+        {/* Cover sizing computed from real measured pixels (see effect
+            above) instead of CSS vh/vw units, which sidesteps iOS Safari
+            toolbar-related viewport mismatches entirely. */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: coverW ? `${coverW}px` : '100vw',
+            height: coverH ? `${coverH}px` : '56.25vw',
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
           <div id="lb-splash-yt-bg" style={{ width: '100%', height: '100%' }} />
         </div>
       </div>
-
-      {/* Plain vh/vw units are unreliable on iOS Safari — 100vh there is
-          based on the browser-chrome-collapsed height, not the actual
-          visible viewport, which left white strips top/bottom since the
-          video came out shorter than the real screen. dvh/dvw track the
-          real visible viewport instead; the vh/vw rules stay first as a
-          fallback for browsers that don't support dvh/dvw at all. */}
-      <style jsx>{`
-        .lb-splash-cover {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 100vw;
-          height: 56.25vw; /* 16:9 of 100vw */
-          min-width: 177.78vh; /* 16:9 of 100vh */
-          min-height: 100vh;
-          width: 100dvw;
-          height: 56.25dvw;
-          min-width: 177.78dvh;
-          min-height: 100dvh;
-          transform: translate(-50%, -50%);
-        }
-      `}</style>
 
       {/* Force the YT-generated <iframe> to always fill its wrapper exactly —
           the player's own width/height attributes are unreliable at
