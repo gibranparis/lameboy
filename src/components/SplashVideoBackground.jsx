@@ -167,17 +167,17 @@ export default function SplashVideoBackground({ onRevealed }) {
           visibility: revealed ? 'visible' : 'hidden',
         }}
       >
-        {/* Oversized 16:9 iframe, centered, so it always covers the viewport
-            like background-size: cover (classic full-bleed YT bg technique) */}
+        {/* Oversized 16:9 iframe, biased upward so the extra crop is spent
+            pushing the top-of-frame overlay text further off-screen */}
         <div
           style={{
             position: 'absolute',
-            top: '50%',
+            top: '42%',
             left: '50%',
-            width: '124vw',
-            height: '69.75vw', // 16:9 of 124vw
-            minHeight: '124vh',
-            minWidth: '220.4vh', // 16:9 of 124vh
+            width: '150vw',
+            height: '84.4vw', // 16:9 of 150vw
+            minHeight: '150vh',
+            minWidth: '266.7vh', // 16:9 of 150vh
             transform: 'translate(-50%, -50%)',
           }}
         >
