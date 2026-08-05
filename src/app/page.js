@@ -10,6 +10,7 @@ import { fetchSwellProducts } from '@/lib/swell'
 
 import OrbShell from '@/components/OrbShell'
 import WhiteLoader from '@/components/orb/WhiteLoader'
+import SplashVideoBackground from '@/components/SplashVideoBackground'
 
 // Gate (text only now)
 const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
@@ -60,6 +61,7 @@ export default function Page() {
   const [mode, setMode] = useState('gate') // 'gate' | 'shop'
   const [theme, setTheme] = useState('day')
   const [loaderShow, setLoaderShow] = useState(false)
+  const [videoRevealed, setVideoRevealed] = useState(false)
 
   const inGate = mode === 'gate'
   const inShop = mode === 'shop'
@@ -115,6 +117,14 @@ export default function Page() {
       root.removeAttribute('data-shop-mounted')
     }
   }, [theme, mode, inShop])
+
+  // Let the shop's own background tokens go transparent once the video
+  // wallpaper is up, so it stays visible behind the grid too
+  useEffect(() => {
+    const root = document.documentElement
+    if (videoRevealed) root.setAttribute('data-video-revealed', '1')
+    else root.removeAttribute('data-video-revealed')
+  }, [videoRevealed])
 
   // Lock overflow during loader transition so shop content mounting
   // doesn't create scrollbars that shift the fixed-position orb
@@ -340,8 +350,18 @@ export default function Page() {
   return (
     <div
       className="lb-screen w-full font-bold"
-      style={{ background: 'var(--bg,#000)', color: 'var(--text,#fff)' }}
+      style={{
+        background: videoRevealed ? 'transparent' : 'var(--bg,#000)',
+        color: 'var(--text,#fff)',
+      }}
     >
+      {/* Persistent video wallpaper — mounted once here so it survives the
+          gate → shop transition without remounting the YouTube player */}
+      <SplashVideoBackground
+        onRevealed={() => setVideoRevealed(true)}
+        onHidden={() => setVideoRevealed(false)}
+      />
+
       {/* SINGLE persistent orb (never remounts) */}
       <OrbShell
         mode={mode}
@@ -355,8 +375,14 @@ export default function Page() {
 
       {/* Gate */}
       {(inGate || loaderShow) && (
-        <main className="lb-screen">
-          <BannedLogin onAdvanceGate={advanceGate} onProceed={triggerProceed} gateStep={gateStep} isProceeding={isProceeding} />
+        <main className="lb-screen" style={{ background: 'transparent' }}>
+          <BannedLogin
+            onAdvanceGate={advanceGate}
+            onProceed={triggerProceed}
+            gateStep={gateStep}
+            isProceeding={isProceeding}
+            videoRevealed={videoRevealed}
+          />
         </main>
       )}
 

@@ -1443,7 +1443,8 @@ export default function ProductOverlay({
           cursor: 'default',
         }}
       >
-        {/* click-away */}
+        {/* click-away — carries the 40% white veil over the video wallpaper
+            so the product detail view stays readable */}
         <div
           onClick={(e) => {
             e.stopPropagation()
@@ -1459,7 +1460,7 @@ export default function ProductOverlay({
             right: 0,
             bottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
             top: 0,
-            background: 'transparent',
+            background: 'rgba(255,255,255,0.4)',
             pointerEvents: 'auto',
             touchAction: 'none',
           }}

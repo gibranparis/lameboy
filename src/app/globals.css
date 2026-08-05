@@ -221,6 +221,13 @@ html[data-loader-active] {
   --text: #000;
 }
 
+/* Let the video wallpaper show through the shop/grid page once it's
+   confirmed playing — header/control bars keep their own opaque
+   backgrounds separately, so this only affects the open grid area */
+:root[data-mode='shop'][data-video-revealed] {
+  --bg: transparent;
+}
+
 /* Apply background/text via tokens */
 :root[data-mode='shop'] {
   background: var(--bg);

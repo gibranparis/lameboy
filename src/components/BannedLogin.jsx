@@ -2,9 +2,14 @@
 'use client'
 
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import SplashVideoBackground from '@/components/SplashVideoBackground'
 
-export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, isProceeding = false }) {
+export default function BannedLogin({
+  onAdvanceGate,
+  onProceed,
+  gateStep = 0,
+  isProceeding = false,
+  videoRevealed = false,
+}) {
   const [now, setNow] = useState(() => new Date())
   const [visitorLocation, setVisitorLocation] = useState('Cape Coral, USA') // Visitor's actual location
   const [visitorRegion, setVisitorRegion] = useState(null) // raw region/state from IP
@@ -90,10 +95,6 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
     return now.toLocaleTimeString([], options)
   }, [now, displayTimezone])
 
-  // Video snaps in only after it's actually playing; until then the gate
-  // stays plain white with black text
-  const [videoRevealed, setVideoRevealed] = useState(false)
-
   // Long-press handling on text (optional parity with orb)
   const pressTimer = useRef(null)
   const startPressTimer = useCallback(() => {
@@ -135,11 +136,6 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
         userSelect: 'none',
       }}
     >
-      <SplashVideoBackground
-        onRevealed={() => setVideoRevealed(true)}
-        onHidden={() => setVideoRevealed(false)}
-      />
-
       {/* Time */}
       <span
         style={{
