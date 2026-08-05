@@ -231,16 +231,21 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
           visibility: revealed ? 'visible' : 'hidden',
         }}
       >
-        {/* Height locked to exactly 100vh so top/bottom are never cropped —
-            width scales by the source's true aspect ratio, so only the
-            left/right edges get clipped by the overflow:hidden wrapper */}
+        {/* Classic full-bleed "cover" sizing: scales to match whichever
+            axis the viewport needs, then overflows (and gets clipped by
+            the wrapper) on the other. On typical/narrower-than-16:9 screens
+            that means left/right get cropped and top/bottom stay untouched;
+            on wider-than-16:9 (ultrawide) monitors it flips, so the frame
+            still goes fully edge-to-edge instead of leaving side gaps. */}
         <div
           style={{
             position: 'absolute',
             top: '50%',
             left: '50%',
-            width: '177.78vh', // 16:9 of 100vh
-            height: '100vh',
+            width: '100vw',
+            height: '56.25vw', // 16:9 of 100vw
+            minWidth: '177.78vh', // 16:9 of 100vh
+            minHeight: '100vh',
             transform: 'translate(-50%, -50%)',
           }}
         >
