@@ -4,10 +4,17 @@
 import { useEffect, useRef, useState } from 'react'
 
 const VIDEO_ID = 'UJEBdsASj_0'
-const START_SECONDS = 4158 // 1:09:18
+// Fallback only — used if we can't read the real duration for some reason
+const FALLBACK_START_SECONDS = 4158
 // How long to keep the video hidden behind black while it buffers/starts,
 // so no player chrome, thumbnail flash, or caption flicker is ever visible
 const REVEAL_DELAY_MS = 5000
+
+function randomStart(duration) {
+  // Keep clear of the very end so a loop-seek isn't triggered instantly
+  const safeMax = Math.max(duration - 60, 30)
+  return Math.floor(Math.random() * safeMax)
+}
 
 // Aggressively strip captions — some viewers have a browser/account-level
 // "always show captions" preference that overrides cc_load_policy, and the
@@ -18,6 +25,17 @@ function killCaptions(player) {
     player.unloadModule?.('cc')
     player.setOption?.('captions', 'track', {})
     player.setOption?.('captions', 'reload', false)
+  } catch {}
+}
+
+// Push for the best quality YouTube will offer this connection — 'highres'
+// requests above-1080p if available, falling back to whatever the viewer's
+// bandwidth actually supports (YouTube still auto-adapts under the hood,
+// this just biases it toward the top of that range instead of the default).
+function forceHighQuality(player) {
+  try {
+    player.setPlaybackQuality?.('highres')
+    player.setPlaybackQualityRange?.('highres', 'hd1080')
   } catch {}
 }
 
@@ -71,20 +89,29 @@ export default function SplashVideoBackground({ onRevealed }) {
           iv_load_policy: 3,
           cc_load_policy: 0,
           fs: 0,
-          start: START_SECONDS,
+          vq: 'hd1080',
+          start: FALLBACK_START_SECONDS,
         },
         events: {
           onReady: (e) => {
             readyAtRef.current = Date.now()
             try {
               e.target.mute()
+              const duration = e.target.getDuration?.() || 0
+              const startAt = duration > 90 ? randomStart(duration) : FALLBACK_START_SECONDS
+              e.target.seekTo(startAt, true)
               e.target.playVideo()
             } catch {}
             killCaptions(e.target)
+            forceHighQuality(e.target)
             // Re-assert a few times — the captions module can silently
-            // re-attach itself right after playback actually starts
-            ;[300, 800, 1500, 2500].forEach((ms) =>
-              setTimeout(() => killCaptions(e.target), ms)
+            // re-attach itself right after playback actually starts, and
+            // YouTube can quietly downgrade quality once buffering begins
+            ;[300, 800, 1500, 2500, 4000].forEach((ms) =>
+              setTimeout(() => {
+                killCaptions(e.target)
+                forceHighQuality(e.target)
+              }, ms)
             )
             // Re-attempt play in case autoplay was briefly blocked/delayed
             ;[200, 600, 1200].forEach((ms) =>
@@ -103,10 +130,12 @@ export default function SplashVideoBackground({ onRevealed }) {
             }, REVEAL_DELAY_MS + 4000)
           },
           onApiChange: (e) => killCaptions(e.target),
-          // Loop back to the chosen start point rather than 0
+          onPlaybackQualityChange: (e) => forceHighQuality(e.target),
+          // Loop back to a fresh random point rather than 0
           onStateChange: (e) => {
             if (e.data === window.YT.PlayerState.PLAYING) {
               killCaptions(e.target)
+              forceHighQuality(e.target)
               isPlayingRef.current = true
               tryReveal()
             } else if (
@@ -118,7 +147,10 @@ export default function SplashVideoBackground({ onRevealed }) {
             }
             if (e.data === window.YT.PlayerState.ENDED) {
               try {
-                e.target.seekTo(START_SECONDS, true)
+                const duration = e.target.getDuration?.() || 0
+                const nextStart =
+                  duration > 90 ? randomStart(duration) : FALLBACK_START_SECONDS
+                e.target.seekTo(nextStart, true)
                 e.target.playVideo()
               } catch {}
             }
