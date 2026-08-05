@@ -198,17 +198,16 @@ export default function SplashVideoBackground({ onRevealed }) {
           visibility: revealed ? 'visible' : 'hidden',
         }}
       >
-        {/* Oversized 16:9 iframe, cropped evenly on all sides so the frame
-            stays centered (rather than biased toward one edge) */}
+        {/* Height locked to exactly 100vh so top/bottom are never cropped —
+            width scales by the source's true aspect ratio, so only the
+            left/right edges get clipped by the overflow:hidden wrapper */}
         <div
           style={{
             position: 'absolute',
             top: '50%',
             left: '50%',
-            width: '150vw',
-            height: '84.4vw', // 16:9 of 150vw
-            minHeight: '150vh',
-            minWidth: '266.7vh', // 16:9 of 150vh
+            width: '177.78vh', // 16:9 of 100vh
+            height: '100vh',
             transform: 'translate(-50%, -50%)',
           }}
         >
