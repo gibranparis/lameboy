@@ -64,6 +64,14 @@ export default function MusicPlayerButton({
     return () => window.removeEventListener('lb:reset', onReset)
   }, [])
 
+  // The LAME logo button dispatches this to show/hide the panel — pure
+  // visibility, playback keeps running underneath either way
+  useEffect(() => {
+    const onToggleVisibility = () => setOpen((v) => !v)
+    window.addEventListener('lb:toggle-player-visibility', onToggleVisibility)
+    return () => window.removeEventListener('lb:toggle-player-visibility', onToggleVisibility)
+  }, [])
+
   // Watch for product overlay — hide panel visually but keep audio running.
   // Checkout open is intentionally excluded: let the panel fade naturally with the backdrop.
   useEffect(() => {
@@ -215,27 +223,22 @@ export default function MusicPlayerButton({
     }
   }, [playlistId, portalTarget]) // no 'open' — player lives independently of panel visibility
 
-  // First click: open panel + play synchronously within the gesture (required on iOS).
-  // Subsequent clicks when open: single = pause/resume, double = skip.
+  // Single click: toggle play/pause only — panel visibility is controlled
+  // separately by the LAME logo button, not by this button.
   const handleClick = () => {
-    if (!open) {
-      setOpen(true)
-      if (ytPlayerRef.current) {
-        // Synchronous call inside user gesture — this is what makes iOS work
-        ytPlayerRef.current.playVideo()
-      } else {
-        // Player not ready yet (very fast first click); play when onReady fires
-        pendingPlayRef.current = true
-      }
-      return
-    }
     if (clickTimerRef.current) return
     clickTimerRef.current = setTimeout(() => {
       clickTimerRef.current = null
-      if (playing) {
-        ytPlayerRef.current?.pauseVideo()
+      if (ytPlayerRef.current) {
+        if (playing) {
+          ytPlayerRef.current.pauseVideo()
+        } else {
+          // Synchronous call inside the user gesture — required for iOS
+          ytPlayerRef.current.playVideo()
+        }
       } else {
-        ytPlayerRef.current?.playVideo()
+        // Player not ready yet (very fast first click); play when onReady fires
+        pendingPlayRef.current = true
       }
     }, 220)
   }
@@ -286,7 +289,7 @@ export default function MusicPlayerButton({
         type="button"
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        aria-label={!open ? 'Open music player' : playing ? 'Pause music' : 'Resume music'}
+        aria-label={playing ? 'Pause music' : 'Play music'}
         data-playing={playing ? '1' : '0'}
         className="ipod-btn"
         style={{

@@ -449,14 +449,12 @@ export default function Page() {
                 <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
               </div>
 
-              {/* Center: LAME logo reset button */}
+              {/* Center: LAME logo — toggles the music/video player's
+                  visibility only; playback keeps running either way */}
               <button
-                aria-label="Reset"
+                aria-label="Show/hide player"
                 onClick={() => {
-                  window.dispatchEvent(new Event('lb:reset'))
-                  setNewsletterOpen(false)
-                  window.dispatchEvent(new Event('checkout:request-close'))
-                  setCheckoutOpen(false)
+                  window.dispatchEvent(new Event('lb:toggle-player-visibility'))
                 }}
                 style={{
                   pointerEvents: 'auto',
