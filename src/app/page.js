@@ -555,10 +555,12 @@ export default function Page() {
       {checkoutOpen && <CheckoutView onClose={() => setCheckoutOpen(false)} />}
 
       {/* White curtain overlay (no WebGL inside) */}
-      {/* Skip the white curtain once the video wallpaper is up — it was
-          flashing solid white over the video during this transition,
-          which fought the wallpaper instead of complementing it. */}
-      {!videoRevealed && <WhiteLoader show={loaderShow} />}
+      {/* Restored unconditionally — during this transition BannedLogin's
+          own backdrop is already transparent (since the video is up), so
+          this curtain is the only thing covering any brief real player
+          state blip (e.g. a mid-stream quality-switch rebuffer) that would
+          otherwise flash raw YouTube UI with nothing masking it. */}
+      <WhiteLoader show={loaderShow} />
     </div>
   )
 }

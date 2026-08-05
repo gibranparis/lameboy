@@ -265,7 +265,7 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
   // on near-16:9 displays (most laptops/monitors) exact-cover crops almost
   // nothing off the sides, which isn't enough to push the source's
   // corner watermark off-screen. The margin guarantees it's always cropped.
-  const OVERSCAN = 1.18
+  const OVERSCAN = 1.35
   const { w: vw, h: vh } = viewport
   let coverW = vw
   let coverH = vh
