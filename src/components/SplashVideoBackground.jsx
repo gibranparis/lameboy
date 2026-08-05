@@ -237,21 +237,33 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
             that means left/right get cropped and top/bottom stay untouched;
             on wider-than-16:9 (ultrawide) monitors it flips, so the frame
             still goes fully edge-to-edge instead of leaving side gaps. */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            width: '100vw',
-            height: '56.25vw', // 16:9 of 100vw
-            minWidth: '177.78vh', // 16:9 of 100vh
-            minHeight: '100vh',
-            transform: 'translate(-50%, -50%)',
-          }}
-        >
+        <div className="lb-splash-cover">
           <div id="lb-splash-yt-bg" style={{ width: '100%', height: '100%' }} />
         </div>
       </div>
+
+      {/* Plain vh/vw units are unreliable on iOS Safari — 100vh there is
+          based on the browser-chrome-collapsed height, not the actual
+          visible viewport, which left white strips top/bottom since the
+          video came out shorter than the real screen. dvh/dvw track the
+          real visible viewport instead; the vh/vw rules stay first as a
+          fallback for browsers that don't support dvh/dvw at all. */}
+      <style jsx>{`
+        .lb-splash-cover {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 100vw;
+          height: 56.25vw; /* 16:9 of 100vw */
+          min-width: 177.78vh; /* 16:9 of 100vh */
+          min-height: 100vh;
+          width: 100dvw;
+          height: 56.25dvw;
+          min-width: 177.78dvh;
+          min-height: 100dvh;
+          transform: translate(-50%, -50%);
+        }
+      `}</style>
 
       {/* Force the YT-generated <iframe> to always fill its wrapper exactly —
           the player's own width/height attributes are unreliable at
