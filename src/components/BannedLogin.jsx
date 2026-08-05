@@ -2,6 +2,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import SplashVideoBackground from '@/components/SplashVideoBackground'
 
 export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, isProceeding = false }) {
   const [now, setNow] = useState(() => new Date())
@@ -124,12 +125,14 @@ export default function BannedLogin({ onAdvanceGate, onProceed, gateStep = 0, is
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        background: '#fff',
+        background: 'transparent',
         zIndex: 10010,
         cursor: 'pointer',
         userSelect: 'none',
       }}
     >
+      <SplashVideoBackground />
+
       {/* Time */}
       <span
         style={{
