@@ -555,7 +555,10 @@ export default function Page() {
       {checkoutOpen && <CheckoutView onClose={() => setCheckoutOpen(false)} />}
 
       {/* White curtain overlay (no WebGL inside) */}
-      <WhiteLoader show={loaderShow} />
+      {/* Skip the white curtain once the video wallpaper is up — it was
+          flashing solid white over the video during this transition,
+          which fought the wallpaper instead of complementing it. */}
+      {!videoRevealed && <WhiteLoader show={loaderShow} />}
     </div>
   )
 }

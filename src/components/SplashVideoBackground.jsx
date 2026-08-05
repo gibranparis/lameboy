@@ -171,9 +171,16 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
               e.data === window.YT.PlayerState.BUFFERING ||
               e.data === window.YT.PlayerState.CUED
             ) {
+              // Covers the loop-seek moment too — the player briefly sits
+              // in one of these states right after ENDED fires and before
+              // it's actually playing again, which used to expose YouTube's
+              // paused-state UI (play button) each time the loop restarted
               isPlayingRef.current = false
+              unreveal()
             }
             if (e.data === window.YT.PlayerState.ENDED) {
+              isPlayingRef.current = false
+              unreveal()
               try {
                 const duration = e.target.getDuration?.() || 0
                 const nextStart =
@@ -253,7 +260,12 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
   }, [])
 
   // Cover math done in real pixels — always exactly fills {w,h} with no
-  // unit-mismatch gaps, cropping whichever axis the source overshoots
+  // unit-mismatch gaps, cropping whichever axis the source overshoots.
+  // OVERSCAN adds extra margin beyond exact-cover on every screen shape —
+  // on near-16:9 displays (most laptops/monitors) exact-cover crops almost
+  // nothing off the sides, which isn't enough to push the source's
+  // corner watermark off-screen. The margin guarantees it's always cropped.
+  const OVERSCAN = 1.18
   const { w: vw, h: vh } = viewport
   let coverW = vw
   let coverH = vh
@@ -265,6 +277,8 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
       coverH = vh
       coverW = Math.ceil((vh * 16) / 9)
     }
+    coverW = Math.ceil(coverW * OVERSCAN)
+    coverH = Math.ceil(coverH * OVERSCAN)
   }
 
   return (
