@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 const VIDEO_ID = 'UJEBdsASj_0'
-const START_SECONDS = 4900
+const START_SECONDS = 4158 // 1:09:18
 // How long to keep the video hidden behind black while it buffers/starts,
 // so no player chrome, thumbnail flash, or caption flicker is ever visible
 const REVEAL_DELAY_MS = 5000
