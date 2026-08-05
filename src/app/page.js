@@ -126,6 +126,19 @@ export default function Page() {
     else root.removeAttribute('data-video-revealed')
   }, [videoRevealed])
 
+  // Auto-start the gate sequence the moment the video wallpaper is ready —
+  // no click required. Still fires the same advanceGate() a click would,
+  // so nothing about the sequence itself changes, just what triggers it.
+  const autoStartedRef = useRef(false)
+  useEffect(() => {
+    if (!videoRevealed) return
+    if (!inGate) return
+    if (gateStep !== 0) return
+    if (autoStartedRef.current) return
+    autoStartedRef.current = true
+    advanceGate()
+  }, [videoRevealed, inGate, gateStep, advanceGate])
+
   // Lock overflow during loader transition so shop content mounting
   // doesn't create scrollbars that shift the fixed-position orb
   useEffect(() => {
