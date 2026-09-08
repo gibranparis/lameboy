@@ -11,6 +11,8 @@ create table if not exists products (
   slug        text not null unique,
   description text,
   category    text,
+  image_url   text,
+  thumb_url   text,
   created_at  timestamptz not null default now()
 );
 

@@ -5,9 +5,9 @@
 import { NextResponse } from 'next/server'
 import { listProductsWithVariants } from '@/lib/supabase'
 
-// Local image fallback keyed by product slug — same slugs as the static
-// PRODUCTS list in src/lib/products.js, so a Supabase product row can be
-// created without re-uploading images.
+// Fallback for the five original static-catalog slugs, so those Supabase
+// rows work without re-uploading images. New products should set
+// image_url/thumb_url on the row instead — see add_product_image_columns.sql.
 const LOCAL_IMAGES = {
   'hoodie-gray':  { image: '/products/gray.webp',  thumb: '/products/gray-thumb.webp' },
   'hoodie-brown': { image: '/products/brown.webp', thumb: '/products/brown-thumb.webp' },
@@ -16,10 +16,17 @@ const LOCAL_IMAGES = {
   'hoodie-blue':  { image: '/products/blue.webp',  thumb: '/products/blue-thumb.webp' },
 }
 
+// Last-resort placeholder for a product with neither image_url set nor a
+// LOCAL_IMAGES match, so a new product never renders as a blank tile.
+const PLACEHOLDER_IMAGE = { image: '/products/black.webp', thumb: '/products/black-thumb.webp' }
+
 function normalizeProduct(p) {
   const variants = p.variants ?? []
-  const local = LOCAL_IMAGES[p.slug] ?? {}
+  const local = LOCAL_IMAGES[p.slug] ?? PLACEHOLDER_IMAGE
   const cheapestCents = variants.length ? Math.min(...variants.map((v) => v.price_cents)) : 0
+
+  const image = p.image_url || local.image
+  const thumb = p.thumb_url || p.image_url || local.thumb
 
   return {
     id: p.id,
@@ -27,9 +34,9 @@ function normalizeProduct(p) {
     name: p.name,
     price: cheapestCents,
     category: p.category ?? 'hoodies',
-    image: local.image ?? '',
-    thumb: local.thumb ?? local.image ?? '',
-    images: local.image ? [local.image] : [],
+    image,
+    thumb,
+    images: [image],
     sizes: variants.map((v) => v.size),
     slug: p.slug,
     variants: variants.map((v) => ({ id: v.id, size: v.size, price: v.price_cents, stock: v.stock })),
