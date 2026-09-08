@@ -5,8 +5,7 @@ export const dynamic = 'force-static'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import nextDynamic from 'next/dynamic'
-import { PRODUCTS } from '@/lib/products'
-import { fetchSwellProducts } from '@/lib/swell'
+import { PRODUCTS, fetchProducts } from '@/lib/products'
 
 import OrbShell from '@/components/OrbShell'
 import SplashVideoBackground from '@/components/SplashVideoBackground'
@@ -49,11 +48,11 @@ function useHeaderCtrlPx(defaultPx = 64) {
 export default function Page() {
   const ctrlPx = useHeaderCtrlPx()
 
-  const [swellProducts, setSwellProducts] = useState(PRODUCTS)
+  const [shopProducts, setShopProducts] = useState(PRODUCTS)
 
   useEffect(() => {
-    fetchSwellProducts()
-      .then((p) => { if (p?.length) setSwellProducts(p) })
+    fetchProducts()
+      .then((p) => { if (p?.length) setShopProducts(p) })
       .catch(() => {})
   }, [])
 
@@ -328,7 +327,7 @@ export default function Page() {
       // Preload FULL-RES images in background during gate
       // Thumbs are tiny and load instantly, so preload the big ones
       if (mode === 'gate' && gateStep >= 0) {
-        swellProducts.forEach((p, idx) => {
+        shopProducts.forEach((p, idx) => {
           setTimeout(() => {
             // Preload full-res image for detail view
             const fullImg = new Image()
@@ -357,7 +356,7 @@ export default function Page() {
       if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(id)
       else clearTimeout(id)
     }
-  }, [mode, gateStep, swellProducts])
+  }, [mode, gateStep, shopProducts])
 
   return (
     <div
@@ -539,7 +538,7 @@ export default function Page() {
               paddingTop: 'var(--yt-panel-h, 0px)',
               transition: 'padding-top 0.28s ease',
             }}>
-              <ShopGrid products={swellProducts} autoOpenFirstOnMount shopReady={shopReady} />
+              <ShopGrid products={shopProducts} autoOpenFirstOnMount shopReady={shopReady} />
               {!loaderShow && (
                 <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
               )}

@@ -1,52 +1,48 @@
 // src/contexts/CartContext.js
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { swellCartAdd, swellCartGet, swellCartRemove, swellCartUpdate } from '@/lib/swell'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 const CartCtx = createContext(null)
+const STORAGE_KEY = 'lb:cart'
 
-function normalizeSwellItem(item) {
-  return {
-    id: item.productId,
-    swellItemId: item.id,
-    name: item.product?.name ?? item.productName ?? '',
-    price: Math.round((item.price ?? 0) * 100),
-    size: item.options?.find((o) => o.name?.toLowerCase() === 'size')?.value ?? '',
-    qty: item.quantity ?? 1,
-    image: item.product?.images?.[0]?.file?.url ?? '',
+function loadStoredItems() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    const parsed = JSON.parse(raw || '[]')
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
   }
 }
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState([])
   const [bumpKey, setBumpKey] = useState(0)
-  const [checkoutUrl, setCheckoutUrl] = useState(null)
   const [cartReady, setCartReady] = useState(false)
-  const syncingRef = useRef(false)
 
   const count = useMemo(() => items.reduce((s, i) => s + i.qty, 0), [items])
   const total = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items])
 
-  const syncCart = async () => {
-    if (syncingRef.current) return
-    syncingRef.current = true
+  // Load persisted cart once on mount
+  useEffect(() => {
+    setItems(loadStoredItems())
+    setCartReady(true)
+  }, [])
+
+  // Persist on every change, once the initial load has happened
+  useEffect(() => {
+    if (!cartReady) return
     try {
-      const cart = await swellCartGet()
-      const swellItems = cart?.items ?? []
-      setItems(swellItems.map(normalizeSwellItem))
-      setCheckoutUrl(cart?.checkoutUrl ?? null)
-    } catch (err) {
-      console.error('Cart sync failed', err)
-    } finally {
-      syncingRef.current = false
-      setCartReady(true)
-    }
-  }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+    } catch {}
+  }, [items, cartReady])
 
-  useEffect(() => { syncCart() }, [])
+  const add = (product, size, qty = 1) => {
+    const variant = product.variants?.find((v) => v.size === size)
+    const variantId = variant?.id ?? null
+    const price = variant?.price ?? product.price ?? 0
 
-  const add = async (product, size, qty = 1) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === product.id && i.size === size)
       if (existing) {
@@ -58,9 +54,9 @@ export function CartProvider({ children }) {
         ...prev,
         {
           id: product.id,
-          swellItemId: null,
+          variantId,
           name: product.name ?? product.title,
-          price: product.price,
+          price,
           size,
           qty,
           image: product.images?.[0]?.src ?? product.images?.[0] ?? product.image,
@@ -69,43 +65,17 @@ export function CartProvider({ children }) {
     })
     setBumpKey((k) => k + 1)
     try { window.dispatchEvent(new CustomEvent('cart:bump')) } catch {}
-
-    try {
-      const options = size ? { Size: size } : {}
-      await swellCartAdd(product.swellId ?? product.id, { quantity: qty, variant: options })
-      await syncCart()
-    } catch (err) {
-      console.error('Swell add failed', err)
-    }
   }
 
-  const remove = async (id, size) => {
-    const item = items.find((i) => i.id === id && i.size === size)
+  const remove = (id, size) => {
     setItems((prev) => prev.filter((i) => !(i.id === id && i.size === size)))
-    if (item?.swellItemId) {
-      try {
-        await swellCartRemove(item.swellItemId)
-        await syncCart()
-      } catch (err) {
-        console.error('Swell remove failed', err)
-      }
-    }
   }
 
-  const updateQty = async (id, size, qty) => {
+  const updateQty = (id, size, qty) => {
     if (qty <= 0) return remove(id, size)
-    const item = items.find((i) => i.id === id && i.size === size)
     setItems((prev) =>
       prev.map((i) => (i.id === id && i.size === size ? { ...i, qty } : i))
     )
-    if (item?.swellItemId) {
-      try {
-        await swellCartUpdate(item.swellItemId, qty)
-        await syncCart()
-      } catch (err) {
-        console.error('Swell update failed', err)
-      }
-    }
   }
 
   const reset = () => {
@@ -128,7 +98,7 @@ export function CartProvider({ children }) {
 
   const value = useMemo(
     () => ({ items, count, total, add, remove, updateQty, reset, bumpKey, goToCheckout, cartReady }),
-    [items, count, total, bumpKey, checkoutUrl, cartReady]
+    [items, count, total, bumpKey, cartReady]
   )
 
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>

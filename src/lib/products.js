@@ -1,8 +1,14 @@
 // src/lib/products.js
-// Single source of truth for the current hoodie set.
+// Client-safe product data. The static PRODUCTS list below is the offline
+// fallback rendered instantly on load; fetchProducts() then hits /api/products
+// (backed by Supabase) and the page swaps in live data — same pattern the old
+// fetchSwellProducts() followed, just against our own database instead of Swell.
 // All image paths are in /public/products (lowercase filenames).
 
-/** @typedef {{ id:string, title:string, price:number, image:string, thumb?:string, images?:string[], sizes?:string[], category?:string }} Product */
+/**
+ * @typedef {{ id:string, size:string, price:number, stock:number }} ProductVariant
+ * @typedef {{ id:string, title:string, price:number, image:string, thumb?:string, images?:string[], sizes?:string[], category?:string, slug?:string, variants?:ProductVariant[] }} Product
+ */
 
 /** @type {Product[]} */
 export const PRODUCTS = [
@@ -75,5 +81,10 @@ export function getCategoryGroups() {
   return _categoryGroupsCache
 }
 
-// REMOVED: logMissingAssets() - use build-time checks instead
-// If you need to verify assets, run: node scripts/verify-assets.mjs
+/** Fetch live products from Supabase (via /api/products), normalized to the same Product shape as PRODUCTS. */
+export async function fetchProducts() {
+  const res = await fetch('/api/products', { cache: 'no-store' })
+  if (!res.ok) throw new Error(`Failed to fetch products (${res.status})`)
+  const { products: list } = await res.json()
+  return Array.isArray(list) ? list : []
+}

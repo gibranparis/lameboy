@@ -15,7 +15,6 @@ const nextConfig = {
   images: {
     // allow your remote CDNs
     remotePatterns: [
-      { protocol: 'https', hostname: 'cdn.swell.store' },
       { protocol: 'https', hostname: 'media.graphassets.com' },
     ],
     // ✨ make Next emit AVIF/WebP and better size targets

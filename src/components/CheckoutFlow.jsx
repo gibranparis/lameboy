@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from '@/contexts/CartContext'
-import { getSwellClient } from '@/lib/swell'
+import { getStripePromise } from '@/lib/stripe-client'
+import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 
 const STEPS = ['contact', 'address', 'shipping', 'payment', 'confirmation']
 
@@ -139,6 +140,85 @@ function Select({ style, children, ...props }) {
   )
 }
 
+const STRIPE_APPEARANCE = {
+  theme: 'stripe',
+  variables: {
+    colorPrimary: '#0bf05f',
+    colorText: '#111',
+    fontFamily: 'inherit',
+    borderRadius: '10px',
+    fontSizeBase: '15px',
+  },
+  rules: {
+    '.Input': { border: '1.5px solid #e0e0e0', padding: '12px 14px', fontWeight: '600' },
+    '.Input:focus': { border: '1.5px solid #000', boxShadow: 'none' },
+    '.Label': { fontSize: '11px', fontWeight: '700', letterSpacing: '0.06em', textTransform: 'uppercase', color: '#888' },
+  },
+}
+
+/** Rendered inside <Elements>, so it can use the Stripe hooks. */
+function PaymentStepForm({ total, onBack, onSuccess }) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [cardName, setCardName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!stripe || !elements) return
+    if (!cardName) return setError('Please enter the name on your card')
+    setError(null)
+    setLoading(true)
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${siteUrl}/checkout`,
+        payment_method_data: { billing_details: { name: cardName } },
+      },
+      redirect: 'if_required',
+    })
+
+    if (confirmError) {
+      setError(confirmError.message || 'Payment failed. Please check your card details and try again.')
+      setLoading(false)
+      return
+    }
+
+    if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
+      onSuccess(paymentIntent.id)
+    } else {
+      setError('Payment did not complete. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <button type="button" onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
+      {error && (
+        <div style={{ background: '#fff0f0', border: '1px solid #fcc', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: '#c00', fontWeight: 600 }}>
+          {error}
+        </div>
+      )}
+      <Field label="Name on card">
+        <Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Jane Doe" required />
+      </Field>
+      <Field label="Card details">
+        <PaymentElement options={{ fields: { billingDetails: { name: 'never' } } }} />
+      </Field>
+      <p style={{ margin: 0, fontSize: 12, color: '#888', textAlign: 'center' }}>
+        🔒 Payments are processed securely by Stripe
+      </p>
+      <button type="submit" style={{ ...BTN, opacity: loading || !stripe ? 0.6 : 1 }} disabled={loading || !stripe}>
+        {loading ? 'Processing...' : `Pay $${(total / 100).toFixed(2)}`}
+      </button>
+    </form>
+  )
+}
+
 export default function CheckoutFlow() {
   const { items, total, count, reset, cartReady } = useCart()
   const [step, setStep] = useState('contact')
@@ -158,10 +238,10 @@ export default function CheckoutFlow() {
   const [country, setCountry] = useState('US')
   const [shippingRates, setShippingRates] = useState([])
   const [selectedRate, setSelectedRate] = useState(null)
-  const [cardName, setCardName] = useState('')
-  const cardMounted = useRef(false)
-
-  const swell = getSwellClient()
+  const [clientSecret, setClientSecret] = useState(null)
+  const [paymentIntentId, setPaymentIntentId] = useState(null)
+  const stripePromiseRef = useRef(null)
+  if (!stripePromiseRef.current) stripePromiseRef.current = getStripePromise()
 
   // Pre-fill from newsletter signup
   useEffect(() => {
@@ -177,36 +257,15 @@ export default function CheckoutFlow() {
     } catch {}
   }, [])
 
-  // Redirect if cart is empty and no order — wait for cart to load first
+  // Redirect if cart is empty and no order — wait for cart to load first.
+  // paymentIntentId is set synchronously in handlePaymentSuccess before
+  // reset() empties the cart, so a payment in flight (or done, awaiting the
+  // webhook) never gets bounced to '/' by this guard.
   useEffect(() => {
-    if (cartReady && !order && count === 0) {
+    if (cartReady && !order && !paymentIntentId && count === 0) {
       window.location.href = '/'
     }
-  }, [cartReady, count, order])
-
-  // Mount Stripe card element when reaching payment step
-  useEffect(() => {
-    if (step !== 'payment' || cardMounted.current) return
-    cardMounted.current = true
-
-    swell.payment.createElements({
-      card: {
-        elementId: 'lb-card-element',
-        options: {
-          style: {
-            base: {
-              fontSize: '15px',
-              fontFamily: '-apple-system, sans-serif',
-              fontWeight: '600',
-              color: '#111',
-              '::placeholder': { color: '#bbb' },
-            },
-            invalid: { color: '#e00' },
-          },
-        },
-      },
-    }).catch((e) => setError('Could not load card input. Please refresh and try again.'))
-  }, [step])
+  }, [cartReady, count, order, paymentIntentId])
 
   async function handleContact(e) {
     e.preventDefault()
@@ -223,21 +282,22 @@ export default function CheckoutFlow() {
     setError(null)
     setLoading(true)
     try {
-      await swell.cart.update({
-        account: { email },
-        shipping: {
-          name: `${firstName} ${lastName}`,
-          address1,
-          address2,
-          city,
-          state,
-          zip,
-          country,
-        },
+      const res = await fetch('/api/shipping/rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination: {
+            name: `${firstName} ${lastName}`,
+            address1, address2, city, state, zip, country,
+          },
+          items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
+        }),
       })
-      const rates = await swell.cart.getShippingRates()
-      setShippingRates(rates?.services ?? [])
-      if (rates?.services?.length) setSelectedRate(rates.services[0].id)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not fetch shipping rates')
+      if (!data.rates?.length) throw new Error(data.error || 'No shipping rates available for this address')
+      setShippingRates(data.rates)
+      setSelectedRate(data.rates[0].id)
       setStep('shipping')
     } catch (err) {
       setError(err.message || 'Could not validate address. Please try again.')
@@ -252,7 +312,20 @@ export default function CheckoutFlow() {
     setError(null)
     setLoading(true)
     try {
-      await swell.cart.update({ shipping: { service: selectedRate } })
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          name: `${firstName} ${lastName}`,
+          address: { address1, address2, city, state, zip, country },
+          items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
+          rateId: selectedRate,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not start checkout')
+      setClientSecret(data.clientSecret)
       setStep('payment')
     } catch (err) {
       setError(err.message || 'Could not set shipping. Please try again.')
@@ -261,26 +334,24 @@ export default function CheckoutFlow() {
     }
   }
 
-  async function handlePayment(e) {
-    e.preventDefault()
-    if (!cardName) return setError('Please enter the name on your card')
-    setError(null)
-    setLoading(true)
-    try {
-      await swell.payment.tokenize({ card: { name: cardName } })
-      const result = await swell.cart.submitOrder()
-      if (result?.errors) {
-        const msg = Object.values(result.errors)[0]?.message || 'Payment failed'
-        throw new Error(msg)
-      }
-      reset()
-      setOrder(result)
-      setStep('confirmation')
-    } catch (err) {
-      setError(err.message || 'Payment failed. Please check your card details and try again.')
-    } finally {
-      setLoading(false)
+  async function handlePaymentSuccess(intentId) {
+    setPaymentIntentId(intentId)
+    reset()
+
+    // The order row is written by the Stripe webhook, which can lag the
+    // confirmPayment() response by a second or two — poll briefly for it.
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        const res = await fetch(`/api/orders/${intentId}`, { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
+          setOrder(data)
+          break
+        }
+      } catch {}
+      await new Promise((r) => setTimeout(r, 1200))
     }
+    setStep('confirmation')
   }
 
   const stepIndex = STEPS.indexOf(step)
@@ -315,8 +386,8 @@ export default function CheckoutFlow() {
             </div>
           )}
 
-          {/* Error */}
-          {error && (
+          {/* Error (payment-step errors render inside PaymentStepForm instead) */}
+          {error && step !== 'payment' && (
             <div style={{ background: '#fff0f0', border: '1px solid #fcc', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 14, color: '#c00', fontWeight: 600 }}>
               {error}
             </div>
@@ -403,7 +474,7 @@ export default function CheckoutFlow() {
                         </div>
                       </div>
                       <span style={{ fontSize: 14, fontWeight: 700 }}>
-                        {rate.price === 0 ? 'FREE' : `$${rate.price.toFixed(2)}`}
+                        {rate.price === 0 ? 'FREE' : `$${(rate.price / 100).toFixed(2)}`}
                       </span>
                     </label>
                   ))}
@@ -416,37 +487,40 @@ export default function CheckoutFlow() {
           )}
 
           {/* Step: Payment */}
-          {step === 'payment' && (
-            <form onSubmit={handlePayment} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <button type="button" onClick={() => setStep('shipping')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
-              <Field label="Name on card">
-                <Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Jane Doe" required />
-              </Field>
-              <Field label="Card details">
-                <div
-                  id="lb-card-element"
-                  style={{ ...INPUT, padding: '14px', minHeight: 46 }}
+          {step === 'payment' && clientSecret && (
+            stripePromiseRef.current ? (
+              <Elements stripe={stripePromiseRef.current} options={{ clientSecret, appearance: STRIPE_APPEARANCE }}>
+                <PaymentStepForm
+                  total={total}
+                  onBack={() => setStep('shipping')}
+                  onSuccess={handlePaymentSuccess}
                 />
-              </Field>
-              <p style={{ margin: 0, fontSize: 12, color: '#888', textAlign: 'center' }}>
-                🔒 Payments are processed securely by Stripe
+              </Elements>
+            ) : (
+              <p style={{ color: '#c00', fontSize: 14 }}>
+                Payments are unavailable right now. Please try again later.
               </p>
-              <button type="submit" style={{ ...BTN, opacity: loading ? 0.6 : 1 }} disabled={loading}>
-                {loading ? 'Processing...' : `Pay $${((total) / 100).toFixed(2)}`}
-              </button>
-            </form>
+            )
           )}
 
           {/* Step: Confirmation */}
-          {step === 'confirmation' && order && (
+          {step === 'confirmation' && (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-              <p style={{ margin: '0 0 6px', color: '#555', fontSize: 15 }}>
-                Order #{order.number}
-              </p>
-              <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
-                A confirmation has been sent to {order.account?.email ?? email}
-              </p>
+              {order ? (
+                <>
+                  <p style={{ margin: '0 0 6px', color: '#555', fontSize: 15 }}>
+                    Thank you, {order.name?.split(' ')[0] || 'friend'}!
+                  </p>
+                  <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
+                    A confirmation has been sent to {order.email ?? email}
+                  </p>
+                </>
+              ) : (
+                <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
+                  Your payment went through — we're finalizing your order now. A confirmation will be sent to {email}.
+                </p>
+              )}
               <a href="/" style={{ ...BTN, display: 'inline-block', textDecoration: 'none', padding: '14px 40px', width: 'auto' }}>
                 Back to shop
               </a>
