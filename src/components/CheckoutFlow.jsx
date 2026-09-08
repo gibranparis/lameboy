@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useCart } from '@/contexts/CartContext'
 import { getStripePromise } from '@/lib/stripe-client'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
+import { COUNTRIES, US_STATES } from '@/lib/countries'
 
-const STEPS = ['contact', 'address', 'shipping', 'payment', 'confirmation']
+const STEPS = ['details', 'shipping', 'payment', 'confirmation']
 
 const INPUT = {
   width: '100%',
@@ -71,21 +72,6 @@ function hoodieColor(name = '') {
   }
   return null
 }
-
-const COUNTRIES = [
-  ['US','United States'],['CA','Canada'],['GB','United Kingdom'],['AU','Australia'],
-  ['FR','France'],['DE','Germany'],['JP','Japan'],['MX','Mexico'],['BR','Brazil'],
-  ['ES','Spain'],['IT','Italy'],['NL','Netherlands'],['SE','Sweden'],['NO','Norway'],
-  ['DK','Denmark'],['FI','Finland'],['CH','Switzerland'],['AT','Austria'],['BE','Belgium'],
-  ['PT','Portugal'],['PL','Poland'],['NZ','New Zealand'],['SG','Singapore'],['KR','South Korea'],
-]
-
-const US_STATES = [
-  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
-  'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
-  'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
-  'VA','WA','WV','WI','WY','DC',
-]
 
 function Field({ label, error, children }) {
   return (
@@ -156,6 +142,37 @@ const STRIPE_APPEARANCE = {
   },
 }
 
+// Real-time field validation for the details step. Loose on purpose —
+// only US and CA get a real postal-code pattern; every other country just
+// needs a non-empty ZIP, since international postal formats vary too much
+// to be worth encoding here.
+function validateField(name, value, country) {
+  const v = String(value ?? '').trim()
+  switch (name) {
+    case 'firstName':
+    case 'lastName':
+    case 'address1':
+    case 'city':
+      return v ? null : 'Required'
+    case 'email':
+      if (!v) return 'Required'
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Enter a valid email'
+    case 'state':
+      return country === 'US' && !v ? 'Required' : null
+    case 'zip':
+      if (!v) return 'Required'
+      if (country === 'US') return /^\d{5}(-\d{4})?$/.test(v) ? null : 'Enter a valid ZIP code'
+      if (country === 'CA') return /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(v) ? null : 'Enter a valid postal code'
+      return null
+    case 'phone':
+      return country !== 'US' && !v ? 'Required for international shipping' : null
+    default:
+      return null
+  }
+}
+
+const DETAILS_FIELDS = ['firstName', 'lastName', 'email', 'address1', 'city', 'state', 'zip', 'phone']
+
 /** Rendered inside <Elements>, so it can use the Stripe hooks. */
 function PaymentStepForm({ total, onBack, onSuccess }) {
   const stripe = useStripe()
@@ -221,7 +238,7 @@ function PaymentStepForm({ total, onBack, onSuccess }) {
 
 export default function CheckoutFlow() {
   const { items, total, count, reset, cartReady } = useCart()
-  const [step, setStep] = useState('contact')
+  const [step, setStep] = useState('details')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [order, setOrder] = useState(null)
@@ -236,12 +253,21 @@ export default function CheckoutFlow() {
   const [state, setState] = useState('')
   const [zip, setZip] = useState('')
   const [country, setCountry] = useState('US')
+  const [phone, setPhone] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [shippingRates, setShippingRates] = useState([])
   const [selectedRate, setSelectedRate] = useState(null)
   const [clientSecret, setClientSecret] = useState(null)
   const [paymentIntentId, setPaymentIntentId] = useState(null)
   const stripePromiseRef = useRef(null)
   if (!stripePromiseRef.current) stripePromiseRef.current = getStripePromise()
+
+  const fieldValues = { firstName, lastName, email, address1, city, state, zip, phone }
+
+  function onFieldBlur(name) {
+    const msg = validateField(name, fieldValues[name], country)
+    setFieldErrors((prev) => ({ ...prev, [name]: msg }))
+  }
 
   // Pre-fill from newsletter signup
   useEffect(() => {
@@ -267,18 +293,19 @@ export default function CheckoutFlow() {
     }
   }, [cartReady, count, order, paymentIntentId])
 
-  async function handleContact(e) {
+  async function handleDetails(e) {
     e.preventDefault()
-    if (!email) return setError('Email is required')
-    setError(null)
-    setStep('address')
-  }
 
-  async function handleAddress(e) {
-    e.preventDefault()
-    if (!firstName || !lastName || !address1 || !city || !zip || !country) {
-      return setError('Please fill in all required fields')
+    const errors = {}
+    for (const name of DETAILS_FIELDS) {
+      const msg = validateField(name, fieldValues[name], country)
+      if (msg) errors[name] = msg
     }
+    setFieldErrors(errors)
+    if (Object.keys(errors).length) {
+      return setError('Please fix the highlighted fields below')
+    }
+
     setError(null)
     setLoading(true)
     try {
@@ -288,7 +315,7 @@ export default function CheckoutFlow() {
         body: JSON.stringify({
           destination: {
             name: `${firstName} ${lastName}`,
-            address1, address2, city, state, zip, country,
+            address1, address2, city, state, zip, country, phone,
           },
           items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
         }),
@@ -355,6 +382,7 @@ export default function CheckoutFlow() {
   }
 
   const stepIndex = STEPS.indexOf(step)
+  const progressLabels = ['Details', 'Shipping', 'Payment']
 
   return (
     <div style={{ minHeight: '100dvh', background: '#f7f7f5', fontFamily: 'inherit' }}>
@@ -365,14 +393,14 @@ export default function CheckoutFlow() {
         </a>
       </div>
 
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,380px)', gap: 32, alignItems: 'start' }}>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px', display: 'grid', gridTemplateColumns: step === 'confirmation' ? '1fr' : 'minmax(0,1fr) minmax(0,380px)', gap: 32, alignItems: 'start' }}>
 
         {/* Left — form */}
         <div>
           {/* Progress */}
           {step !== 'confirmation' && (
             <div style={{ display: 'flex', gap: 8, marginBottom: 28, flexWrap: 'wrap' }}>
-              {['Contact', 'Address', 'Shipping', 'Payment'].map((label, i) => (
+              {progressLabels.map((label, i) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{
                     fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
@@ -380,7 +408,7 @@ export default function CheckoutFlow() {
                   }}>
                     {i === stepIndex ? <RainbowText text={label} /> : label}
                   </span>
-                  {i < 3 && <span style={{ color: '#ccc', fontSize: 12 }}>›</span>}
+                  {i < progressLabels.length - 1 && <span style={{ color: '#ccc', fontSize: 12 }}>›</span>}
                 </div>
               ))}
             </div>
@@ -393,46 +421,38 @@ export default function CheckoutFlow() {
             </div>
           )}
 
-          {/* Step: Contact */}
-          {step === 'contact' && (
-            <form onSubmit={handleContact} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Step: Details (contact + address, combined) */}
+          {step === 'details' && (
+            <form onSubmit={handleDetails} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <Field label="First name">
-                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" required />
+                <Field label="First name" error={fieldErrors.firstName}>
+                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} onBlur={() => onFieldBlur('firstName')} placeholder="Jane" required />
                 </Field>
-                <Field label="Last name">
-                  <Input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Doe" required />
+                <Field label="Last name" error={fieldErrors.lastName}>
+                  <Input value={lastName} onChange={e => setLastName(e.target.value)} onBlur={() => onFieldBlur('lastName')} placeholder="Doe" required />
                 </Field>
               </div>
-              <Field label="Email">
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jane@email.com" required />
+              <Field label="Email" error={fieldErrors.email}>
+                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => onFieldBlur('email')} placeholder="jane@email.com" required />
               </Field>
-              <button type="submit" style={BTN}>Continue to Address</button>
-            </form>
-          )}
-
-          {/* Step: Address */}
-          {step === 'address' && (
-            <form onSubmit={handleAddress} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <button type="button" onClick={() => setStep('contact')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
               <Field label="Country">
                 <Select value={country} onChange={e => { setCountry(e.target.value); setState('') }}>
                   {COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                 </Select>
               </Field>
-              <Field label="Street Address">
-                <Input value={address1} onChange={e => setAddress1(e.target.value)} placeholder="123 Main St" required />
+              <Field label="Street Address" error={fieldErrors.address1}>
+                <Input value={address1} onChange={e => setAddress1(e.target.value)} onBlur={() => onFieldBlur('address1')} placeholder="123 Main St" required />
               </Field>
               <Field label="Apt, suite, etc. (optional)">
                 <Input value={address2} onChange={e => setAddress2(e.target.value)} placeholder="Apt 4B" />
               </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <Field label="City">
-                  <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Los Angeles" required />
+                <Field label="City" error={fieldErrors.city}>
+                  <Input value={city} onChange={e => setCity(e.target.value)} onBlur={() => onFieldBlur('city')} placeholder="Los Angeles" required />
                 </Field>
                 {country === 'US' ? (
-                  <Field label="State">
-                    <Select value={state} onChange={e => setState(e.target.value)} required>
+                  <Field label="State" error={fieldErrors.state}>
+                    <Select value={state} onChange={e => setState(e.target.value)} onBlur={() => onFieldBlur('state')} required>
                       <option value="">—</option>
                       {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     </Select>
@@ -442,10 +462,13 @@ export default function CheckoutFlow() {
                     <Input value={state} onChange={e => setState(e.target.value)} placeholder="CA" />
                   </Field>
                 )}
-                <Field label="ZIP / Postal">
-                  <Input value={zip} onChange={e => setZip(e.target.value)} placeholder="90001" required />
+                <Field label="ZIP / Postal" error={fieldErrors.zip}>
+                  <Input value={zip} onChange={e => setZip(e.target.value)} onBlur={() => onFieldBlur('zip')} placeholder="90001" required />
                 </Field>
               </div>
+              <Field label={country !== 'US' ? 'Phone (required for international shipping)' : 'Phone (optional)'} error={fieldErrors.phone}>
+                <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => onFieldBlur('phone')} placeholder="(555) 123-4567" required={country !== 'US'} />
+              </Field>
               <button type="submit" style={{ ...BTN, opacity: loading ? 0.6 : 1 }} disabled={loading}>
                 {loading ? 'Checking...' : 'Continue to Shipping'}
               </button>
@@ -455,7 +478,7 @@ export default function CheckoutFlow() {
           {/* Step: Shipping Method */}
           {step === 'shipping' && (
             <form onSubmit={handleShipping} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <button type="button" onClick={() => setStep('address')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
+              <button type="button" onClick={() => setStep('details')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
               {shippingRates.length === 0 ? (
                 <p style={{ color: '#888', fontSize: 14 }}>No shipping rates available for this address.</p>
               ) : (

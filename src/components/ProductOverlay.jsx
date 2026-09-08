@@ -1405,6 +1405,17 @@ export default function ProductOverlay({
 
   const sizes = product.sizes?.length ? product.sizes : ['OS', 'S', 'M', 'L', 'XL']
 
+  // Real stock from Supabase (via product.variants, populated by /api/products)
+  // — never shown unless the selected size's actual stock is low. No
+  // fabricated urgency: if variants data isn't available (e.g. the static
+  // fallback catalog), this just stays null.
+  const stockMessage = useMemo(() => {
+    if (!selectedSize || !product.variants?.length) return null
+    const variant = product.variants.find((v) => v.size === selectedSize)
+    if (!variant || typeof variant.stock !== 'number' || variant.stock <= 0) return null
+    return variant.stock <= 5 ? `Only ${variant.stock} left` : null
+  }, [selectedSize, product.variants])
+
   const priceRef = useRef(null)
   const [priceStyle, setPriceStyle] = useState(null)
   const addToCartTriggerRef = useRef(null)
@@ -1641,6 +1652,11 @@ export default function ProductOverlay({
           <div style={{ marginTop: 12 }}>
             <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} triggerRef={addToCartTriggerRef} />
           </div>
+          {stockMessage && (
+            <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, letterSpacing: '0.02em', color: '#ff4444' }}>
+              {stockMessage}
+            </div>
+          )}
         </div>
 
         {/* Size dimensions – top-right, below heart button, never on top of image */}

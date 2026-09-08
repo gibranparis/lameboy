@@ -3,6 +3,120 @@
 import { useCart } from '@/contexts/CartContext'
 import { useState, useEffect, useRef } from 'react'
 import CheckoutItem from './CheckoutItem'
+import { COUNTRIES } from '@/lib/countries'
+
+/**
+ * Lightweight "estimate shipping" widget — just ZIP + country, no full
+ * address. Calls the same /api/shipping/rates endpoint the real checkout
+ * flow uses; Shippo can quote off a ZIP + country alone (less precisely
+ * than a full address, but real carrier numbers, not a guess). Shows only
+ * the cheapest rate, clearly labeled as an estimate. If the request fails
+ * or returns nothing, falls back to static copy rather than showing a
+ * number that might be wrong.
+ */
+function ShippingEstimate({ items, night }) {
+  const [open, setOpen] = useState(false)
+  const [zip, setZip] = useState('')
+  const [country, setCountry] = useState('US')
+  const [status, setStatus] = useState('idle') // idle | loading | done | unavailable
+  const [cheapest, setCheapest] = useState(null)
+
+  const textMuted = night ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)'
+  const textPrimary = night ? '#fff' : '#111'
+  const border = night ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+
+  async function handleEstimate(e) {
+    e.preventDefault()
+    if (!zip.trim()) return
+    setStatus('loading')
+    setCheapest(null)
+    try {
+      const res = await fetch('/api/shipping/rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destination: { zip: zip.trim(), country },
+          items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.rates?.length) {
+        setCheapest(data.rates[0].price)
+        setStatus('done')
+      } else {
+        setStatus('unavailable')
+      }
+    } catch {
+      setStatus('unavailable')
+    }
+  }
+
+  const inputStyle = {
+    fontFamily: 'inherit',
+    fontSize: 12,
+    fontWeight: 600,
+    padding: '6px 8px',
+    borderRadius: 8,
+    border: `1px solid ${border}`,
+    background: night ? 'rgba(255,255,255,0.06)' : '#fff',
+    color: textPrimary,
+    outline: 'none',
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          style={{
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+            fontSize: 12, fontWeight: 600, color: textMuted, textDecoration: 'underline',
+          }}
+        >
+          Estimate shipping
+        </button>
+      ) : (
+        <form onSubmit={handleEstimate} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select
+              value={country}
+              onChange={(e) => { setCountry(e.target.value); setStatus('idle') }}
+              style={{ ...inputStyle, flex: '0 0 84px' }}
+            >
+              {COUNTRIES.map(([code, name]) => <option key={code} value={code}>{code}</option>)}
+            </select>
+            <input
+              value={zip}
+              onChange={(e) => { setZip(e.target.value); setStatus('idle') }}
+              placeholder="ZIP / postal code"
+              style={{ ...inputStyle, flex: 1, minWidth: 0 }}
+            />
+            <button
+              type="submit"
+              disabled={status === 'loading' || !zip.trim()}
+              style={{
+                ...inputStyle, cursor: 'pointer', fontWeight: 700,
+                background: 'var(--hover-green, #0bf05f)', color: '#000', border: 'none',
+                opacity: status === 'loading' || !zip.trim() ? 0.6 : 1,
+              }}
+            >
+              {status === 'loading' ? '...' : 'Go'}
+            </button>
+          </div>
+          {status === 'done' && cheapest != null && (
+            <span style={{ fontSize: 12, color: textMuted }}>
+              Estimated shipping: <strong style={{ color: textPrimary }}>${(cheapest / 100).toFixed(2)}</strong> — finalized at checkout
+            </span>
+          )}
+          {status === 'unavailable' && (
+            <span style={{ fontSize: 12, color: textMuted }}>Shipping calculated at checkout</span>
+          )}
+        </form>
+      )}
+    </div>
+  )
+}
 
 export default function CheckoutView({ onClose }) {
   const { items, total, count, goToCheckout } = useCart()
@@ -174,6 +288,7 @@ export default function CheckoutView({ onClose }) {
           borderTop: `1px solid ${border}`,
           flexShrink: 0,
         }}>
+          <ShippingEstimate items={items} night={night} />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: textPrimary }}>Total</span>
             <span style={{ fontSize: 14, fontWeight: 600, color: textPrimary }}>
