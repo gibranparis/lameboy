@@ -54,37 +54,29 @@ export async function getOrderByPaymentIntentId(paymentIntentId) {
   return data
 }
 
-/** Insert the order + its line items, then atomically decrement stock. Webhook-only. */
+/**
+ * Insert the order + its line items and decrement stock — as one Postgres
+ * transaction via create_order_with_stock_decrement(), so a stock shortfall
+ * on any item rolls back the whole order instead of leaving a paid order
+ * behind with an understated (or double-decremented, on webhook retry)
+ * stock count. Webhook-only.
+ */
 export async function createOrderFromWebhook({ order, items }) {
   const supabase = getSupabaseAdmin()
 
-  const { data: orderRow, error: orderErr } = await supabase
-    .from('orders')
-    .insert(order)
-    .select('id')
-    .single()
-  if (orderErr) throw orderErr
-
-  const orderItems = items.map((item) => ({
-    order_id: orderRow.id,
-    variant_id: item.variantId,
-    name_snapshot: item.name,
-    size_snapshot: item.size,
-    price_cents: item.priceCents,
-    qty: item.qty,
-  }))
-
-  const { error: itemsErr } = await supabase.from('order_items').insert(orderItems)
-  if (itemsErr) throw itemsErr
-
-  const { error: stockErr } = await supabase.rpc('decrement_stock_for_order', {
-    p_items: items
-      .filter((item) => item.variantId)
-      .map((item) => ({ variant_id: item.variantId, qty: item.qty })),
+  const { data: orderId, error } = await supabase.rpc('create_order_with_stock_decrement', {
+    p_order: order,
+    p_items: items.map((item) => ({
+      variant_id: item.variantId,
+      name_snapshot: item.name,
+      size_snapshot: item.size,
+      price_cents: item.priceCents,
+      qty: item.qty,
+    })),
   })
-  if (stockErr) throw stockErr
+  if (error) throw error
 
-  return orderRow.id
+  return orderId
 }
 
 /** Mark an order refunded (triggered by the charge.refunded webhook event). */

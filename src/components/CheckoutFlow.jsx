@@ -257,12 +257,15 @@ export default function CheckoutFlow() {
     } catch {}
   }, [])
 
-  // Redirect if cart is empty and no order — wait for cart to load first
+  // Redirect if cart is empty and no order — wait for cart to load first.
+  // paymentIntentId is set synchronously in handlePaymentSuccess before
+  // reset() empties the cart, so a payment in flight (or done, awaiting the
+  // webhook) never gets bounced to '/' by this guard.
   useEffect(() => {
-    if (cartReady && !order && count === 0) {
+    if (cartReady && !order && !paymentIntentId && count === 0) {
       window.location.href = '/'
     }
-  }, [cartReady, count, order])
+  }, [cartReady, count, order, paymentIntentId])
 
   async function handleContact(e) {
     e.preventDefault()
