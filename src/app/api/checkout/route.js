@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { getVariantsByIds } from '@/lib/supabase'
 import { getRateById } from '@/lib/shippo'
 import { getStripe } from '@/lib/stripe'
+import { encodeItems } from '@/lib/order-metadata'
 
 export async function POST(req) {
   try {
@@ -61,6 +62,18 @@ export async function POST(req) {
       amount: totalCents,
       currency: 'usd',
       receipt_email: email,
+      automatic_payment_methods: { enabled: true },
+      shipping: {
+        name,
+        address: {
+          line1: address.address1,
+          line2: address.address2 || '',
+          city: address.city,
+          state: address.state || '',
+          postal_code: address.zip,
+          country: address.country,
+        },
+      },
       metadata: {
         email,
         name,
@@ -74,7 +87,7 @@ export async function POST(req) {
         shipping_service: rate.name,
         shipping_cost_cents: String(rate.price),
         subtotal_cents: String(subtotalCents),
-        items: JSON.stringify(lineItems),
+        ...encodeItems(lineItems),
       },
     })
 
