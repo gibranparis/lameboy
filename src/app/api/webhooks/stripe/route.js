@@ -7,13 +7,14 @@
 // deliveries, so this must be safe to run twice for the same PaymentIntent.
 import { NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
+import { decodeItems } from '@/lib/order-metadata'
 import { createOrderFromWebhook, getOrderByPaymentIntentId, markOrderRefunded } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
 
 function parseItemsFromMetadata(metadata) {
   try {
-    const raw = JSON.parse(metadata.items || '[]')
+    const raw = decodeItems(metadata)
     return raw.map((i) => ({
       variantId: i.v,
       name: i.n,

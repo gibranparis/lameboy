@@ -23,6 +23,8 @@ const MusicPlayerButton = nextDynamic(() => import('@/components/MusicPlayerButt
 
 const RUNNER_H = 14
 const LOADER_MS = 1400
+// Splash video is off by default; enable by setting NEXT_PUBLIC_SPLASH_VIDEO=on and redeploying
+const SPLASH_VIDEO_ON = process.env.NEXT_PUBLIC_SPLASH_VIDEO === 'on'
 
 function useHeaderCtrlPx(defaultPx = 64) {
   const [px, setPx] = useState(defaultPx)
@@ -368,10 +370,12 @@ export default function Page() {
     >
       {/* Persistent video wallpaper — mounted once here so it survives the
           gate → shop transition without remounting the YouTube player */}
-      <SplashVideoBackground
-        onRevealed={() => setVideoRevealed(true)}
-        onHidden={() => setVideoRevealed(false)}
-      />
+      {SPLASH_VIDEO_ON && (
+        <SplashVideoBackground
+          onRevealed={() => setVideoRevealed(true)}
+          onHidden={() => setVideoRevealed(false)}
+        />
+      )}
 
       {/* SINGLE persistent orb (never remounts) */}
       <OrbShell

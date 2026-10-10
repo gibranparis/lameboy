@@ -311,7 +311,7 @@ export default function SplashVideoBackground({ onRevealed, onHidden }) {
         style={{
           position: 'absolute',
           inset: 0,
-          visibility: revealed && !forceHidden ? 'visible' : 'hidden',
+          visibility: revealed ? 'visible' : 'hidden',
         }}
       >
         {/* Cover sizing computed from real measured pixels (see effect

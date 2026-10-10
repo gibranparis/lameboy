@@ -23,6 +23,9 @@ export async function POST(req) {
     if (isFullAddress && destination.country !== 'US' && !destination.phone) {
       return NextResponse.json({ error: 'A phone number is required for international shipping' }, { status: 400 })
     }
+    if (destination.country !== 'US' && !destination.phone) {
+      return NextResponse.json({ error: 'A phone number is required for international shipping' }, { status: 400 })
+    }
     if (!items.length) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
     }
