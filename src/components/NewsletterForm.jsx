@@ -5,6 +5,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { clearProfile, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
 import EmailChips from '@/components/EmailChips'
+import { CONTACT_EMAIL } from '@/lib/store-info'
 
 const CHAKRA_COLORS = [
   '#FF0000', // Root – red
@@ -448,6 +449,14 @@ export default function NewsletterForm({ open, onClose }) {
         </form>
       )}
 
+      <nav className="nl-legal" aria-label="Store policies">
+        <a href="/shipping">Shipping</a>
+        <a href="/returns">Sales policy</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>
+      </nav>
+
       <style jsx>{`
         .nl-panel {
           position: fixed;
@@ -549,6 +558,20 @@ export default function NewsletterForm({ open, onClose }) {
           text-align: center; font-size: 15px; font-weight: 700;
           color: var(--hover-green, #0bf05f); padding: 18px 0;
         }
+
+        .nl-legal {
+          display: flex; flex-wrap: wrap; justify-content: center;
+          gap: 4px 12px; margin-top: 16px; padding-top: 12px;
+          border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .nl-legal a {
+          font-size: 10px; letter-spacing: 0.04em;
+          color: rgba(255,255,255,0.4); text-decoration: none;
+        }
+        .nl-legal a:hover { color: rgba(255,255,255,0.8); }
+        :global(html[data-theme='day']) .nl-legal { border-top-color: rgba(0,0,0,0.08); }
+        :global(html[data-theme='day']) .nl-legal a { color: rgba(0,0,0,0.4); }
+        :global(html[data-theme='day']) .nl-legal a:hover { color: rgba(0,0,0,0.75); }
       `}</style>
     </div>
   )
