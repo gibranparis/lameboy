@@ -9,8 +9,7 @@ export default function OrbShell({
   loaderShow, // boolean
   gateStep, // 0..7
   isProceeding, // boolean
-  onAdvanceGate, // fn
-  onProceed, // fn
+  onAdvanceGate, // fn — starts the chakra sequence (no-op once running)
   onHoldChange, // fn(bool) — true while the orb is dragged or snapping back
   ctrlPx, // number
 }) {
@@ -95,176 +94,182 @@ export default function OrbShell({
   }, [gateStep, isProceeding, loaderShow])
 
   const gateSolid = gateStep >= 1 || isProceeding || loaderShow
-  const CHAKRA_BURST_COLORS = useMemo(
-    () => ['#cc0014', '#e05500', '#ffd400', '#00a832', '#0066ff', '#3a00b5', '#9333ea', '#000'],
-    []
-  )
-  const burstTimers = useRef([])
-  const [burstColor, setBurstColor] = useState(null)
-  const [burstActive, setBurstActive] = useState(false)
 
-  const clearBurstTimers = useCallback(() => {
-    burstTimers.current.forEach((t) => clearTimeout(t))
-    burstTimers.current = []
-  }, [])
-
-  const startChakraBurst = useCallback((callback) => {
-    if (!inGateLike) return
-    if (isProceeding) return
-    clearBurstTimers()
-
-    // Mark burst as active to block gate color overrides
-    setBurstActive(true)
-
-    let frameCount = 0
-    const framesPerColor = 5 // ~80ms at 60fps = ~4.8 frames, so 5 frames
-    const totalFrames = CHAKRA_BURST_COLORS.length * framesPerColor
-
-    const loop = () => {
-      const colorIndex = Math.floor(frameCount / framesPerColor)
-      if (colorIndex < CHAKRA_BURST_COLORS.length) {
-        setBurstColor(CHAKRA_BURST_COLORS[colorIndex])
-        frameCount++
-        burstTimers.current.push(window.requestAnimationFrame(loop))
-      } else {
-        // Burst complete
-        setBurstActive(false)
-        if (callback && typeof callback === 'function') {
-          callback()
-        }
-      }
-    }
-
-    burstTimers.current.push(window.requestAnimationFrame(loop))
-  }, [CHAKRA_BURST_COLORS, clearBurstTimers, inGateLike, isProceeding])
-
-  useEffect(() => {
-    return () => {
-      clearBurstTimers()
-      burstTimers.current.forEach((id) => {
-        if (typeof id === 'number' && id > 0) {
-          cancelAnimationFrame(id)
-        }
-      })
-      burstTimers.current = []
-    }
-  }, [clearBurstTimers])
-  /* ===================== Gate interactions ===================== */
-
-  const pressTimer = useRef(null)
-
-  const startPressTimer = useCallback(() => {
-    if (!inGateLike) return
-    if (isProceeding) return
-    clearTimeout(pressTimer.current)
-    pressTimer.current = setTimeout(() => {
-      onProceed && onProceed()
-    }, 650)
-  }, [inGateLike, isProceeding, onProceed])
-
-  const clearPressTimer = useCallback(() => clearTimeout(pressTimer.current), [])
-
-  // Set when a drag ends so the click the browser fires after it is ignored
-  const suppressClick = useRef(false)
-
-  const onGateClick = useCallback(() => {
-    if (suppressClick.current) { suppressClick.current = false; return }
-    if (!inGateLike) return
-    if (isProceeding) return
-    startChakraBurst(onAdvanceGate)
-  }, [inGateLike, isProceeding, onAdvanceGate, startChakraBurst])
-
-  const onGateDouble = useCallback(() => {
-    if (suppressClick.current) return
-    if (!inGateLike) return
-    if (isProceeding) return
-    startChakraBurst(onProceed)
-  }, [inGateLike, isProceeding, onProceed, startChakraBurst])
-
-  /* ===================== Gate drag ===================== */
-  // The orb follows the pointer once it moves past a small threshold. On
-  // release it springs back to center, then proceeds into the shop.
-  // The spring runs in JS because gate mode disables CSS transitions
-  // (globals.css), and the transform is written straight to the shell so
-  // the 3D orb doesn't re-render on every frame.
+  /* ===================== Gate motion ===================== */
+  // One spring system drives the orb on the gate: it squeezes when pressed,
+  // lifts while dragged, springs back to center on release, and pulses on
+  // every chakra step. It runs in JS because gate mode disables CSS
+  // transitions (globals.css), and writes the transform straight to the
+  // shell so the 3D orb doesn't re-render per frame.
 
   const DRAG_THRESHOLD_PX = 8
-  const SPRING_K = 260 // stiffness
-  const SPRING_C = 18 // damping (≈0.56 ratio: one small overshoot)
+  const POS_K = 260 // position stiffness
+  const POS_C = 18 // position damping (≈0.56: one small overshoot)
+  const SCALE_K = 420 // scale stiffness
+  const SCALE_C = 15 // scale damping (≈0.37: a lively bounce)
+  const PRESS_SCALE = 0.9
+  const LIFT_SCALE = 1.06
   const canDrag = mode === 'gate' && !loaderShow && !isProceeding
 
   const shellRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   const [dragging, setDragging] = useState(false)
   const dragStart = useRef(/** @type {{id:number,x:number,y:number,active:boolean}|null} */ (null))
-  const dragOffset = useRef({ x: 0, y: 0 })
-  const snapping = useRef(false)
-  const snapRaf = useRef(0)
+  // Set when a drag ends so the click the browser fires after it is ignored
+  const suppressClick = useRef(false)
+  const motion = useRef({ x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false })
+  const motionRaf = useRef(0)
+  const onSettle = useRef(/** @type {null | (() => void)} */ (null))
+  const reducedMotion = useRef(false)
 
-  useEffect(() => () => cancelAnimationFrame(snapRaf.current), [])
-
-  const placeShell = useCallback((x, y) => {
-    if (shellRef.current) shellRef.current.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`
+  useEffect(() => {
+    reducedMotion.current = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    return () => cancelAnimationFrame(motionRaf.current)
   }, [])
 
-  const onDragPointerDown = useCallback((e) => {
+  const writeShell = useCallback(() => {
+    const el = shellRef.current
+    if (!el) return
+    const m = motion.current
+    el.style.transform = `translate(calc(-50% + ${m.x}px), calc(-50% + ${m.y}px)) scale(${m.s})`
+  }, [])
+
+  const runMotion = useCallback(() => {
+    if (motionRaf.current) return
+    const el = shellRef.current
+    // Keep any CSS transition on the shell from smoothing the per-frame writes
+    if (el) el.style.transition = 'none'
+    let last = performance.now()
+    const tick = (now) => {
+      const m = motion.current
+      const dt = Math.min(0.032, (now - last) / 1000)
+      last = now
+      if (!m.held) {
+        m.vx += (-POS_K * m.x - POS_C * m.vx) * dt
+        m.vy += (-POS_K * m.y - POS_C * m.vy) * dt
+        m.x += m.vx * dt
+        m.y += m.vy * dt
+      }
+      m.vs += (-SCALE_K * (m.s - m.ts) - SCALE_C * m.vs) * dt
+      m.s += m.vs * dt
+      const settled =
+        !m.held &&
+        Math.hypot(m.x, m.y) < 0.5 && Math.hypot(m.vx, m.vy) < 10 &&
+        Math.abs(m.s - m.ts) < 0.002 && Math.abs(m.vs) < 0.02
+      if (settled) {
+        m.x = m.y = m.vx = m.vy = m.vs = 0
+        m.s = m.ts
+        if (el) {
+          el.style.transform = m.s === 1 ? 'translate(-50%, -50%)' : `translate(-50%, -50%) scale(${m.s})`
+          el.style.transition = shellStyle.transition || ''
+        }
+        motionRaf.current = 0
+        const done = onSettle.current
+        onSettle.current = null
+        if (done) done()
+        return
+      }
+      writeShell()
+      motionRaf.current = requestAnimationFrame(tick)
+    }
+    motionRaf.current = requestAnimationFrame(tick)
+  }, [shellStyle.transition, writeShell])
+
+  // Push the scale spring: a positive kick makes the orb swell, then settle
+  const kickScale = useCallback((v) => {
+    if (reducedMotion.current) return
+    motion.current.vs += v
+    runMotion()
+  }, [runMotion])
+
+  const setScaleTarget = useCallback((ts) => {
+    motion.current.ts = reducedMotion.current ? 1 : ts
+    runMotion()
+  }, [runMotion])
+
+  const buzz = useCallback((ms) => {
+    try { navigator.vibrate?.(ms) } catch {}
+  }, [])
+
+  // A soft pulse on every chakra, a fuller one when the orb turns black
+  const prevStep = useRef(gateStep)
+  useEffect(() => {
+    if (!inGateLike) return
+    if (gateStep !== prevStep.current && gateStep >= 1) kickScale(1.1)
+    prevStep.current = gateStep
+  }, [gateStep, inGateLike, kickScale])
+
+  useEffect(() => {
+    if (!isProceeding) return
+    kickScale(2.2)
+    buzz(14)
+  }, [isProceeding, kickScale, buzz])
+
+  /* ===================== Gate interactions ===================== */
+  // Every gesture starts the same sequence: all seven chakras, then black,
+  // then the shop. Once it's running, more taps never skip a colour.
+
+  const onGateClick = useCallback(() => {
+    if (suppressClick.current) { suppressClick.current = false; return }
+    if (!inGateLike || isProceeding) return
+    if (gateStep === 0) buzz(8)
+    onAdvanceGate && onAdvanceGate()
+  }, [buzz, gateStep, inGateLike, isProceeding, onAdvanceGate])
+
+  const onGatePointerDown = useCallback((e) => {
     suppressClick.current = false
-    if (!canDrag || snapping.current) return
+    if (!canDrag) return
     if (e.pointerType === 'mouse' && e.button !== 0) return
     dragStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false }
-  }, [canDrag])
+    setScaleTarget(PRESS_SCALE)
+  }, [canDrag, setScaleTarget])
 
-  const onDragPointerMove = useCallback((e) => {
+  const onGatePointerMove = useCallback((e) => {
     const s = dragStart.current
     if (!s || s.id !== e.pointerId || !canDrag) return
     const dx = e.clientX - s.x
     const dy = e.clientY - s.y
+    const m = motion.current
     if (!s.active) {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return
       s.active = true
-      clearPressTimer() // a drag is not a hold
       try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+      m.held = true
       setDragging(true)
+      setScaleTarget(LIFT_SCALE)
       onHoldChange && onHoldChange(true)
     }
-    dragOffset.current = { x: dx, y: dy }
-    placeShell(dx, dy)
-  }, [canDrag, clearPressTimer, onHoldChange, placeShell])
+    m.x = dx
+    m.y = dy
+    m.vx = m.vy = 0
+    writeShell()
+  }, [canDrag, onHoldChange, setScaleTarget, writeShell])
 
-  const onDragPointerEnd = useCallback((e) => {
+  const onGatePointerEnd = useCallback((e) => {
     const s = dragStart.current
     if (!s || s.id !== e.pointerId) return
     dragStart.current = null
-    if (!s.active) return
+    setScaleTarget(1)
+    if (!s.active) return // a tap: the click handler starts the sequence
+
+    // Drag released: spring home, then start (or resume) the sequence
     suppressClick.current = true
     setDragging(false)
-    snapping.current = true
-
-    const finish = () => {
-      if (shellRef.current) shellRef.current.style.transform = 'translate(-50%, -50%)'
-      snapping.current = false
+    const m = motion.current
+    m.held = false
+    const start = () => {
       onHoldChange && onHoldChange(false)
-      onProceed && onProceed()
+      if (gateStep === 0) buzz(8)
+      onAdvanceGate && onAdvanceGate()
     }
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return finish()
-
-    let { x, y } = dragOffset.current
-    let vx = 0
-    let vy = 0
-    let last = performance.now()
-    const step = (now) => {
-      const dt = Math.min(0.032, (now - last) / 1000)
-      last = now
-      vx += (-SPRING_K * x - SPRING_C * vx) * dt
-      vy += (-SPRING_K * y - SPRING_C * vy) * dt
-      x += vx * dt
-      y += vy * dt
-      if (Math.hypot(x, y) < 0.5 && Math.hypot(vx, vy) < 10) return finish()
-      placeShell(x, y)
-      snapRaf.current = requestAnimationFrame(step)
+    if (reducedMotion.current) {
+      m.x = m.y = 0
+      writeShell()
+      start()
+      return
     }
-    cancelAnimationFrame(snapRaf.current)
-    snapRaf.current = requestAnimationFrame(step)
-  }, [onHoldChange, onProceed, placeShell])
+    onSettle.current = start
+    runMotion()
+  }, [buzz, gateStep, onAdvanceGate, onHoldChange, runMotion, setScaleTarget, writeShell])
 
   /* ===================== Shop density logic (ported from ChakraOrbButton) ===================== */
 
@@ -379,16 +384,10 @@ export default function OrbShell({
   const buttonHandlers = inGateLike
     ? {
         onClick: onGateClick,
-        onMouseDown: startPressTimer,
-        onMouseUp: clearPressTimer,
-        onMouseLeave: clearPressTimer,
-        onTouchStart: startPressTimer,
-        onTouchEnd: clearPressTimer,
-        onDoubleClick: onGateDouble,
-        onPointerDown: onDragPointerDown,
-        onPointerMove: onDragPointerMove,
-        onPointerUp: onDragPointerEnd,
-        onPointerCancel: onDragPointerEnd,
+        onPointerDown: onGatePointerDown,
+        onPointerMove: onGatePointerMove,
+        onPointerUp: onGatePointerEnd,
+        onPointerCancel: onGatePointerEnd,
       }
     : {
         onClick: onShopClick,
@@ -399,18 +398,14 @@ export default function OrbShell({
       }
 
   const orbOverrideAllColor = inGateLike
-    ? burstColor !== null
-      ? burstColor
-      : gateOverride
+    ? gateOverride
     : pressColor || (isNight ? WHITE : null)
   const orbHaloTint = inGateLike
-    ? burstActive
-      ? null
-      : gateOverride === RED
-        ? '#880011'        // deep blood-crimson — evil moon glow
-        : gateOverride === BLACK
-          ? '#444444'      // visible dark aura instead of near-invisible #111
-          : null
+    ? gateOverride === RED
+      ? '#880011'        // deep blood-crimson — evil moon glow
+      : gateOverride === BLACK
+        ? '#444444'      // visible dark aura instead of near-invisible #111
+        : null
     : pressColor === BLACK_GLOW
       ? '#444444'
       : pressColor || (isNight ? WHITE : null)
@@ -450,6 +445,22 @@ export default function OrbShell({
       : SEAFOAM
   const orbSolidOverride = inGateLike ? gateSolid : false
 
+  // Chakra steps blend into each other; on arrival in the shop the black orb
+  // blooms back into its colours instead of cutting
+  const GATE_FADE_MS = 220
+  const LANDING_FADE_MS = 500
+  const [landing, setLanding] = useState(false)
+  const wasGateLike = useRef(inGateLike)
+  useEffect(() => {
+    if (wasGateLike.current && !inGateLike) {
+      setLanding(true)
+      const t = setTimeout(() => setLanding(false), 800)
+      wasGateLike.current = inGateLike
+      return () => clearTimeout(t)
+    }
+    wasGateLike.current = inGateLike
+  }, [inGateLike])
+
   return (
     <div ref={shellRef} style={shellStyle}>
       <button
@@ -457,7 +468,7 @@ export default function OrbShell({
         aria-label={inGateLike ? 'Orb' : overlayOpen ? 'Back' : 'Zoom products'}
         title={
           inGateLike
-            ? 'Advance gate (click) • Proceed (hold, drag or double-click)'
+            ? 'Enter (tap or drag)'
             : overlayOpen
               ? 'Back to grid'
               : 'Zoom products (Click = Smart IN/OUT • Right-click = OUT • Wheel = IN/OUT)'
@@ -495,7 +506,7 @@ export default function OrbShell({
           haloTint={orbHaloTint}
           flashDecayMs={inGateLike ? 0 : 140}
           solidOverride={orbSolidOverride}
-          skipColorLerp={burstActive}
+          colorFadeMs={inGateLike ? GATE_FADE_MS : landing ? LANDING_FADE_MS : 0}
         />
         {!inGateLike && !overlayOpen && (
           <span
