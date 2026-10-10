@@ -240,6 +240,7 @@ export async function sendOrderConfirmation(order, items) {
   const resend = new Resend(apiKey)
   await resend.emails.send({
     from: `${BRAND} <${CONTACT_EMAIL}>`,
+    replyTo: 'lameboy38baby@gmail.com',
     to: order.email,
     subject: `Your ${BRAND} order`,
     html: buildConfirmationHtml({ order, items, sid }),
@@ -263,6 +264,7 @@ export async function sendOrderAlert(order, items) {
   const resend = new Resend(apiKey)
   await resend.emails.send({
     from: `${BRAND} <${CONTACT_EMAIL}>`,
+    replyTo: 'lameboy38baby@gmail.com',
     to: notifyEmail,
     subject: `New order ${sid} — ${money(order.total_cents)}`,
     html: buildAlertHtml({ order, items, sid }),
