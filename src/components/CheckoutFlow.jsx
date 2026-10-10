@@ -6,6 +6,7 @@ import { getStripePromise } from '@/lib/stripe-client'
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { COUNTRIES, US_STATES } from '@/lib/countries'
 import { clearProfile, getProfile, saveProfile } from '@/lib/profile'
+import { SHIP_DAYS_MIN, SHIP_DAYS_MAX } from '@/lib/store-info'
 
 const INPUT = {
   width: '100%',
@@ -259,6 +260,9 @@ function SummaryLines({ items, subtotal, rate }) {
           </>
         )}
       </div>
+      <p style={{ margin: '14px 0 0', fontSize: 11, color: '#aaa', fontWeight: 600 }}>
+        Made to order · ships in {SHIP_DAYS_MIN}–{SHIP_DAYS_MAX} business days
+      </p>
     </>
   )
 }
@@ -774,6 +778,9 @@ function CheckoutPage({ geoCountry, geoRegion }) {
               Your payment went through — we're finalizing your order now. A confirmation will be sent to {email}.
             </p>
           )}
+          <p style={{ margin: '0 0 24px', color: '#888', fontSize: 14 }}>
+            Ships in {SHIP_DAYS_MIN}–{SHIP_DAYS_MAX} business days. We'll email tracking.
+          </p>
           <a href="/" style={{ ...BTN, display: 'inline-block', textDecoration: 'none', padding: '14px 40px', width: 'auto' }}>
             Back to shop
           </a>
@@ -949,6 +956,13 @@ function CheckoutPage({ geoCountry, geoRegion }) {
             </button>
             <p style={{ margin: 0, fontSize: 12, color: '#888', textAlign: 'center' }}>
               🔒 Payments are processed securely by Stripe
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#bbb', textAlign: 'center' }}>
+              <a href="/shipping" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Shipping</a>
+              {' · '}
+              <a href="/returns" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Returns</a>
+              {' · '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy</a>
             </p>
           </form>
         </div>
