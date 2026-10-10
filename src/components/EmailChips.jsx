@@ -7,16 +7,18 @@ import { useEffect, useRef, useState } from 'react'
 const DOMAINS = ['gmail.com', 'icloud.com', 'yahoo.com', 'outlook.com']
 
 const TYPO_MAP = {
-  'gmial.com':  'gmail.com',
-  'gmai.com':   'gmail.com',
-  'gamil.com':  'gmail.com',
-  'gmail.co':   'gmail.com',
-  'icloud.co':  'icloud.com',
-  'iclod.com':  'icloud.com',
-  'yahooo.com': 'yahoo.com',
-  'yaho.com':   'yahoo.com',
-  'outlok.com': 'outlook.com',
-  'hotmial.com':'outlook.com',
+  'gmial.com':   'gmail.com',
+  'gmai.com':    'gmail.com',
+  'gamil.com':   'gmail.com',
+  'gmail.co':    'gmail.com',
+  'icloud.co':   'icloud.com',
+  'iclod.com':   'icloud.com',
+  'yahooo.com':  'yahoo.com',
+  'yaho.com':    'yahoo.com',
+  'outlok.com':  'outlook.com',
+  'hotmial.com': 'hotmail.com',
+  'hotmal.com':  'hotmail.com',
+  'hotmail.co':  'hotmail.com',
 }
 
 const CHAKRA = ['#FF0000','#FF8C00','#FFD700','#00C853','#00BFFF','#6A0DAD','#EE82EE']
@@ -31,14 +33,15 @@ function getChips(value) {
   if (atIdx === -1) {
     return DOMAINS.map(d => ({ label: `@${d}`, full: value + '@' + d }))
   }
-  const afterAt = value.slice(atIdx + 1)
-  if (DOMAINS.includes(afterAt)) return [] // exact match — domain is complete
-  // Typing a custom domain: has a dot after @ but no DOMAIN prefix matches
-  if (afterAt.includes('.') && !DOMAINS.some(d => d.startsWith(afterAt))) return []
+  // Lowercase the typed domain for all comparisons; keep beforeAt as typed.
   const beforeAt = value.slice(0, atIdx)
+  const afterAtLower = value.slice(atIdx + 1).toLowerCase()
+  if (DOMAINS.includes(afterAtLower)) return [] // exact match — domain is complete
+  // Typing a custom domain: has a dot but no DOMAIN prefix matches (case-insensitively)
+  if (afterAtLower.includes('.') && !DOMAINS.some(d => d.startsWith(afterAtLower))) return []
   return DOMAINS
-    .filter(d => d.startsWith(afterAt))
-    .map(d => ({ label: d, full: beforeAt + '@' + d }))
+    .filter(d => d.startsWith(afterAtLower))
+    .map(d => ({ label: d, full: beforeAt + '@' + d })) // d is already lowercase
 }
 
 /**

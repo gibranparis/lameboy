@@ -498,16 +498,16 @@ export default function NewsletterForm({ open, onClose }) {
         :global(html[data-theme='day']) .nl-label { color: rgba(0,0,0,0.45); }
 
         .nl-submit {
-          margin-top: 4px; padding: 9px 0;
-          background: #ff69b4; color: #fff;
-          border: none; outline: none; border-radius: 8px;
+          margin-top: 4px; padding: 12px 0;
+          background: var(--hover-green, #0bf05f); color: #000;
+          border: none; outline: none; border-radius: 28px;
           font-size: 13px; font-weight: 700;
-          letter-spacing: 0.04em; text-transform: uppercase;
-          cursor: pointer; transition: opacity 0.15s ease, background 0.15s ease;
+          letter-spacing: 0.05em; text-transform: uppercase;
+          cursor: pointer; transition: opacity 0.15s ease;
           font-family: inherit; -webkit-tap-highlight-color: transparent;
         }
-        .nl-submit:hover { background: #ff85c8; opacity: 0.92; }
-        .nl-submit:active { opacity: 0.75; }
+        .nl-submit:hover { opacity: 0.85; }
+        .nl-submit:active { opacity: 0.65; }
 
         .nl-lines {
           display: flex; flex-direction: column; gap: 4px;
