@@ -81,7 +81,12 @@ async function createCustomsDeclaration(lines) {
  * approximation for a small apparel store where every item ships in a
  * similar poly mailer/box.
  *
- * @param {{name:string, address1:string, address2?:string, city:string, state?:string, zip:string, country:string, phone?:string}} destination
+ * `address1`/`city`/`name`/`phone` are optional — a ZIP + country alone is
+ * enough for Shippo to quote a "reference" rate (used by the cart drawer's
+ * lightweight shipping estimate); the full address just yields more
+ * accurate numbers, which the real checkout flow always provides.
+ *
+ * @param {{name?:string, address1?:string, address2?:string, city?:string, state?:string, zip:string, country:string, phone?:string}} destination
  * @param {Array<{variant:{weight_oz:number,length_in:number,width_in:number,height_in:number,price_cents:number,products?:{name?:string}}, qty:number}>} lines
  */
 export async function getShippingRates(destination, lines) {
@@ -98,10 +103,10 @@ export async function getShippingRates(destination, lines) {
   const shipment = await shippo.shipments.create({
     addressFrom: getOriginAddress(),
     addressTo: {
-      name: destination.name,
-      street1: destination.address1,
+      name: destination.name || 'Customer',
+      street1: destination.address1 || undefined,
       street2: destination.address2 || undefined,
-      city: destination.city,
+      city: destination.city || undefined,
       state: destination.state || undefined,
       zip: destination.zip,
       country: destination.country,
