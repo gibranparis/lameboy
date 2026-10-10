@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { decodeItems } from '@/lib/order-metadata'
 import { createOrderFromWebhook, getOrderByPaymentIntentId, markOrderRefunded } from '@/lib/supabase'
+import { sendOrderConfirmation, sendOrderAlert } from '@/lib/order-emails'
 
 export const runtime = 'nodejs'
 
@@ -38,29 +39,57 @@ async function handlePaymentSucceeded(paymentIntent) {
   }
 
   const md = paymentIntent.metadata
-  await createOrderFromWebhook({
-    order: {
-      stripe_payment_intent_id: paymentIntent.id,
-      email: md.email,
-      name: md.name,
-      shipping_address: {
-        address1: md.address_line1,
-        address2: md.address_line2 || null,
-        city: md.address_city,
-        state: md.address_state || null,
-        zip: md.address_zip,
-        country: md.address_country,
-        phone: md.phone || null,
-      },
-      shipping_carrier: md.shipping_carrier || null,
-      shipping_service: md.shipping_service || null,
-      shipping_cost_cents: Number(md.shipping_cost_cents) || 0,
-      subtotal_cents: Number(md.subtotal_cents) || 0,
-      total_cents: paymentIntent.amount,
-      status: 'paid',
+  const orderPayload = {
+    stripe_payment_intent_id: paymentIntent.id,
+    email: md.email,
+    name: md.name,
+    shipping_address: {
+      address1: md.address_line1,
+      address2: md.address_line2 || null,
+      city: md.address_city,
+      state: md.address_state || null,
+      zip: md.address_zip,
+      country: md.address_country,
+      phone: md.phone || null,
     },
-    items,
-  })
+    shipping_carrier: md.shipping_carrier || null,
+    shipping_service: md.shipping_service || null,
+    shipping_cost_cents: Number(md.shipping_cost_cents) || 0,
+    subtotal_cents: Number(md.subtotal_cents) || 0,
+    total_cents: paymentIntent.amount,
+    status: 'paid',
+  }
+
+  let orderId
+  try {
+    orderId = await createOrderFromWebhook({ order: orderPayload, items })
+  } catch (err) {
+    // Postgres unique violation on orders_stripe_payment_intent_id_key —
+    // a concurrent webhook delivery already inserted this order.
+    if (err?.code === '23505') {
+      console.warn('[webhooks/stripe] duplicate payment_intent — already handled', paymentIntent.id)
+      return
+    }
+    throw err
+  }
+
+  const order = {
+    id: orderId,
+    email: orderPayload.email,
+    name: orderPayload.name,
+    shipping_address: orderPayload.shipping_address,
+    shipping_carrier: orderPayload.shipping_carrier,
+    shipping_service: orderPayload.shipping_service,
+    shipping_cost_cents: orderPayload.shipping_cost_cents,
+    subtotal_cents: orderPayload.subtotal_cents,
+    total_cents: orderPayload.total_cents,
+  }
+
+  try {
+    await Promise.all([sendOrderConfirmation(order, items), sendOrderAlert(order, items)])
+  } catch (err) {
+    console.error('[webhooks/stripe] failed to send order emails', err)
+  }
 }
 
 export async function POST(req) {

@@ -131,7 +131,7 @@ export async function getShippingRates(destination, lines) {
       id: rate.objectId,
       provider: rate.provider,
       name: rate.servicelevel?.name ?? rate.provider,
-      description: rate.durationTerms || (rate.estimatedDays ? `${rate.estimatedDays} business day(s)` : ''),
+      estimatedDays: rate.estimatedDays ?? null,
       price: Math.round(parseFloat(rate.amount) * 100),
     }))
     .sort((a, b) => a.price - b.price)
