@@ -15,6 +15,7 @@ const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr:
 
 // Shop
 import ShopGrid from '@/components/ShopGrid'
+import { isSignedIn, useProfile } from '@/lib/profile'
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
@@ -289,6 +290,7 @@ export default function Page() {
   /* ===================== Checkout side panel ===================== */
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [newsletterOpen, setNewsletterOpen] = useState(false)
+  const heartFilled = isSignedIn(useProfile())
 
   useEffect(() => {
     const root = document.documentElement
@@ -507,8 +509,9 @@ export default function Page() {
                     <HeartBeatButton
                       className="heart-submit"
                       style={{ position: 'relative', top: 'auto', right: 'auto', contain: 'none' }}
-                      aria-label="Newsletter signup"
-                      title="submit"
+                      filled={heartFilled}
+                      ariaLabel={heartFilled ? 'Your profile' : 'Join'}
+                      title={heartFilled ? 'Your profile' : 'Join'}
                       mode="heart"
                       onClick={() => setNewsletterOpen((v) => !v)}
                     />

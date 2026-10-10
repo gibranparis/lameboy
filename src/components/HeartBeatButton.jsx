@@ -4,11 +4,25 @@
 
 import React, { useRef, useEffect, useState, useMemo } from 'react'
 
+const HEART_SRC = '/human heart zero.png'
+// Set to '/human heart filled.png' once that asset exists — the filled heart
+// then uses it as-is and the CSS tint below is skipped.
+const FILLED_HEART_SRC = null
+// Warm red/pink tint + soft glow for the filled (signed-in) heart. Applied
+// to the original image in both themes, so it reads on day and night.
+const FILLED_TINT =
+  'brightness(0.8) sepia(1) saturate(4) hue-rotate(-60deg) drop-shadow(0 0 4px rgba(255, 64, 110, 0.75)) drop-shadow(0 0 10px rgba(255, 64, 110, 0.4))'
+
 /**
  * Pure heart FAB — no circle background.
  * Positioning/z-index come from the passed className (e.g. "heart-submit").
  * This component itself does NOT set right/bottom so it won't fight your CSS.
  */
+function heartFilter(filled, isNight) {
+  if (filled) return FILLED_HEART_SRC ? {} : { filter: FILLED_TINT }
+  return isNight ? { filter: 'brightness(0) invert(1)' } : {}
+}
+
 export default function HeartBeatButton({
   onClick,
   size = 44, // heart SVG size in px
@@ -20,6 +34,7 @@ export default function HeartBeatButton({
   boostMs = 520, // how long the temporary boost lasts
   pauseOnOverlay = false, // set true if you want to freeze while overlay open
   mode = 'heart', // 'heart' | 'close'
+  filled = false, // true once the customer has a saved profile
 }) {
   const btnRef = useRef(null)
   const [paused, setPaused] = useState(false)
@@ -135,14 +150,15 @@ export default function HeartBeatButton({
       ) : (
         /* HEART ONLY — NO CIRCLE */
         <img
-          src="/human heart zero.png"
+          src={filled && FILLED_HEART_SRC ? FILLED_HEART_SRC : HEART_SRC}
           width={size}
           height={size}
           aria-hidden="true"
           className="lb-heart"
           data-paused={paused ? '1' : '0'}
           data-boost={boosted ? '1' : '0'}
-          style={{ display: 'block', pointerEvents: 'none', ...(isNight ? { filter: 'brightness(0) invert(1)' } : {}) }}
+          data-filled={filled ? '1' : '0'}
+          style={{ display: 'block', pointerEvents: 'none', ...heartFilter(filled, isNight) }}
           alt="heart"
         />
       )}

@@ -5,6 +5,7 @@ import { useCart } from '@/contexts/CartContext'
 import { getStripePromise } from '@/lib/stripe-client'
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { COUNTRIES, US_STATES } from '@/lib/countries'
+import { clearProfile, getProfile, saveProfile } from '@/lib/profile'
 
 const INPUT = {
   width: '100%',
@@ -188,7 +189,6 @@ function geoDefaults(geoCountry, geoRegion) {
   return { country, state }
 }
 
-const SAVED_KEY = 'lb:checkout'
 const COUNTRY_CODES = COUNTRIES.map(([code]) => code)
 // Shippo needs a phone on international shipments; rate quotes don't need
 // the real one, so this stands in until the customer types theirs.
@@ -373,6 +373,10 @@ function CheckoutPage({ geoCountry, geoRegion }) {
   const [phone, setPhone] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [returning, setReturning] = useState(false)
+  // Saved complete address → contact + address render as one summary card.
+  const [collapsed, setCollapsed] = useState(false)
+  // Skip the rate debounce for the first quote of a saved address.
+  const instantQuoteRef = useRef(false)
 
   // Shipping
   const [rates, setRates] = useState([])
@@ -439,35 +443,42 @@ function CheckoutPage({ geoCountry, geoRegion }) {
     return values
   }
 
-  // Prefill: a returning customer's saved checkout first, else the
-  // newsletter signup. Runs once on mount, so it only replaces the geo
-  // defaults — never anything typed.
+  // Prefill every field from the device profile (heart join form or a past
+  // checkout). Runs once on mount, so it only replaces the geo defaults —
+  // never anything typed.
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(SAVED_KEY) || 'null')
-      if (saved && typeof saved === 'object') {
-        if (saved.country && COUNTRY_CODES.includes(saved.country)) applyCountry(saved.country, false)
-        if (saved.email) setEmail(saved.email)
-        if (saved.name) setName(saved.name)
-        if (saved.phone) setPhone(saved.phone)
-        if (saved.address1) setAddress1(saved.address1)
-        if (saved.address2) setAddress2(saved.address2)
-        if (saved.city) setCity(saved.city)
-        if (saved.state) setState(saved.state)
-        if (saved.zip) setZip(saved.zip)
-        setReturning(true)
-        return
-      }
-      const lead = JSON.parse(localStorage.getItem('lb:lead') || 'null')
-      if (!lead) return
-      if (lead.email) setEmail(lead.email)
-      if (lead.name) setName(String(lead.name).trim())
-    } catch {}
+    const p = getProfile()
+    if (!p) return
+    const savedCountry = String(p.country ?? '').toUpperCase()
+    const nextCountry = COUNTRY_CODES.includes(savedCountry) ? savedCountry : countryRef.current
+    if (nextCountry !== countryRef.current) applyCountry(nextCountry, false)
+    let nextState = state
+    if (p.state) {
+      const st = nextCountry === 'US' ? p.state.trim().toUpperCase() : p.state
+      if (nextCountry !== 'US' || US_STATES.includes(st)) nextState = st
+      else if (savedCountry === 'US') nextState = ''
+    }
+    const v = {
+      email: p.email ?? '', name: p.name ?? '', phone: p.phone ?? '',
+      address1: p.address1 ?? '', address2: p.address2 ?? '',
+      city: p.city ?? '', state: nextState, zip: p.zip ?? '',
+    }
+    setEmail(v.email); setName(v.name); setPhone(v.phone)
+    setAddress1(v.address1); setAddress2(v.address2)
+    setCity(v.city); setState(v.state); setZip(v.zip)
+    setReturning(true)
+
+    const complete = COUNTRY_CODES.includes(savedCountry) &&
+      FORM_FIELDS.every((f) => !validateField(f, v[f], nextCountry))
+    if (complete) {
+      instantQuoteRef.current = true
+      setCollapsed(true)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function clearSaved() {
-    try { localStorage.removeItem(SAVED_KEY) } catch {}
+    clearProfile()
     const geo = geoDefaults(geoCountry, geoRegion)
     countryRef.current = geo.country
     setCountry(geo.country)
@@ -476,6 +487,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
     setAddress1(''); setAddress2(''); setCity(''); setZip('')
     setFieldErrors({})
     setReturning(false)
+    setCollapsed(false)
   }
 
   // Redirect if cart is empty and no order. paymentIntentId is set
@@ -538,7 +550,8 @@ function CheckoutPage({ geoCountry, geoRegion }) {
       } finally {
         if (!ctrl.signal.aborted) setRatesLoading(false)
       }
-    }, 500)
+    }, instantQuoteRef.current ? 0 : 500)
+    instantQuoteRef.current = false
     return () => { clearTimeout(timer); ctrl.abort() }
     // name is only a label on the Shippo shipment; don't re-quote on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -551,7 +564,9 @@ function CheckoutPage({ geoCountry, geoRegion }) {
 
   async function handlePaymentSuccess(intentId, saved) {
     setPaymentIntentId(intentId)
-    try { localStorage.setItem(SAVED_KEY, JSON.stringify(saved)) } catch {}
+    // Buying counts as joining: remember what was actually used (fills the
+    // heart). A blank phone (US card orders) doesn't wipe a saved one.
+    saveProfile({ ...saved, phone: saved.phone || undefined })
     if (saved.email) setEmail(saved.email)
     reset()
 
@@ -583,7 +598,10 @@ function CheckoutPage({ geoCountry, geoRegion }) {
       if (msg) errors[field] = msg
     }
     setFieldErrors(errors)
-    if (Object.keys(errors).length) return setError('Please fix the highlighted fields')
+    if (Object.keys(errors).length) {
+      setCollapsed(false)
+      return setError('Please fix the highlighted fields')
+    }
     if (!rate) return setError(ratesLoading ? 'Still calculating shipping…' : 'Choose a shipping method')
     if (!stripe || !elements) return
 
@@ -765,6 +783,14 @@ function CheckoutPage({ geoCountry, geoRegion }) {
   }
 
   const payTotal = subtotal + shippingCents
+  // Link (Stripe's saved-card wallet) is left on: nothing here disables it.
+  // The email is passed as a default so Link can recognise returning
+  // customers, since the Payment Element doesn't collect email itself.
+  const linkEmail = validateField('email', email, country) ? '' : email.trim()
+  const paymentElementOptions = {
+    fields: { billingDetails: { name: 'never', email: 'never', phone: 'never', address: 'never' } },
+    defaultValues: { billingDetails: { email: linkEmail, name: name.trim() } },
+  }
   const isUS = country === 'US'
 
   return (
@@ -827,6 +853,16 @@ function CheckoutPage({ geoCountry, geoRegion }) {
                 </button>
               </div>
             )}
+            {collapsed ? (
+              <div style={{ background: '#fff', border: '1.5px solid #e0e0e0', borderRadius: 10, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: '#333' }}>
+                  {shippingSummary({ name, address1, address2, city, state, zip, country, email })}
+                </p>
+                <button type="button" onClick={() => setCollapsed(false)} style={{ background: 'none', border: 'none', padding: 0, color: '#111', textDecoration: 'underline', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0 }}>
+                  Edit
+                </button>
+              </div>
+            ) : (<>
             <Field label="Email" htmlFor="co-email" error={fieldErrors.email}>
               <Input type="email" id="co-email" name="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => onFieldBlur('email')} placeholder="jane@email.com" required />
             </Field>
@@ -869,6 +905,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
                 <Input type="tel" id="co-tel" name="tel" autoComplete="shipping tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => onFieldBlur('phone')} placeholder="+44 20 7946 0958" required />
               </Field>
             )}
+            </>)}
 
             {/* Shipping method */}
             {ratesLoading && <p style={{ margin: 0, fontSize: 13, color: '#888' }}>Calculating shipping…</p>}
@@ -902,7 +939,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
             )}
 
             <Field label="Card details">
-              <PaymentElement options={{ fields: { billingDetails: { name: 'never', email: 'never', phone: 'never', address: 'never' } } }} />
+              <PaymentElement options={paymentElementOptions} />
             </Field>
 
             {error && <p style={{ margin: 0, fontSize: 13, color: '#c00', fontWeight: 600 }}>{error}</p>}
@@ -926,6 +963,13 @@ function CheckoutPage({ geoCountry, geoRegion }) {
       </div>
     </div>
   )
+}
+
+/** "Shipping to Jane Doe, 123 Main St, Los Angeles, CA 90001 · jane@email.com" */
+function shippingSummary({ name, address1, address2, city, state, zip, country, email }) {
+  const countryName = country !== 'US' ? COUNTRIES.find(([code]) => code === country)?.[1] : null
+  const parts = [name, [address1, address2].filter(Boolean).join(', '), city, [state, zip].filter(Boolean).join(' '), countryName]
+  return `Shipping to ${parts.filter(Boolean).join(', ')} · ${email}`
 }
 
 function cartItems(items) {

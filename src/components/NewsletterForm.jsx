@@ -3,6 +3,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
+import { clearProfile, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
 
 const CHAKRA_COLORS = [
   '#FF0000', // Root – red
@@ -174,8 +175,31 @@ function ChakraInput({ inputRef, type, required, value, onChange, placeholder, a
   )
 }
 
+// Editable profile fields, in display order, for the signed-in panel.
+const EDIT_FIELDS = [
+  { key: 'name', label: 'Name', type: 'text', placeholder: 'Your name', autoComplete: 'name' },
+  { key: 'email', label: 'Email', type: 'email', placeholder: 'you@email.com', autoComplete: 'email' },
+  { key: 'phone', label: 'Phone', type: 'tel', placeholder: '(555) 123-4567', autoComplete: 'tel' },
+  { key: 'address1', label: 'Street', type: 'text', placeholder: '123 Main St', autoComplete: 'address-line1' },
+  { key: 'address2', label: 'Apt', type: 'text', placeholder: 'Apt 4B', autoComplete: 'address-line2' },
+  { key: 'city', label: 'City', type: 'text', placeholder: 'Los Angeles', autoComplete: 'address-level2' },
+  { key: 'state', label: 'State', type: 'text', placeholder: 'CA', autoComplete: 'address-level1' },
+  { key: 'zip', label: 'ZIP', type: 'text', placeholder: '90001', autoComplete: 'postal-code' },
+  { key: 'country', label: 'Country', type: 'text', placeholder: 'US', autoComplete: 'country' },
+]
+
+/** Plain-text lines for the signed-in panel: name, email, phone, address. */
+function profileLines(p) {
+  const street = [p.address1, p.address2].filter(Boolean).join(', ')
+  const region = [p.state, p.zip].filter(Boolean).join(' ')
+  const locality = [p.city, region].filter(Boolean).join(', ')
+  return [p.name, p.email, p.phone, street, locality, p.country].filter(Boolean)
+}
+
 /**
- * Newsletter signup form that slides up from the heart button.
+ * Heart panel. Empty heart: newsletter signup form that slides up from the
+ * heart button. Filled heart (saved profile): "hi {name}", the saved
+ * details, an Edit toggle, and sign out.
  * @param {{ open: boolean, onClose: () => void }} props
  */
 export default function NewsletterForm({ open, onClose }) {
@@ -184,8 +208,17 @@ export default function NewsletterForm({ open, onClose }) {
   const [phone, setPhone] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [visible, setVisible] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(/** @type {Record<string, string>} */ ({}))
   const panelRef = useRef(null)
   const nameRef = useRef(null)
+  const profile = useProfile()
+  const signedIn = isSignedIn(profile)
+
+  // leave edit mode whenever the panel closes
+  useEffect(() => {
+    if (!open) setEditing(false)
+  }, [open])
 
   // animate in/out
   useEffect(() => {
@@ -244,10 +277,8 @@ export default function NewsletterForm({ open, onClose }) {
       // fail silently — still show success to user
     }
 
-    // Save for checkout pre-fill
-    try {
-      localStorage.setItem('lb:lead', JSON.stringify({ name, email, phone }))
-    } catch {}
+    // Joining fills the heart and pre-fills checkout
+    saveProfile({ name, email, phone })
 
     setSubmitted(true)
     setTimeout(() => {
@@ -259,14 +290,38 @@ export default function NewsletterForm({ open, onClose }) {
     }, 1800)
   }
 
+  const startEdit = () => {
+    const next = {}
+    for (const { key } of EDIT_FIELDS) next[key] = profile?.[key] ?? ''
+    setDraft(next)
+    setEditing(true)
+  }
+
+  const saveEdit = (e) => {
+    e.preventDefault()
+    const next = {}
+    for (const { key } of EDIT_FIELDS) next[key] = String(draft[key] ?? '').trim()
+    next.country = next.country.toUpperCase()
+    saveProfile(next)
+    setEditing(false)
+  }
+
+  const signOut = () => {
+    clearProfile()
+    setEditing(false)
+    onClose()
+  }
+
   if (!open) return null
+
+  const firstName = String(profile?.name ?? '').trim().split(/\s+/)[0] || ''
 
   return (
     <div
       ref={panelRef}
       className={`nl-panel ${visible ? 'nl-panel--visible' : ''}`}
       role="dialog"
-      aria-label="Newsletter signup"
+      aria-label={signedIn && !submitted ? 'Your profile' : 'Newsletter signup'}
     >
       <button
         type="button"
@@ -279,6 +334,44 @@ export default function NewsletterForm({ open, onClose }) {
 
       {submitted ? (
         <div className="nl-thanks">let all mankind evolve</div>
+      ) : signedIn && profile ? (
+        <div className="nl-form">
+          <div className="nl-title"><ChakraText text={`hi ${firstName}`.trim()} /></div>
+
+          {editing ? (
+            <form onSubmit={saveEdit} className="nl-form">
+              {EDIT_FIELDS.map(({ key, label, type, placeholder, autoComplete }) => (
+                <label key={key} className="nl-label">
+                  <span>{label}</span>
+                  <ChakraInput
+                    type={type}
+                    required={key === 'name' || key === 'email'}
+                    value={draft[key] ?? ''}
+                    onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    autoComplete={autoComplete}
+                  />
+                </label>
+              ))}
+              <button type="submit" className="nl-submit">Save</button>
+            </form>
+          ) : (
+            <div className="nl-lines">
+              {profileLines(profile).map((line, i) => (
+                <div key={i} className="nl-line">{line}</div>
+              ))}
+            </div>
+          )}
+
+          <div className="nl-actions">
+            <button type="button" className="nl-link" onClick={editing ? () => setEditing(false) : startEdit}>
+              {editing ? 'Cancel' : 'Edit'}
+            </button>
+            <button type="button" className="nl-link nl-link--quiet" onClick={signOut}>
+              sign out
+            </button>
+          </div>
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="nl-form">
           <div className="nl-title"><ChakraText text="Join the list" /></div>
@@ -343,6 +436,8 @@ export default function NewsletterForm({ open, onClose }) {
           transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
           pointer-events: none;
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+          max-height: calc(100dvh - var(--safe-top, 0px) - 12px - 44px - 8px - 16px);
+          overflow-y: auto;
         }
 
         .nl-close {
@@ -454,6 +549,52 @@ export default function NewsletterForm({ open, onClose }) {
 
         .nl-submit:active {
           opacity: 0.75;
+        }
+
+        .nl-lines {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          font-size: 13px;
+          line-height: 1.4;
+          color: rgba(255, 255, 255, 0.8);
+          word-break: break-word;
+        }
+
+        :global(html[data-theme='day']) .nl-lines {
+          color: rgba(0, 0, 0, 0.75);
+        }
+
+        .nl-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 6px;
+        }
+
+        .nl-link {
+          background: none;
+          border: none;
+          padding: 0;
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #ff69b4;
+          cursor: pointer;
+        }
+
+        .nl-link--quiet {
+          font-weight: 500;
+          text-transform: none;
+          letter-spacing: 0;
+          color: rgba(255, 255, 255, 0.45);
+          text-decoration: underline;
+        }
+
+        :global(html[data-theme='day']) .nl-link--quiet {
+          color: rgba(0, 0, 0, 0.45);
         }
 
         .nl-thanks {
