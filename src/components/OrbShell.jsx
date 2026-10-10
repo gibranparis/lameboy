@@ -110,7 +110,25 @@ export default function OrbShell({
   const PRESS_SCALE = 0.9
   const ARRIVE_PX = 6 // released orb counts as home within this distance
   const LIFT_SCALE = 1.06
-  const canDrag = mode === 'gate' && !loaderShow && !isProceeding
+  // True for ~800ms after the gate hands over, while the orb flies to the
+  // bottom bar and blooms back into its colours
+  const [landing, setLanding] = useState(false)
+  const wasGateLike = useRef(inGateLike)
+  useEffect(() => {
+    if (wasGateLike.current && !inGateLike) {
+      setLanding(true)
+      const t = setTimeout(() => setLanding(false), 800)
+      wasGateLike.current = inGateLike
+      return () => clearTimeout(t)
+    }
+    wasGateLike.current = inGateLike
+  }, [inGateLike])
+  // Draggable on the gate until the sequence ends, and in the shop once the
+  // orb has landed in the bottom bar
+  const canDrag = inShop ? !landing : mode === 'gate' && !loaderShow && !isProceeding
+  // What a released drag does in the shop: the same zoom step as a tap
+  // (set below, once the shop actions exist)
+  const shopAction = useRef(/** @type {null | (() => void)} */ (null))
 
   const shellRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   const [dragging, setDragging] = useState(false)
@@ -220,6 +238,9 @@ export default function OrbShell({
   // then the shop. Touching the orb starts it at once (red on contact); a
   // drag holds the current colour until the orb is back home. Once it's
   // running, more taps never skip a colour.
+  //
+  // In the shop the same drag works on the bottom-bar orb: it lifts, follows
+  // the finger, springs home, then does what a tap does (the next zoom step).
 
   const onGateClick = useCallback(() => {
     if (suppressClick.current) { suppressClick.current = false; return }
@@ -228,19 +249,19 @@ export default function OrbShell({
     onAdvanceGate && onAdvanceGate()
   }, [buzz, gateStep, inGateLike, isProceeding, onAdvanceGate])
 
-  const onGatePointerDown = useCallback((e) => {
+  const onOrbPointerDown = useCallback((e) => {
     suppressClick.current = false
     if (!canDrag) return
     if (e.pointerType === 'mouse' && e.button !== 0) return
     dragStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false }
     setScaleTarget(PRESS_SCALE)
-    if (gateStep === 0) {
+    if (!inShop && gateStep === 0) {
       buzz(8)
       onAdvanceGate && onAdvanceGate()
     }
-  }, [buzz, canDrag, gateStep, onAdvanceGate, setScaleTarget])
+  }, [buzz, canDrag, gateStep, inShop, onAdvanceGate, setScaleTarget])
 
-  const onGatePointerMove = useCallback((e) => {
+  const onOrbPointerMove = useCallback((e) => {
     const s = dragStart.current
     if (!s || s.id !== e.pointerId || !canDrag) return
     const dx = e.clientX - s.x
@@ -253,30 +274,35 @@ export default function OrbShell({
       m.held = true
       setDragging(true)
       setScaleTarget(LIFT_SCALE)
-      onHoldChange && onHoldChange(true)
+      if (!inShop && onHoldChange) onHoldChange(true)
     }
     m.x = dx
     m.y = dy
     m.vx = m.vy = 0
     writeShell()
-  }, [canDrag, onHoldChange, setScaleTarget, writeShell])
+  }, [canDrag, inShop, onHoldChange, setScaleTarget, writeShell])
 
-  const onGatePointerEnd = useCallback((e) => {
+  const onOrbPointerEnd = useCallback((e) => {
     const s = dragStart.current
     if (!s || s.id !== e.pointerId) return
     dragStart.current = null
     setScaleTarget(1)
-    if (!s.active) return // a tap: the sequence already started on press
+    // A tap: on the gate the sequence already started on press; in the shop
+    // the click / touchend handlers fire the zoom step
+    if (!s.active) return
 
-    // Drag released: spring home, then resume the sequence
+    // Drag released: spring home, then resume the sequence (gate) or take
+    // the next zoom step (shop). The click or touchend that follows is ignored.
     suppressClick.current = true
     setDragging(false)
     const m = motion.current
     m.held = false
-    const start = () => {
-      onHoldChange && onHoldChange(false)
-      onAdvanceGate && onAdvanceGate() // no-op unless the press didn't start it
-    }
+    const start = inShop
+      ? () => { shopAction.current && shopAction.current() }
+      : () => {
+          onHoldChange && onHoldChange(false)
+          onAdvanceGate && onAdvanceGate() // no-op unless the press didn't start it
+        }
     if (reducedMotion.current) {
       m.x = m.y = 0
       writeShell()
@@ -285,7 +311,7 @@ export default function OrbShell({
     }
     onSettle.current = start
     runMotion()
-  }, [buzz, gateStep, onAdvanceGate, onHoldChange, runMotion, setScaleTarget, writeShell])
+  }, [inShop, onAdvanceGate, onHoldChange, runMotion, setScaleTarget, writeShell])
 
   /* ===================== Shop density logic (ported from ChakraOrbButton) ===================== */
 
@@ -354,17 +380,25 @@ export default function OrbShell({
     return () => document.removeEventListener('lb:zoom', onExternal)
   }, [pulse])
 
-  const onShopClick = useCallback(() => {
+  const runShopStep = () => {
     actions[cycleStep]()
     setCycleStep((prev) => (prev + 1) % actions.length)
+  }
+  shopAction.current = runShopStep
+
+  const onShopClick = useCallback(() => {
+    if (suppressClick.current) { suppressClick.current = false; return } // end of a drag
+    runShopStep()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actions, cycleStep])
 
   const onShopTouchEnd = useCallback(
     (e) => {
       try { e.preventDefault() } catch {} // prevent subsequent onClick from double-firing
-      actions[cycleStep]()
-      setCycleStep((prev) => (prev + 1) % actions.length)
+      if (suppressClick.current) { suppressClick.current = false; return } // end of a drag
+      runShopStep()
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [actions, cycleStep]
   )
   const onShopContextMenu = useCallback((e) => { e.preventDefault() }, [])
@@ -400,14 +434,18 @@ export default function OrbShell({
   const buttonHandlers = inGateLike
     ? {
         onClick: onGateClick,
-        onPointerDown: onGatePointerDown,
-        onPointerMove: onGatePointerMove,
-        onPointerUp: onGatePointerEnd,
-        onPointerCancel: onGatePointerEnd,
+        onPointerDown: onOrbPointerDown,
+        onPointerMove: onOrbPointerMove,
+        onPointerUp: onOrbPointerEnd,
+        onPointerCancel: onOrbPointerEnd,
       }
     : {
         onClick: onShopClick,
         onTouchEnd: onShopTouchEnd,
+        onPointerDown: onOrbPointerDown,
+        onPointerMove: onOrbPointerMove,
+        onPointerUp: onOrbPointerEnd,
+        onPointerCancel: onOrbPointerEnd,
         onContextMenu: onShopContextMenu,
         onKeyDown: onShopKeyDown,
         onWheel: onShopWheel,
@@ -465,17 +503,6 @@ export default function OrbShell({
   // blooms back into its colours instead of cutting
   const GATE_FADE_MS = 60
   const LANDING_FADE_MS = 500
-  const [landing, setLanding] = useState(false)
-  const wasGateLike = useRef(inGateLike)
-  useEffect(() => {
-    if (wasGateLike.current && !inGateLike) {
-      setLanding(true)
-      const t = setTimeout(() => setLanding(false), 800)
-      wasGateLike.current = inGateLike
-      return () => clearTimeout(t)
-    }
-    wasGateLike.current = inGateLike
-  }, [inGateLike])
 
   return (
     <div ref={shellRef} style={shellStyle}>
@@ -498,7 +525,7 @@ export default function OrbShell({
           lineHeight: 0,
           cursor: dragging ? 'grabbing' : inGateLike && isProceeding ? 'default' : 'pointer',
           WebkitTapHighlightColor: 'transparent',
-          // 'none' on the gate so touch moves reach the drag instead of panning
+          // 'none' while draggable so touch moves reach the drag instead of panning
           touchAction: canDrag ? 'none' : 'manipulation',
           position: 'relative',
         }}
