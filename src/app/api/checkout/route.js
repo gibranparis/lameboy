@@ -65,7 +65,7 @@ export async function POST(req) {
       amount: totalCents,
       currency: 'usd',
       receipt_email: email,
-      automatic_payment_methods: { enabled: true },
+      payment_method_types: ['card', 'link'],
       shipping: {
         name,
         phone: phone || undefined,
