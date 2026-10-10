@@ -73,6 +73,9 @@ export default function Page() {
   const [gateStep, setGateStep] = useState(0) // 0..7
   const [isProceeding, setIsProceeding] = useState(false)
   const [sequenceActive, setSequenceActive] = useState(false)
+  // True while the orb is being dragged or snapping back; pauses the gate
+  // sequence so it can't proceed mid-drag (the release proceeds instead).
+  const [orbHeld, setOrbHeld] = useState(false)
 
   const proceedFired = useRef(false)
   const proceedDelayTimer = useRef(null)
@@ -214,6 +217,7 @@ export default function Page() {
     if (gateStep !== 7) return
     if (proceedFired.current || isProceeding) return
     if (sequenceActive) return // auto-sequence handles its own timing
+    if (orbHeld) return
 
     clearTimeout(proceedDelayTimer.current)
     proceedDelayTimer.current = setTimeout(() => {
@@ -221,7 +225,7 @@ export default function Page() {
     }, 300)
 
     return () => clearTimeout(proceedDelayTimer.current)
-  }, [gateStep, inGate, isProceeding, triggerProceed, sequenceActive])
+  }, [gateStep, inGate, isProceeding, triggerProceed, sequenceActive, orbHeld])
 
   // Auto-advance through color sequence.
   // RED holds until the next clock-second boundary (min 600ms), then each subsequent
@@ -229,7 +233,7 @@ export default function Page() {
   // time to black stays the same as the original 3-step sequence (~3 s).
   const STEP_MS = 333
   useEffect(() => {
-    if (!sequenceActive || !inGate) return
+    if (!sequenceActive || !inGate || orbHeld) return
 
     let timer
     // ms until the next whole-second boundary
@@ -251,7 +255,7 @@ export default function Page() {
     }
 
     return () => clearTimeout(timer)
-  }, [sequenceActive, gateStep, inGate, triggerProceed])
+  }, [sequenceActive, gateStep, inGate, triggerProceed, orbHeld])
 
   // Enter key on the gate triggers the same sequence as clicking the orb
   useEffect(() => {
@@ -388,6 +392,7 @@ export default function Page() {
         isProceeding={isProceeding}
         onAdvanceGate={advanceGate}
         onProceed={triggerProceed}
+        onHoldChange={setOrbHeld}
         ctrlPx={ctrlPx}
       />
 
