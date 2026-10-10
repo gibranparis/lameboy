@@ -73,10 +73,10 @@ function hoodieColor(name = '') {
   return null
 }
 
-function Field({ label, error, children }) {
+function Field({ label, htmlFor, error, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#888' }}>
+      <label htmlFor={htmlFor} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#888' }}>
         {label}
       </label>
       {children}
@@ -102,11 +102,13 @@ function Input({ style, value, onChange, ...props }) {
           <span style={{ color: '#bbb', fontWeight: 400 }}>{props.placeholder}</span>
         )}
       </div>
+      {/* The real placeholder stays on the <input> (hidden via .lb-field::placeholder)
+          so Safari's autofill heuristics can still read it. */}
       <input
         {...props}
+        className="lb-field"
         value={value}
         onChange={onChange}
-        placeholder=""
         style={{ ...INPUT, color: 'transparent', caretColor: '#555', borderColor: focused ? '#000' : '#e0e0e0', ...style }}
         onFocus={() => setFocused(true)}
         onBlur={(e) => { setFocused(false); props.onBlur?.(e) }}
@@ -119,6 +121,7 @@ function Select({ style, children, ...props }) {
   return (
     <select
       {...props}
+      className="lb-field"
       style={{ ...INPUT, appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpath d=\'M1 1l5 5 5-5\' stroke=\'%23666\' stroke-width=\'1.5\' fill=\'none\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 14px center', ...style }}
     >
       {children}
@@ -173,6 +176,21 @@ function validateField(name, value, country) {
 
 const DETAILS_FIELDS = ['firstName', 'lastName', 'email', 'address1', 'city', 'state', 'zip', 'phone']
 
+// Input `name` attribute → details-form state key. Country comes first so a
+// DOM sync always applies it before state (a country change clears state).
+const FIELD_NAMES = {
+  'country': 'country',
+  'given-name': 'firstName',
+  'family-name': 'lastName',
+  'email': 'email',
+  'address-line1': 'address1',
+  'address-line2': 'address2',
+  'address-level2': 'city',
+  'address-level1': 'state',
+  'postal-code': 'zip',
+  'tel': 'phone',
+}
+
 // Starting country/state from Vercel's IP geolocation headers. Only used as
 // initial state, so it never overrides anything typed or restored later.
 // Falls back to US with no state when the headers are missing or unknown.
@@ -185,10 +203,10 @@ function geoDefaults(geoCountry, geoRegion) {
 }
 
 /** Rendered inside <Elements>, so it can use the Stripe hooks. */
-function PaymentStepForm({ total, onBack, onSuccess }) {
+function PaymentStepForm({ total, defaultName = '', onBack, onSuccess }) {
   const stripe = useStripe()
   const elements = useElements()
-  const [cardName, setCardName] = useState('')
+  const [cardName, setCardName] = useState(defaultName)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -231,8 +249,8 @@ function PaymentStepForm({ total, onBack, onSuccess }) {
           {error}
         </div>
       )}
-      <Field label="Name on card">
-        <Input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Jane Doe" required />
+      <Field label="Name on card" htmlFor="co-cc-name">
+        <Input id="co-cc-name" name="cc-name" autoComplete="cc-name" value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Jane Doe" required />
       </Field>
       <Field label="Card details">
         <PaymentElement options={{ fields: { billingDetails: { name: 'never' } } }} />
@@ -274,6 +292,53 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
   if (!stripePromiseRef.current) stripePromiseRef.current = getStripePromise()
 
   const fieldValues = { firstName, lastName, email, address1, city, state, zip, phone }
+  const countryRef = useRef(country)
+  const setters = {
+    firstName: setFirstName, lastName: setLastName, email: setEmail,
+    address1: setAddress1, address2: setAddress2, city: setCity,
+    state: setState, zip: setZip, phone: setPhone,
+  }
+
+  // Changing country clears state, unless clearState is false (DOM syncs,
+  // where the state field's current value is already the one to keep).
+  function applyCountry(value, clearState) {
+    if (value === countryRef.current) return
+    countryRef.current = value
+    setCountry(value)
+    if (clearState) setState('')
+  }
+
+  // Browsers (iOS Safari especially) can autofill without React's onChange
+  // seeing it, which leaves the rainbow overlay empty. These handlers copy
+  // the DOM value into state from the form-level input event and from the
+  // :-webkit-autofill animation hook.
+  function syncField(name, value, clearState) {
+    const key = FIELD_NAMES[name]
+    if (!key) return
+    if (key === 'country') applyCountry(value, clearState)
+    else setters[key](value)
+  }
+
+  function onDetailsInput(e) {
+    syncField(e.target.name, e.target.value, true)
+  }
+
+  function onDetailsAnimationStart(e) {
+    if (e.animationName === 'onAutoFillStart') syncField(e.target.name, e.target.value, false)
+  }
+
+  // Read every field straight from the form DOM so a missed autofill event
+  // can never submit blanks. Returns the values for immediate use.
+  function syncFromForm(form) {
+    const values = { ...fieldValues, address2, country }
+    for (const [name, key] of Object.entries(FIELD_NAMES)) {
+      const el = form.elements.namedItem(name)
+      if (!el) continue
+      values[key] = el.value
+      syncField(name, el.value, false)
+    }
+    return values
+  }
 
   function onFieldBlur(name) {
     const msg = validateField(name, fieldValues[name], country)
@@ -306,10 +371,11 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
 
   async function handleDetails(e) {
     e.preventDefault()
+    const v = syncFromForm(e.currentTarget)
 
     const errors = {}
     for (const name of DETAILS_FIELDS) {
-      const msg = validateField(name, fieldValues[name], country)
+      const msg = validateField(name, v[name], v.country)
       if (msg) errors[name] = msg
     }
     setFieldErrors(errors)
@@ -325,8 +391,9 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           destination: {
-            name: `${firstName} ${lastName}`,
-            address1, address2, city, state, zip, country, phone,
+            name: `${v.firstName} ${v.lastName}`,
+            address1: v.address1, address2: v.address2, city: v.city,
+            state: v.state, zip: v.zip, country: v.country, phone: v.phone,
           },
           items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
         }),
@@ -434,51 +501,51 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
 
           {/* Step: Details (contact + address, combined) */}
           {step === 'details' && (
-            <form onSubmit={handleDetails} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <form onSubmit={handleDetails} onInput={onDetailsInput} onAnimationStart={onDetailsAnimationStart} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <Field label="First name" error={fieldErrors.firstName}>
-                  <Input name="given-name" autoComplete="shipping given-name" value={firstName} onChange={e => setFirstName(e.target.value)} onBlur={() => onFieldBlur('firstName')} placeholder="Jane" required />
+                <Field htmlFor="co-given-name" label="First name" error={fieldErrors.firstName}>
+                  <Input id="co-given-name" name="given-name" autoComplete="shipping given-name" value={firstName} onChange={e => setFirstName(e.target.value)} onBlur={() => onFieldBlur('firstName')} placeholder="Jane" required />
                 </Field>
-                <Field label="Last name" error={fieldErrors.lastName}>
-                  <Input name="family-name" autoComplete="shipping family-name" value={lastName} onChange={e => setLastName(e.target.value)} onBlur={() => onFieldBlur('lastName')} placeholder="Doe" required />
+                <Field htmlFor="co-family-name" label="Last name" error={fieldErrors.lastName}>
+                  <Input id="co-family-name" name="family-name" autoComplete="shipping family-name" value={lastName} onChange={e => setLastName(e.target.value)} onBlur={() => onFieldBlur('lastName')} placeholder="Doe" required />
                 </Field>
               </div>
-              <Field label="Email" error={fieldErrors.email}>
-                <Input type="email" name="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => onFieldBlur('email')} placeholder="jane@email.com" required />
+              <Field htmlFor="co-email" label="Email" error={fieldErrors.email}>
+                <Input type="email" id="co-email" name="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => onFieldBlur('email')} placeholder="jane@email.com" required />
               </Field>
-              <Field label="Country">
-                <Select name="country" autoComplete="shipping country" value={country} onChange={e => { setCountry(e.target.value); setState('') }}>
+              <Field htmlFor="co-country" label="Country">
+                <Select id="co-country" name="country" autoComplete="shipping country" value={country} onChange={e => applyCountry(e.target.value, true)}>
                   {COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                 </Select>
               </Field>
-              <Field label="Street Address" error={fieldErrors.address1}>
-                <Input name="address-line1" autoComplete="shipping address-line1" value={address1} onChange={e => setAddress1(e.target.value)} onBlur={() => onFieldBlur('address1')} placeholder="123 Main St" required />
+              <Field htmlFor="co-address-line1" label="Street Address" error={fieldErrors.address1}>
+                <Input id="co-address-line1" name="address-line1" autoComplete="shipping address-line1" value={address1} onChange={e => setAddress1(e.target.value)} onBlur={() => onFieldBlur('address1')} placeholder="123 Main St" required />
               </Field>
-              <Field label="Apt, suite, etc. (optional)">
-                <Input name="address-line2" autoComplete="shipping address-line2" value={address2} onChange={e => setAddress2(e.target.value)} placeholder="Apt 4B" />
+              <Field htmlFor="co-address-line2" label="Apt, suite, etc. (optional)">
+                <Input id="co-address-line2" name="address-line2" autoComplete="shipping address-line2" value={address2} onChange={e => setAddress2(e.target.value)} placeholder="Apt 4B" />
               </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <Field label="City" error={fieldErrors.city}>
-                  <Input name="address-level2" autoComplete="shipping address-level2" value={city} onChange={e => setCity(e.target.value)} onBlur={() => onFieldBlur('city')} placeholder="Los Angeles" required />
+                <Field htmlFor="co-city" label="City" error={fieldErrors.city}>
+                  <Input id="co-city" name="address-level2" autoComplete="shipping address-level2" value={city} onChange={e => setCity(e.target.value)} onBlur={() => onFieldBlur('city')} placeholder="Los Angeles" required />
                 </Field>
                 {country === 'US' ? (
-                  <Field label="State" error={fieldErrors.state}>
-                    <Select name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} onBlur={() => onFieldBlur('state')} required>
+                  <Field htmlFor="co-state" label="State" error={fieldErrors.state}>
+                    <Select id="co-state" name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} onBlur={() => onFieldBlur('state')} required>
                       <option value="">—</option>
                       {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     </Select>
                   </Field>
                 ) : (
-                  <Field label="State / Province">
-                    <Input name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} placeholder="CA" />
+                  <Field htmlFor="co-state" label="State / Province">
+                    <Input id="co-state" name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} placeholder="CA" />
                   </Field>
                 )}
-                <Field label="ZIP / Postal" error={fieldErrors.zip}>
-                  <Input name="postal-code" autoComplete="shipping postal-code" inputMode={country === 'US' ? 'numeric' : undefined} value={zip} onChange={e => setZip(e.target.value)} onBlur={() => onFieldBlur('zip')} placeholder="90001" required />
+                <Field htmlFor="co-postal-code" label="ZIP / Postal" error={fieldErrors.zip}>
+                  <Input id="co-postal-code" name="postal-code" autoComplete="shipping postal-code" inputMode={country === 'US' ? 'numeric' : undefined} value={zip} onChange={e => setZip(e.target.value)} onBlur={() => onFieldBlur('zip')} placeholder="90001" required />
                 </Field>
               </div>
-              <Field label={country !== 'US' ? 'Phone (required for international shipping)' : 'Phone (optional)'} error={fieldErrors.phone}>
-                <Input type="tel" name="tel" autoComplete="shipping tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => onFieldBlur('phone')} placeholder="(555) 123-4567" required={country !== 'US'} />
+              <Field htmlFor="co-tel" label={country !== 'US' ? 'Phone (required for international shipping)' : 'Phone (optional)'} error={fieldErrors.phone}>
+                <Input type="tel" id="co-tel" name="tel" autoComplete="shipping tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => onFieldBlur('phone')} placeholder="(555) 123-4567" required={country !== 'US'} />
               </Field>
               <button type="submit" style={{ ...BTN, opacity: loading ? 0.6 : 1 }} disabled={loading}>
                 {loading ? 'Checking...' : 'Continue to Shipping'}
@@ -526,6 +593,7 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
               <Elements stripe={stripePromiseRef.current} options={{ clientSecret, appearance: STRIPE_APPEARANCE }}>
                 <PaymentStepForm
                   total={total}
+                  defaultName={`${firstName} ${lastName}`.trim()}
                   onBack={() => setStep('shipping')}
                   onSuccess={handlePaymentSuccess}
                 />
@@ -591,6 +659,18 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
 
       {/* Mobile: stack summary above form */}
       <style>{`
+        /* Real placeholder kept on the input for autofill heuristics; the
+           rainbow overlay draws the visible one. */
+        .lb-field::placeholder { color: transparent; }
+        /* No-op animation so onAnimationStart fires when a field is autofilled. */
+        @keyframes onAutoFillStart { from {} to {} }
+        .lb-field:-webkit-autofill { animation-name: onAutoFillStart; animation-duration: 1ms; }
+        /* Chrome forces visible text and a blue fill on autofilled inputs;
+           keep the input transparent so only the overlay shows. */
+        input.lb-field:-webkit-autofill {
+          -webkit-text-fill-color: transparent;
+          box-shadow: 0 0 0 1000px #fff inset;
+        }
         @media (max-width: 680px) {
           div[style*="grid-template-columns"] {
             grid-template-columns: 1fr !important;
