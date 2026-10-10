@@ -73,31 +73,20 @@ export default function Page() {
   const [isProceeding, setIsProceeding] = useState(false)
   const [sequenceActive, setSequenceActive] = useState(false)
   // True while the orb is being dragged or snapping back; pauses the gate
-  // sequence so it can't proceed mid-drag (the release proceeds instead).
+  // sequence so it can't move on mid-drag; the release resumes it.
   const [orbHeld, setOrbHeld] = useState(false)
 
   const proceedFired = useRef(false)
-  const proceedDelayTimer = useRef(null)
 
-  // Prevent rapid multi-fire from skipping yellow/green
-  const lastGateAdvanceAt = useRef(0)
-  const GATE_ADVANCE_COOLDOWN_MS = 180
-
+  // Starts the chakra sequence. Every gate gesture (tap, drag, hold, double
+  // click, Enter) lands here; once the sequence is running it's a no-op so
+  // nothing can skip a colour.
   const advanceGate = useCallback(() => {
     if (!inGate) return
     if (proceedFired.current || isProceeding) return
-
-    const now = performance.now()
-    if (now - lastGateAdvanceAt.current < GATE_ADVANCE_COOLDOWN_MS) return
-    lastGateAdvanceAt.current = now
-
-    // If on step 0, immediately show RED and start auto-sequence
-    if (gateStep === 0) {
-      setGateStep(1)
-      setSequenceActive(true)
-    } else {
-      setGateStep((s) => (s >= 7 ? 7 : s + 1))
-    }
+    if (gateStep !== 0) return
+    setGateStep(1)
+    setSequenceActive(true)
   }, [inGate, isProceeding, gateStep])
 
   /* ---------- root tokens ---------- */
@@ -210,22 +199,6 @@ export default function Page() {
     })
   }, [handleEnterShop, inGate])
 
-  // When we hit pink via manual clicks (not auto-sequence), proceed after a brief pause
-  useEffect(() => {
-    if (!inGate) return
-    if (gateStep !== 7) return
-    if (proceedFired.current || isProceeding) return
-    if (sequenceActive) return // auto-sequence handles its own timing
-    if (orbHeld) return
-
-    clearTimeout(proceedDelayTimer.current)
-    proceedDelayTimer.current = setTimeout(() => {
-      triggerProceed()
-    }, 300)
-
-    return () => clearTimeout(proceedDelayTimer.current)
-  }, [gateStep, inGate, isProceeding, triggerProceed, sequenceActive, orbHeld])
-
   // Auto-advance through color sequence.
   // RED holds until the next clock-second boundary (min 600ms), then each subsequent
   // color (orange→yellow→green→blue→purple→pink) fires every 333ms so the total
@@ -265,13 +238,6 @@ export default function Page() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [inGate, advanceGate])
-
-  // cleanup any pending timer if component unmounts
-  useEffect(() => {
-    return () => {
-      clearTimeout(proceedDelayTimer.current)
-    }
-  }, [])
 
   /* ===================== Shop reveal animation ===================== */
 
@@ -390,7 +356,6 @@ export default function Page() {
         gateStep={gateStep}
         isProceeding={isProceeding}
         onAdvanceGate={advanceGate}
-        onProceed={triggerProceed}
         onHoldChange={setOrbHeld}
         ctrlPx={ctrlPx}
       />
@@ -400,7 +365,7 @@ export default function Page() {
         <main className="lb-screen" style={{ background: 'transparent' }}>
           <BannedLogin
             onAdvanceGate={advanceGate}
-            onProceed={triggerProceed}
+            onProceed={advanceGate}
             gateStep={gateStep}
             isProceeding={isProceeding}
             videoRevealed={videoRevealed}

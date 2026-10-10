@@ -2,7 +2,7 @@
 'use client'
 
 import * as THREE from 'three'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 
 function isNearBlack(hex) {
@@ -37,8 +37,12 @@ function OrbCross({
   solidOverride = false,
   flashDecayMs = 140,
   skipColorLerp = false,
+  colorFadeMs = 0,
 }) {
   const group = useRef()
+  // Materials in draw order; when colorFadeMs > 0 the frame loop eases each
+  // one from the colour it was showing toward its new target colour
+  const fadeMats = useRef(/** @type {THREE.Material[]|null} */ (null))
 
   const coarse =
     typeof window !== 'undefined' &&
@@ -48,6 +52,18 @@ function OrbCross({
   useFrame((state, dt) => {
     if (!group.current) return
     group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt
+
+    if (fadeMats.current && colorFadeMs > 0) {
+      // ~95% of the way there after colorFadeMs
+      const k = 1 - Math.exp(-(dt * 1000) / (colorFadeMs / 3))
+      for (const m of fadeMats.current) {
+        const to = m.userData.toColor
+        if (!to) continue
+        m.color.lerp(to, k)
+        if (m.emissive) m.emissive.lerp(to, k)
+        if (m.userData.toEI !== undefined) m.emissiveIntensity += (m.userData.toEI - m.emissiveIntensity) * k
+      }
+    }
 
     const u = group.current.userData
     if (!u) return
@@ -284,6 +300,31 @@ function OrbCross({
     haloBase,
   ])
 
+  // New materials are built whenever a colour changes. Start each one from
+  // what the previous material in the same slot was showing, so the frame
+  // loop blends between colours instead of cutting.
+  useLayoutEffect(() => {
+    if (!(colorFadeMs > 0)) {
+      fadeMats.current = null
+      return
+    }
+    const next = [barCoreMat, barHaloMat, ...sphereCoreMats, ...sphereHaloMats]
+    const prev = fadeMats.current
+    next.forEach((m, i) => {
+      const p = prev?.[i]
+      if (p === m) return
+      m.userData.toColor = m.color.clone()
+      if (m.emissive) m.userData.toEI = m.emissiveIntensity
+      if (!p) return
+      m.color.copy(p.color)
+      if (m.emissive && p.emissive) {
+        m.emissive.copy(p.emissive)
+        m.emissiveIntensity = p.emissiveIntensity
+      }
+    })
+    fadeMats.current = next
+  }, [barCoreMat, barHaloMat, sphereCoreMats, sphereHaloMats, colorFadeMs])
+
   useEffect(() => {
     if (!group.current) return
     const prev = group.current.userData
@@ -388,6 +429,7 @@ export default function BlueOrbCross3D({
   flashDecayMs = 140,
   solidOverride = false,
   skipColorLerp = false,
+  colorFadeMs = 0, // > 0: blend between colours over this many ms
 }) {
   const [maxDpr, setMaxDpr] = useState(2)
   const [reduced, setReduced] = useState(false)
@@ -455,6 +497,7 @@ export default function BlueOrbCross3D({
           flashDecayMs={flashDecayMs}
           solidOverride={solidOverride}
           skipColorLerp={skipColorLerp}
+          colorFadeMs={colorFadeMs}
         />
       </Canvas>
     </div>
