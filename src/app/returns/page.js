@@ -1,8 +1,8 @@
-import { RETURN_DAYS, CONTACT_EMAIL, BRAND } from '@/lib/store-info'
+import { CONTACT_EMAIL, BRAND, SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE } from '@/lib/store-info'
 
 export const metadata = {
-  title: `Returns & Exchanges — ${BRAND}`,
-  description: `${BRAND} accepts returns within ${RETURN_DAYS} days for unworn, unwashed items. Email ${CONTACT_EMAIL} to start a return.`,
+  title: `${FINAL_SALE_LINE} — ${BRAND}`,
+  description: `Every ${BRAND} piece is made to order, so all sales are final. Defective, damaged, or wrong items are replaced or refunded — email ${CONTACT_EMAIL}.`,
 }
 
 const CHAKRA = ['#FF0000','#FF8C00','#FFD700','#00C853','#00BFFF','#6A0DAD','#EE82EE']
@@ -17,41 +17,48 @@ function RainbowText({ children }) {
   )
 }
 
-export default function ReturnsPage() {
+const H2 = { fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', marginBottom: 8 }
+const P = { fontSize: 15, lineHeight: 1.7, color: '#222', margin: 0 }
+const Mail = () => (
+  <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'inherit', fontWeight: 700 }}>{CONTACT_EMAIL}</a>
+)
+
+// URL stays /returns because order emails link here.
+export default function SalesPolicyPage() {
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '48px 20px 80px', fontFamily: 'inherit' }}>
       <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 32, letterSpacing: '-0.01em' }}>
-        <RainbowText>Returns</RainbowText>
+        <RainbowText>{FINAL_SALE_LINE}</RainbowText>
       </h1>
 
       <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', marginBottom: 8 }}>Eligibility</h2>
-        <p style={{ fontSize: 15, lineHeight: 1.7, color: '#222', margin: 0 }}>
-          We accept returns within <strong>{RETURN_DAYS} days</strong> of delivery for items
-          that are unworn and unwashed with all tags attached. Because each piece is
-          made to order, we are unable to accept returns on items that have been worn
-          or washed.
+        <h2 style={H2}>Made to Order</h2>
+        <p style={P}>
+          Every piece is made to order, so all sales are final. No returns, exchanges, or
+          refunds for size, fit, or change of mind. Check the size before you order.
         </p>
       </section>
 
       <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', marginBottom: 8 }}>How to Return</h2>
-        <p style={{ fontSize: 15, lineHeight: 1.7, color: '#222', margin: '0 0 10px' }}>
-          Email <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'inherit', fontWeight: 700 }}>{CONTACT_EMAIL}</a> with
-          your order number and reason for return. We'll reply within 2 business days.
-        </p>
-        <p style={{ fontSize: 15, lineHeight: 1.7, color: '#222', margin: 0 }}>
-          Customers cover return shipping unless the item arrived defective or we
-          sent the wrong item — in those cases we'll send a prepaid label.
+        <h2 style={H2}>Defective, Damaged, or Wrong Item</h2>
+        <p style={P}>
+          Email <Mail /> within <strong>14 days</strong> of delivery with a photo and your
+          order number and we'll replace it or refund it, our choice, at no cost to you.
         </p>
       </section>
 
       <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', marginBottom: 8 }}>Refunds</h2>
-        <p style={{ fontSize: 15, lineHeight: 1.7, color: '#222', margin: 0 }}>
-          Once we receive and inspect the return, refunds are issued to the original
-          payment method within 5–7 business days. Shipping costs are non-refundable
-          unless the return is due to our error.
+        <h2 style={H2}>Late Orders</h2>
+        <p style={P}>
+          If we can't ship within {SHIP_DAYS_MIN}–{SHIP_DAYS_MAX} business days, we'll email
+          you and you can cancel for a full refund.
+        </p>
+      </section>
+
+      <section style={{ marginBottom: 32 }}>
+        <h2 style={H2}>Lost in Transit</h2>
+        <p style={P}>
+          Email <Mail /> with your order number and we'll sort it out with the carrier.
         </p>
       </section>
 

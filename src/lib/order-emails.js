@@ -101,12 +101,15 @@ function buildConfirmationHtml({ order, items, sid }) {
           <p style="margin:0 0 20px;font-size:13px;color:#555;line-height:1.65">
             This is a made-to-order item. It ships in <strong>${SHIP_DAYS_MIN}&ndash;${SHIP_DAYS_MAX} business days</strong> — we&rsquo;ll send tracking once it&rsquo;s on its way.
           </p>
+          <p style="margin:0 0 20px;font-size:13px;color:#555;line-height:1.65">
+            All sales final. If something arrives defective or wrong, reply to this email.
+          </p>
 
           <!-- Footer links -->
           <p style="margin:0;font-size:12px;color:#bbb;line-height:1.8">
             <a href="${siteUrl}/shipping" style="color:#bbb;text-decoration:underline">Shipping policy</a>
             &nbsp;&middot;&nbsp;
-            <a href="${siteUrl}/returns" style="color:#bbb;text-decoration:underline">Returns</a>
+            <a href="${siteUrl}/returns" style="color:#bbb;text-decoration:underline">Sales policy</a>
             &nbsp;&middot;&nbsp;
             Questions? <a href="mailto:${CONTACT_EMAIL}" style="color:#bbb;text-decoration:underline">${CONTACT_EMAIL}</a>
           </p>
@@ -158,7 +161,11 @@ ${addrLines}
 
 Made to order — ships in ${SHIP_DAYS_MIN}–${SHIP_DAYS_MAX} business days. We'll send tracking.
 
-${siteUrl}/shipping  ·  ${siteUrl}/returns  ·  ${CONTACT_EMAIL}
+All sales final. If something arrives defective or wrong, reply to this email.
+
+Shipping policy: ${siteUrl}/shipping
+Sales policy: ${siteUrl}/returns
+Questions: ${CONTACT_EMAIL}
 
 let all mankind evolve`
 }

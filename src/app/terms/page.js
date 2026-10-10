@@ -44,10 +44,16 @@ export default function TermsPage() {
       </section>
 
       <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', marginBottom: 8 }}>Returns</h2>
+        <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', marginBottom: 8 }}>All Sales Final</h2>
         <p style={{ fontSize: 15, lineHeight: 1.7, color: '#222', margin: 0 }}>
-          Our <a href="/returns" style={{ color: 'inherit', fontWeight: 700 }}>Returns Policy</a> governs
-          all return and refund requests.
+          Because every item is made to order, all sales are final: no returns, exchanges,
+          or refunds for size, fit, or change of mind. If an item arrives defective, damaged,
+          or wrong, email{' '}
+          <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'inherit', fontWeight: 700 }}>{CONTACT_EMAIL}</a>{' '}
+          within 14 days of delivery and we'll replace or refund it at no cost to you. If we
+          can't ship within {SHIP_DAYS_MIN}–{SHIP_DAYS_MAX} business days, you may cancel for a
+          full refund. See our <a href="/returns" style={{ color: 'inherit', fontWeight: 700 }}>Sales Policy</a> for
+          details.
         </p>
       </section>
 
