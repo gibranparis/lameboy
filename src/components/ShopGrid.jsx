@@ -8,6 +8,7 @@ import ProductOverlay from '@/components/ProductOverlay'
 import { PRODUCTS, getCategoryGroups } from '@/lib/products'
 import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
+import { attachDragSnap } from '@/lib/dragSnap'
 
 /** Storage key for saved grid density */
 const KEY_DENSITY = 'lb:grid-cols'
@@ -544,6 +545,38 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
   const overlayOpenRef = useRef(overlayOpen)
   useEffect(() => { overlayOpenRef.current = overlayOpen }, [overlayOpen])
 
+  /* ---------------- Drag a tile or stack; it springs home, then taps ---------------- */
+  const tilesRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  useEffect(() => {
+    const el = tilesRef.current
+    if (!el) return
+    return attachDragSnap(el, {
+      targets: ['.category-stack', ".shop-grid[data-view-mode='grid'] .product-tile"],
+      enabled: () => !overlayOpenRef.current && document.documentElement.dataset.overlayOpen !== '1',
+    })
+  }, [])
+
+  // Tiles take every touch drag while the page fits the screen; once it
+  // scrolls they only take sideways drags, so vertical swipes still scroll
+  useEffect(() => {
+    const root = document.documentElement
+    const check = () => {
+      if (root.scrollHeight > window.innerHeight + 1) root.setAttribute('data-page-scrolls', '1')
+      else root.removeAttribute('data-page-scrolls')
+    }
+    check()
+    // The body changes size when the gate unmounts after the hand-off
+    const ro = new ResizeObserver(check)
+    ro.observe(document.body)
+    if (gridRef.current) ro.observe(gridRef.current)
+    window.addEventListener('resize', check)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', check)
+      root.removeAttribute('data-page-scrolls')
+    }
+  }, [])
+
   useEffect(() => {
     const wrap = gridRef.current
     if (!wrap) return
@@ -623,6 +656,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       }}
     >
       <div
+        ref={tilesRef}
         className="shop-grid"
         data-component="shop-grid"
         data-view-mode={viewMode}
@@ -827,6 +861,16 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
           padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
           transition: gap 220ms ease;
           box-sizing: border-box;
+        }
+
+        /* Draggable tiles (see attachDragSnap above) */
+        .category-stack,
+        .shop-grid[data-view-mode='grid'] .product-tile {
+          touch-action: none;
+        }
+        :global(html[data-page-scrolls='1']) .category-stack,
+        :global(html[data-page-scrolls='1']) .shop-grid[data-view-mode='grid'] .product-tile {
+          touch-action: pan-y;
         }
 
         /* Each tile fills exactly 1/cols of the available width */

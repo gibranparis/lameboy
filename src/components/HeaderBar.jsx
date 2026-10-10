@@ -1,10 +1,18 @@
 // src/components/HeaderBar.jsx
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import DayNightToggle from '@/components/DayNightToggle'
 import CartButton from '@/components/CartButton'
+import { useDragSnap } from '@/lib/dragSnap'
+
 export default function HeaderBar({ ctrlPx, shopReady = true }) {
+  // Drag the toggle / cart and they spring home, then act like a tap
+  const toggleRef = useRef(null)
+  const cartRef = useRef(null)
+  useDragSnap(toggleRef, { touchAction: 'none' })
+  useDragSnap(cartRef, { touchAction: 'none' })
+
   const headerPx = useMemo(() => {
     const n = Number(ctrlPx)
     return Number.isFinite(n) && n > 0 ? n : 64
@@ -45,6 +53,7 @@ export default function HeaderBar({ ctrlPx, shopReady = true }) {
     >
       <div className="flex items-center" style={{ lineHeight: 0, pointerEvents: 'auto' }}>
         <div
+          ref={toggleRef}
           style={{
             height: sizes.box,
             width: 'var(--header-ctrl)',
@@ -65,12 +74,14 @@ export default function HeaderBar({ ctrlPx, shopReady = true }) {
       <div className="flex items-center justify-center" style={{ lineHeight: 0 }} />
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
-        <CartButton
-          size={36}
-          inHeader
-          imgSrc={null}
-          onClick={() => window.dispatchEvent(new Event('checkout:toggle'))}
-        />
+        <div ref={cartRef} style={{ lineHeight: 0 }}>
+          <CartButton
+            size={36}
+            inHeader
+            imgSrc={null}
+            onClick={() => window.dispatchEvent(new Event('checkout:toggle'))}
+          />
+        </div>
       </div>
     </header>
   )
