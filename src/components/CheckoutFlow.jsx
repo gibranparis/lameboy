@@ -3,10 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from '@/contexts/CartContext'
 import { getStripePromise } from '@/lib/stripe-client'
-import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
+import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { COUNTRIES, US_STATES } from '@/lib/countries'
-
-const STEPS = ['details', 'shipping', 'payment', 'confirmation']
+import { clearProfile, getProfile, saveProfile } from '@/lib/profile'
 
 const INPUT = {
   width: '100%',
@@ -40,16 +39,6 @@ const BTN = {
 }
 
 const CHAKRA = ['#FF0000','#FF8C00','#FFD700','#00C853','#00BFFF','#6A0DAD','#EE82EE']
-
-function RainbowText({ text }) {
-  return (
-    <span>
-      {text.split('').map((ch, i) => (
-        <span key={i} style={{ color: ch === ' ' ? 'inherit' : CHAKRA[i % 7] }}>{ch}</span>
-      ))}
-    </span>
-  )
-}
 
 // Maps product name keywords → their actual color
 const HOODIE_COLORS = {
@@ -145,15 +134,14 @@ const STRIPE_APPEARANCE = {
   },
 }
 
-// Real-time field validation for the details step. Loose on purpose —
+// Real-time field validation for the checkout form. Loose on purpose —
 // only US and CA get a real postal-code pattern; every other country just
 // needs a non-empty ZIP, since international postal formats vary too much
 // to be worth encoding here.
 function validateField(name, value, country) {
   const v = String(value ?? '').trim()
   switch (name) {
-    case 'firstName':
-    case 'lastName':
+    case 'name':
     case 'address1':
     case 'city':
       return v ? null : 'Required'
@@ -174,14 +162,13 @@ function validateField(name, value, country) {
   }
 }
 
-const DETAILS_FIELDS = ['firstName', 'lastName', 'email', 'address1', 'city', 'state', 'zip', 'phone']
+const FORM_FIELDS = ['email', 'name', 'address1', 'city', 'state', 'zip', 'phone']
 
-// Input `name` attribute → details-form state key. Country comes first so a
-// DOM sync always applies it before state (a country change clears state).
+// Input `name` attribute → form state key. Country comes first so a DOM
+// sync always applies it before state (a country change clears state).
 const FIELD_NAMES = {
   'country': 'country',
-  'given-name': 'firstName',
-  'family-name': 'lastName',
+  'name': 'name',
   'email': 'email',
   'address-line1': 'address1',
   'address-line2': 'address2',
@@ -202,80 +189,181 @@ function geoDefaults(geoCountry, geoRegion) {
   return { country, state }
 }
 
-/** Rendered inside <Elements>, so it can use the Stripe hooks. */
-function PaymentStepForm({ total, defaultName = '', onBack, onSuccess }) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [cardName, setCardName] = useState(defaultName)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+const COUNTRY_CODES = COUNTRIES.map(([code]) => code)
+// Shippo needs a phone on international shipments; rate quotes don't need
+// the real one, so this stands in until the customer types theirs.
+const PLACEHOLDER_PHONE = '0000000000'
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!stripe || !elements) return
-    if (!cardName) return setError('Please enter the name on your card')
-    setError(null)
-    setLoading(true)
+const money = (cents) => `$${(cents / 100).toFixed(2)}`
+const rateLabel = (rate) => (rate.name && rate.name !== rate.provider ? `${rate.provider} ${rate.name}` : rate.name || rate.provider)
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
-    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${siteUrl}/checkout`,
-        payment_method_data: { billing_details: { name: cardName } },
-      },
-      redirect: 'if_required',
-    })
+async function fetchRates(destination, items, signal) {
+  const res = await fetch('/api/shipping/rates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ destination, items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })) }),
+    signal,
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Could not fetch shipping rates')
+  return data.rates ?? []
+}
 
-    if (confirmError) {
-      setError(confirmError.message || 'Payment failed. Please check your card details and try again.')
-      setLoading(false)
-      return
-    }
+async function createPaymentIntent(payload) {
+  const res = await fetch('/api/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || !data.clientSecret) throw new Error(data.error || 'Could not start checkout')
+  return data.clientSecret
+}
 
-    if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
-      onSuccess(paymentIntent.id)
-    } else {
-      setError('Payment did not complete. Please try again.')
-      setLoading(false)
-    }
-  }
+function returnUrl() {
+  return `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/checkout`
+}
 
+/** Order summary lines, shared by the desktop sidebar and the mobile bar. */
+function SummaryLines({ items, subtotal, rate }) {
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <button type="button" onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
-      {error && (
-        <div style={{ background: '#fff0f0', border: '1px solid #fcc', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: '#c00', fontWeight: 600 }}>
-          {error}
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+        {items.map((item, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
+            <div>
+              <span style={{ fontWeight: 700, color: hoodieColor(item.name) ?? '#111' }}>{item.name}</span>
+              <span style={{ color: '#888', marginLeft: 6 }}>
+                {item.size && `${item.size} · `}×{item.qty}
+              </span>
+            </div>
+            <span style={{ fontWeight: 700 }}>{money(item.price * item.qty)}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ borderTop: '1px solid #eee', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: '#888' }}>Subtotal</span>
+          <span style={{ fontWeight: 700 }}>{money(subtotal)}</span>
         </div>
-      )}
-      <Field label="Name on card" htmlFor="co-cc-name">
-        <Input id="co-cc-name" name="cc-name" autoComplete="cc-name" value={cardName} onChange={e => setCardName(e.target.value)} placeholder="Jane Doe" required />
-      </Field>
-      <Field label="Card details">
-        <PaymentElement options={{ fields: { billingDetails: { name: 'never' } } }} />
-      </Field>
-      <p style={{ margin: 0, fontSize: 12, color: '#888', textAlign: 'center' }}>
-        🔒 Payments are processed securely by Stripe
-      </p>
-      <button type="submit" style={{ ...BTN, opacity: loading || !stripe ? 0.6 : 1 }} disabled={loading || !stripe}>
-        {loading ? 'Processing...' : `Pay $${(total / 100).toFixed(2)}`}
-      </button>
-    </form>
+        {rate && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#888' }}>Shipping</span>
+              <span style={{ fontWeight: 700 }}>{rate.price === 0 ? 'FREE' : money(rate.price)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700 }}>
+              <span>Total</span>
+              <span>{money(subtotal + rate.price)}</span>
+            </div>
+          </>
+        )}
+      </div>
+    </>
   )
 }
 
+/**
+ * Holds <Elements> in deferred-intent mode (no PaymentIntent until Pay).
+ * The options are captured once, the first time the cart has a subtotal,
+ * and Elements stays mounted after that — reset() empties the cart on
+ * success, and the confirmation screen still renders inside it.
+ */
 export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
-  const { items, total, count, reset, cartReady } = useCart()
-  const [step, setStep] = useState('details')
+  const { total, cartReady } = useCart()
+  const [stripePromise] = useState(() => getStripePromise())
+  const [options, setOptions] = useState(null)
+
+  useEffect(() => {
+    if (!options && cartReady && total > 0) {
+      setOptions({ mode: 'payment', amount: total, currency: 'usd', appearance: STRIPE_APPEARANCE })
+    }
+  }, [options, cartReady, total])
+
+  if (!stripePromise) {
+    return (
+      <Shell>
+        <p style={{ color: '#c00', fontSize: 14, textAlign: 'center', padding: '40px 16px' }}>
+          Payments are unavailable right now. Please try again later.
+        </p>
+      </Shell>
+    )
+  }
+
+  return (
+    <Shell>
+      {options ? (
+        <Elements stripe={stripePromise} options={options}>
+          <CheckoutPage geoCountry={geoCountry} geoRegion={geoRegion} />
+        </Elements>
+      ) : (
+        <CartGuard />
+      )}
+    </Shell>
+  )
+}
+
+/** Before Elements mounts: bounce an empty cart back to the shop. */
+function CartGuard() {
+  const { count, cartReady } = useCart()
+  useEffect(() => {
+    if (cartReady && count === 0) window.location.href = '/'
+  }, [cartReady, count])
+  return <p style={{ textAlign: 'center', color: '#888', fontSize: 14, padding: '40px 0' }}>Loading…</p>
+}
+
+function Shell({ children }) {
+  return (
+    <div style={{ minHeight: '100dvh', background: '#f7f7f5', fontFamily: 'inherit' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <a href="/" style={{ textDecoration: 'none' }}>
+          <img src="/Blue hand-drawn symbol with _LAME_.png" alt="LAME" style={{ height: 32, display: 'block' }} />
+        </a>
+      </div>
+      {children}
+      <style>{`
+        /* Real placeholder kept on the input for autofill heuristics; the
+           rainbow overlay draws the visible one. */
+        .lb-field::placeholder { color: transparent; }
+        /* No-op animation so onAnimationStart fires when a field is autofilled. */
+        @keyframes onAutoFillStart { from {} to {} }
+        .lb-field:-webkit-autofill { animation-name: onAutoFillStart; animation-duration: 1ms; }
+        /* Chrome forces visible text and a blue fill on autofilled inputs;
+           keep the input transparent so only the overlay shows. */
+        input.lb-field:-webkit-autofill {
+          -webkit-text-fill-color: transparent;
+          box-shadow: 0 0 0 1000px #fff inset;
+        }
+        .co-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,380px); gap: 32px; align-items: start; }
+        .co-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .co-summary-bar { display: none; }
+        @media (max-width: 680px) {
+          .co-layout { grid-template-columns: 1fr; gap: 16px; }
+          .co-summary-side { display: none; }
+          .co-summary-bar { display: block; }
+          .co-row3 { grid-template-columns: 1fr 1fr; }
+          .co-row3 > :first-child { grid-column: 1 / -1; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+/** The whole single-page checkout. Rendered inside <Elements>. */
+function CheckoutPage({ geoCountry, geoRegion }) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const { items, total: subtotal, count, reset, cartReady } = useCart()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [order, setOrder] = useState(null)
+  const [confirmed, setConfirmed] = useState(false)
+  const [paymentIntentId, setPaymentIntentId] = useState(null)
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   // Form state
   const [email, setEmail] = useState('')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
+  const [name, setName] = useState('')
   const [address1, setAddress1] = useState('')
   const [address2, setAddress2] = useState('')
   const [city, setCity] = useState('')
@@ -284,19 +372,34 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
   const [country, setCountry] = useState(() => geoDefaults(geoCountry, geoRegion).country)
   const [phone, setPhone] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
-  const [shippingRates, setShippingRates] = useState([])
-  const [selectedRate, setSelectedRate] = useState(null)
-  const [clientSecret, setClientSecret] = useState(null)
-  const [paymentIntentId, setPaymentIntentId] = useState(null)
-  const stripePromiseRef = useRef(null)
-  if (!stripePromiseRef.current) stripePromiseRef.current = getStripePromise()
+  const [returning, setReturning] = useState(false)
+  // Saved complete address → contact + address render as one summary card.
+  const [collapsed, setCollapsed] = useState(false)
+  // Skip the rate debounce for the first quote of a saved address.
+  const instantQuoteRef = useRef(false)
 
-  const fieldValues = { firstName, lastName, email, address1, city, state, zip, phone }
+  // Shipping
+  const [rates, setRates] = useState([])
+  const [selectedRate, setSelectedRate] = useState(null)
+  const [ratesLoading, setRatesLoading] = useState(false)
+  const [ratesError, setRatesError] = useState(null)
+  const rate = rates.find((r) => r.id === selectedRate) ?? null
+  const shippingCents = rate?.price ?? 0
+
+  // Express checkout
+  const [expressAvailable, setExpressAvailable] = useState(null)
+
+  const fieldValues = { email, name, address1, city, state, zip, phone }
   const countryRef = useRef(country)
   const setters = {
-    firstName: setFirstName, lastName: setLastName, email: setEmail,
+    name: setName, email: setEmail,
     address1: setAddress1, address2: setAddress2, city: setCity,
     state: setState, zip: setZip, phone: setPhone,
+  }
+
+  function onFieldBlur(field) {
+    const msg = validateField(field, fieldValues[field], country)
+    setFieldErrors((prev) => ({ ...prev, [field]: msg }))
   }
 
   // Changing country clears state, unless clearState is false (DOM syncs,
@@ -312,18 +415,18 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
   // seeing it, which leaves the rainbow overlay empty. These handlers copy
   // the DOM value into state from the form-level input event and from the
   // :-webkit-autofill animation hook.
-  function syncField(name, value, clearState) {
-    const key = FIELD_NAMES[name]
+  function syncField(fieldName, value, clearState) {
+    const key = FIELD_NAMES[fieldName]
     if (!key) return
     if (key === 'country') applyCountry(value, clearState)
     else setters[key](value)
   }
 
-  function onDetailsInput(e) {
+  function onFormInput(e) {
     syncField(e.target.name, e.target.value, true)
   }
 
-  function onDetailsAnimationStart(e) {
+  function onFormAnimationStart(e) {
     if (e.animationName === 'onAutoFillStart') syncField(e.target.name, e.target.value, false)
   }
 
@@ -331,116 +434,140 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
   // can never submit blanks. Returns the values for immediate use.
   function syncFromForm(form) {
     const values = { ...fieldValues, address2, country }
-    for (const [name, key] of Object.entries(FIELD_NAMES)) {
-      const el = form.elements.namedItem(name)
+    for (const [fieldName, key] of Object.entries(FIELD_NAMES)) {
+      const el = form.elements.namedItem(fieldName)
       if (!el) continue
       values[key] = el.value
-      syncField(name, el.value, false)
+      syncField(fieldName, el.value, false)
     }
     return values
   }
 
-  function onFieldBlur(name) {
-    const msg = validateField(name, fieldValues[name], country)
-    setFieldErrors((prev) => ({ ...prev, [name]: msg }))
-  }
-
-  // Pre-fill from newsletter signup
+  // Prefill every field from the device profile (heart join form or a past
+  // checkout). Runs once on mount, so it only replaces the geo defaults —
+  // never anything typed.
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('lb:lead') || 'null')
-      if (!saved) return
-      if (saved.email) setEmail(saved.email)
-      if (saved.name) {
-        const parts = saved.name.trim().split(/\s+/)
-        setFirstName(parts[0] || '')
-        setLastName(parts.slice(1).join(' ') || '')
-      }
-    } catch {}
+    const p = getProfile()
+    if (!p) return
+    const savedCountry = String(p.country ?? '').toUpperCase()
+    const nextCountry = COUNTRY_CODES.includes(savedCountry) ? savedCountry : countryRef.current
+    if (nextCountry !== countryRef.current) applyCountry(nextCountry, false)
+    let nextState = state
+    if (p.state) {
+      const st = nextCountry === 'US' ? p.state.trim().toUpperCase() : p.state
+      if (nextCountry !== 'US' || US_STATES.includes(st)) nextState = st
+      else if (savedCountry === 'US') nextState = ''
+    }
+    const v = {
+      email: p.email ?? '', name: p.name ?? '', phone: p.phone ?? '',
+      address1: p.address1 ?? '', address2: p.address2 ?? '',
+      city: p.city ?? '', state: nextState, zip: p.zip ?? '',
+    }
+    setEmail(v.email); setName(v.name); setPhone(v.phone)
+    setAddress1(v.address1); setAddress2(v.address2)
+    setCity(v.city); setState(v.state); setZip(v.zip)
+    setReturning(true)
+
+    const complete = COUNTRY_CODES.includes(savedCountry) &&
+      FORM_FIELDS.every((f) => !validateField(f, v[f], nextCountry))
+    if (complete) {
+      instantQuoteRef.current = true
+      setCollapsed(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Redirect if cart is empty and no order — wait for cart to load first.
-  // paymentIntentId is set synchronously in handlePaymentSuccess before
-  // reset() empties the cart, so a payment in flight (or done, awaiting the
-  // webhook) never gets bounced to '/' by this guard.
+  function clearSaved() {
+    clearProfile()
+    const geo = geoDefaults(geoCountry, geoRegion)
+    countryRef.current = geo.country
+    setCountry(geo.country)
+    setState(geo.state)
+    setEmail(''); setName(''); setPhone('')
+    setAddress1(''); setAddress2(''); setCity(''); setZip('')
+    setFieldErrors({})
+    setReturning(false)
+    setCollapsed(false)
+  }
+
+  // Redirect if cart is empty and no order. paymentIntentId is set
+  // synchronously in handlePaymentSuccess before reset() empties the cart,
+  // so a payment in flight (or done, awaiting the webhook) never gets
+  // bounced to '/' by this guard.
   useEffect(() => {
     if (cartReady && !order && !paymentIntentId && count === 0) {
       window.location.href = '/'
     }
   }, [cartReady, count, order, paymentIntentId])
 
-  async function handleDetails(e) {
-    e.preventDefault()
-    const v = syncFromForm(e.currentTarget)
-
-    const errors = {}
-    for (const name of DETAILS_FIELDS) {
-      const msg = validateField(name, v[name], v.country)
-      if (msg) errors[name] = msg
-    }
-    setFieldErrors(errors)
-    if (Object.keys(errors).length) {
-      return setError('Please fix the highlighted fields below')
-    }
-
-    setError(null)
-    setLoading(true)
-    try {
-      const res = await fetch('/api/shipping/rates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          destination: {
-            name: `${v.firstName} ${v.lastName}`,
-            address1: v.address1, address2: v.address2, city: v.city,
-            state: v.state, zip: v.zip, country: v.country, phone: v.phone,
-          },
-          items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
-        }),
+  // US ZIP → city/state, only filling fields that are still empty.
+  useEffect(() => {
+    if (country !== 'US' || !/^\d{5}$/.test(zip)) return
+    const ctrl = new AbortController()
+    fetch(`https://api.zippopotam.us/us/${zip}`, { signal: ctrl.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const place = data?.places?.[0]
+        if (!place || countryRef.current !== 'US') return
+        const placeCity = place['place name']
+        const placeState = place['state abbreviation']
+        if (placeCity) setCity((c) => c || placeCity)
+        if (US_STATES.includes(placeState)) setState((s) => s || placeState)
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Could not fetch shipping rates')
-      if (!data.rates?.length) throw new Error(data.error || 'No shipping rates available for this address')
-      setShippingRates(data.rates)
-      setSelectedRate(data.rates[0].id)
-      setStep('shipping')
-    } catch (err) {
-      setError(err.message || 'Could not validate address. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
+      .catch(() => {})
+    return () => ctrl.abort()
+  }, [zip, country])
 
-  async function handleShipping(e) {
-    e.preventDefault()
-    if (!selectedRate) return setError('Please select a shipping method')
-    setError(null)
-    setLoading(true)
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          name: `${firstName} ${lastName}`,
-          address: { address1, address2, city, state, zip, country },
-          items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
-          rateId: selectedRate,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Could not start checkout')
-      setClientSecret(data.clientSecret)
-      setStep('payment')
-    } catch (err) {
-      setError(err.message || 'Could not set shipping. Please try again.')
-    } finally {
-      setLoading(false)
+  // Live shipping rates, debounced, once the address is complete enough.
+  const addressReady = Boolean(address1.trim() && city.trim() && country && !validateField('zip', zip, country))
+  const phoneRef = useRef(phone)
+  phoneRef.current = phone
+  useEffect(() => {
+    setRates([])
+    setSelectedRate(null)
+    setRatesError(null)
+    if (!addressReady || !items.length) {
+      setRatesLoading(false)
+      return
     }
-  }
+    setRatesLoading(true)
+    const ctrl = new AbortController()
+    const timer = setTimeout(async () => {
+      try {
+        const destination = {
+          name: name || undefined,
+          address1, address2, city, state, zip, country,
+          phone: country !== 'US' ? phoneRef.current || PLACEHOLDER_PHONE : undefined,
+        }
+        const next = await fetchRates(destination, items, ctrl.signal)
+        if (!next.length) throw new Error('No shipping options for this address')
+        // Rates come back sorted cheapest-first from /api/shipping/rates.
+        setRates(next)
+        setSelectedRate(next[0].id)
+      } catch (err) {
+        if (err.name === 'AbortError') return
+        setRatesError(err.message === 'Could not fetch shipping rates' ? 'Couldn’t load shipping. Check your address.' : err.message)
+      } finally {
+        if (!ctrl.signal.aborted) setRatesLoading(false)
+      }
+    }, instantQuoteRef.current ? 0 : 500)
+    instantQuoteRef.current = false
+    return () => { clearTimeout(timer); ctrl.abort() }
+    // name is only a label on the Shippo shipment; don't re-quote on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressReady, address1, address2, city, state, zip, country, items])
 
-  async function handlePaymentSuccess(intentId) {
+  // Keep the Elements amount in step with subtotal + selected shipping.
+  useEffect(() => {
+    if (elements && subtotal > 0) elements.update({ amount: subtotal + shippingCents })
+  }, [elements, subtotal, shippingCents])
+
+  async function handlePaymentSuccess(intentId, saved) {
     setPaymentIntentId(intentId)
+    // Buying counts as joining: remember what was actually used (fills the
+    // heart). A blank phone (US card orders) doesn't wipe a saved one.
+    saveProfile({ ...saved, phone: saved.phone || undefined })
+    if (saved.email) setEmail(saved.email)
     reset()
 
     // The order row is written by the Stripe webhook, which can lag the
@@ -456,227 +583,395 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
       } catch {}
       await new Promise((r) => setTimeout(r, 1200))
     }
-    setStep('confirmation')
+    setConfirmed(true)
   }
 
-  const stepIndex = STEPS.indexOf(step)
-  const progressLabels = ['Details', 'Shipping', 'Payment']
+  async function handlePay(e) {
+    e.preventDefault()
+    if (loading) return
+    const v = syncFromForm(e.currentTarget)
+    if (v.country === 'US') v.phone = ''
+
+    const errors = {}
+    for (const field of FORM_FIELDS) {
+      const msg = validateField(field, v[field], v.country)
+      if (msg) errors[field] = msg
+    }
+    setFieldErrors(errors)
+    if (Object.keys(errors).length) {
+      setCollapsed(false)
+      return setError('Please fix the highlighted fields')
+    }
+    if (!rate) return setError(ratesLoading ? 'Still calculating shipping…' : 'Choose a shipping method')
+    if (!stripe || !elements) return
+
+    setError(null)
+    setLoading(true)
+    try {
+      const { error: submitError } = await elements.submit()
+      if (submitError) throw new Error(submitError.message || 'Check your card details')
+
+      const address = {
+        address1: v.address1, address2: v.address2, city: v.city,
+        state: v.state, zip: v.zip, country: v.country,
+      }
+      const clientSecret = await createPaymentIntent({
+        email: v.email, name: v.name, phone: v.phone || undefined, address, items: cartItems(items), rateId: rate.id,
+      })
+
+      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        clientSecret,
+        confirmParams: {
+          return_url: returnUrl(),
+          payment_method_data: {
+            billing_details: {
+              name: v.name,
+              email: v.email,
+              phone: v.phone || '',
+              address: {
+                line1: v.address1,
+                line2: v.address2 || '',
+                city: v.city,
+                state: v.state || '',
+                postal_code: v.zip,
+                country: v.country,
+              },
+            },
+          },
+        },
+        redirect: 'if_required',
+      })
+      if (confirmError) throw new Error(confirmError.message || 'Payment failed. Please try again.')
+      if (!paymentIntent || !['succeeded', 'processing'].includes(paymentIntent.status)) {
+        throw new Error('Payment didn’t complete. Please try again.')
+      }
+      await handlePaymentSuccess(paymentIntent.id, {
+        email: v.email, name: v.name, phone: v.phone,
+        address1: v.address1, address2: v.address2, city: v.city, state: v.state, zip: v.zip, country: v.country,
+      })
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ─── Express checkout (Apple Pay / Google Pay / Link) ─────────────────────
+
+  function onExpressClick({ resolve }) {
+    // Collection flags (email, phone, shipping, countries) live on the
+    // element options — Stripe deprecated them on click's resolve(). A
+    // shipping rate is still required up front; the real ones replace this
+    // placeholder as soon as the wallet sends a shipping address.
+    resolve({ shippingRates: [{ id: 'pending', displayName: 'Shipping', amount: 0 }] })
+  }
+
+  async function onExpressShippingAddressChange({ address, resolve, reject }) {
+    try {
+      const next = await fetchRates({
+        city: address.city,
+        state: address.state,
+        zip: address.postal_code,
+        country: address.country,
+        phone: address.country !== 'US' ? PLACEHOLDER_PHONE : undefined,
+      }, items)
+      if (!next.length) return reject()
+      const shippingRates = next.map((r) => ({ id: r.id, displayName: rateLabel(r), amount: r.price }))
+      elements?.update({ amount: subtotal + next[0].price })
+      resolve({ shippingRates })
+    } catch {
+      reject()
+    }
+  }
+
+  function onExpressShippingRateChange({ shippingRate, resolve }) {
+    elements?.update({ amount: subtotal + shippingRate.amount })
+    resolve()
+  }
+
+  function onExpressCancel() {
+    // Put the amount back to what the card form shows.
+    elements?.update({ amount: subtotal + shippingCents })
+  }
+
+  async function onExpressConfirm(event) {
+    if (!stripe || !elements) return event.paymentFailed({ reason: 'fail' })
+    const billing = event.billingDetails ?? {}
+    const ship = event.shippingAddress ?? {}
+    const shipAddr = ship.address ?? {}
+    const rateId = event.shippingRate?.id
+    if (!rateId || rateId === 'pending') return event.paymentFailed({ reason: 'invalid_shipping_address' })
+
+    const saved = {
+      email: billing.email || '',
+      name: ship.name || billing.name || '',
+      phone: billing.phone || '',
+      address1: shipAddr.line1 || '',
+      address2: shipAddr.line2 || '',
+      city: shipAddr.city || '',
+      state: shipAddr.state || '',
+      zip: shipAddr.postal_code || '',
+      country: shipAddr.country || '',
+    }
+
+    setError(null)
+    setLoading(true)
+    try {
+      const { error: submitError } = await elements.submit()
+      if (submitError) throw new Error(submitError.message || 'Payment failed')
+
+      const clientSecret = await createPaymentIntent({
+        email: saved.email,
+        name: saved.name,
+        phone: saved.phone || undefined,
+        address: {
+          address1: saved.address1, address2: saved.address2, city: saved.city,
+          state: saved.state, zip: saved.zip, country: saved.country,
+        },
+        items: cartItems(items),
+        rateId,
+      })
+
+      // Billing details come from the wallet — don't override them.
+      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        clientSecret,
+        confirmParams: { return_url: returnUrl() },
+        redirect: 'if_required',
+      })
+      if (confirmError) throw new Error(confirmError.message || 'Payment failed')
+      if (!paymentIntent || !['succeeded', 'processing'].includes(paymentIntent.status)) {
+        throw new Error('Payment didn’t complete. Please try again.')
+      }
+      await handlePaymentSuccess(paymentIntent.id, saved)
+    } catch (err) {
+      event.paymentFailed({ reason: 'fail' })
+      setError(err.message || 'Payment failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+
+  if (confirmed) {
+    return (
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px' }}>
+        <div style={{ textAlign: 'center', padding: '40px 0' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+          {order ? (
+            <>
+              <p style={{ margin: '0 0 6px', color: '#555', fontSize: 15 }}>
+                Thank you, {order.name?.split(' ')[0] || 'friend'}!
+              </p>
+              <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
+                A confirmation has been sent to {order.email ?? email}
+              </p>
+            </>
+          ) : (
+            <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
+              Your payment went through — we're finalizing your order now. A confirmation will be sent to {email}.
+            </p>
+          )}
+          <a href="/" style={{ ...BTN, display: 'inline-block', textDecoration: 'none', padding: '14px 40px', width: 'auto' }}>
+            Back to shop
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  const payTotal = subtotal + shippingCents
+  // Link (Stripe's saved-card wallet) is left on: nothing here disables it.
+  // The email is passed as a default so Link can recognise returning
+  // customers, since the Payment Element doesn't collect email itself.
+  const linkEmail = validateField('email', email, country) ? '' : email.trim()
+  const paymentElementOptions = {
+    fields: { billingDetails: { name: 'never', email: 'never', phone: 'never', address: 'never' } },
+    defaultValues: { billingDetails: { email: linkEmail, name: name.trim() } },
+  }
+  const isUS = country === 'US'
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#f7f7f5', fontFamily: 'inherit' }}>
-      {/* Header */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <a href="/" style={{ textDecoration: 'none' }}>
-          <img src="/Blue hand-drawn symbol with _LAME_.png" alt="LAME" style={{ height: 32, display: 'block' }} />
-        </a>
-      </div>
+    <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px' }}>
+      <div className="co-layout">
 
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px', display: 'grid', gridTemplateColumns: step === 'confirmation' ? '1fr' : 'minmax(0,1fr) minmax(0,380px)', gap: 32, alignItems: 'start' }}>
-
-        {/* Left — form */}
-        <div>
-          {/* Progress */}
-          {step !== 'confirmation' && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 28, flexWrap: 'wrap' }}>
-              {progressLabels.map((label, i) => (
-                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
-                    color: i <= stepIndex - 1 ? '#0bf05f' : i > stepIndex ? '#ccc' : 'inherit',
-                  }}>
-                    {i === stepIndex ? <RainbowText text={label} /> : label}
-                  </span>
-                  {i < progressLabels.length - 1 && <span style={{ color: '#ccc', fontSize: 12 }}>›</span>}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Error (payment-step errors render inside PaymentStepForm instead) */}
-          {error && step !== 'payment' && (
-            <div style={{ background: '#fff0f0', border: '1px solid #fcc', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 14, color: '#c00', fontWeight: 600 }}>
-              {error}
-            </div>
-          )}
-
-          {/* Step: Details (contact + address, combined) */}
-          {step === 'details' && (
-            <form onSubmit={handleDetails} onInput={onDetailsInput} onAnimationStart={onDetailsAnimationStart} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <Field htmlFor="co-given-name" label="First name" error={fieldErrors.firstName}>
-                  <Input id="co-given-name" name="given-name" autoComplete="shipping given-name" value={firstName} onChange={e => setFirstName(e.target.value)} onBlur={() => onFieldBlur('firstName')} placeholder="Jane" required />
-                </Field>
-                <Field htmlFor="co-family-name" label="Last name" error={fieldErrors.lastName}>
-                  <Input id="co-family-name" name="family-name" autoComplete="shipping family-name" value={lastName} onChange={e => setLastName(e.target.value)} onBlur={() => onFieldBlur('lastName')} placeholder="Doe" required />
-                </Field>
-              </div>
-              <Field htmlFor="co-email" label="Email" error={fieldErrors.email}>
-                <Input type="email" id="co-email" name="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => onFieldBlur('email')} placeholder="jane@email.com" required />
-              </Field>
-              <Field htmlFor="co-country" label="Country">
-                <Select id="co-country" name="country" autoComplete="shipping country" value={country} onChange={e => applyCountry(e.target.value, true)}>
-                  {COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-                </Select>
-              </Field>
-              <Field htmlFor="co-address-line1" label="Street Address" error={fieldErrors.address1}>
-                <Input id="co-address-line1" name="address-line1" autoComplete="shipping address-line1" value={address1} onChange={e => setAddress1(e.target.value)} onBlur={() => onFieldBlur('address1')} placeholder="123 Main St" required />
-              </Field>
-              <Field htmlFor="co-address-line2" label="Apt, suite, etc. (optional)">
-                <Input id="co-address-line2" name="address-line2" autoComplete="shipping address-line2" value={address2} onChange={e => setAddress2(e.target.value)} placeholder="Apt 4B" />
-              </Field>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <Field htmlFor="co-city" label="City" error={fieldErrors.city}>
-                  <Input id="co-city" name="address-level2" autoComplete="shipping address-level2" value={city} onChange={e => setCity(e.target.value)} onBlur={() => onFieldBlur('city')} placeholder="Los Angeles" required />
-                </Field>
-                {country === 'US' ? (
-                  <Field htmlFor="co-state" label="State" error={fieldErrors.state}>
-                    <Select id="co-state" name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} onBlur={() => onFieldBlur('state')} required>
-                      <option value="">—</option>
-                      {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </Select>
-                  </Field>
-                ) : (
-                  <Field htmlFor="co-state" label="State / Province">
-                    <Input id="co-state" name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} placeholder="CA" />
-                  </Field>
-                )}
-                <Field htmlFor="co-postal-code" label="ZIP / Postal" error={fieldErrors.zip}>
-                  <Input id="co-postal-code" name="postal-code" autoComplete="shipping postal-code" inputMode={country === 'US' ? 'numeric' : undefined} value={zip} onChange={e => setZip(e.target.value)} onBlur={() => onFieldBlur('zip')} placeholder="90001" required />
-                </Field>
-              </div>
-              <Field htmlFor="co-tel" label={country !== 'US' ? 'Phone (required for international shipping)' : 'Phone (optional)'} error={fieldErrors.phone}>
-                <Input type="tel" id="co-tel" name="tel" autoComplete="shipping tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => onFieldBlur('phone')} placeholder="(555) 123-4567" required={country !== 'US'} />
-              </Field>
-              <button type="submit" style={{ ...BTN, opacity: loading ? 0.6 : 1 }} disabled={loading}>
-                {loading ? 'Checking...' : 'Continue to Shipping'}
-              </button>
-            </form>
-          )}
-
-          {/* Step: Shipping Method */}
-          {step === 'shipping' && (
-            <form onSubmit={handleShipping} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <button type="button" onClick={() => setStep('details')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, padding: 0, color: '#888', alignSelf: 'flex-start' }}>←</button>
-              {shippingRates.length === 0 ? (
-                <p style={{ color: '#888', fontSize: 14 }}>No shipping rates available for this address.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {shippingRates.map(rate => (
-                    <label key={rate.id} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '14px 16px', borderRadius: 12, border: `2px solid ${selectedRate === rate.id ? '#000' : '#e0e0e0'}`,
-                      cursor: 'pointer', background: '#fff', transition: 'border-color 0.15s',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <input type="radio" name="rate" value={rate.id} checked={selectedRate === rate.id} onChange={() => setSelectedRate(rate.id)} style={{ accentColor: '#000' }} />
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 700 }}>{rate.name}</div>
-                          {rate.description && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{rate.description}</div>}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 14, fontWeight: 700 }}>
-                        {rate.price === 0 ? 'FREE' : `$${(rate.price / 100).toFixed(2)}`}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-              <button type="submit" style={{ ...BTN, opacity: loading ? 0.6 : 1 }} disabled={loading || shippingRates.length === 0}>
-                {loading ? 'Saving...' : 'Continue to Payment'}
-              </button>
-            </form>
-          )}
-
-          {/* Step: Payment */}
-          {step === 'payment' && clientSecret && (
-            stripePromiseRef.current ? (
-              <Elements stripe={stripePromiseRef.current} options={{ clientSecret, appearance: STRIPE_APPEARANCE }}>
-                <PaymentStepForm
-                  total={total}
-                  defaultName={`${firstName} ${lastName}`.trim()}
-                  onBack={() => setStep('shipping')}
-                  onSuccess={handlePaymentSuccess}
-                />
-              </Elements>
-            ) : (
-              <p style={{ color: '#c00', fontSize: 14 }}>
-                Payments are unavailable right now. Please try again later.
-              </p>
-            )
-          )}
-
-          {/* Step: Confirmation */}
-          {step === 'confirmation' && (
-            <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-              {order ? (
-                <>
-                  <p style={{ margin: '0 0 6px', color: '#555', fontSize: 15 }}>
-                    Thank you, {order.name?.split(' ')[0] || 'friend'}!
-                  </p>
-                  <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
-                    A confirmation has been sent to {order.email ?? email}
-                  </p>
-                </>
-              ) : (
-                <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
-                  Your payment went through — we're finalizing your order now. A confirmation will be sent to {email}.
-                </p>
-              )}
-              <a href="/" style={{ ...BTN, display: 'inline-block', textDecoration: 'none', padding: '14px 40px', width: 'auto' }}>
-                Back to shop
-              </a>
+        {/* Mobile: compact, collapsible summary above the form */}
+        <div className="co-summary-bar" style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee' }}>
+          <button
+            type="button"
+            onClick={() => setSummaryOpen((o) => !o)}
+            aria-expanded={summaryOpen}
+            style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: '#111' }}
+          >
+            <span>{summaryOpen ? 'Hide' : 'Show'} order summary {summaryOpen ? '▴' : '▾'}</span>
+            <span>{money(payTotal)}</span>
+          </button>
+          {summaryOpen && (
+            <div style={{ padding: '0 16px 16px' }}>
+              <SummaryLines items={items} subtotal={subtotal} rate={rate} />
             </div>
           )}
         </div>
 
-        {/* Right — order summary */}
-        {step !== 'confirmation' && (
-          <div style={{ background: '#fff', borderRadius: 16, padding: 24, border: '1px solid #eee', position: 'sticky', top: 24 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#888' }}>
-              Order Summary
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-              {items.map((item, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
-                  <div>
-                    <span style={{ fontWeight: 700, color: hoodieColor(item.name) ?? '#111' }}>{item.name}</span>
-                    <span style={{ color: '#888', marginLeft: 6 }}>
-                      {item.size && `${item.size} · `}×{item.qty}
-                    </span>
-                  </div>
-                  <span style={{ fontWeight: 700 }}>${((item.price * item.qty) / 100).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ borderTop: '1px solid #eee', paddingTop: 14, display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700 }}>
-              <span>Total</span>
-              <span>${(total / 100).toFixed(2)}</span>
-            </div>
+        {/* Left — checkout */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Express wallets, hidden entirely if none are available */}
+          <div style={{ display: expressAvailable === false ? 'none' : 'block', visibility: expressAvailable ? 'visible' : 'hidden' }}>
+            <ExpressCheckoutElement
+              options={{
+                emailRequired: true,
+                phoneNumberRequired: true,
+                shippingAddressRequired: true,
+                allowedShippingCountries: COUNTRY_CODES,
+              }}
+              onReady={({ availablePaymentMethods }) => {
+                setExpressAvailable(Boolean(availablePaymentMethods && Object.values(availablePaymentMethods).some(Boolean)))
+              }}
+              onClick={onExpressClick}
+              onShippingAddressChange={onExpressShippingAddressChange}
+              onShippingRateChange={onExpressShippingRateChange}
+              onCancel={onExpressCancel}
+              onConfirm={onExpressConfirm}
+            />
           </div>
-        )}
-      </div>
+          {expressAvailable && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#aaa', fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              <span style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
+              or pay with card
+              <span style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
+            </div>
+          )}
 
-      {/* Mobile: stack summary above form */}
-      <style>{`
-        /* Real placeholder kept on the input for autofill heuristics; the
-           rainbow overlay draws the visible one. */
-        .lb-field::placeholder { color: transparent; }
-        /* No-op animation so onAnimationStart fires when a field is autofilled. */
-        @keyframes onAutoFillStart { from {} to {} }
-        .lb-field:-webkit-autofill { animation-name: onAutoFillStart; animation-duration: 1ms; }
-        /* Chrome forces visible text and a blue fill on autofilled inputs;
-           keep the input transparent so only the overlay shows. */
-        input.lb-field:-webkit-autofill {
-          -webkit-text-fill-color: transparent;
-          box-shadow: 0 0 0 1000px #fff inset;
-        }
-        @media (max-width: 680px) {
-          div[style*="grid-template-columns"] {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
+          <form onSubmit={handlePay} onInput={onFormInput} onAnimationStart={onFormAnimationStart} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {returning && (
+              <div style={{ fontSize: 12, color: '#888', marginBottom: -12 }}>
+                Not you?{' '}
+                <button type="button" onClick={clearSaved} style={{ background: 'none', border: 'none', padding: 0, color: '#111', textDecoration: 'underline', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                  Clear
+                </button>
+              </div>
+            )}
+            {collapsed ? (
+              <div style={{ background: '#fff', border: '1.5px solid #e0e0e0', borderRadius: 10, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: '#333' }}>
+                  {shippingSummary({ name, address1, address2, city, state, zip, country, email })}
+                </p>
+                <button type="button" onClick={() => setCollapsed(false)} style={{ background: 'none', border: 'none', padding: 0, color: '#111', textDecoration: 'underline', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', flexShrink: 0 }}>
+                  Edit
+                </button>
+              </div>
+            ) : (<>
+            <Field label="Email" htmlFor="co-email" error={fieldErrors.email}>
+              <Input type="email" id="co-email" name="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => onFieldBlur('email')} placeholder="jane@email.com" required />
+            </Field>
+            <Field label="Full name" htmlFor="co-name" error={fieldErrors.name}>
+              <Input id="co-name" name="name" autoComplete="shipping name" value={name} onChange={e => setName(e.target.value)} onBlur={() => onFieldBlur('name')} placeholder="Jane Doe" required />
+            </Field>
+            <Field label="Country" htmlFor="co-country">
+              <Select id="co-country" name="country" autoComplete="shipping country" value={country} onChange={e => applyCountry(e.target.value, true)}>
+                {COUNTRIES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+              </Select>
+            </Field>
+            <Field label="Street Address" htmlFor="co-address-line1" error={fieldErrors.address1}>
+              <Input id="co-address-line1" name="address-line1" autoComplete="shipping address-line1" value={address1} onChange={e => setAddress1(e.target.value)} onBlur={() => onFieldBlur('address1')} placeholder="123 Main St" required />
+            </Field>
+            <Field label="Apt, suite, etc. (optional)" htmlFor="co-address-line2">
+              <Input id="co-address-line2" name="address-line2" autoComplete="shipping address-line2" value={address2} onChange={e => setAddress2(e.target.value)} placeholder="Apt 4B" />
+            </Field>
+            <div className="co-row3">
+              <Field label="City" htmlFor="co-city" error={fieldErrors.city}>
+                <Input id="co-city" name="address-level2" autoComplete="shipping address-level2" value={city} onChange={e => setCity(e.target.value)} onBlur={() => onFieldBlur('city')} placeholder="Los Angeles" required />
+              </Field>
+              {isUS ? (
+                <Field label="State" htmlFor="co-state" error={fieldErrors.state}>
+                  <Select id="co-state" name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} onBlur={() => onFieldBlur('state')} required>
+                    <option value="">—</option>
+                    {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </Select>
+                </Field>
+              ) : (
+                <Field label="State / Province" htmlFor="co-state">
+                  <Input id="co-state" name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} placeholder="Province" />
+                </Field>
+              )}
+              <Field label="ZIP / Postal" htmlFor="co-postal-code" error={fieldErrors.zip}>
+                <Input id="co-postal-code" name="postal-code" autoComplete="shipping postal-code" inputMode={isUS ? 'numeric' : undefined} value={zip} onChange={e => setZip(e.target.value)} onBlur={() => onFieldBlur('zip')} placeholder="90001" required />
+              </Field>
+            </div>
+            {!isUS && (
+              <Field label="Phone (required for international shipping)" htmlFor="co-tel" error={fieldErrors.phone}>
+                <Input type="tel" id="co-tel" name="tel" autoComplete="shipping tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => onFieldBlur('phone')} placeholder="+44 20 7946 0958" required />
+              </Field>
+            )}
+            </>)}
+
+            {/* Shipping method */}
+            {ratesLoading && <p style={{ margin: 0, fontSize: 13, color: '#888' }}>Calculating shipping…</p>}
+            {!ratesLoading && ratesError && <p style={{ margin: 0, fontSize: 13, color: '#c00', fontWeight: 600 }}>{ratesError}</p>}
+            {!ratesLoading && rates.length === 1 && (
+              <p style={{ margin: 0, fontSize: 13, color: '#555' }}>
+                Shipping: {rateLabel(rates[0])} · <strong>{rates[0].price === 0 ? 'FREE' : money(rates[0].price)}</strong>
+              </p>
+            )}
+            {!ratesLoading && rates.length > 1 && (
+              <Field label="Shipping">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {rates.map(r => (
+                    <label key={r.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${selectedRate === r.id ? '#000' : '#e0e0e0'}`,
+                      cursor: 'pointer', background: '#fff', fontSize: 14,
+                    }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input type="radio" name="rate" value={r.id} checked={selectedRate === r.id} onChange={() => setSelectedRate(r.id)} style={{ accentColor: '#000' }} />
+                        <span>
+                          <span style={{ fontWeight: 700 }}>{rateLabel(r)}</span>
+                          {r.description && <span style={{ color: '#888', marginLeft: 6, fontSize: 12 }}>{r.description}</span>}
+                        </span>
+                      </span>
+                      <span style={{ fontWeight: 700 }}>{r.price === 0 ? 'FREE' : money(r.price)}</span>
+                    </label>
+                  ))}
+                </div>
+              </Field>
+            )}
+
+            <Field label="Card details">
+              <PaymentElement options={paymentElementOptions} />
+            </Field>
+
+            {error && <p style={{ margin: 0, fontSize: 13, color: '#c00', fontWeight: 600 }}>{error}</p>}
+
+            <button type="submit" style={{ ...BTN, opacity: loading || !stripe ? 0.6 : 1 }} disabled={loading || !stripe}>
+              {loading ? 'Processing…' : `Pay ${money(payTotal)}`}
+            </button>
+            <p style={{ margin: 0, fontSize: 12, color: '#888', textAlign: 'center' }}>
+              🔒 Payments are processed securely by Stripe
+            </p>
+          </form>
+        </div>
+
+        {/* Right — order summary (desktop) */}
+        <div className="co-summary-side" style={{ background: '#fff', borderRadius: 16, padding: 24, border: '1px solid #eee', position: 'sticky', top: 24 }}>
+          <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#888' }}>
+            Order Summary
+          </h3>
+          <SummaryLines items={items} subtotal={subtotal} rate={rate} />
+        </div>
+      </div>
     </div>
   )
+}
+
+/** "Shipping to Jane Doe, 123 Main St, Los Angeles, CA 90001 · jane@email.com" */
+function shippingSummary({ name, address1, address2, city, state, zip, country, email }) {
+  const countryName = country !== 'US' ? COUNTRIES.find(([code]) => code === country)?.[1] : null
+  const parts = [name, [address1, address2].filter(Boolean).join(', '), city, [state, zip].filter(Boolean).join(' '), countryName]
+  return `Shipping to ${parts.filter(Boolean).join(', ')} · ${email}`
+}
+
+function cartItems(items) {
+  return items.map((i) => ({ variantId: i.variantId, qty: i.qty }))
 }
