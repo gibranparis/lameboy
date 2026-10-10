@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from '@/contexts/CartContext'
+import EmailChips from '@/components/EmailChips'
 import { getStripePromise } from '@/lib/stripe-client'
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { COUNTRIES, US_STATES } from '@/lib/countries'
@@ -100,7 +101,7 @@ function Input({ style, value, onChange, ...props }) {
         value={value}
         onChange={onChange}
         style={{ ...INPUT, color: 'transparent', caretColor: '#555', borderColor: focused ? '#000' : '#e0e0e0', ...style }}
-        onFocus={() => setFocused(true)}
+        onFocus={(e) => { setFocused(true); props.onFocus?.(e) }}
         onBlur={(e) => { setFocused(false); props.onBlur?.(e) }}
       />
     </div>
@@ -376,6 +377,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
   const [country, setCountry] = useState(() => geoDefaults(geoCountry, geoRegion).country)
   const [phone, setPhone] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
+  const [emailFocused, setEmailFocused] = useState(false)
   const [returning, setReturning] = useState(false)
   // Saved complete address → contact + address render as one summary card.
   const [collapsed, setCollapsed] = useState(false)
@@ -939,9 +941,16 @@ function CheckoutPage({ geoCountry, geoRegion }) {
                 </button>
               </div>
             ) : (<>
-            <Field label="Email" htmlFor="co-email" error={fieldErrors.email}>
-              <Input type="email" id="co-email" name="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => onFieldBlur('email')} placeholder="jane@email.com" required />
-            </Field>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <Field label="Email" htmlFor="co-email" error={fieldErrors.email}>
+                <Input type="email" id="co-email" name="email" autoComplete="email" value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  onFocus={() => setEmailFocused(true)}
+                  onBlur={() => { setEmailFocused(false); onFieldBlur('email') }}
+                  placeholder="jane@email.com" required />
+              </Field>
+              <EmailChips value={email} onChange={setEmail} focused={emailFocused} theme="light" />
+            </div>
             <Field label="Full name" htmlFor="co-name" error={fieldErrors.name}>
               <Input id="co-name" name="name" autoComplete="shipping name" value={name} onChange={e => setName(e.target.value)} onBlur={() => onFieldBlur('name')} placeholder="Jane Doe" required />
             </Field>

@@ -4,6 +4,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { clearProfile, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
+import EmailChips from '@/components/EmailChips'
 
 const CHAKRA_COLORS = [
   '#FF0000', // Root – red
@@ -38,6 +39,7 @@ function ChakraText({ text }) {
 function ChakraInput({
   inputRef, type, required, value, onChange, placeholder,
   autoComplete, name, id, inputMode, autoCapitalize, autoCorrect, spellCheck,
+  onFocus, onBlur,
 }) {
   const localRef = useRef(null)
   const ref = inputRef || localRef
@@ -57,6 +59,8 @@ function ChakraInput({
         required={required}
         value={value}
         onChange={onChange}
+        onFocus={onFocus}
+        onBlur={onBlur}
         placeholder={placeholder}
         autoComplete={autoComplete}
         inputMode={inputMode}
@@ -144,6 +148,8 @@ export default function NewsletterForm({ open, onClose }) {
   const [visible, setVisible] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(/** @type {Record<string,string>} */ ({}))
+  const [joinEmailFocused, setJoinEmailFocused] = useState(false)
+  const [editEmailFocused, setEditEmailFocused] = useState(false)
   const panelRef = useRef(null)
   const nameRef = useRef(null)
   const profile = useProfile()
@@ -293,23 +299,55 @@ export default function NewsletterForm({ open, onClose }) {
               autoComplete="on"
             >
               {EDIT_FIELDS.map(({ key, label, type, placeholder, autoComplete, fieldName, id, inputMode, autoCapitalize, autoCorrect, spellCheck }) => (
-                <label key={key} htmlFor={id} className="nl-label">
-                  <span>{label}</span>
-                  <ChakraInput
-                    id={id}
-                    name={fieldName}
-                    type={type}
-                    required={key === 'name' || key === 'email'}
-                    value={draft[key] ?? ''}
-                    onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
-                    placeholder={placeholder}
-                    autoComplete={autoComplete}
-                    inputMode={inputMode}
-                    autoCapitalize={autoCapitalize}
-                    autoCorrect={autoCorrect}
-                    spellCheck={spellCheck}
-                  />
-                </label>
+                <React.Fragment key={key}>
+                  {key === 'email' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <label htmlFor={id} className="nl-label">
+                        <span>{label}</span>
+                        <ChakraInput
+                          id={id}
+                          name={fieldName}
+                          type={type}
+                          required
+                          value={draft[key] ?? ''}
+                          onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                          onFocus={() => setEditEmailFocused(true)}
+                          onBlur={() => setEditEmailFocused(false)}
+                          placeholder={placeholder}
+                          autoComplete={autoComplete}
+                          inputMode={inputMode}
+                          autoCapitalize={autoCapitalize}
+                          autoCorrect={autoCorrect}
+                          spellCheck={spellCheck}
+                        />
+                      </label>
+                      <EmailChips
+                        value={draft[key] ?? ''}
+                        onChange={(v) => setDraft((d) => ({ ...d, email: v }))}
+                        focused={editEmailFocused}
+                        theme="dark"
+                      />
+                    </div>
+                  ) : (
+                    <label htmlFor={id} className="nl-label">
+                      <span>{label}</span>
+                      <ChakraInput
+                        id={id}
+                        name={fieldName}
+                        type={type}
+                        required={key === 'name'}
+                        value={draft[key] ?? ''}
+                        onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                        placeholder={placeholder}
+                        autoComplete={autoComplete}
+                        inputMode={inputMode}
+                        autoCapitalize={autoCapitalize}
+                        autoCorrect={autoCorrect}
+                        spellCheck={spellCheck}
+                      />
+                    </label>
+                  )}
+                </React.Fragment>
               ))}
               <button type="submit" className="nl-submit">Save</button>
             </form>
@@ -356,23 +394,28 @@ export default function NewsletterForm({ open, onClose }) {
             />
           </label>
 
-          <label htmlFor="nl-email" className="nl-label">
-            <span>Email</span>
-            <ChakraInput
-              id="nl-email"
-              name="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@email.com"
-              autoComplete="email"
-              inputMode="email"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-          </label>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <label htmlFor="nl-email" className="nl-label">
+              <span>Email</span>
+              <ChakraInput
+                id="nl-email"
+                name="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onFocus={() => setJoinEmailFocused(true)}
+                onBlur={() => setJoinEmailFocused(false)}
+                placeholder="you@email.com"
+                autoComplete="email"
+                inputMode="email"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </label>
+            <EmailChips value={email} onChange={setEmail} focused={joinEmailFocused} theme="dark" />
+          </div>
 
           <label htmlFor="nl-tel" className="nl-label">
             <span>Phone</span>
