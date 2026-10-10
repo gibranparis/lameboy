@@ -39,7 +39,7 @@ function ChakraText({ text }) {
 function ChakraInput({
   inputRef, type, required, value, onChange, placeholder,
   autoComplete, name, id, inputMode, autoCapitalize, autoCorrect, spellCheck,
-  onFocus, onBlur,
+  onFocus, onBlur, onKeyDown,
 }) {
   const localRef = useRef(null)
   const ref = inputRef || localRef
@@ -61,6 +61,7 @@ function ChakraInput({
         onChange={onChange}
         onFocus={onFocus}
         onBlur={onBlur}
+        onKeyDown={onKeyDown}
         placeholder={placeholder}
         autoComplete={autoComplete}
         inputMode={inputMode}
@@ -150,6 +151,8 @@ export default function NewsletterForm({ open, onClose }) {
   const [draft, setDraft] = useState(/** @type {Record<string,string>} */ ({}))
   const [joinEmailFocused, setJoinEmailFocused] = useState(false)
   const [editEmailFocused, setEditEmailFocused] = useState(false)
+  const [joinEmailAutofilled, setJoinEmailAutofilled] = useState(false)
+  const [editEmailAutofilled, setEditEmailAutofilled] = useState(false)
   const panelRef = useRef(null)
   const nameRef = useRef(null)
   const profile = useProfile()
@@ -200,7 +203,10 @@ export default function NewsletterForm({ open, onClose }) {
 
   function onJoinInput(e) { syncJoinFromForm(e.currentTarget) }
   function onJoinAnimationStart(e) {
-    if (e.animationName === 'ciAutofill') syncJoinFromForm(e.currentTarget)
+    if (e.animationName === 'ciAutofill') {
+      if (e.target.name === 'email') setJoinEmailAutofilled(true)
+      syncJoinFromForm(e.currentTarget)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -252,7 +258,10 @@ export default function NewsletterForm({ open, onClose }) {
 
   function onEditInput(e) { syncEditFromForm(e.currentTarget) }
   function onEditAnimationStart(e) {
-    if (e.animationName === 'ciAutofill') syncEditFromForm(e.currentTarget)
+    if (e.animationName === 'ciAutofill') {
+      if (e.target.name === 'email') setEditEmailAutofilled(true)
+      syncEditFromForm(e.currentTarget)
+    }
   }
 
   const saveEdit = (e) => {
@@ -313,6 +322,7 @@ export default function NewsletterForm({ open, onClose }) {
                           onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
                           onFocus={() => setEditEmailFocused(true)}
                           onBlur={() => setEditEmailFocused(false)}
+                          onKeyDown={() => setEditEmailAutofilled(false)}
                           placeholder={placeholder}
                           autoComplete={autoComplete}
                           inputMode={inputMode}
@@ -325,6 +335,7 @@ export default function NewsletterForm({ open, onClose }) {
                         value={draft[key] ?? ''}
                         onChange={(v) => setDraft((d) => ({ ...d, email: v }))}
                         focused={editEmailFocused}
+                        autofilled={editEmailAutofilled}
                         theme="dark"
                       />
                     </div>
@@ -406,6 +417,7 @@ export default function NewsletterForm({ open, onClose }) {
                 onChange={(e) => setEmail(e.target.value)}
                 onFocus={() => setJoinEmailFocused(true)}
                 onBlur={() => setJoinEmailFocused(false)}
+                onKeyDown={() => setJoinEmailAutofilled(false)}
                 placeholder="you@email.com"
                 autoComplete="email"
                 inputMode="email"
@@ -414,7 +426,7 @@ export default function NewsletterForm({ open, onClose }) {
                 spellCheck={false}
               />
             </label>
-            <EmailChips value={email} onChange={setEmail} focused={joinEmailFocused} theme="dark" />
+            <EmailChips value={email} onChange={setEmail} focused={joinEmailFocused} autofilled={joinEmailAutofilled} theme="dark" />
           </div>
 
           <label htmlFor="nl-tel" className="nl-label">
