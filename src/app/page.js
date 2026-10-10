@@ -23,7 +23,7 @@ const NewsletterForm = nextDynamic(() => import('@/components/NewsletterForm'), 
 const MusicPlayerButton = nextDynamic(() => import('@/components/MusicPlayerButton'), { ssr: false })
 
 const RUNNER_H = 14
-const LOADER_MS = 1400
+const LOADER_MS = 900 // black orb + "Let All Mankind Evolve" before the shop
 // Splash video is off by default; enable by setting NEXT_PUBLIC_SPLASH_VIDEO=on and redeploying
 const SPLASH_VIDEO_ON = process.env.NEXT_PUBLIC_SPLASH_VIDEO === 'on'
 
@@ -199,22 +199,17 @@ export default function Page() {
     })
   }, [handleEnterShop, inGate])
 
-  // Auto-advance through color sequence.
-  // RED holds until the next clock-second boundary (min 600ms), then each subsequent
-  // color (orange→yellow→green→blue→purple→pink) fires every 333ms so the total
-  // time to black stays the same as the original 3-step sequence (~3 s).
-  const STEP_MS = 333
+  // Auto-advance through the colour sequence: RED holds a touch longer so the
+  // press registers, then orange→yellow→green→blue→purple→pink every STEP_MS,
+  // then black (~1.5 s from press to black).
+  const RED_MS = 260
+  const STEP_MS = 200
   useEffect(() => {
     if (!sequenceActive || !inGate || orbHeld) return
 
     let timer
-    // ms until the next whole-second boundary
-    const msToNextSec = 1000 - (Date.now() % 1000)
-
     if (gateStep === 1) {
-      // RED → ORANGE at next second boundary (ensure at least 600ms so RED doesn't feel rushed)
-      const redDelay = msToNextSec < 600 ? msToNextSec + 1000 : msToNextSec
-      timer = setTimeout(() => setGateStep(2), redDelay)
+      timer = setTimeout(() => setGateStep(2), RED_MS)
     } else if (gateStep >= 2 && gateStep <= 6) {
       // ORANGE → YELLOW → GREEN → BLUE → PURPLE, each holding for STEP_MS
       timer = setTimeout(() => setGateStep((s) => s + 1), STEP_MS)

@@ -108,6 +108,7 @@ export default function OrbShell({
   const SCALE_K = 420 // scale stiffness
   const SCALE_C = 15 // scale damping (≈0.37: a lively bounce)
   const PRESS_SCALE = 0.9
+  const ARRIVE_PX = 6 // released orb counts as home within this distance
   const LIFT_SCALE = 1.06
   const canDrag = mode === 'gate' && !loaderShow && !isProceeding
 
@@ -151,6 +152,13 @@ export default function OrbShell({
       }
       m.vs += (-SCALE_K * (m.s - m.ts) - SCALE_C * m.vs) * dt
       m.s += m.vs * dt
+      // Start whatever waits on the release as the orb snaps into place,
+      // rather than after its bounce has fully died out
+      if (onSettle.current && !m.held && Math.hypot(m.x, m.y) < ARRIVE_PX) {
+        const done = onSettle.current
+        onSettle.current = null
+        done()
+      }
       const settled =
         !m.held &&
         Math.hypot(m.x, m.y) < 0.5 && Math.hypot(m.vx, m.vy) < 10 &&
@@ -194,7 +202,7 @@ export default function OrbShell({
   const prevStep = useRef(gateStep)
   useEffect(() => {
     if (!inGateLike) return
-    if (gateStep !== prevStep.current && gateStep >= 1) kickScale(1.1)
+    if (gateStep !== prevStep.current && gateStep >= 1) kickScale(0.8)
     prevStep.current = gateStep
   }, [gateStep, inGateLike, kickScale])
 
@@ -447,7 +455,7 @@ export default function OrbShell({
 
   // Chakra steps blend into each other; on arrival in the shop the black orb
   // blooms back into its colours instead of cutting
-  const GATE_FADE_MS = 220
+  const GATE_FADE_MS = 150
   const LANDING_FADE_MS = 500
   const [landing, setLanding] = useState(false)
   const wasGateLike = useRef(inGateLike)
