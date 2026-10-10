@@ -369,7 +369,7 @@ export default function CheckoutFlow() {
         </a>
       </div>
 
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,380px)', gap: 32, alignItems: 'start' }}>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px', display: 'grid', gridTemplateColumns: step === 'confirmation' ? '1fr' : 'minmax(0,1fr) minmax(0,380px)', gap: 32, alignItems: 'start' }}>
 
         {/* Left — form */}
         <div>
