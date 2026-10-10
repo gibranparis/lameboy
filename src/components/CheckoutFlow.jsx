@@ -197,7 +197,14 @@ const COUNTRY_CODES = COUNTRIES.map(([code]) => code)
 const PLACEHOLDER_PHONE = '0000000000'
 
 const money = (cents) => `$${(cents / 100).toFixed(2)}`
-const rateLabel = (rate) => (rate.name && rate.name !== rate.provider ? `${rate.provider} ${rate.name}` : rate.name || rate.provider)
+function rateLabel(rate) {
+  const base = rate.name && rate.name !== rate.provider ? `${rate.provider} ${rate.name}` : rate.name || rate.provider
+  if (rate.estimatedDays) {
+    const d = rate.estimatedDays
+    return `${base} · arrives ${d} day${d === 1 ? '' : 's'} after it ships`
+  }
+  return base
+}
 
 async function fetchRates(destination, items, signal) {
   const res = await fetch('/api/shipping/rates', {
@@ -799,12 +806,12 @@ function CheckoutPage({ geoCountry, geoRegion }) {
                 Thank you, {order.name?.split(' ')[0] || 'friend'}!
               </p>
               <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
-                A confirmation has been sent to {order.email ?? email}
+                A receipt is on its way to {order.email ?? email}
               </p>
             </>
           ) : (
             <p style={{ margin: '0 0 32px', color: '#888', fontSize: 14 }}>
-              Your payment went through — we're finalizing your order now. A confirmation will be sent to {email}.
+              Your payment went through — we're finalizing your order now. A receipt is on its way to {email}.
             </p>
           )}
           <p style={{ margin: '0 0 24px', color: '#888', fontSize: 14 }}>
@@ -1018,7 +1025,6 @@ function CheckoutPage({ geoCountry, geoRegion }) {
                         <input type="radio" name="rate" value={r.id} checked={selectedRate === r.id} onChange={() => setSelectedRate(r.id)} style={{ accentColor: '#000' }} />
                         <span>
                           <span style={{ fontWeight: 700 }}>{rateLabel(r)}</span>
-                          {r.description && <span style={{ color: '#888', marginLeft: 6, fontSize: 12 }}>{r.description}</span>}
                         </span>
                       </span>
                       <span style={{ fontWeight: 700 }}>{r.price === 0 ? 'FREE' : money(r.price)}</span>
