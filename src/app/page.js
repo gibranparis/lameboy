@@ -16,6 +16,7 @@ const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr:
 // Shop
 import ShopGrid from '@/components/ShopGrid'
 import { isSignedIn, useProfile } from '@/lib/profile'
+import { useDragSnap } from '@/lib/dragSnap'
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
@@ -269,6 +270,14 @@ export default function Page() {
   const [newsletterOpen, setNewsletterOpen] = useState(false)
   const heartFilled = isSignedIn(useProfile())
 
+  // Top-row controls drag and spring home, then act like a tap
+  const ipodRef = useRef(null)
+  const logoRef = useRef(null)
+  const heartRef = useRef(null)
+  useDragSnap(ipodRef, { touchAction: 'none' }, [inShop])
+  useDragSnap(logoRef, { touchAction: 'none' }, [inShop])
+  useDragSnap(heartRef, { touchAction: 'none' }, [inShop, loaderShow])
+
   useEffect(() => {
     const root = document.documentElement
     if (checkoutOpen) {
@@ -433,7 +442,7 @@ export default function Page() {
               }}
             >
               {/* Left: iPod / music player */}
-              <div style={{
+              <div ref={ipodRef} style={{
                 pointerEvents: 'auto',
                 width: 'var(--header-ctrl, 64px)',
                 height: 'var(--header-ctrl, 64px)',
@@ -446,6 +455,7 @@ export default function Page() {
               {/* Center: LAME logo — toggles the music/video player's
                   visibility only; playback keeps running either way */}
               <button
+                ref={logoRef}
                 aria-label="Show/hide player"
                 onClick={() => {
                   window.dispatchEvent(new Event('lb:toggle-player-visibility'))
@@ -482,7 +492,7 @@ export default function Page() {
               {/* Right: heart / newsletter */}
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 {!loaderShow && (
-                  <div style={{ pointerEvents: 'auto' }}>
+                  <div ref={heartRef} style={{ pointerEvents: 'auto' }}>
                     <HeartBeatButton
                       className="heart-submit"
                       style={{ position: 'relative', top: 'auto', right: 'auto', contain: 'none' }}
