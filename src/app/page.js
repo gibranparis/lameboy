@@ -6,7 +6,6 @@ export const dynamic = 'force-static'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import nextDynamic from 'next/dynamic'
 import { PRODUCTS, fetchProducts } from '@/lib/products'
-import { CONTACT_EMAIL } from '@/lib/store-info'
 
 import OrbShell from '@/components/OrbShell'
 import SplashVideoBackground from '@/components/SplashVideoBackground'
@@ -535,6 +534,9 @@ export default function Page() {
               display: 'flex',
               flexDirection: 'column',
               minHeight: '100dvh',
+              // No global border-box: without this, paddingTop adds onto 100dvh
+              // and the page always scrolls by one header height.
+              boxSizing: 'border-box',
               // Reveal: product grid scales up from center
               opacity: shopReady ? 1 : 0,
               transform: shopReady ? 'none' : 'scale(0.94) translateY(20px)',
@@ -555,19 +557,6 @@ export default function Page() {
               {!loaderShow && (
                 <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
               )}
-              <footer style={{ padding: '20px 16px 32px', textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 11, color: 'rgba(128,128,128,0.6)', letterSpacing: '0.04em' }}>
-                  <a href="/shipping" style={{ color: 'inherit', textDecoration: 'none' }}>Shipping</a>
-                  {' · '}
-                  <a href="/returns" style={{ color: 'inherit', textDecoration: 'none' }}>Sales policy</a>
-                  {' · '}
-                  <a href="/privacy" style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</a>
-                  {' · '}
-                  <a href="/terms" style={{ color: 'inherit', textDecoration: 'none' }}>Terms</a>
-                  {' · '}
-                  <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'inherit', textDecoration: 'none' }}>Contact</a>
-                </p>
-              </footer>
             </div>
           </main>
 

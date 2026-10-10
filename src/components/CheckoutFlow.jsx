@@ -1053,6 +1053,12 @@ function CheckoutPage({ geoCountry, geoRegion }) {
             {error && <p style={{ margin: 0, fontSize: 13, color: '#c00', fontWeight: 600 }}>{error}</p>}
 
             <SalesFinalLine />
+            <p style={{ margin: 0, fontSize: 11, color: '#999', textAlign: 'center', letterSpacing: '0.02em' }}>
+              By paying you agree to our{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Terms</a>
+              {' and '}
+              <a href="/returns" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Sales policy</a>
+            </p>
             <button type="submit" style={{ ...BTN, opacity: loading || !stripe ? 0.6 : 1 }} disabled={loading || !stripe}>
               {loading ? 'Processing…' : `Pay ${money(payTotal)}`}
             </button>
