@@ -1,6 +1,6 @@
 // src/app/api/shipping/rates/route.js
-// Live shipping rates. Used by both the address step of checkout (full
-// address) and the cart drawer's lightweight shipping estimate (just ZIP +
+// Live shipping rates. Used by both checkout (full address, or a partial
+// one from an Apple Pay / Google Pay shipping-address change) and the cart drawer's lightweight shipping estimate (just ZIP +
 // country) — Shippo tolerates a partial "reference" address fine, it's just
 // less accurate than a full one.
 import { NextResponse } from 'next/server'
@@ -21,9 +21,6 @@ export async function POST(req) {
     // ZIP-only estimate shouldn't force collecting one just for a preview.
     const isFullAddress = Boolean(destination.address1 && destination.city)
     if (isFullAddress && destination.country !== 'US' && !destination.phone) {
-      return NextResponse.json({ error: 'A phone number is required for international shipping' }, { status: 400 })
-    }
-    if (destination.country !== 'US' && !destination.phone) {
       return NextResponse.json({ error: 'A phone number is required for international shipping' }, { status: 400 })
     }
     if (!items.length) {

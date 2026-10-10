@@ -50,6 +50,7 @@ async function handlePaymentSucceeded(paymentIntent) {
         state: md.address_state || null,
         zip: md.address_zip,
         country: md.address_country,
+        phone: md.phone || null,
       },
       shipping_carrier: md.shipping_carrier || null,
       shipping_service: md.shipping_service || null,

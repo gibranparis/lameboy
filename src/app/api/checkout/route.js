@@ -1,11 +1,14 @@
 // src/app/api/checkout/route.js
-// Creates the PaymentIntent the payment step mounts the Stripe Payment
-// Element against. Never trusts client-sent prices: item prices come from
+// Creates the PaymentIntent at Pay time (the checkout page runs Stripe
+// Elements in deferred-intent mode, so nothing exists until the customer
+// pays — by card or via Apple Pay / Google Pay / Link). Never trusts client-sent prices: item prices come from
 // Supabase and the shipping cost comes from re-fetching the chosen Shippo
 // rate by id. Nothing is written to the `orders` table here — that only
 // ever happens in the payment_intent.succeeded webhook, so the cart + address
 // this request validated is carried forward as PaymentIntent metadata for
-// the webhook to read back.
+// the webhook to read back. The address in metadata is the full one sent
+// here — express-checkout rates are quoted from a partial wallet address,
+// so nothing downstream should read the address off the Shippo shipment.
 import { NextResponse } from 'next/server'
 import { getVariantsByIds } from '@/lib/supabase'
 import { getRateById } from '@/lib/shippo'
@@ -15,7 +18,7 @@ import { encodeItems } from '@/lib/order-metadata'
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}))
-    const { email, name, address, items, rateId } = body ?? {}
+    const { email, name, phone, address, items, rateId } = body ?? {}
 
     if (!email || !name) {
       return NextResponse.json({ error: 'Contact info is required' }, { status: 400 })
@@ -65,6 +68,7 @@ export async function POST(req) {
       automatic_payment_methods: { enabled: true },
       shipping: {
         name,
+        phone: phone || undefined,
         address: {
           line1: address.address1,
           line2: address.address2 || '',
@@ -77,6 +81,7 @@ export async function POST(req) {
       metadata: {
         email,
         name,
+        phone: phone || '',
         address_line1: address.address1,
         address_line2: address.address2 || '',
         address_city: address.city,
