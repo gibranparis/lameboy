@@ -55,10 +55,11 @@ export default function PrivacyPage() {
       <section style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', marginBottom: 8 }}>Device-Local Storage</h2>
         <p style={{ fontSize: 15, lineHeight: 1.7, color: '#222', margin: 0 }}>
-          If you fill out the newsletter form, your name, email, and phone are saved
-          locally on your device (localStorage) so checkout can prefill them for you.
-          This data never leaves your device except when you place an order. Tapping
-          the heart icon on the shop clears it.
+          To speed up checkout, your name, email, phone and shipping address are saved
+          in your own browser (localStorage) when you join the list or complete an order.
+          They stay on that device until you sign out: tap the heart, then &ldquo;sign out&rdquo;.
+          Joining the list also sends your name, email and phone to us so we can contact you.
+          We never store card details; Stripe handles those.
         </p>
       </section>
 
