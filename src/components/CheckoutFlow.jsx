@@ -280,7 +280,7 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
 
   useEffect(() => {
     if (!options && cartReady && total > 0) {
-      setOptions({ mode: 'payment', amount: total, currency: 'usd', appearance: STRIPE_APPEARANCE })
+      setOptions({ mode: 'payment', amount: total, currency: 'usd', paymentMethodTypes: ['card', 'link'], appearance: STRIPE_APPEARANCE })
     }
   }, [options, cartReady, total])
 
@@ -392,6 +392,9 @@ function CheckoutPage({ geoCountry, geoRegion }) {
 
   // Express checkout
   const [expressAvailable, setExpressAvailable] = useState(null)
+  // Card form accordion: collapsed by default when wallets are available
+  const [cardOpen, setCardOpen] = useState(false)
+  const cardFormRef = useRef(null)
 
   const fieldValues = { email, name, address1, city, state, zip, phone }
   const countryRef = useRef(country)
@@ -566,6 +569,21 @@ function CheckoutPage({ geoCountry, geoRegion }) {
     if (elements && subtotal > 0) elements.update({ amount: subtotal + shippingCents })
   }, [elements, subtotal, shippingCents])
 
+  // No wallets available → open card form automatically.
+  useEffect(() => {
+    if (expressAvailable === false) setCardOpen(true)
+  }, [expressAvailable])
+
+  // Focus the first empty field whenever the card form opens.
+  useEffect(() => {
+    if (!cardOpen || !cardFormRef.current) return
+    const names = ['email', 'name', 'address-line1', 'address-level2', 'postal-code']
+    for (const n of names) {
+      const el = cardFormRef.current.elements.namedItem(n)
+      if (el && !el.value.trim()) { el.focus(); break }
+    }
+  }, [cardOpen])
+
   async function handlePaymentSuccess(intentId, saved) {
     setPaymentIntentId(intentId)
     // Buying counts as joining: remember what was actually used (fills the
@@ -604,9 +622,13 @@ function CheckoutPage({ geoCountry, geoRegion }) {
     setFieldErrors(errors)
     if (Object.keys(errors).length) {
       setCollapsed(false)
+      setCardOpen(true)
       return setError('Please fix the highlighted fields')
     }
-    if (!rate) return setError(ratesLoading ? 'Still calculating shipping…' : 'Choose a shipping method')
+    if (!rate) {
+      setCardOpen(true)
+      return setError(ratesLoading ? 'Still calculating shipping…' : 'Choose a shipping method')
+    }
     if (!stripe || !elements) return
 
     setError(null)
@@ -655,6 +677,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
         address1: v.address1, address2: v.address2, city: v.city, state: v.state, zip: v.zip, country: v.country,
       })
     } catch (err) {
+      setCardOpen(true)
       setError(err.message || 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -799,6 +822,10 @@ function CheckoutPage({ geoCountry, geoRegion }) {
     defaultValues: { billingDetails: { email: linkEmail, name: name.trim() } },
   }
   const isUS = country === 'US'
+  // Form is visible when no wallets (expressAvailable===false) or when cardOpen===true.
+  // When expressAvailable is null (waiting for onReady) the form stays hidden until
+  // we know whether wallets are present, so there's no premature flash.
+  const showCardForm = expressAvailable === false || cardOpen
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 16px' }}>
@@ -832,6 +859,16 @@ function CheckoutPage({ geoCountry, geoRegion }) {
                 phoneNumberRequired: true,
                 shippingAddressRequired: true,
                 allowedShippingCountries: COUNTRY_CODES,
+                paymentMethods: {
+                  applePay: 'always',
+                  googlePay: 'always',
+                  link: 'never',
+                  amazonPay: 'never',
+                  klarna: 'never',
+                  paypal: 'never',
+                },
+                buttonHeight: 48,
+                layout: { maxColumns: 2, maxRows: 1 },
               }}
               onReady={({ availablePaymentMethods }) => {
                 setExpressAvailable(Boolean(availablePaymentMethods && Object.values(availablePaymentMethods).some(Boolean)))
@@ -843,15 +880,47 @@ function CheckoutPage({ geoCountry, geoRegion }) {
               onConfirm={onExpressConfirm}
             />
           </div>
-          {expressAvailable && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#aaa', fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              <span style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
-              or pay with card
-              <span style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
-            </div>
+          {expressAvailable === true && (
+            <button
+              type="button"
+              onClick={() => setCardOpen((o) => !o)}
+              aria-expanded={cardOpen}
+              style={{
+                ...INPUT,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>Pay with card</span>
+              <span style={{
+                display: 'inline-block',
+                fontSize: 14,
+                color: '#666',
+                lineHeight: 1,
+                transition: 'transform 0.2s ease',
+                transform: cardOpen ? 'rotate(180deg)' : 'none',
+              }}>▾</span>
+            </button>
           )}
 
-          <form onSubmit={handlePay} onInput={onFormInput} onAnimationStart={onFormAnimationStart} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Animated card-form wrapper — inputs stay in the DOM when collapsed so
+              Safari autofill and syncFromForm keep working. pointer-events:none
+              blocks interaction without removing elements from the accessibility tree. */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateRows: showCardForm ? '1fr' : '0fr',
+              opacity: showCardForm ? 1 : 0,
+              pointerEvents: showCardForm ? 'auto' : 'none',
+              transition: 'grid-template-rows 0.2s ease, opacity 0.2s ease',
+            }}
+            aria-hidden={!showCardForm}
+          >
+          <div style={{ overflow: 'hidden' }}>
+          <form ref={cardFormRef} onSubmit={handlePay} onInput={onFormInput} onAnimationStart={onFormAnimationStart} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 2 }}>
             {returning && (
               <div style={{ fontSize: 12, color: '#888', marginBottom: -12 }}>
                 Not you?{' '}
@@ -965,6 +1034,8 @@ function CheckoutPage({ geoCountry, geoRegion }) {
               <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy</a>
             </p>
           </form>
+          </div>{/* overflow:hidden */}
+          </div>{/* animated grid wrapper */}
         </div>
 
         {/* Right — order summary (desktop) */}
