@@ -3,7 +3,7 @@
 
 import * as THREE from 'three'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 
 function isNearBlack(hex) {
   if (!hex || typeof hex !== 'string') return false
@@ -43,6 +43,7 @@ function OrbCross({
   // Materials in draw order; when colorFadeMs > 0 the frame loop eases each
   // one from the colour it was showing toward its new target colour
   const fadeMats = useRef(/** @type {THREE.Material[]|null} */ (null))
+  const { gl, scene, camera } = useThree()
 
   const coarse =
     typeof window !== 'undefined' &&
@@ -220,6 +221,12 @@ function OrbCross({
   const coreEmissive = solid ? 0.75 : useOverride ? 1.6 : 1.15
   const barEmissive = solid ? 0.55 : useOverride ? 1.1 : 0.6
 
+  // With colorFadeMs the materials are kept across colour changes and only
+  // their target colours move (see the layout effect below), so a colour
+  // step costs no allocations. Without it, a colour change rebuilds them.
+  const fadeOn = colorFadeMs > 0
+  const colorKey = (c) => (fadeOn ? 'fade' : c)
+
   const stdMatProps = useMemo(() => {
     if (!solid) {
       return { roughness: 0.32, metalness: 0.25, toneMapped: true }
@@ -237,7 +244,8 @@ function OrbCross({
         emissiveIntensity: barEmissive,
         toneMapped: stdMatProps.toneMapped,
       }),
-    [barColor, barEmissive, stdMatProps]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [colorKey(barColor), barEmissive, stdMatProps]
   )
 
   const barHaloMat = useMemo(
@@ -250,7 +258,8 @@ function OrbCross({
         depthWrite: false,
         toneMapped: false,
       }),
-    [haloColor, glow, haloBase]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [colorKey(haloColor), glow, haloBase]
   )
 
   const sphereDefs = useOverride
@@ -278,7 +287,11 @@ function OrbCross({
         })
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useOverride ? barColor : JSON.stringify(sphereDefs.map((s) => s.core)), coreEmissive, solid])
+  }, [
+    fadeOn ? `fade:${sphereDefs.length}` : useOverride ? barColor : JSON.stringify(sphereDefs.map((s) => s.core)),
+    coreEmissive,
+    solid,
+  ])
 
   const sphereHaloMats = useMemo(() => {
     return sphereDefs.map(
@@ -294,17 +307,39 @@ function OrbCross({
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    useOverride ? haloColor : JSON.stringify(sphereDefs.map((s) => s.halo)),
+    fadeOn ? `fade:${sphereDefs.length}` : useOverride ? haloColor : JSON.stringify(sphereDefs.map((s) => s.halo)),
     glow,
-    haloColor,
+    colorKey(haloColor),
     haloBase,
   ])
 
-  // New materials are built whenever a colour changes. Start each one from
-  // what the previous material in the same slot was showing, so the frame
-  // loop blends between colours instead of cutting.
+  // The solid (non-tone-mapped) look needs its own shader. Compile it up
+  // front when fading is on (the gate) so the first press doesn't stall on it.
+  useEffect(() => {
+    if (!fadeOn || !group.current) return
+    const mat = new THREE.MeshStandardMaterial({ roughness: 0.42, metalness: 0.05, toneMapped: false, emissive: new THREE.Color('#000') })
+    const mesh = new THREE.Mesh(sphereGeo, mat)
+    group.current.add(mesh)
+    try { gl.compile(scene, camera) } catch {}
+    group.current.remove(mesh)
+    mat.dispose()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fadeOn])
+
+  // Point every material at its target colour for the frame loop to ease
+  // toward. A material rebuilt for another reason (e.g. solid on/off) starts
+  // from what the old one in its slot was showing, so nothing cuts.
+  const fadeTargets = [
+    barColor,
+    haloColor,
+    ...sphereDefs.map((d) => d.core),
+    ...sphereDefs.map((d) => d.halo),
+  ]
+  const fadeEIs = [barEmissive, undefined, ...sphereDefs.map(() => coreEmissive), ...sphereDefs.map(() => undefined)]
+  const fadeKey = `${fadeTargets.join()}|${barEmissive}|${coreEmissive}`
+
   useLayoutEffect(() => {
-    if (!(colorFadeMs > 0)) {
+    if (!fadeOn) {
       fadeMats.current = null
       return
     }
@@ -312,18 +347,20 @@ function OrbCross({
     const prev = fadeMats.current
     next.forEach((m, i) => {
       const p = prev?.[i]
-      if (p === m) return
-      m.userData.toColor = m.color.clone()
-      if (m.emissive) m.userData.toEI = m.emissiveIntensity
-      if (!p) return
-      m.color.copy(p.color)
-      if (m.emissive && p.emissive) {
-        m.emissive.copy(p.emissive)
-        m.emissiveIntensity = p.emissiveIntensity
+      if (p && p !== m) {
+        m.color.copy(p.color)
+        if (m.emissive && p.emissive) {
+          m.emissive.copy(p.emissive)
+          m.emissiveIntensity = p.emissiveIntensity
+        }
       }
+      if (!m.userData.toColor) m.userData.toColor = new THREE.Color()
+      m.userData.toColor.set(fadeTargets[i])
+      if (m.emissive) m.userData.toEI = fadeEIs[i]
     })
     fadeMats.current = next
-  }, [barCoreMat, barHaloMat, sphereCoreMats, sphereHaloMats, colorFadeMs])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barCoreMat, barHaloMat, sphereCoreMats, sphereHaloMats, fadeOn, fadeKey])
 
   useEffect(() => {
     if (!group.current) return

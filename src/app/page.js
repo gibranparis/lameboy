@@ -23,7 +23,9 @@ const NewsletterForm = nextDynamic(() => import('@/components/NewsletterForm'), 
 const MusicPlayerButton = nextDynamic(() => import('@/components/MusicPlayerButton'), { ssr: false })
 
 const RUNNER_H = 14
-const LOADER_MS = 1400
+const LOADER_MS = 900 // black orb + "Let All Mankind Evolve" before the shop
+// One beat per chakra: red → orange → yellow → green → blue → purple → pink → black
+const CHAKRA_STEP_MS = 220
 // Splash video is off by default; enable by setting NEXT_PUBLIC_SPLASH_VIDEO=on and redeploying
 const SPLASH_VIDEO_ON = process.env.NEXT_PUBLIC_SPLASH_VIDEO === 'on'
 
@@ -77,6 +79,11 @@ export default function Page() {
   const [orbHeld, setOrbHeld] = useState(false)
 
   const proceedFired = useRef(false)
+  // When the current colour gives way to the next; steps are timed against
+  // this rather than chained timeouts so the rhythm doesn't drift
+  const stepDue = useRef(0)
+  // Time left on the current colour when a drag paused the sequence
+  const heldRemaining = useRef(/** @type {number|null} */ (null))
 
   // Starts the chakra sequence. Every gate gesture (tap, drag, hold, double
   // click, Enter) lands here; once the sequence is running it's a no-op so
@@ -85,6 +92,7 @@ export default function Page() {
     if (!inGate) return
     if (proceedFired.current || isProceeding) return
     if (gateStep !== 0) return
+    stepDue.current = performance.now() + CHAKRA_STEP_MS
     setGateStep(1)
     setSequenceActive(true)
   }, [inGate, isProceeding, gateStep])
@@ -199,32 +207,31 @@ export default function Page() {
     })
   }, [handleEnterShop, inGate])
 
-  // Auto-advance through color sequence.
-  // RED holds until the next clock-second boundary (min 600ms), then each subsequent
-  // color (orange→yellow→green→blue→purple→pink) fires every 333ms so the total
-  // time to black stays the same as the original 3-step sequence (~3 s).
-  const STEP_MS = 333
+  // Auto-advance: each chakra holds for exactly one CHAKRA_STEP_MS beat, then
+  // pink gives way to black and the shop. A drag pauses the beat and the
+  // release picks it up where it stopped.
   useEffect(() => {
-    if (!sequenceActive || !inGate || orbHeld) return
+    if (!sequenceActive || !inGate) return
+    if (orbHeld) {
+      heldRemaining.current = Math.max(0, stepDue.current - performance.now())
+      return
+    }
+    if (heldRemaining.current !== null) {
+      stepDue.current = performance.now() + heldRemaining.current
+      heldRemaining.current = null
+    }
 
-    let timer
-    // ms until the next whole-second boundary
-    const msToNextSec = 1000 - (Date.now() % 1000)
-
-    if (gateStep === 1) {
-      // RED → ORANGE at next second boundary (ensure at least 600ms so RED doesn't feel rushed)
-      const redDelay = msToNextSec < 600 ? msToNextSec + 1000 : msToNextSec
-      timer = setTimeout(() => setGateStep(2), redDelay)
-    } else if (gateStep >= 2 && gateStep <= 6) {
-      // ORANGE → YELLOW → GREEN → BLUE → PURPLE, each holding for STEP_MS
-      timer = setTimeout(() => setGateStep((s) => s + 1), STEP_MS)
-    } else if (gateStep === 7) {
-      // PINK → BLACK + proceed after one last STEP_MS
-      timer = setTimeout(() => {
+    const timer = setTimeout(() => {
+      // A late timer is made up on the next beat (up to half a beat), so the
+      // rhythm holds on a busy phone; a long stall (background tab) restarts it
+      stepDue.current = Math.max(stepDue.current, performance.now() - CHAKRA_STEP_MS / 2) + CHAKRA_STEP_MS
+      if (gateStep < 7) {
+        setGateStep(gateStep + 1)
+      } else {
         setSequenceActive(false)
         triggerProceed()
-      }, STEP_MS)
-    }
+      }
+    }, Math.max(0, stepDue.current - performance.now()))
 
     return () => clearTimeout(timer)
   }, [sequenceActive, gateStep, inGate, triggerProceed, orbHeld])

@@ -106,8 +106,9 @@ export default function OrbShell({
   const POS_K = 260 // position stiffness
   const POS_C = 18 // position damping (≈0.56: one small overshoot)
   const SCALE_K = 420 // scale stiffness
-  const SCALE_C = 15 // scale damping (≈0.37: a lively bounce)
+  const SCALE_C = 20 // scale damping (≈0.5: a crisp bounce)
   const PRESS_SCALE = 0.9
+  const ARRIVE_PX = 6 // released orb counts as home within this distance
   const LIFT_SCALE = 1.06
   const canDrag = mode === 'gate' && !loaderShow && !isProceeding
 
@@ -151,6 +152,13 @@ export default function OrbShell({
       }
       m.vs += (-SCALE_K * (m.s - m.ts) - SCALE_C * m.vs) * dt
       m.s += m.vs * dt
+      // Start whatever waits on the release as the orb snaps into place,
+      // rather than after its bounce has fully died out
+      if (onSettle.current && !m.held && Math.hypot(m.x, m.y) < ARRIVE_PX) {
+        const done = onSettle.current
+        onSettle.current = null
+        done()
+      }
       const settled =
         !m.held &&
         Math.hypot(m.x, m.y) < 0.5 && Math.hypot(m.vx, m.vy) < 10 &&
@@ -190,13 +198,16 @@ export default function OrbShell({
     try { navigator.vibrate?.(ms) } catch {}
   }, [])
 
-  // A soft pulse on every chakra, a fuller one when the orb turns black
+  // A crisp pulse and haptic tick on every chakra beat, a fuller one on black
   const prevStep = useRef(gateStep)
   useEffect(() => {
     if (!inGateLike) return
-    if (gateStep !== prevStep.current && gateStep >= 1) kickScale(1.1)
+    if (gateStep !== prevStep.current && gateStep >= 2) {
+      kickScale(0.8)
+      buzz(5)
+    }
     prevStep.current = gateStep
-  }, [gateStep, inGateLike, kickScale])
+  }, [buzz, gateStep, inGateLike, kickScale])
 
   useEffect(() => {
     if (!isProceeding) return
@@ -206,7 +217,9 @@ export default function OrbShell({
 
   /* ===================== Gate interactions ===================== */
   // Every gesture starts the same sequence: all seven chakras, then black,
-  // then the shop. Once it's running, more taps never skip a colour.
+  // then the shop. Touching the orb starts it at once (red on contact); a
+  // drag holds the current colour until the orb is back home. Once it's
+  // running, more taps never skip a colour.
 
   const onGateClick = useCallback(() => {
     if (suppressClick.current) { suppressClick.current = false; return }
@@ -221,7 +234,11 @@ export default function OrbShell({
     if (e.pointerType === 'mouse' && e.button !== 0) return
     dragStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false }
     setScaleTarget(PRESS_SCALE)
-  }, [canDrag, setScaleTarget])
+    if (gateStep === 0) {
+      buzz(8)
+      onAdvanceGate && onAdvanceGate()
+    }
+  }, [buzz, canDrag, gateStep, onAdvanceGate, setScaleTarget])
 
   const onGatePointerMove = useCallback((e) => {
     const s = dragStart.current
@@ -249,17 +266,16 @@ export default function OrbShell({
     if (!s || s.id !== e.pointerId) return
     dragStart.current = null
     setScaleTarget(1)
-    if (!s.active) return // a tap: the click handler starts the sequence
+    if (!s.active) return // a tap: the sequence already started on press
 
-    // Drag released: spring home, then start (or resume) the sequence
+    // Drag released: spring home, then resume the sequence
     suppressClick.current = true
     setDragging(false)
     const m = motion.current
     m.held = false
     const start = () => {
       onHoldChange && onHoldChange(false)
-      if (gateStep === 0) buzz(8)
-      onAdvanceGate && onAdvanceGate()
+      onAdvanceGate && onAdvanceGate() // no-op unless the press didn't start it
     }
     if (reducedMotion.current) {
       m.x = m.y = 0
@@ -447,7 +463,7 @@ export default function OrbShell({
 
   // Chakra steps blend into each other; on arrival in the shop the black orb
   // blooms back into its colours instead of cutting
-  const GATE_FADE_MS = 220
+  const GATE_FADE_MS = 60
   const LANDING_FADE_MS = 500
   const [landing, setLanding] = useState(false)
   const wasGateLike = useRef(inGateLike)
