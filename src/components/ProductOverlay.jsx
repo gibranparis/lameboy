@@ -3,6 +3,7 @@
 
 import Image from 'next/image'
 import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react'
+import { SHIP_DAYS_MIN, SHIP_DAYS_MAX } from '@/lib/store-info'
 
 /* ---------------- utils ---------------- */
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -1649,6 +1650,9 @@ export default function ProductOverlay({
           >
             {priceText}
           </div>
+          <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: '0.02em' }}>
+            Made to order · ships in {SHIP_DAYS_MIN}–{SHIP_DAYS_MAX} business days
+          </p>
           <div style={{ marginTop: 12 }}>
             <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} triggerRef={addToCartTriggerRef} />
           </div>
