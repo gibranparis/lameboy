@@ -554,7 +554,7 @@ export default function Page() {
                 <p style={{ margin: 0, fontSize: 11, color: 'rgba(128,128,128,0.6)', letterSpacing: '0.04em' }}>
                   <a href="/shipping" style={{ color: 'inherit', textDecoration: 'none' }}>Shipping</a>
                   {' · '}
-                  <a href="/returns" style={{ color: 'inherit', textDecoration: 'none' }}>Returns</a>
+                  <a href="/returns" style={{ color: 'inherit', textDecoration: 'none' }}>Sales policy</a>
                   {' · '}
                   <a href="/privacy" style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</a>
                   {' · '}

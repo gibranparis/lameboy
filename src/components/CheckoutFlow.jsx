@@ -7,7 +7,7 @@ import { getStripePromise } from '@/lib/stripe-client'
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { COUNTRIES, US_STATES } from '@/lib/countries'
 import { clearProfile, getProfile, saveProfile } from '@/lib/profile'
-import { SHIP_DAYS_MIN, SHIP_DAYS_MAX } from '@/lib/store-info'
+import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE } from '@/lib/store-info'
 
 const INPUT = {
   width: '100%',
@@ -197,6 +197,17 @@ const COUNTRY_CODES = COUNTRIES.map(([code]) => code)
 const PLACEHOLDER_PHONE = '0000000000'
 
 const money = (cents) => `$${(cents / 100).toFixed(2)}`
+/** Quiet final-sale notice shown above the Pay and wallet buttons. */
+function SalesFinalLine({ style }) {
+  return (
+    <p style={{ margin: 0, fontSize: 11, color: '#999', textAlign: 'center', letterSpacing: '0.02em', ...style }}>
+      <a href="/returns" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+        {FINAL_SALE_LINE} · made to order
+      </a>
+    </p>
+  )
+}
+
 function rateLabel(rate) {
   const base = rate.name && rate.name !== rate.provider ? `${rate.provider} ${rate.name}` : rate.name || rate.provider
   if (rate.estimatedDays) {
@@ -866,6 +877,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Express wallets, hidden entirely if none are available */}
           <div style={{ display: expressAvailable === false ? 'none' : 'block', visibility: expressAvailable ? 'visible' : 'hidden' }}>
+            <SalesFinalLine style={{ marginBottom: 10 }} />
             <ExpressCheckoutElement
               options={{
                 emailRequired: true,
@@ -1040,6 +1052,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
 
             {error && <p style={{ margin: 0, fontSize: 13, color: '#c00', fontWeight: 600 }}>{error}</p>}
 
+            <SalesFinalLine />
             <button type="submit" style={{ ...BTN, opacity: loading || !stripe ? 0.6 : 1 }} disabled={loading || !stripe}>
               {loading ? 'Processing…' : `Pay ${money(payTotal)}`}
             </button>
@@ -1049,7 +1062,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
             <p style={{ margin: '4px 0 0', fontSize: 11, color: '#bbb', textAlign: 'center' }}>
               <a href="/shipping" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Shipping</a>
               {' · '}
-              <a href="/returns" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Returns</a>
+              <a href="/returns" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Sales policy</a>
               {' · '}
               <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy</a>
             </p>
