@@ -4,44 +4,121 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-const DOMAINS = ['gmail.com', 'icloud.com', 'yahoo.com', 'outlook.com']
+// Full autocomplete pool (chip filtering + exact-match guard)
+const ALL_DOMAINS = [
+  'gmail.com', 'icloud.com', 'yahoo.com', 'outlook.com',
+  'hotmail.com', 'aol.com', 'live.com', 'me.com', 'msn.com', 'comcast.net', 'proton.me',
+]
 
-const TYPO_MAP = {
-  'gmial.com':   'gmail.com',
-  'gmai.com':    'gmail.com',
-  'gamil.com':   'gmail.com',
-  'gmail.co':    'gmail.com',
-  'icloud.co':   'icloud.com',
-  'iclod.com':   'icloud.com',
-  'yahooo.com':  'yahoo.com',
-  'yaho.com':    'yahoo.com',
-  'outlok.com':  'outlook.com',
-  'hotmial.com': 'hotmail.com',
-  'hotmal.com':  'hotmail.com',
-  'hotmail.co':  'hotmail.com',
+// Provider name → canonical full domain (for typo corrections)
+const PROVIDER_DOMAIN = {
+  gmail: 'gmail.com', icloud: 'icloud.com', yahoo: 'yahoo.com',
+  outlook: 'outlook.com', hotmail: 'hotmail.com', aol: 'aol.com',
+  live: 'live.com', me: 'me.com', msn: 'msn.com',
+  comcast: 'comcast.net', proton: 'proton.me',
+}
+
+// Provider-name typos → corrected provider name
+const PROVIDER_TYPOS = {
+  gmial: 'gmail', gmai: 'gmail', gamil: 'gmail', gmal: 'gmail', gnail: 'gmail', gmali: 'gmail',
+  iclod: 'icloud', icoud: 'icloud', icluod: 'icloud',
+  yahooo: 'yahoo', yaho: 'yahoo', yhoo: 'yahoo', yahho: 'yahoo',
+  outlok: 'outlook', outloo: 'outlook', otlook: 'outlook',
+  hotmial: 'hotmail', hotmal: 'hotmail', hotmai: 'hotmail', hotmil: 'hotmail',
+}
+
+// TLD typos that should become .com (only applied to known .com providers)
+const TLD_TYPO_TO_COM = new Set(['con', 'cm', 'comm', 'om', 'vom', 'xom', 'co'])
+
+/** Returns the corrected email, or null if no fixable typo is found. */
+function findTypoFix(email) {
+  const atIdx = email.indexOf('@')
+  if (atIdx === -1) return null
+  const beforeAt = email.slice(0, atIdx)
+  const domain = email.slice(atIdx + 1).toLowerCase()
+  if (!domain) return null
+  if (ALL_DOMAINS.includes(domain)) return null // already correct
+
+  const dotIdx = domain.indexOf('.')
+
+  if (dotIdx === -1) {
+    // No TLD — suggest adding it for known .com providers
+    const correctDomain = PROVIDER_DOMAIN[domain]
+    if (correctDomain && correctDomain.endsWith('.com')) return beforeAt + '@' + correctDomain
+    // Provider typo with no TLD
+    const fixedProvider = PROVIDER_TYPOS[domain]
+    if (fixedProvider) return beforeAt + '@' + PROVIDER_DOMAIN[fixedProvider]
+    return null
+  }
+
+  const provider = domain.slice(0, dotIdx)
+  const tld = domain.slice(dotIdx + 1)
+
+  // Provider typo (TLD may or may not also be wrong — use canonical domain)
+  const fixedProvider = PROVIDER_TYPOS[provider]
+  if (fixedProvider) return beforeAt + '@' + PROVIDER_DOMAIN[fixedProvider]
+
+  // Known provider with a TLD typo
+  const correctDomain = PROVIDER_DOMAIN[provider]
+  if (correctDomain) {
+    const correctTld = correctDomain.split('.')[1]
+    if (correctTld === 'com' && TLD_TYPO_TO_COM.has(tld)) return beforeAt + '@' + correctDomain
+  }
+
+  return null
+}
+
+// Device-ordered default domains for the pre-@ chips.
+// iOS/iPadOS (including iPad on macOS in desktop mode) puts icloud.com second.
+function getDeviceDefaultDomains() {
+  if (typeof navigator === 'undefined') {
+    return ['gmail.com', 'yahoo.com', 'outlook.com', 'icloud.com'] // SSR fallback
+  }
+  const ua = navigator.userAgent || ''
+  const plat = navigator.platform || ''
+  const isApple = /iP(hone|ad|od)/i.test(ua) || (/Mac/i.test(plat) && navigator.maxTouchPoints > 1)
+  return isApple
+    ? ['gmail.com', 'icloud.com', 'yahoo.com', 'outlook.com']
+    : ['gmail.com', 'yahoo.com', 'outlook.com', 'icloud.com']
+}
+
+function getChips(value) {
+  if (!value) return []
+  const defaultDomains = getDeviceDefaultDomains()
+  const atIdx = value.indexOf('@')
+
+  if (atIdx === -1) {
+    // Before @: show the 4 device-ordered defaults
+    return defaultDomains.map(d => ({ label: `@${d}`, full: value + '@' + d }))
+  }
+
+  // Lowercase the typed domain for all comparisons; keep beforeAt as typed
+  const beforeAt = value.slice(0, atIdx)
+  const afterAtLower = value.slice(atIdx + 1).toLowerCase()
+
+  if (ALL_DOMAINS.includes(afterAtLower)) return [] // domain is complete
+
+  // Typing a custom domain: has a dot but no ALL_DOMAINS entry starts with it
+  if (afterAtLower.includes('.') && !ALL_DOMAINS.some(d => d.startsWith(afterAtLower))) return []
+
+  // Filter by prefix, sort default-chip domains first, show up to 4
+  const matches = ALL_DOMAINS.filter(d => d.startsWith(afterAtLower))
+  matches.sort((a, b) => {
+    const ai = defaultDomains.indexOf(a)
+    const bi = defaultDomains.indexOf(b)
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return 0
+  })
+
+  return matches.slice(0, 4).map(d => ({ label: d, full: beforeAt + '@' + d }))
 }
 
 const CHAKRA = ['#FF0000','#FF8C00','#FFD700','#00C853','#00BFFF','#6A0DAD','#EE82EE']
 
 function ChipText({ text }) {
   return <>{text.split('').map((ch, i) => <span key={i} style={{ color: CHAKRA[i % 7] }}>{ch}</span>)}</>
-}
-
-function getChips(value) {
-  if (!value) return []
-  const atIdx = value.indexOf('@')
-  if (atIdx === -1) {
-    return DOMAINS.map(d => ({ label: `@${d}`, full: value + '@' + d }))
-  }
-  // Lowercase the typed domain for all comparisons; keep beforeAt as typed.
-  const beforeAt = value.slice(0, atIdx)
-  const afterAtLower = value.slice(atIdx + 1).toLowerCase()
-  if (DOMAINS.includes(afterAtLower)) return [] // exact match — domain is complete
-  // Typing a custom domain: has a dot but no DOMAIN prefix matches (case-insensitively)
-  if (afterAtLower.includes('.') && !DOMAINS.some(d => d.startsWith(afterAtLower))) return []
-  return DOMAINS
-    .filter(d => d.startsWith(afterAtLower))
-    .map(d => ({ label: d, full: beforeAt + '@' + d })) // d is already lowercase
 }
 
 /**
@@ -51,29 +128,25 @@ function getChips(value) {
  *   value: string,
  *   onChange: (newValue: string) => void,
  *   focused: boolean,
+ *   autofilled?: boolean,
  *   theme?: 'dark' | 'light',
  * }} props
  */
-export default function EmailChips({ value, onChange, focused, theme = 'light' }) {
-  const chips = focused && value ? getChips(value) : []
+export default function EmailChips({ value, onChange, focused, autofilled = false, theme = 'light' }) {
+  // Suppress chips immediately after an autofill event; next keydown clears it.
+  const chips = focused && value && !autofilled ? getChips(value) : []
   const show = chips.length > 0
 
   const valueRef = useRef(value)
   valueRef.current = value
   const [typo, setTypo] = useState(null)
 
-  // Check for typo domain only when focus is lost; clear it when focus returns.
+  // Check for typo domain only when focus is lost; clear on focus return.
   useEffect(() => {
     if (focused) { setTypo(null); return }
     const v = valueRef.current
-    const atIdx = v.indexOf('@')
-    if (atIdx !== -1) {
-      const domain = v.slice(atIdx + 1).toLowerCase()
-      const fix = TYPO_MAP[domain]
-      setTypo(fix ? v.slice(0, atIdx + 1) + fix : null)
-    } else {
-      setTypo(null)
-    }
+    const fix = findTypoFix(v)
+    setTypo(fix)
   }, [focused]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dark = theme === 'dark'
@@ -137,12 +210,8 @@ export default function EmailChips({ value, onChange, focused, theme = 'light' }
           -webkit-tap-highlight-color: transparent;
           white-space: nowrap;
         }
-        .ec-chip--light {
-          border-color: #e0e0e0;
-        }
-        :global(html[data-theme='day']) .ec-chip--dark {
-          border-color: rgba(0,0,0,0.12);
-        }
+        .ec-chip--light { border-color: #e0e0e0; }
+        :global(html[data-theme='day']) .ec-chip--dark { border-color: rgba(0,0,0,0.12); }
 
         .ec-typo {
           margin: 4px 0 0;

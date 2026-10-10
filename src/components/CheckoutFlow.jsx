@@ -378,6 +378,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
   const [phone, setPhone] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [emailFocused, setEmailFocused] = useState(false)
+  const [emailAutofilled, setEmailAutofilled] = useState(false)
   const [returning, setReturning] = useState(false)
   // Saved complete address → contact + address render as one summary card.
   const [collapsed, setCollapsed] = useState(false)
@@ -436,7 +437,10 @@ function CheckoutPage({ geoCountry, geoRegion }) {
   }
 
   function onFormAnimationStart(e) {
-    if (e.animationName === 'onAutoFillStart') syncField(e.target.name, e.target.value, false)
+    if (e.animationName === 'onAutoFillStart') {
+      if (e.target.name === 'email') setEmailAutofilled(true)
+      syncField(e.target.name, e.target.value, false)
+    }
   }
 
   // Read every field straight from the form DOM so a missed autofill event
@@ -947,9 +951,10 @@ function CheckoutPage({ geoCountry, geoRegion }) {
                   onChange={e => setEmail(e.target.value)}
                   onFocus={() => setEmailFocused(true)}
                   onBlur={() => { setEmailFocused(false); onFieldBlur('email') }}
+                  onKeyDown={() => setEmailAutofilled(false)}
                   placeholder="jane@email.com" required />
               </Field>
-              <EmailChips value={email} onChange={setEmail} focused={emailFocused} theme="light" />
+              <EmailChips value={email} onChange={setEmail} focused={emailFocused} autofilled={emailAutofilled} theme="light" />
             </div>
             <Field label="Full name" htmlFor="co-name" error={fieldErrors.name}>
               <Input id="co-name" name="name" autoComplete="shipping name" value={name} onChange={e => setName(e.target.value)} onBlur={() => onFieldBlur('name')} placeholder="Jane Doe" required />
