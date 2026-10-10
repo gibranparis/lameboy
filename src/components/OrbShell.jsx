@@ -11,6 +11,7 @@ export default function OrbShell({
   isProceeding, // boolean
   onAdvanceGate, // fn
   onProceed, // fn
+  onHoldChange, // fn(bool) — true while the orb is dragged or snapping back
   ctrlPx, // number
 }) {
   const inGateLike = mode === 'gate' || loaderShow
@@ -163,17 +164,107 @@ export default function OrbShell({
 
   const clearPressTimer = useCallback(() => clearTimeout(pressTimer.current), [])
 
+  // Set when a drag ends so the click the browser fires after it is ignored
+  const suppressClick = useRef(false)
+
   const onGateClick = useCallback(() => {
+    if (suppressClick.current) { suppressClick.current = false; return }
     if (!inGateLike) return
     if (isProceeding) return
     startChakraBurst(onAdvanceGate)
   }, [inGateLike, isProceeding, onAdvanceGate, startChakraBurst])
 
   const onGateDouble = useCallback(() => {
+    if (suppressClick.current) return
     if (!inGateLike) return
     if (isProceeding) return
     startChakraBurst(onProceed)
   }, [inGateLike, isProceeding, onProceed, startChakraBurst])
+
+  /* ===================== Gate drag ===================== */
+  // The orb follows the pointer once it moves past a small threshold. On
+  // release it springs back to center, then proceeds into the shop.
+  // The spring runs in JS because gate mode disables CSS transitions
+  // (globals.css), and the transform is written straight to the shell so
+  // the 3D orb doesn't re-render on every frame.
+
+  const DRAG_THRESHOLD_PX = 8
+  const SPRING_K = 260 // stiffness
+  const SPRING_C = 18 // damping (≈0.56 ratio: one small overshoot)
+  const canDrag = mode === 'gate' && !loaderShow && !isProceeding
+
+  const shellRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  const [dragging, setDragging] = useState(false)
+  const dragStart = useRef(/** @type {{id:number,x:number,y:number,active:boolean}|null} */ (null))
+  const dragOffset = useRef({ x: 0, y: 0 })
+  const snapping = useRef(false)
+  const snapRaf = useRef(0)
+
+  useEffect(() => () => cancelAnimationFrame(snapRaf.current), [])
+
+  const placeShell = useCallback((x, y) => {
+    if (shellRef.current) shellRef.current.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`
+  }, [])
+
+  const onDragPointerDown = useCallback((e) => {
+    suppressClick.current = false
+    if (!canDrag || snapping.current) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    dragStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false }
+  }, [canDrag])
+
+  const onDragPointerMove = useCallback((e) => {
+    const s = dragStart.current
+    if (!s || s.id !== e.pointerId || !canDrag) return
+    const dx = e.clientX - s.x
+    const dy = e.clientY - s.y
+    if (!s.active) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return
+      s.active = true
+      clearPressTimer() // a drag is not a hold
+      try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+      setDragging(true)
+      onHoldChange && onHoldChange(true)
+    }
+    dragOffset.current = { x: dx, y: dy }
+    placeShell(dx, dy)
+  }, [canDrag, clearPressTimer, onHoldChange, placeShell])
+
+  const onDragPointerEnd = useCallback((e) => {
+    const s = dragStart.current
+    if (!s || s.id !== e.pointerId) return
+    dragStart.current = null
+    if (!s.active) return
+    suppressClick.current = true
+    setDragging(false)
+    snapping.current = true
+
+    const finish = () => {
+      if (shellRef.current) shellRef.current.style.transform = 'translate(-50%, -50%)'
+      snapping.current = false
+      onHoldChange && onHoldChange(false)
+      onProceed && onProceed()
+    }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return finish()
+
+    let { x, y } = dragOffset.current
+    let vx = 0
+    let vy = 0
+    let last = performance.now()
+    const step = (now) => {
+      const dt = Math.min(0.032, (now - last) / 1000)
+      last = now
+      vx += (-SPRING_K * x - SPRING_C * vx) * dt
+      vy += (-SPRING_K * y - SPRING_C * vy) * dt
+      x += vx * dt
+      y += vy * dt
+      if (Math.hypot(x, y) < 0.5 && Math.hypot(vx, vy) < 10) return finish()
+      placeShell(x, y)
+      snapRaf.current = requestAnimationFrame(step)
+    }
+    cancelAnimationFrame(snapRaf.current)
+    snapRaf.current = requestAnimationFrame(step)
+  }, [onHoldChange, onProceed, placeShell])
 
   /* ===================== Shop density logic (ported from ChakraOrbButton) ===================== */
 
@@ -294,6 +385,10 @@ export default function OrbShell({
         onTouchStart: startPressTimer,
         onTouchEnd: clearPressTimer,
         onDoubleClick: onGateDouble,
+        onPointerDown: onDragPointerDown,
+        onPointerMove: onDragPointerMove,
+        onPointerUp: onDragPointerEnd,
+        onPointerCancel: onDragPointerEnd,
       }
     : {
         onClick: onShopClick,
@@ -356,13 +451,13 @@ export default function OrbShell({
   const orbSolidOverride = inGateLike ? gateSolid : false
 
   return (
-    <div style={shellStyle}>
+    <div ref={shellRef} style={shellStyle}>
       <button
         type="button"
         aria-label={inGateLike ? 'Orb' : overlayOpen ? 'Back' : 'Zoom products'}
         title={
           inGateLike
-            ? 'Advance gate (click) • Proceed (hold or double-click)'
+            ? 'Advance gate (click) • Proceed (hold, drag or double-click)'
             : overlayOpen
               ? 'Back to grid'
               : 'Zoom products (Click = Smart IN/OUT • Right-click = OUT • Wheel = IN/OUT)'
@@ -374,9 +469,10 @@ export default function OrbShell({
           border: 0,
           background: 'transparent',
           lineHeight: 0,
-          cursor: inGateLike && isProceeding ? 'default' : 'pointer',
+          cursor: dragging ? 'grabbing' : inGateLike && isProceeding ? 'default' : 'pointer',
           WebkitTapHighlightColor: 'transparent',
-          touchAction: 'manipulation',
+          // 'none' on the gate so touch moves reach the drag instead of panning
+          touchAction: canDrag ? 'none' : 'manipulation',
           position: 'relative',
         }}
         {...buttonHandlers}
