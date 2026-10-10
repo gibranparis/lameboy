@@ -75,7 +75,7 @@ function ChakraInput({
         .ci-display {
           position: absolute; inset: 0;
           display: flex; align-items: center;
-          padding: 8px 10px;
+          padding: 8px 10px; box-sizing: border-box;
           font-size: 14px; font-family: inherit;
           pointer-events: none; overflow: hidden; z-index: 1;
         }
@@ -86,7 +86,7 @@ function ChakraInput({
         @keyframes ciAutofill { from { opacity: 1; } to { opacity: 1; } }
 
         .ci-input {
-          position: relative; width: 100%;
+          position: relative; width: 100%; box-sizing: border-box;
           background: rgba(255,255,255,0.06);
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: 8px; padding: 8px 10px;
