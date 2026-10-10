@@ -46,14 +46,43 @@ function getOriginAddress() {
 }
 
 /**
+ * International shipments need a customs declaration attached, or Shippo
+ * won't return carrier rates that require one. Built from the same cart
+ * lines the parcel weight comes from.
+ *
+ * @param {Array<{variant:{weight_oz:number,price_cents:number,products?:{name?:string}}, qty:number}>} lines
+ */
+async function createCustomsDeclaration(lines) {
+  const shippo = getShippo()
+
+  const declaration = await shippo.customsDeclarations.create({
+    contentsType: 'MERCHANDISE',
+    nonDeliveryOption: 'RETURN',
+    certify: true,
+    certifySigner: 'Lameboy',
+    items: lines.map((l) => ({
+      description: l.variant.products?.name ?? 'Merchandise',
+      quantity: l.qty,
+      netWeight: String(l.variant.weight_oz * l.qty),
+      massUnit: 'oz',
+      valueAmount: String((l.variant.price_cents / 100) * l.qty),
+      valueCurrency: 'USD',
+      originCountry: 'US',
+    })),
+  })
+
+  return declaration.objectId
+}
+
+/**
  * Quote live shipping rates for a destination + a set of variants.
  * All line items are combined into a single parcel: weights sum, and
  * dimensions use the largest single-variant box in the cart — a reasonable
  * approximation for a small apparel store where every item ships in a
  * similar poly mailer/box.
  *
- * @param {{name:string, address1:string, address2?:string, city:string, state?:string, zip:string, country:string}} destination
- * @param {Array<{variant:{weight_oz:number,length_in:number,width_in:number,height_in:number}, qty:number}>} lines
+ * @param {{name:string, address1:string, address2?:string, city:string, state?:string, zip:string, country:string, phone?:string}} destination
+ * @param {Array<{variant:{weight_oz:number,length_in:number,width_in:number,height_in:number,price_cents:number,products?:{name?:string}}, qty:number}>} lines
  */
 export async function getShippingRates(destination, lines) {
   const shippo = getShippo()
@@ -62,6 +91,9 @@ export async function getShippingRates(destination, lines) {
   const length = Math.max(...lines.map((l) => l.variant.length_in))
   const width = Math.max(...lines.map((l) => l.variant.width_in))
   const height = lines.reduce((sum, l) => sum + l.variant.height_in * l.qty, 0)
+
+  const isInternational = destination.country !== 'US'
+  const customsDeclaration = isInternational ? await createCustomsDeclaration(lines) : undefined
 
   const shipment = await shippo.shipments.create({
     addressFrom: getOriginAddress(),
@@ -73,6 +105,7 @@ export async function getShippingRates(destination, lines) {
       state: destination.state || undefined,
       zip: destination.zip,
       country: destination.country,
+      phone: destination.phone || undefined,
     },
     parcels: [
       {
@@ -84,6 +117,7 @@ export async function getShippingRates(destination, lines) {
         height: String(Math.max(height, 1)),
       },
     ],
+    customsDeclaration,
     async: false,
   })
 

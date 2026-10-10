@@ -236,6 +236,7 @@ export default function CheckoutFlow() {
   const [state, setState] = useState('')
   const [zip, setZip] = useState('')
   const [country, setCountry] = useState('US')
+  const [phone, setPhone] = useState('')
   const [shippingRates, setShippingRates] = useState([])
   const [selectedRate, setSelectedRate] = useState(null)
   const [clientSecret, setClientSecret] = useState(null)
@@ -279,6 +280,9 @@ export default function CheckoutFlow() {
     if (!firstName || !lastName || !address1 || !city || !zip || !country) {
       return setError('Please fill in all required fields')
     }
+    if (country !== 'US' && !phone) {
+      return setError('A phone number is required for international shipping')
+    }
     setError(null)
     setLoading(true)
     try {
@@ -288,7 +292,7 @@ export default function CheckoutFlow() {
         body: JSON.stringify({
           destination: {
             name: `${firstName} ${lastName}`,
-            address1, address2, city, state, zip, country,
+            address1, address2, city, state, zip, country, phone,
           },
           items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
         }),
@@ -446,6 +450,9 @@ export default function CheckoutFlow() {
                   <Input value={zip} onChange={e => setZip(e.target.value)} placeholder="90001" required />
                 </Field>
               </div>
+              <Field label={country !== 'US' ? 'Phone (required for international shipping)' : 'Phone (optional)'}>
+                <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" required={country !== 'US'} />
+              </Field>
               <button type="submit" style={{ ...BTN, opacity: loading ? 0.6 : 1 }} disabled={loading}>
                 {loading ? 'Checking...' : 'Continue to Shipping'}
               </button>
