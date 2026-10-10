@@ -173,6 +173,17 @@ function validateField(name, value, country) {
 
 const DETAILS_FIELDS = ['firstName', 'lastName', 'email', 'address1', 'city', 'state', 'zip', 'phone']
 
+// Starting country/state from Vercel's IP geolocation headers. Only used as
+// initial state, so it never overrides anything typed or restored later.
+// Falls back to US with no state when the headers are missing or unknown.
+function geoDefaults(geoCountry, geoRegion) {
+  const c = String(geoCountry ?? '').trim().toUpperCase()
+  const country = COUNTRIES.some(([code]) => code === c) ? c : 'US'
+  const r = String(geoRegion ?? '').trim().toUpperCase()
+  const state = country === 'US' && c === 'US' && US_STATES.includes(r) ? r : ''
+  return { country, state }
+}
+
 /** Rendered inside <Elements>, so it can use the Stripe hooks. */
 function PaymentStepForm({ total, onBack, onSuccess }) {
   const stripe = useStripe()
@@ -236,7 +247,7 @@ function PaymentStepForm({ total, onBack, onSuccess }) {
   )
 }
 
-export default function CheckoutFlow() {
+export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
   const { items, total, count, reset, cartReady } = useCart()
   const [step, setStep] = useState('details')
   const [loading, setLoading] = useState(false)
@@ -250,9 +261,9 @@ export default function CheckoutFlow() {
   const [address1, setAddress1] = useState('')
   const [address2, setAddress2] = useState('')
   const [city, setCity] = useState('')
-  const [state, setState] = useState('')
+  const [state, setState] = useState(() => geoDefaults(geoCountry, geoRegion).state)
   const [zip, setZip] = useState('')
-  const [country, setCountry] = useState('US')
+  const [country, setCountry] = useState(() => geoDefaults(geoCountry, geoRegion).country)
   const [phone, setPhone] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [shippingRates, setShippingRates] = useState([])
@@ -426,48 +437,48 @@ export default function CheckoutFlow() {
             <form onSubmit={handleDetails} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <Field label="First name" error={fieldErrors.firstName}>
-                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} onBlur={() => onFieldBlur('firstName')} placeholder="Jane" required />
+                  <Input name="given-name" autoComplete="shipping given-name" value={firstName} onChange={e => setFirstName(e.target.value)} onBlur={() => onFieldBlur('firstName')} placeholder="Jane" required />
                 </Field>
                 <Field label="Last name" error={fieldErrors.lastName}>
-                  <Input value={lastName} onChange={e => setLastName(e.target.value)} onBlur={() => onFieldBlur('lastName')} placeholder="Doe" required />
+                  <Input name="family-name" autoComplete="shipping family-name" value={lastName} onChange={e => setLastName(e.target.value)} onBlur={() => onFieldBlur('lastName')} placeholder="Doe" required />
                 </Field>
               </div>
               <Field label="Email" error={fieldErrors.email}>
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => onFieldBlur('email')} placeholder="jane@email.com" required />
+                <Input type="email" name="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => onFieldBlur('email')} placeholder="jane@email.com" required />
               </Field>
               <Field label="Country">
-                <Select value={country} onChange={e => { setCountry(e.target.value); setState('') }}>
+                <Select name="country" autoComplete="shipping country" value={country} onChange={e => { setCountry(e.target.value); setState('') }}>
                   {COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                 </Select>
               </Field>
               <Field label="Street Address" error={fieldErrors.address1}>
-                <Input value={address1} onChange={e => setAddress1(e.target.value)} onBlur={() => onFieldBlur('address1')} placeholder="123 Main St" required />
+                <Input name="address-line1" autoComplete="shipping address-line1" value={address1} onChange={e => setAddress1(e.target.value)} onBlur={() => onFieldBlur('address1')} placeholder="123 Main St" required />
               </Field>
               <Field label="Apt, suite, etc. (optional)">
-                <Input value={address2} onChange={e => setAddress2(e.target.value)} placeholder="Apt 4B" />
+                <Input name="address-line2" autoComplete="shipping address-line2" value={address2} onChange={e => setAddress2(e.target.value)} placeholder="Apt 4B" />
               </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                 <Field label="City" error={fieldErrors.city}>
-                  <Input value={city} onChange={e => setCity(e.target.value)} onBlur={() => onFieldBlur('city')} placeholder="Los Angeles" required />
+                  <Input name="address-level2" autoComplete="shipping address-level2" value={city} onChange={e => setCity(e.target.value)} onBlur={() => onFieldBlur('city')} placeholder="Los Angeles" required />
                 </Field>
                 {country === 'US' ? (
                   <Field label="State" error={fieldErrors.state}>
-                    <Select value={state} onChange={e => setState(e.target.value)} onBlur={() => onFieldBlur('state')} required>
+                    <Select name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} onBlur={() => onFieldBlur('state')} required>
                       <option value="">—</option>
                       {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     </Select>
                   </Field>
                 ) : (
                   <Field label="State / Province">
-                    <Input value={state} onChange={e => setState(e.target.value)} placeholder="CA" />
+                    <Input name="address-level1" autoComplete="shipping address-level1" value={state} onChange={e => setState(e.target.value)} placeholder="CA" />
                   </Field>
                 )}
                 <Field label="ZIP / Postal" error={fieldErrors.zip}>
-                  <Input value={zip} onChange={e => setZip(e.target.value)} onBlur={() => onFieldBlur('zip')} placeholder="90001" required />
+                  <Input name="postal-code" autoComplete="shipping postal-code" inputMode={country === 'US' ? 'numeric' : undefined} value={zip} onChange={e => setZip(e.target.value)} onBlur={() => onFieldBlur('zip')} placeholder="90001" required />
                 </Field>
               </div>
               <Field label={country !== 'US' ? 'Phone (required for international shipping)' : 'Phone (optional)'} error={fieldErrors.phone}>
-                <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => onFieldBlur('phone')} placeholder="(555) 123-4567" required={country !== 'US'} />
+                <Input type="tel" name="tel" autoComplete="shipping tel" value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => onFieldBlur('phone')} placeholder="(555) 123-4567" required={country !== 'US'} />
               </Field>
               <button type="submit" style={{ ...BTN, opacity: loading ? 0.6 : 1 }} disabled={loading}>
                 {loading ? 'Checking...' : 'Continue to Shipping'}
