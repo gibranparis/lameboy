@@ -21,7 +21,7 @@ export async function listProductsWithVariants() {
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, slug, description, category, variants(id, size, color, stock, price_cents, weight_oz, length_in, width_in, height_in)')
+    .select('id, name, slug, description, category, image_url, thumb_url, variants(id, size, color, stock, price_cents, weight_oz, length_in, width_in, height_in)')
     .order('created_at', { ascending: true })
 
   if (error) throw error
