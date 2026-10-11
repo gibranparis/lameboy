@@ -376,7 +376,9 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
               onClick={addToCart}
               aria-label={`Add size ${picked} to cart`}
             >
-              Add to Cart
+              <span className="atc-text">Add to Cart</span>
+              <span className="atc-glint atc-glint--a" aria-hidden />
+              <span className="atc-glint atc-glint--b" aria-hidden />
             </button>
           )}
 
@@ -389,30 +391,104 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
       )}
 
       <style jsx>{`
-        /* Green pill like the lit size / + pills: pops in, breathes a soft
-           ring to invite a tap, squishes under the finger */
+        /* Polished gold: drifting metal sheen, a light sweep every few
+           seconds, two twinkling glints, engraved lettering and a warm glow
+           that breathes. Pops in, lifts on hover, squishes under the finger */
         .atc-btn {
-          height: 36px;
-          padding: 0 20px;
+          position: relative;
+          overflow: hidden;
+          isolation: isolate;
+          height: 38px;
+          padding: 0 24px;
           border: none;
           border-radius: 9999px;
-          background: var(--hover-green, #0bf05f);
-          color: #000;
+          background: linear-gradient(
+            115deg,
+            #7a5410 0%,
+            #c8962e 14%,
+            #f6dc84 28%,
+            #fff6c8 36%,
+            #e2b54a 48%,
+            #a8761c 62%,
+            #f1d276 78%,
+            #fff1b0 86%,
+            #b98a2a 100%
+          );
+          background-size: 220% 100%;
+          color: #3a2604;
           font-size: 13px;
-          font-weight: 800;
-          letter-spacing: 0.05em;
+          font-weight: 900;
+          letter-spacing: 0.08em;
           white-space: nowrap;
           cursor: pointer;
           box-shadow:
-            inset 0 0 0 1px rgba(0, 0, 0, 0.18),
-            0 2px 10px rgba(0, 0, 0, 0.14);
+            inset 0 1px 0 rgba(255, 252, 230, 0.9),
+            inset 0 -2px 3px rgba(110, 70, 8, 0.45),
+            inset 0 0 0 1px rgba(122, 84, 16, 0.55),
+            0 3px 12px rgba(150, 105, 20, 0.35);
           transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
           animation:
-            atc-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
-            atc-breathe 2.2s ease-out 0.5s infinite;
+            atc-in 0.36s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+            atc-sheen 6s ease-in-out infinite alternate,
+            atc-glow 2.6s ease-in-out 0.4s infinite;
+        }
+        /* engraved: dark letters with a bright lip underneath */
+        .atc-text {
+          position: relative;
+          z-index: 2;
+          text-shadow:
+            0 1px 0 rgba(255, 246, 200, 0.85),
+            0 -1px 0 rgba(90, 58, 6, 0.25);
+        }
+        /* the light sweep */
+        .atc-btn::before {
+          content: '';
+          position: absolute;
+          top: -20%;
+          bottom: -20%;
+          left: 0;
+          width: 38%;
+          z-index: 1;
+          background: linear-gradient(
+            100deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0) 20%,
+            rgba(255, 255, 255, 0.85) 50%,
+            rgba(255, 255, 255, 0) 80%,
+            transparent 100%
+          );
+          transform: translateX(-160%) skewX(-18deg);
+          animation: atc-sweep 3.4s cubic-bezier(0.45, 0, 0.2, 1) 0.6s infinite;
+          pointer-events: none;
+        }
+        /* four-point star glints */
+        .atc-glint {
+          position: absolute;
+          z-index: 3;
+          width: 9px;
+          height: 9px;
+          background: #fffdf0;
+          clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+          filter: drop-shadow(0 0 2px rgba(255, 240, 170, 0.95));
+          opacity: 0;
+          transform: scale(0);
+          animation: atc-twinkle 2.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .atc-glint--a {
+          top: 4px;
+          left: 14px;
+          animation-delay: 1.1s;
+        }
+        .atc-glint--b {
+          bottom: 5px;
+          right: 16px;
+          width: 7px;
+          height: 7px;
+          animation-delay: 2.5s;
         }
         .atc-btn:hover {
-          transform: scale(1.04);
+          transform: translateY(-1px) scale(1.05);
         }
         .atc-btn:active {
           transform: scale(0.93);
@@ -422,22 +498,43 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           from { opacity: 0; transform: translateY(-6px) scale(0.8); }
           to   { opacity: 1; transform: none; }
         }
-        @keyframes atc-breathe {
-          0% {
+        @keyframes atc-sheen {
+          from { background-position: 0% 50%; }
+          to   { background-position: 100% 50%; }
+        }
+        @keyframes atc-sweep {
+          0%   { transform: translateX(-160%) skewX(-18deg); }
+          45%, 100% { transform: translateX(360%) skewX(-18deg); }
+        }
+        @keyframes atc-twinkle {
+          0%, 70%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+          80% { opacity: 1; transform: scale(1) rotate(45deg); }
+          90% { opacity: 0; transform: scale(0.2) rotate(90deg); }
+        }
+        @keyframes atc-glow {
+          0%, 100% {
             box-shadow:
-              inset 0 0 0 1px rgba(0, 0, 0, 0.18),
-              0 2px 10px rgba(0, 0, 0, 0.14),
-              0 0 0 0 rgba(11, 240, 95, 0.55);
+              inset 0 1px 0 rgba(255, 252, 230, 0.9),
+              inset 0 -2px 3px rgba(110, 70, 8, 0.45),
+              inset 0 0 0 1px rgba(122, 84, 16, 0.55),
+              0 3px 12px rgba(150, 105, 20, 0.35),
+              0 0 0 0 rgba(255, 210, 90, 0);
           }
-          70%, 100% {
+          50% {
             box-shadow:
-              inset 0 0 0 1px rgba(0, 0, 0, 0.18),
-              0 2px 10px rgba(0, 0, 0, 0.14),
-              0 0 0 10px rgba(11, 240, 95, 0);
+              inset 0 1px 0 rgba(255, 252, 230, 0.9),
+              inset 0 -2px 3px rgba(110, 70, 8, 0.45),
+              inset 0 0 0 1px rgba(122, 84, 16, 0.55),
+              0 4px 18px rgba(200, 145, 30, 0.5),
+              0 0 22px 3px rgba(255, 210, 90, 0.45);
           }
         }
         @media (prefers-reduced-motion: reduce) {
-          .atc-btn { animation: none; }
+          .atc-btn,
+          .atc-btn::before,
+          .atc-glint {
+            animation: none;
+          }
         }
         .plus-pill {
           width: 28px;
