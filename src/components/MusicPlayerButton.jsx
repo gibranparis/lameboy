@@ -547,23 +547,27 @@ export default function MusicPlayerButton({
           width: min(480px, calc(100vw - 2 * var(--header-ctrl, 64px)));
           background: #000;
           pointer-events: all;
-          border-top: 1px solid var(--bg);
-          border-bottom: 1px solid var(--bg);
+          /* Soft rounded corners, floating just above the page */
+          border-radius: 18px;
+          overflow: hidden;
+          box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.12);
+        }
+        /* At night the black letterbox meets a black page: a faint rim and
+           glow keep its rounded shape */
+        html[data-theme='night'] .yt-panel {
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 10px 32px rgba(255, 255, 255, 0.06);
         }
         /* Visible state */
         .yt-panel--open {
           animation: yt-drop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
-        /* Collapsed — zero layout height, player iframe stays alive.
-           Borders live on .yt-panel itself, which doesn't go away at
-           height:0 — so they get explicitly zeroed out here too, otherwise
-           a ~2px line sits under the header even while "closed". */
+        /* Collapsed — zero layout height, player iframe stays alive (and
+           no shadow, or a faint smudge sits under the header) */
         .yt-panel--closed {
           height: 0;
           overflow: hidden;
           pointer-events: none;
-          border-top: none;
-          border-bottom: none;
+          box-shadow: none;
         }
         /* Overlay open — hide visually but keep layout + audio */
         .yt-panel--overlay {
@@ -575,6 +579,11 @@ export default function MusicPlayerButton({
           position: relative;
           width: 100%;
           overflow: hidden;
+          border-radius: inherit;
+          /* Safari doesn't always clip a playing iframe to rounded corners
+             without its own compositing layer */
+          isolation: isolate;
+          -webkit-mask-image: -webkit-radial-gradient(white, black);
           transition: padding-bottom 0.35s ease;
         }
         .yt-wrap iframe {
@@ -616,8 +625,9 @@ export default function MusicPlayerButton({
         /* Resize handle: a small corner grip over the video */
         .yt-resize {
           position: absolute;
-          right: 0;
-          bottom: 0;
+          /* tucked in from the rounded corner */
+          right: 4px;
+          bottom: 4px;
           width: 30px;
           height: 30px;
           z-index: 3;
