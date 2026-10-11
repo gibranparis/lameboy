@@ -140,7 +140,7 @@ export default function CheckoutView({ onClose }) {
   // bottom-right spot)
   const [placed, setPlaced] = useState(/** @type {null | Record<string, any>} */ (null))
   useLayoutEffect(() => {
-    setPlaced(placeNear(document.querySelector('[data-cart-button]'), { width: 300, maxHeight: 420, prefer: 'above' }))
+    setPlaced(placeNear(document.querySelector('[data-cart-button]'), { popup: panelRef.current, width: 302, maxHeight: 420, prefer: 'above' }))
   }, [])
 
   // Animate in on mount
@@ -170,7 +170,7 @@ export default function CheckoutView({ onClose }) {
   useEffect(() => {
     if (!panelRef.current) return
     return attachDragSnap(panelRef.current, { touchAction: 'none', key: 'cart-panel', ignore: POPUP_CONTROLS })
-  }, [])
+  }, [placed]) // re-attached once placed, so a remembered spot is kept on screen from there
 
   // Escape key
   useEffect(() => {
