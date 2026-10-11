@@ -275,8 +275,9 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
   }, [product])
 
   // The size pills and Add to Cart drag and keep working wherever they're
-  // dropped; toggling the +, which itself stays put, sends them all home
-  // (and so does closing the product page)
+  // dropped, and flicked they pinball around and back to their spot;
+  // toggling the +, which itself stays put, sends them all home (and so
+  // does closing the product page)
   const wrapRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   useEffect(() => {
     const wrap = wrapRef.current
@@ -286,6 +287,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
       key: `pdp-${el.dataset.dragKey}`,
       stayOnTap: true,
       touchAction: 'none',
+      fling: pinball,
     }))
     return () => detach.forEach((d) => d())
   }, [open, picked, showAdded, sizes])
@@ -1435,7 +1437,8 @@ export default function ProductOverlay({
     const onTouchEnd = (/** @type {TouchEvent} */ e) => {
       if (e.touches.length < 2) pinch = null
     }
-    const detach = attachDragSnap(el, { touchAction: 'none' })
+    // Flicked, the measurements pinball around and back to their spot
+    const detach = attachDragSnap(el, { touchAction: 'none', fling: pinball })
     el.addEventListener('wheel', onWheel, { passive: false })
     el.addEventListener('touchstart', onTouchStart, { passive: true })
     el.addEventListener('touchmove', onTouchMove, { passive: false })

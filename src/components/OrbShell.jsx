@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BlueOrbCross3D from '@/components/BlueOrbCross3D'
 import { DRAG_RESET, FLICK_SPEED, flightStep, launch, pinball } from '@/lib/dragSnap'
+import { createCloneRing } from '@/lib/cloneRing'
 
 // Spin momentum (see "Spin momentum" below). The cross has 2-fold symmetry
 // about its spin axis, so it's kept well under half a turn per 60 fps frame,
@@ -158,6 +159,10 @@ export default function OrbShell({
   const dragStart = useRef(/** @type {{id:number,x:number,y:number,active:boolean}|null} */ (null))
   // Set when a drag ends so the click the browser fires after it is ignored
   const suppressClick = useRef(false)
+  // The shop orb's ring of clones (made on its first grab)
+  const orbRing = useRef(/** @type {ReturnType<typeof createCloneRing> | null} */ (null))
+  const ringOf = () => (orbRing.current ??= createCloneRing())
+  useEffect(() => () => orbRing.current?.stop(), [])
   // parked: left where it was dropped (shop); flying / walls: a flick's
   // pinball flight home (see dragSnap's flightStep)
   const motion = useRef({ x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, flying: 0, walls: /** @type {Element[] | null} */ (null) })
@@ -302,8 +307,11 @@ export default function OrbShell({
   // In the shop the same drag works on the bottom-bar orb: it lifts, follows
   // the finger, springs home, then does what a tap does (the next zoom step).
   //
-  // In both, a dragged orb breaks apart: its balls orbit the finger and the
-  // arms shrink away, then everything snaps back into the cross on release.
+  // On the splash a dragged orb breaks apart: its balls orbit the finger and
+  // the arms shrink away, then everything snaps back into the cross on
+  // release. In the shop it stays whole and a ring of little spinning orbs
+  // (clones of it) rolls round it instead, while it's dragged and while a
+  // flick pinballs it home (lib/cloneRing).
 
   const onGateClick = useCallback(() => {
     if (suppressClick.current) { suppressClick.current = false; return }
@@ -430,7 +438,8 @@ export default function OrbShell({
       try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
       m.held = true
       setDragging(true)
-      if (!reducedMotion.current) setScatter(grabOffset.current)
+      // The splash orb scatters; the shop orb gets its ring of clones instead
+      if (!reducedMotion.current && !inShop) setScatter(grabOffset.current)
       setScaleTarget(LIFT_SCALE)
       // While dragged (and flying home) it sits above everything: header,
       // top row, video, pop-ups
@@ -441,6 +450,7 @@ export default function OrbShell({
     m.y = (s.by || 0) + dy
     m.vx = m.vy = 0
     writeShell()
+    if (inShop && shellRef.current) ringOf().move(shellRef.current, e.clientX, e.clientY)
     if (!reducedMotion.current) {
       // How fast it's being dragged (px/s, smoothed): winds up the spin
       const f = fling.current
@@ -507,10 +517,13 @@ export default function OrbShell({
       runSpin()
     }
     setDragging(false)
-    // Flicked in the shop, the balls stay scattered, rolling, while it
-    // pinballs, and form the cross again once it's home; otherwise the cross
-    // re-forms as it lets go
-    if (!flick) setScatter(null)
+    // The splash orb's cross re-forms as it lets go. In the shop the ring of
+    // clones folds back in as it's dropped, or, flicked, keeps rolling round
+    // it while it pinballs and folds in once it's home
+    if (!flick) {
+      setScatter(null)
+      if (shellRef.current) orbRing.current?.release(shellRef.current)
+    }
     const m = motion.current
     m.held = false
     if (inShop) {
@@ -522,7 +535,10 @@ export default function OrbShell({
       if (flick && el) {
         m.parked = false
         launch(m, relV.x, relV.y, el.getBoundingClientRect(), pinball.obstacles(el))
-        onSettle.current = () => setScatter(null)
+        onSettle.current = () => {
+          setScatter(null)
+          orbRing.current?.release(el)
+        }
         shopStep.current?.()
       } else {
         m.parked = true
