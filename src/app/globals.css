@@ -611,11 +611,10 @@ html:has([data-shop-root]) .logo-3d {
 html[data-overlay-open] #yt-panel-anchor {
   background: transparent !important;
 }
-/* Dragged or parked video sits above everything it's moved over, except the
-   cart and heart pop-ups (z 2147483001+); its empty home slot stays
-   see-through so it doesn't paint a bar over overlays */
+/* Dragged or parked video: dragSnap lifts its holder to the top layer (last
+   dragged wins); its empty home slot stays see-through so it doesn't paint
+   a bar over what's underneath */
 #yt-panel-anchor[data-video-lifted] {
-  z-index: 2147483000 !important;
   background: transparent !important;
 }
 
