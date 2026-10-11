@@ -81,10 +81,10 @@ export default function OrbShell({
     }
   }, [])
 
-  // Dragging the orb on the gate turns it the colour of the ball that was
-  // grabbed; it hands back to the sequence once the orb is home
+  // Touching the orb on the gate turns it the colour of the ball under the
+  // finger; it hands back to the sequence on a tap's release, or once a
+  // dragged orb is home
   const [grabColor, setGrabColor] = useState(/** @type {string|null} */ (null))
-  const grabbed = useRef(/** @type {string|null} */ (null))
   const pickRef = useRef(/** @type {null | ((x: number, y: number) => string|null)} */ (null))
 
   const gateOverride = useMemo(() => {
@@ -242,9 +242,9 @@ export default function OrbShell({
 
   /* ===================== Gate interactions ===================== */
   // Every gesture starts the same sequence: all seven chakras, then black,
-  // then the shop. Touching the orb starts it at once (red on contact); a
-  // drag pauses it and turns the orb the colour of the ball it was grabbed
-  // by (while the balls still show their own colours) until it's back home.
+  // then the shop. Touching the orb starts it at once, and while the balls
+  // still show their own colours the orb takes the colour of the one touched
+  // until it's let go (a drag pauses the sequence until the orb is home).
   // Once it's running, more taps never skip a colour.
   //
   // In the shop the same drag works on the bottom-bar orb: it lifts, follows
@@ -263,8 +263,10 @@ export default function OrbShell({
     if (e.pointerType === 'mouse' && e.button !== 0) return
     dragStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false }
     setScaleTarget(PRESS_SCALE)
-    // Read the ball before the press turns the whole orb red
-    grabbed.current = !inShop && gateStep === 0 ? pickRef.current?.(e.clientX, e.clientY) ?? null : null
+    // Read the ball while they still show their own colours; set in the same
+    // event as the sequence start, so the touched colour shows instead of red
+    const picked = !inShop && gateStep === 0 ? pickRef.current?.(e.clientX, e.clientY) ?? null : null
+    if (picked) setGrabColor(picked)
     if (!inShop && gateStep === 0) {
       buzz(8)
       onAdvanceGate && onAdvanceGate()
@@ -285,7 +287,6 @@ export default function OrbShell({
       setDragging(true)
       setScaleTarget(LIFT_SCALE)
       if (!inShop && onHoldChange) onHoldChange(true)
-      if (!inShop && grabbed.current) setGrabColor(grabbed.current)
     }
     m.x = dx
     m.y = dy
@@ -300,7 +301,10 @@ export default function OrbShell({
     setScaleTarget(1)
     // A tap: on the gate the sequence already started on press; in the shop
     // the click / touchend handlers fire the zoom step
-    if (!s.active) return
+    if (!s.active) {
+      setGrabColor(null)
+      return
+    }
 
     // Drag released: spring home, then resume the sequence (gate) or take
     // the next zoom step (shop). The click or touchend that follows is ignored.
