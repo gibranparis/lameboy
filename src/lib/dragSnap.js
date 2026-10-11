@@ -45,6 +45,95 @@ const parkedAt = new Map()
 /** Parts of a pop-up a press should use as-is instead of dragging it */
 export const POPUP_CONTROLS = 'button, a, input, select, textarea, label, iframe, [contenteditable]'
 
+/**
+ * One frame of a flick's flight (pinball): free flight with a little drag,
+ * bouncing off the screen edges and `m.walls`, while home pulls harder and
+ * harder; it clears `m.flying` once tamed, for the usual spring home.
+ * @param {{ x: number, y: number, vx: number, vy: number, flying: number, walls: Element[] | null }} m
+ *   offset from home (px), velocity (px/s), flight start (ms) and obstacles
+ * @param {number} dt s
+ * @param {number} now ms
+ * @param {DOMRect} b the body's last drawn box
+ * @param {() => void} [onBounce]
+ */
+export function flightStep(m, dt, now, b, onBounce) {
+  const age = (now - m.flying) / 1000
+  const pull = Math.min(1, (age / FLING_FLIGHT) ** 2)
+  const drag = FLING_DRAG + pull * 6
+  m.vx += (-POS_K * pull * m.x - drag * m.vx) * dt
+  m.vy += (-POS_K * pull * m.y - drag * m.vy) * dt
+  const px = m.x
+  const py = m.y
+  m.x += m.vx * dt
+  m.y += m.vy * dt
+  // Where it would be drawn (its last drawn box, moved on)
+  const ox = m.x - px
+  const oy = m.y - py
+  const box = { l: b.left + ox, r: b.right + ox, t: b.top + oy, b: b.bottom + oy }
+  let hit = false
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  // Screen edges
+  if (box.l < FLING_EDGE && m.vx < 0) { m.x += FLING_EDGE - box.l; m.vx = -m.vx * FLING_BOUNCE; hit = true }
+  else if (box.r > vw - FLING_EDGE && m.vx > 0) { m.x -= box.r - (vw - FLING_EDGE); m.vx = -m.vx * FLING_BOUNCE; hit = true }
+  if (box.t < FLING_EDGE && m.vy < 0) { m.y += FLING_EDGE - box.t; m.vy = -m.vy * FLING_BOUNCE; hit = true }
+  else if (box.b > vh - FLING_EDGE && m.vy > 0) { m.y -= box.b - (vh - FLING_EDGE); m.vy = -m.vy * FLING_BOUNCE; hit = true }
+  // Other items: off the side it came in through (the shallower overlap)
+  for (const w of m.walls || []) {
+    const o = w.getBoundingClientRect()
+    if (!o.width || box.r <= o.left || box.l >= o.right || box.b <= o.top || box.t >= o.bottom) {
+      w.__lbIn = false
+      continue
+    }
+    // Started overlapping it (dropped on it): let it fly out
+    if (w.__lbIn !== false) continue
+    const dl = box.r - o.left
+    const dr = o.right - box.l
+    const dtp = box.b - o.top
+    const db = o.bottom - box.t
+    const dx = Math.min(dl, dr)
+    const dy = Math.min(dtp, db)
+    if (dx < dy) {
+      if (dl < dr && m.vx > 0) { m.x -= dl; m.vx = -m.vx * FLING_BOUNCE; hit = true }
+      else if (dr <= dl && m.vx < 0) { m.x += dr; m.vx = -m.vx * FLING_BOUNCE; hit = true }
+    } else {
+      if (dtp < db && m.vy > 0) { m.y -= dtp; m.vy = -m.vy * FLING_BOUNCE; hit = true }
+      else if (db <= dtp && m.vy < 0) { m.y += db; m.vy = -m.vy * FLING_BOUNCE; hit = true }
+    }
+  }
+  if (hit) onBounce?.()
+  // Tamed: the usual spring brings it the rest of the way home
+  if (pull >= 1 || (age > 0.5 && Math.hypot(m.vx, m.vy) < 160)) {
+    m.flying = 0
+    m.walls = null
+  }
+}
+
+/**
+ * Sends `m` flying (see flightStep) at (vx, vy) px/s, capped; whatever its
+ * body is sitting on as it leaves doesn't count until it's clear
+ * @param {{ vx: number, vy: number, flying: number, walls: Element[] | null }} m
+ * @param {number} vx
+ * @param {number} vy
+ * @param {DOMRect} b the body's box now
+ * @param {Element[]} walls
+ */
+export function launch(m, vx, vy, b, walls) {
+  const k = Math.min(1, FLING_MAX_V / Math.max(1, Math.hypot(vx, vy)))
+  m.vx = vx * k
+  m.vy = vy * k
+  m.walls = walls
+  for (const w of walls) {
+    const o = w.getBoundingClientRect()
+    const on = !(b.right <= o.left || b.left >= o.right || b.bottom <= o.top || b.top >= o.bottom)
+    Object.assign(w, { __lbIn: on })
+  }
+  m.flying = performance.now()
+}
+
+/** Fast enough at release to count as a flick (px/s) */
+export const FLICK_SPEED = FLING_SPEED
+
 /** Everything on the shop page a flicked item bounces off */
 const PINBALL_WALLS = [
   '[data-cart-button]',
@@ -318,57 +407,7 @@ export function attachDragSnap(root, opts = {}) {
    *  off the screen edges and the obstacles, while home pulls harder and
    *  harder; once it's tamed the usual spring takes it the rest of the way */
   const fly = (/** @type {HTMLElement} */ el, m, /** @type {number} */ dt, /** @type {number} */ now) => {
-    const age = (now - m.flying) / 1000
-    const pull = Math.min(1, (age / FLING_FLIGHT) ** 2)
-    const drag = FLING_DRAG + pull * 6
-    m.vx += (-POS_K * pull * m.x - drag * m.vx) * dt
-    m.vy += (-POS_K * pull * m.y - drag * m.vy) * dt
-    const px = m.x
-    const py = m.y
-    m.x += m.vx * dt
-    m.y += m.vy * dt
-    // Where it would be drawn (its last drawn box, moved on)
-    const b = /** @type {DOMRect} */ ((fling?.body?.(el) || el).getBoundingClientRect())
-    const ox = m.x - px
-    const oy = m.y - py
-    const box = { l: b.left + ox, r: b.right + ox, t: b.top + oy, b: b.bottom + oy }
-    let hit = false
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    // Screen edges
-    if (box.l < FLING_EDGE && m.vx < 0) { m.x += FLING_EDGE - box.l; m.vx = -m.vx * FLING_BOUNCE; hit = true }
-    else if (box.r > vw - FLING_EDGE && m.vx > 0) { m.x -= box.r - (vw - FLING_EDGE); m.vx = -m.vx * FLING_BOUNCE; hit = true }
-    if (box.t < FLING_EDGE && m.vy < 0) { m.y += FLING_EDGE - box.t; m.vy = -m.vy * FLING_BOUNCE; hit = true }
-    else if (box.b > vh - FLING_EDGE && m.vy > 0) { m.y -= box.b - (vh - FLING_EDGE); m.vy = -m.vy * FLING_BOUNCE; hit = true }
-    // Other items: off the side it came in through (the shallower overlap)
-    for (const w of m.walls || []) {
-      const o = w.getBoundingClientRect()
-      if (!o.width || box.r <= o.left || box.l >= o.right || box.b <= o.top || box.t >= o.bottom) {
-        w.__lbIn = false
-        continue
-      }
-      // Started overlapping it (dropped on it): let it fly out
-      if (w.__lbIn !== false) continue
-      const dl = box.r - o.left
-      const dr = o.right - box.l
-      const dtp = box.b - o.top
-      const db = o.bottom - box.t
-      const dx = Math.min(dl, dr)
-      const dy = Math.min(dtp, db)
-      if (dx < dy) {
-        if (dl < dr && m.vx > 0) { m.x -= dl; m.vx = -m.vx * FLING_BOUNCE; hit = true }
-        else if (dr <= dl && m.vx < 0) { m.x += dr; m.vx = -m.vx * FLING_BOUNCE; hit = true }
-      } else {
-        if (dtp < db && m.vy > 0) { m.y -= dtp; m.vy = -m.vy * FLING_BOUNCE; hit = true }
-        else if (db <= dtp && m.vy < 0) { m.y += db; m.vy = -m.vy * FLING_BOUNCE; hit = true }
-      }
-    }
-    if (hit) fling?.onBounce?.(el)
-    // Tamed: the usual spring brings it the rest of the way home
-    if (pull >= 1 || (age > 0.5 && Math.hypot(m.vx, m.vy) < 160)) {
-      m.flying = 0
-      m.walls = null
-    }
+    flightStep(m, dt, now, (fling?.body?.(el) || el).getBoundingClientRect(), fling?.onBounce ? () => fling.onBounce?.(el) : undefined)
   }
 
   const run = (/** @type {HTMLElement} */ el) => {
@@ -569,22 +608,11 @@ export function attachDragSnap(root, opts = {}) {
     const speed = Math.hypot(p.vx, p.vy)
     if (fling && e.type === 'pointerup' && !still && speed > FLING_SPEED && !reducedMotion()) {
       const m = stateOf(p.el)
-      const k = Math.min(1, FLING_MAX_V / speed)
       m.held = false
       m.parked = false
       parked.delete(p.el)
       if (key && p.el === root) parkedAt.delete(key)
-      m.vx = p.vx * k
-      m.vy = p.vy * k
-      // Whatever it's sitting on as it leaves doesn't count until it's clear
-      const b = (fling.body?.(p.el) || p.el).getBoundingClientRect()
-      m.walls = fling.obstacles?.(p.el) || []
-      for (const w of m.walls) {
-        const o = w.getBoundingClientRect()
-        const on = !(b.right <= o.left || b.left >= o.right || b.bottom <= o.top || b.top >= o.bottom)
-        Object.assign(w, { __lbIn: on })
-      }
-      m.flying = performance.now()
+      launch(m, p.vx, p.vy, (fling.body?.(p.el) || p.el).getBoundingClientRect(), fling.obstacles?.(p.el) || [])
       setScale(p.el, 1)
       return
     }
