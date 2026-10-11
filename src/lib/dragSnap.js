@@ -38,6 +38,9 @@ const reducedMotion = () =>
  * @property {() => void} [onParkedTap] makes a dragged element stay where it
  *   is dropped (no spring home, no click). A tap on it while parked calls
  *   this instead of its click, and springs it home.
+ * @property {(lifted: boolean) => void} [onLift] called with true when a drag
+ *   lifts an element, and false once it is back home and at rest (e.g. to
+ *   raise its container above everything while it's away)
  */
 
 /**
@@ -46,7 +49,7 @@ const reducedMotion = () =>
  * @returns {() => void} cleanup
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction, clickOn = 'arrive', onParkedTap } = opts
+  const { targets, enabled, touchAction, clickOn = 'arrive', onParkedTap, onLift } = opts
   const stay = typeof onParkedTap === 'function'
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
@@ -73,7 +76,7 @@ export function attachDragSnap(root, opts = {}) {
   const stateOf = (/** @type {HTMLElement} */ el) => {
     let m = states.get(el)
     if (!m) {
-      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, raf: 0, onArrive: null, saved: null }
+      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, lifted: false, raf: 0, onArrive: null, saved: null }
       states.set(el, m)
     }
     return m
@@ -134,6 +137,10 @@ export function attachDragSnap(root, opts = {}) {
           m.saved = null
         }
         m.raf = 0
+        if (m.lifted) {
+          m.lifted = false
+          onLift?.(false)
+        }
         return
       }
       if (settled) {
@@ -188,6 +195,10 @@ export function attachDragSnap(root, opts = {}) {
       setScale(press.el, LIFT_SCALE)
       if (!m.saved) m.saved = { transition: press.el.style.transition, zIndex: press.el.style.zIndex }
       press.el.style.zIndex = '50'
+      if (!m.lifted) {
+        m.lifted = true
+        onLift?.(true)
+      }
       try { window.getSelection()?.removeAllRanges() } catch {}
     }
     m.x = press.bx + dx

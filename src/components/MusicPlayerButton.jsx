@@ -135,7 +135,20 @@ export default function MusicPlayerButton({
   useEffect(() => {
     const el = panelRef.current
     if (!el) return
-    return attachDragSnap(el, { touchAction: 'none', onParkedTap: () => pause() })
+    // While it's lifted or parked away from home, its anchor rises above
+    // everything (header, iPod, orb, overlays) so the video is never under
+    // whatever it's dragged over
+    const anchor = portalTarget
+    const onLift = (/** @type {boolean} */ lifted) => {
+      if (!anchor) return
+      if (lifted) anchor.setAttribute('data-video-lifted', '1')
+      else anchor.removeAttribute('data-video-lifted')
+    }
+    const detach = attachDragSnap(el, { touchAction: 'none', onParkedTap: () => pause(), onLift })
+    return () => {
+      detach()
+      onLift(false)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portalTarget])
 
