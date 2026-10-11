@@ -297,7 +297,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     flipAnimsRef.current.forEach((a) => a.cancel())
     flipAnimsRef.current = []
     delete grid.dataset.flipping
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    // Plays even under Reduce Motion: skipping it made the stacks jump
+    // straight between layouts, which read as a broken snap
 
     const tiles = /** @type {HTMLElement[]} */ (Array.from(grid.querySelectorAll('.product-tile')))
     const curve = SPRINGS[flip.kind]
