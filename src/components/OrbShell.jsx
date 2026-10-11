@@ -136,6 +136,8 @@ export default function OrbShell({
   // What a released drag does in the shop: the same zoom step as a tap
   // (set below, once the shop actions exist)
   const shopAction = useRef(/** @type {null | (() => void)} */ (null))
+  // Colour of the ball pressed in the shop; the next zoom flashes it
+  const shopPick = useRef(/** @type {string|null} */ (null))
 
   const shellRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   const [dragging, setDragging] = useState(false)
@@ -276,8 +278,11 @@ export default function OrbShell({
     setScaleTarget(PRESS_SCALE)
     // Read the ball while they still show their own colours; set in the same
     // event as the sequence start, so the touched colour shows instead of red
-    const picked = !inShop && gateStep === 0 ? pickRef.current?.(e.clientX, e.clientY) ?? null : null
+    // In the shop every press reads the ball, and the zoom it fires flashes
+    // that colour
+    const picked = inShop || gateStep === 0 ? pickRef.current?.(e.clientX, e.clientY) ?? null : null
     if (picked) setGrabColor(picked)
+    if (inShop) shopPick.current = picked
     if (!inShop && gateStep === 0) {
       buzz(8)
       onAdvanceGate && onAdvanceGate()
@@ -326,7 +331,10 @@ export default function OrbShell({
     const m = motion.current
     m.held = false
     const start = inShop
-      ? () => { shopAction.current && shopAction.current() }
+      ? () => {
+          setGrabColor(null)
+          shopAction.current && shopAction.current()
+        }
       : () => {
           setGrabColor(null)
           onHoldChange && onHoldChange(false)
@@ -345,6 +353,9 @@ export default function OrbShell({
   /* ===================== Shop density logic (ported from ChakraOrbButton) ===================== */
 
   const lastFireRef = useRef(0)
+  // True while our own lb:zoom dispatches, so the external mirror doesn't
+  // repaint the picked flash black
+  const selfFire = useRef(false)
   const FIRE_COOLDOWN_MS = 150
 
   const [pressColor, setPressColor] = useState(null) // '#00a832' | null
@@ -379,10 +390,16 @@ export default function OrbShell({
       if (now - lastFireRef.current < FIRE_COOLDOWN_MS) return
       lastFireRef.current = now
 
-      pulse(BLACK_GLOW)
+      pulse(shopPick.current || BLACK_GLOW)
+      shopPick.current = null
 
       const detail = { step: 1, ...(dir ? { dir } : {}) }
-      document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
+      selfFire.current = true
+      try {
+        document.dispatchEvent(new CustomEvent('lb:zoom', { detail }))
+      } finally {
+        selfFire.current = false
+      }
       document.dispatchEvent(new CustomEvent('lb:zoom/grid-density', { detail }))
       document.dispatchEvent(new CustomEvent('grid-density', { detail })) // legacy
     },
@@ -401,7 +418,7 @@ export default function OrbShell({
   // mirror external zoom pulses visually
   useEffect(() => {
     const onExternal = (ev) => {
-      if (ev?.detail?.dir) pulse(BLACK_GLOW)
+      if (ev?.detail?.dir && !selfFire.current) pulse(BLACK_GLOW)
     }
     document.addEventListener('lb:zoom', onExternal)
     return () => document.removeEventListener('lb:zoom', onExternal)
@@ -480,7 +497,7 @@ export default function OrbShell({
 
   const orbOverrideAllColor = inGateLike
     ? gateOverride
-    : pressColor || (isNight ? WHITE : null)
+    : pressColor || grabColor || (isNight ? WHITE : null)
   const orbHaloTint = inGateLike
     ? gateOverride === RED
       ? '#880011'        // deep blood-crimson — evil moon glow
@@ -489,7 +506,7 @@ export default function OrbShell({
         : null
     : pressColor === BLACK_GLOW
       ? '#444444'
-      : pressColor || (isNight ? WHITE : null)
+      : pressColor || grabColor || (isNight ? WHITE : null)
 
   // Always keep glow meshes mounted so the visual footprint stays consistent
   // across color transitions. Opacity (orbGlowOpacity) already goes to 0
@@ -504,7 +521,7 @@ export default function OrbShell({
         : gateStep >= 1
           ? 1.0
           : 0.9
-    : pressColor
+    : pressColor || grabColor
       ? 1.0
       : 0.9
 
