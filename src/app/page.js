@@ -16,6 +16,8 @@ const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr:
 // Shop
 import ShopGrid from '@/components/ShopGrid'
 import { isSignedIn, useProfile } from '@/lib/profile'
+import { useCart } from '@/contexts/CartContext'
+import { freeShipTokens } from '@/lib/freeShipping'
 import { useDragSnap, pinball, resetDragged } from '@/lib/dragSnap'
 import { askForMotion, onShake } from '@/lib/shake'
 import { haptic } from '@/lib/haptics'
@@ -23,6 +25,7 @@ const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: fal
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
 const NewsletterForm = nextDynamic(() => import('@/components/NewsletterForm'), { ssr: false })
+const TokensPill = nextDynamic(() => import('@/components/TokensPill'), { ssr: false })
 const QuickAddSizes = nextDynamic(() => import('@/components/QuickAddSizes'), { ssr: false })
 const MusicPlayerButton = nextDynamic(() => import('@/components/MusicPlayerButton'), { ssr: false })
 
@@ -271,7 +274,10 @@ export default function Page() {
   /* ===================== Checkout side panel ===================== */
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [newsletterOpen, setNewsletterOpen] = useState(false)
-  const heartFilled = isSignedIn(useProfile())
+  const profile = useProfile()
+  const heartFilled = isSignedIn(profile)
+  // Signed in, the tokens pill stays up under the heart
+  const { total: cartTotal, cartReady } = useCart()
 
   /* ===================== Shop → splash ===================== */
   // Once entered, the shop stays mounted (hidden) while the splash page shows,
@@ -611,6 +617,16 @@ export default function Page() {
         </div>
       )}
 
+
+      {/* Tokens toward free shipping, under the heart once signed in (hidden
+          while the heart panel, with the full meter, is open) */}
+      {inShop && !loaderShow && heartFilled && cartReady && (
+        <TokensPill
+          {...freeShipTokens(cartTotal, profile?.country)}
+          hidden={newsletterOpen || !shopReady}
+          onOpen={() => setNewsletterOpen(true)}
+        />
+      )}
 
       {/* Checkout side panel */}
       {checkoutOpen && <CheckoutView onClose={() => setCheckoutOpen(false)} />}
