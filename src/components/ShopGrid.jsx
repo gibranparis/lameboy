@@ -26,7 +26,7 @@ function springCurve(/** @type {number} */ k, /** @type {number} */ c) {
   let x = 0
   let v = 0
   const dt = 1 / 60 / 4
-  for (let f = 0; f < 150; f++) {
+  for (let f = 0; f < 300; f++) {
     for (let i = 0; i < 4; i++) {
       v += (k * (1 - x) - c * v) * dt
       x += v * dt
@@ -40,15 +40,15 @@ function springCurve(/** @type {number} */ k, /** @type {number} */ c) {
 // Unfolding / folding a stack moves tiles ~3x as far as a column change, so
 // those springs are slower (peak speed per px roughly matches a resize)
 const SPRINGS = {
-  open: springCurve(14, 4.8), // stacks → grid: 90% there in ~0.7s, ~7% past home
-  close: springCurve(14, 5.6), // grid → stacks: same pace, softer landing
+  open: springCurve(4.5, 2.8), // stacks → grid: 90% there in ~1.2s, ~6% past home
+  close: springCurve(4.5, 3.2), // grid → stacks: ~1.3s, softer landing
   density: springCurve(200, 18), // column changes
 }
 // Tiles set off one after another rather than all at once; a stack deals
 // its cards out more slowly than a resize shuffles them
 const STAGGER = {
-  open: { step: 70, max: 450 },
-  close: { step: 70, max: 450 },
+  open: { step: 110, max: 650 },
+  close: { step: 110, max: 650 },
   density: { step: 22, max: 240 },
 }
 // Opening / closing a stack mounts fresh <img>s; hold the spring until
