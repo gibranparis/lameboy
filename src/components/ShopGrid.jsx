@@ -639,7 +639,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     }
   }, [collapseToStacks])
 
-  /* ---------------- Drag a tile or stack; it stays put until tapped or the grid folds ---------------- */
+  /* ---------------- Drag a tile or stack; it stays put (taps still open it) until the grid folds ---------------- */
   // A product tile dropped on the cart button springs home and the cart
   // offers its sizes (QuickAddSizes); the bag swells while one hovers over it
   const tilesRef = useRef(/** @type {HTMLDivElement|null} */ (null))
@@ -667,6 +667,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       targets: ['.category-stack', ".shop-grid[data-view-mode='grid'] .product-tile"],
       enabled: () => !overlayOpenRef.current && document.documentElement.dataset.overlayOpen !== '1',
       jumpHome: true, // the fold's FLIP flies them into the stack
+      stayOnTap: true, // a tap opens the product where it's parked
       onDragMove: (tile, x, y) => setHover(!!productOf(tile) && overCart(x, y)),
       onDrop: (tile, x, y, cancelled) => {
         setHover(false)
