@@ -152,7 +152,12 @@ const PINBALL_WALLS = [
  *  video (never itself), with a light tap per bounce, then finds its way home */
 export const pinball = {
   obstacles: (/** @type {HTMLElement} */ el) =>
-    [...document.querySelectorAll(PINBALL_WALLS)].filter((o) => o !== el && !el.contains(o) && !o.contains(el)),
+    [...document.querySelectorAll(PINBALL_WALLS)].filter(
+      (o) =>
+        o !== el && !el.contains(o) && !o.contains(el) &&
+        // nothing hidden counts (e.g. the grid behind an open product page)
+        (!o.checkVisibility || o.checkVisibility({ visibilityProperty: true, opacityProperty: true }))
+    ),
   onBounce: () => haptic(4),
 }
 
@@ -312,10 +317,11 @@ export function resetDragged(opts = {}) {
  * @property {(el: HTMLElement, x: number, y: number, cancelled: boolean) => boolean} [onDrop]
  *   called when a drag ends; return true when the drop was used (e.g. on the
  *   cart) and the element springs home instead of parking
- * @property {{ obstacles?: (el: HTMLElement) => Element[], body?: (el: HTMLElement) => Element, onBounce?: (el: HTMLElement) => void }} [fling]
+ * @property {{ obstacles?: (el: HTMLElement) => Element[], body?: (el: HTMLElement) => Element, onBounce?: (el: HTMLElement) => void, onLaunch?: (el: HTMLElement) => void }} [fling]
  *   a fast release (a flick) sends the element flying: it bounces off the
  *   screen edges and `obstacles`, pinball style, then springs home. `body`
- *   is the part that collides (default the element); onBounce fires per hit
+ *   is the part that collides (default the element); onBounce fires per hit;
+ *   onLaunch as a flick sends it off
  * @property {(lifted: boolean) => void} [onLift] called with true when a drag
  *   lifts an element, and false once it is back home and at rest (e.g. to
  *   raise its container above everything while it's away)
@@ -614,6 +620,7 @@ export function attachDragSnap(root, opts = {}) {
       if (key && p.el === root) parkedAt.delete(key)
       launch(m, p.vx, p.vy, (fling.body?.(p.el) || p.el).getBoundingClientRect(), fling.obstacles?.(p.el) || [])
       setScale(p.el, 1)
+      fling.onLaunch?.(p.el)
       return
     }
     drop(p)

@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } fr
 import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE, HOODIE_DETAILS } from '@/lib/store-info'
 import { startCartFlight, landCartFlight } from '@/lib/cartFlight'
 import { haptic } from '@/lib/haptics'
-import { attachDragSnap, parkedOffset, springHome, forgetParked } from '@/lib/dragSnap'
+import { attachDragSnap, parkedOffset, springHome, forgetParked, pinball } from '@/lib/dragSnap'
 
 /* ---------------- utils ---------------- */
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -177,7 +177,7 @@ function defaultSize(sizes, variants) {
   return sizes[0] ?? null
 }
 
-function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, note, onAddedToCart, onToggleZoom, onSizePicked }) {
+function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, note, onAddedToCart, onToggleZoom, onSizePicked, controlRef }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState(null)
   const [hotSize, setHotSize] = useState(null)
@@ -204,6 +204,12 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     onToggle()
     onToggleZoom?.()
   }, [onToggle, onToggleZoom])
+
+  // Lets the page fold the sizes back to + (a tap outside while it's −)
+  useEffect(() => {
+    if (!controlRef) return
+    controlRef.current = { open, collapse: () => { if (open && !showAdded) onPlusClick() } }
+  }, [controlRef, open, showAdded, onPlusClick])
 
   const pick = useCallback((sz) => {
     setPicked(sz)
@@ -1187,13 +1193,6 @@ export default function ProductOverlay({
     return Math.sqrt(dx * dx + dy * dy)
   }, [])
 
-  const getTouchCenter = useCallback((/** @type {any} */ touches, /** @type {any} */ container) => {
-    const rect = container.getBoundingClientRect()
-    const x = (touches[0].clientX + touches[1].clientX) / 2 - rect.left
-    const y = (touches[0].clientY + touches[1].clientY) / 2 - rect.top
-    return { x, y }
-  }, [])
-
   const handlePinchStart = useCallback((/** @type {any} */ e) => {
     if (e.touches.length !== 2) return
     pinchState.current.isPinching = true
@@ -1212,19 +1211,10 @@ export default function ProductOverlay({
     // Clamp scale between 1x and 4x
     newScale = clamp(newScale, 1, 4)
 
-    const container = e.currentTarget
-    const center = getTouchCenter(e.touches, container)
-
-    // Calculate pan offset to keep zoom centered on pinch point
-    const offsetX = center.x - (container.offsetWidth / 2)
-    const offsetY = center.y - (container.offsetHeight / 2)
-
-    setPinchZoom({
-      scale: newScale,
-      x: newScale > 1 ? -offsetX * (newScale - 1) * 0.3 : 0,
-      y: newScale > 1 ? -offsetY * (newScale - 1) * 0.3 : 0,
-    })
-  }, [getTouchDistance, getTouchCenter])
+    // Zooms about the photo's centre, so it stays centred on screen (drag it
+    // to look around)
+    setPinchZoom({ scale: newScale, x: 0, y: 0 })
+  }, [getTouchDistance])
 
   // Letting go keeps the zoom (it sticks until zoomed back out); only a
   // pinch that ends nearly all the way out settles back to normal
@@ -1312,27 +1302,8 @@ export default function ProductOverlay({
       // deltaY < 0 = zoom in, deltaY > 0 = zoom out
       const zoomDelta = -e.deltaY * 0.01
 
-      // Capture event properties before setState (React event pooling)
-      const rect = e.currentTarget?.getBoundingClientRect()
-      if (!rect) return
-
-      const mouseX = e.clientX - rect.left
-      const mouseY = e.clientY - rect.top
-
-      setPinchZoom((prev) => {
-        let newScale = prev.scale + zoomDelta
-        newScale = clamp(newScale, 1, 4)
-
-        // Calculate pan to zoom towards mouse cursor
-        const offsetX = mouseX - (rect.width / 2)
-        const offsetY = mouseY - (rect.height / 2)
-
-        return {
-          scale: newScale,
-          x: newScale > 1 ? -offsetX * (newScale - 1) * 0.3 : 0,
-          y: newScale > 1 ? -offsetY * (newScale - 1) * 0.3 : 0,
-        }
-      })
+      // Zooms about the photo's centre, so it stays centred on screen
+      setPinchZoom((prev) => ({ scale: clamp(prev.scale + zoomDelta, 1, 4), x: 0, y: 0 }))
       return
     }
 
@@ -1403,9 +1374,10 @@ export default function ProductOverlay({
     setSelectedSize(null)
   }, [index])
 
-  // Once zoomed (pinch, or ⌘ / ctrl + scroll) the zoom sticks and the product
-  // photo drags anywhere, staying where it's dropped (taps leave it be);
-  // zooming back out springs it home with a little bounce. Unzoomed, a drag
+  // Once zoomed (pinch, or ⌘ / ctrl + scroll) the zoom sticks, centred, and
+  // the product photo drags anywhere, staying where it's dropped; a tap on it
+  // or outside it, or zooming back out, springs it home zoomed out, and a
+  // flick pinballs it home. Unzoomed, a drag
   // on it still swipes products. The measurements drag too and zoom with a
   // pinch or the scroll wheel; a tap brings them back.
   const heroImgRef = useRef(/** @type {HTMLImageElement|null} */ (null))
@@ -1417,8 +1389,10 @@ export default function ProductOverlay({
     if (!el) return
     return attachDragSnap(el, {
       touchAction: 'none',
-      stayOnTap: true, // only zooming out sends it home
+      stayOnTap: true, // a tap is handled by its click: it sends it home, zoomed out
       enabled: () => !closingRef.current && heroZoomRef.current > 1,
+      // Flicked, it zooms back out and pinballs home
+      fling: { ...pinball, onLaunch: () => setPinchZoom({ scale: 1, x: 0, y: 0 }) },
     })
   }, [hasImg, product, clampedImgIdx]) // a new product / image mounts a new <img>
   useEffect(() => {
@@ -1593,13 +1567,30 @@ export default function ProductOverlay({
 
   // Hero image click: check alpha — transparent pixels close overlay, opaque pixels do normal behavior.
   // Accounts for object-fit:contain letterboxing when mapping click → pixel coordinates.
+  // The zoomed / moved photo back home, zoomed out
+  const sendHeroHome = useCallback(() => {
+    setPinchZoom({ scale: 1, x: 0, y: 0 })
+    springHome(heroImgRef.current)
+  }, [])
+  // A tap outside the hoodie: brings a zoomed or moved photo home first, then
+  // folds open sizes back to +, and only then closes the product page
+  const plusCtlRef = useRef(/** @type {null | { open: boolean, collapse: () => void }} */ (null))
+  const outsideTap = useCallback(() => {
+    const moved = parkedOffset(heroImgRef.current)
+    if (heroZoomRef.current > 1 || Math.hypot(moved.x, moved.y) > 1) return sendHeroHome()
+    if (plusCtlRef.current?.open) return plusCtlRef.current.collapse()
+    animateClose()
+  }, [animateClose, sendHeroHome])
+
   const handleHeroImgClick = useCallback(function (e) {
     e.stopPropagation()
 
-    // Zoomed in (or still on its way home): a tap does nothing, so the zoom
-    // sticks; zooming back out is what brings it home
+    // Zoomed in (or moved): a tap sends it home, zoomed out
     const moved = parkedOffset(e.currentTarget)
-    if (pinchZoom.scale !== 1 || Math.hypot(moved.x, moved.y) > 1) return
+    if (pinchZoom.scale !== 1 || Math.hypot(moved.x, moved.y) > 1) {
+      sendHeroHome()
+      return
+    }
 
     const cvs = alphaCanvasRef.current
     if (cvs) {
@@ -1625,10 +1616,10 @@ export default function ProductOverlay({
           offX = (elW - renderW) / 2; offY = 0
         }
 
-        // Click in letterbox padding → transparent, close overlay
+        // Click in letterbox padding → transparent, a tap outside the hoodie
         if (clickX < offX || clickX > offX + renderW ||
             clickY < offY || clickY > offY + renderH) {
-          animateClose()
+          outsideTap()
           return
         }
 
@@ -1639,7 +1630,7 @@ export default function ProductOverlay({
         if (ctx) {
           const pixel = ctx.getImageData(imgX, imgY, 1, 1).data
           if (pixel[3] < 20) {
-            animateClose()
+            outsideTap()
             return
           }
         }
@@ -1652,7 +1643,7 @@ export default function ProductOverlay({
       window.dispatchEvent(new CustomEvent('product-image-click'))
     } catch {}
     setHeroZoomed((v) => !v)
-  }, [animateClose, pinchZoom.scale])
+  }, [outsideTap, sendHeroHome, pinchZoom.scale])
 
   // FLIP ENTER: useLayoutEffect positions hero BEFORE first paint (no flash)
   const isInitialMount = useRef(true)
@@ -1795,7 +1786,7 @@ export default function ProductOverlay({
         <div
           onClick={(e) => {
             e.stopPropagation()
-            animateClose()
+            outsideTap()
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -1819,7 +1810,8 @@ export default function ProductOverlay({
           style={{
             pointerEvents: 'auto',
             textAlign: 'center',
-            zIndex: pinchZoom.scale > 1 ? 523 : 521,
+            // Zoomed, the photo sits above the + and the size pills (z 523)
+            zIndex: pinchZoom.scale > 1 ? 525 : 521,
             touchAction: 'none',
           }}
           onTouchStart={handleTouchStart}
@@ -1841,9 +1833,10 @@ export default function ProductOverlay({
           }}
           onClick={(e) => {
             // Clicks on buttons or the image are handled by their own handlers
-            // (image uses stopPropagation). Anything else in the hero area = close.
+            // (image uses stopPropagation). Anything else in the hero area is a
+            // tap outside the hoodie.
             if (/** @type {Element} */ (e.target).closest('button')) return
-            animateClose()
+            outsideTap()
           }}
         >
           {/* side arrows */}
@@ -2004,7 +1997,7 @@ export default function ProductOverlay({
             </p>
           ))}
           <div style={{ marginTop: 12 }}>
-            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} note={stockMessage} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} />
+            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} note={stockMessage} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} controlRef={plusCtlRef} />
           </div>
         </div>
 
