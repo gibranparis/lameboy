@@ -24,6 +24,11 @@ const SCATTER_K = 150 // spring stiffness
 const SCATTER_C = 17 // damping (≈0.7: a little snap past home)
 const ORBIT_R = 1.25 // ring radius, world units (~55px on the gate)
 const BALL_GROW = 2 // scattered balls swell to this scale
+const BREATH = 0.08 // each scattered ball pulses this much, out of step
+const BREATH_SPEED = 4.5 // rad/s
+const TRAIL = 4 // fading copies trailing each scattered ball
+const TRAIL_GAP = 0.2 // rad between copies along the ring
+const CROWN_VIOLET = new THREE.Color('#9333ea') // scattered centre ball fills in
 const ORBIT_SPEED = 3.2 // rad/s
 const ORBIT_TILT = 0.45 // depth swing, so the ring passes in front and behind
 
@@ -56,7 +61,8 @@ function OrbCross({
   const coreRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
   const haloRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
   const armRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
-  const scat = useRef({ p: 0, v: 0, theta: 0, cx: 0, cy: 0, home: true })
+  const trailRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
+  const scat = useRef({ p: 0, v: 0, theta: 0, cx: 0, cy: 0, home: true, tint: 0 })
   // Materials in draw order; when colorFadeMs > 0 the frame loop eases each
   // one from the colour it was showing toward its new target colour
   const fadeMats = useRef(/** @type {THREE.Material[]|null} */ (null))
@@ -98,20 +104,38 @@ function OrbCross({
       const sr = Math.sin(rot)
       const n = centers.length
       const grow = 1 + (BALL_GROW - 1) * p
-      centers.forEach((c, i) => {
-        const a = sc.theta + (i * Math.PI * 2) / n
+      const t = state.clock.getElapsedTime()
+      // Where ball c sits at ring angle a, p of the way from the cross
+      const place = (/** @type {THREE.Vector3} */ out, c, a) => {
         const wx = sc.cx + ORBIT_R * Math.cos(a)
         const wy = sc.cy + ORBIT_R * Math.sin(a)
         const wz = ORBIT_R * ORBIT_TILT * Math.sin(a + Math.PI / 2)
         const lx = wx * cr - wz * sr
         const lz = wx * sr + wz * cr
-        const x = c[0] + (lx - c[0]) * p
-        const y = c[1] + (wy - c[1]) * p
-        const z = c[2] + (lz - c[2]) * p
-        coreRefs.current[i]?.position.set(x, y, z)
-        haloRefs.current[i]?.position.set(x, y, z)
-        coreRefs.current[i]?.scale.setScalar(grow)
-        haloRefs.current[i]?.scale.setScalar(grow * glowScale)
+        return out.set(c[0] + (lx - c[0]) * p, c[1] + (wy - c[1]) * p, c[2] + (lz - c[2]) * p)
+      }
+      const showTrail = p > 0.02
+      centers.forEach((c, i) => {
+        const a = sc.theta + (i * Math.PI * 2) / n
+        const size = grow * (1 + BREATH * p * Math.sin(t * BREATH_SPEED + i * 1.3))
+        const core = coreRefs.current[i]
+        if (core) {
+          place(core.position, c, a)
+          core.scale.setScalar(size)
+          haloRefs.current[i]?.position.copy(core.position)
+        }
+        haloRefs.current[i]?.scale.setScalar(size * glowScale)
+        // Comet tail: smaller, fainter copies at earlier points on the ring
+        for (let k = 0; k < TRAIL; k++) {
+          const g = trailRefs.current[i * TRAIL + k]
+          if (!g) continue
+          g.visible = showTrail
+          if (!showTrail) continue
+          place(g.position, c, a - (k + 1) * TRAIL_GAP)
+          g.scale.setScalar(size * (0.82 - k * 0.15))
+          const gm = /** @type {THREE.MeshBasicMaterial} */ (g.material)
+          gm.opacity = (0.42 - k * 0.09) * Math.min(1, p)
+        }
       })
       const armScale = Math.max(0.001, 1 - Math.min(1, p))
       armRefs.current.forEach((m) => m?.scale.setScalar(armScale))
@@ -127,6 +151,19 @@ function OrbCross({
         if (m.emissive) m.emissive.lerp(to, k)
         if (m.userData.toEI !== undefined) m.emissiveIntensity += (m.userData.toEI - m.emissiveIntensity) * k
       }
+    }
+
+    // The centre ball's white crown core reads as a hollow ring once it's out
+    // of the cross; fill it violet while scattered (rainbow colours only).
+    // After the fade step above, which would otherwise pull it back.
+    const centre = coreRefs.current[0]
+    const tint = useOverride ? 0 : Math.min(1, Math.max(0, sc.p))
+    if (centre && (tint > 0 || sc.tint > 0)) {
+      const m = /** @type {THREE.MeshStandardMaterial} */ (centre.material)
+      const base = m.userData.toColor || (m.userData.base ||= m.color.clone())
+      m.color.copy(base).lerp(CROWN_VIOLET, tint)
+      m.emissive.copy(base).lerp(CROWN_VIOLET, tint)
+      sc.tint = tint
     }
 
     const u = group.current.userData
@@ -415,6 +452,20 @@ function OrbCross({
     haloBase,
   ])
 
+  // One faded material per trail copy, in its ball's colour (the centre
+  // ball's tail is violet, matching how it fills in when scattered)
+  const trailColors = sphereDefs.map((d, i) => (!useOverride && i === 0 ? CHAKRA.crownV : d.core))
+  const trailMats = useMemo(
+    () =>
+      trailColors.flatMap((c) =>
+        Array.from({ length: TRAIL }, () =>
+          new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, depthWrite: false, toneMapped: false })
+        )
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trailColors.join()]
+  )
+
   // The solid (non-tone-mapped) look needs its own shader. Compile it up
   // front when fading is on (the gate) so the first press doesn't stall on it.
   useEffect(() => {
@@ -521,6 +572,20 @@ function OrbCross({
       {centers.map((p, i) => (
         <mesh key={`core-${i}`} ref={(m) => { coreRefs.current[i] = m }} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />
       ))}
+
+      {/* Comet tails, only shown while scattered */}
+      {centers.map((p, i) =>
+        Array.from({ length: TRAIL }, (_, k) => (
+          <mesh
+            key={`trail-${i}-${k}`}
+            ref={(m) => { trailRefs.current[i * TRAIL + k] = m }}
+            geometry={sphereGeo}
+            material={trailMats[i * TRAIL + k]}
+            position={p}
+            visible={false}
+          />
+        ))
+      )}
 
       {/* Single-pass glow (no extra halo2/halo3 = no “double orb”) */}
       {glow && (
