@@ -114,10 +114,15 @@ const leaveTopLayer = (/** @type {HTMLElement} */ el, /** @type {HTMLElement | n
   outer.style.setProperty('z-index', held.v, held.p)
 }
 
-/** Sends every parked element home (the grid folding back into stacks) */
-export function resetDragged() {
+/**
+ * Sends every parked element home: the grid folding back into stacks, or a
+ * re-rack after an add to cart (`spring`: even the tiles spring home, since
+ * no fold animates them)
+ * @param {{ spring?: boolean }} [opts]
+ */
+export function resetDragged(opts = {}) {
   parkedAt.clear()
-  try { window.dispatchEvent(new Event(RESET_EVENT)) } catch {}
+  try { window.dispatchEvent(new CustomEvent(RESET_EVENT, { detail: opts })) } catch {}
 }
 
 /**
@@ -400,8 +405,9 @@ export function attachDragSnap(root, opts = {}) {
     drop(p)
   }
 
-  const onReset = () => {
-    for (const el of [...parked]) sendHome(el, !!jumpHome)
+  const onReset = (/** @type {any} */ e) => {
+    const jump = !!jumpHome && !e?.detail?.spring
+    for (const el of [...parked]) sendHome(el, jump)
   }
 
   // While a drag is live, don't let ancestors (e.g. a pull-to-pan) see moves

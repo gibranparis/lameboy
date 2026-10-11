@@ -11,6 +11,7 @@ import { useCart } from '@/contexts/CartContext'
 import { attachDragSnap, resetDragged } from '@/lib/dragSnap'
 import { haptic } from '@/lib/haptics'
 import { QUICK_ADD } from '@/components/QuickAddSizes'
+import { CART_LANDED } from '@/lib/cartFlight'
 
 /** Storage key for saved grid density */
 const KEY_DENSITY = 'lb:grid-cols'
@@ -477,6 +478,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       document.removeEventListener('lb:zoom', onZoom)
     }
   }, [overlayIdx, setColsWithFlip, viewMode, cols, revealGrid, collapseToStacks])
+
+  /* ---------------- Re-rack after an add to cart ---------------- */
+  // Once an added item lands in the bag (product page or quick add),
+  // everything dragged around springs back into place; the zoom stays as is
+  useEffect(() => {
+    const onLanded = () => resetDragged({ spring: true })
+    window.addEventListener(CART_LANDED, onLanded)
+    return () => window.removeEventListener(CART_LANDED, onLanded)
+  }, [])
 
   /* ---------------- Reset: collapse to stacks + close overlay ---------------- */
   useEffect(() => {

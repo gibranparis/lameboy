@@ -177,7 +177,7 @@ function defaultSize(sizes, variants) {
   return sizes[0] ?? null
 }
 
-function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, note, onAddedToCart, onToggleZoom, onSizePicked, triggerRef }) {
+function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, note, onAddedToCart, onToggleZoom, onSizePicked }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState(null)
   const [hotSize, setHotSize] = useState(null)
@@ -239,11 +239,6 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
       }
     }, 380)
   }, [picked, product, onAddedToCart, onSizePicked])
-
-  useEffect(() => {
-    if (!triggerRef) return
-    triggerRef.current = picked ? addToCart : null
-  }, [triggerRef, picked, addToCart])
 
   useEffect(
     () => () =>
@@ -318,7 +313,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
   }
 
   return (
-    // zIndex keeps the size pills above the add-to-cart tap zone (z 521)
+    // zIndex keeps the pills above the product photo and the size dims (z 522)
     <div ref={wrapRef} style={{ display: 'grid', justifyItems: 'center', position: 'relative', zIndex: 523 }}>
       <button
         type="button"
@@ -989,8 +984,8 @@ export default function ProductOverlay({
     closingRef.current = true
     setAddToCartClosing(true)
     setHeroZoomed(false)
-    // Always reset grid to 5-col stacked deck after add-to-cart
-    pendingResetRef.current = true
+    // The grid keeps its zoom; once the item lands, ShopGrid re-racks
+    // everything that was dragged around
 
     const hero = heroRef.current
     const cartBtn = document.querySelector('[data-cart-button]')
@@ -1575,7 +1570,6 @@ export default function ProductOverlay({
 
   const priceRef = useRef(null)
   const [priceStyle, setPriceStyle] = useState(null)
-  const addToCartTriggerRef = useRef(null)
   useEffect(() => {
     if (!priceRef.current) return
     const cs = getComputedStyle(priceRef.current)
@@ -1814,7 +1808,7 @@ export default function ProductOverlay({
             {FINAL_SALE_LINE}
           </p>
           <div style={{ marginTop: 12 }}>
-            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} note={stockMessage} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} triggerRef={addToCartTriggerRef} />
+            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} note={stockMessage} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} />
           </div>
         </div>
 
@@ -1844,24 +1838,6 @@ export default function ProductOverlay({
           )
         })()}
 
-        {/* Tap zone: active only after a size is picked (implies "+" was pressed) — tapping adds to cart */}
-        {!!selectedSize && (
-          <div
-            onClick={(e) => {
-              e.stopPropagation()
-              addToCartTriggerRef.current?.()
-            }}
-            style={{
-              position: 'fixed',
-              left: 0,
-              right: 0,
-              bottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
-              height: 140,
-              pointerEvents: 'auto',
-              zIndex: 521,
-            }}
-          />
-        )}
       </div>
 
       <style jsx>{`
