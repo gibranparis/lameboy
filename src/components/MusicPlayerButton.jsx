@@ -7,6 +7,10 @@ import { createPortal } from 'react-dom'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { attachDragSnap } from '@/lib/dragSnap'
 
+// YouTube flashes its title bar / "More videos" panel for a moment after
+// playback resumes, so the cover stays up this long past PLAYING
+const UNCOVER_DELAY_MS = 150
+
 /**
  * @param {{ playlistId?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
  */
@@ -33,6 +37,29 @@ export default function MusicPlayerButton({
   const pendingPlayRef = useRef(false)
   // Ref on the panel div — used by ResizeObserver to track player height
   const panelRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  // Poster over the iframe whenever it isn't playing, so YouTube's paused /
+  // buffering / end-screen UI never shows. Shows the current video's thumbnail.
+  const [covered, setCovered] = useState(true)
+  const [posterId, setPosterId] = useState('')
+  const coverTimerRef = useRef(/** @type {ReturnType<typeof setTimeout>|null} */ (null))
+
+  // Cover goes up at once; it comes down only once PLAYING has settled
+  const coverFor = (/** @type {boolean} */ isPlaying) => {
+    if (coverTimerRef.current) clearTimeout(coverTimerRef.current)
+    coverTimerRef.current = null
+    if (isPlaying) {
+      coverTimerRef.current = setTimeout(() => setCovered(false), UNCOVER_DELAY_MS)
+    } else {
+      setCovered(true)
+    }
+  }
+
+  // Cover before pausing — the PAUSED event lands a beat after YouTube
+  // has already drawn its paused UI
+  const pause = () => {
+    coverFor(false)
+    ytPlayerRef.current?.pauseVideo()
+  }
 
   // Theme sync
   useEffect(() => {
@@ -48,7 +75,7 @@ export default function MusicPlayerButton({
     const onKey = (/** @type {KeyboardEvent} */ e) => {
       if (e.key === 'Escape') {
         setOpen(false)
-        ytPlayerRef.current?.pauseVideo()
+        pause()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -59,7 +86,7 @@ export default function MusicPlayerButton({
   useEffect(() => {
     const onReset = () => {
       setOpen(false)
-      ytPlayerRef.current?.pauseVideo()
+      pause()
     }
     window.addEventListener('lb:reset', onReset)
     return () => window.removeEventListener('lb:reset', onReset)
@@ -191,10 +218,17 @@ export default function MusicPlayerButton({
               e.target.cuePlaylist({ list: playlistId, listType: 'playlist', index: randomIdx })
             }
             const data = e.target.getVideoData()
-            if (data?.video_id) fetchAspectRatio(data.video_id)
+            if (data?.video_id) {
+              fetchAspectRatio(data.video_id)
+              setPosterId(data.video_id)
+            }
           },
           onStateChange: (/** @type {any} */ e) => {
             const S = win.YT?.PlayerState
+            coverFor(e.data === S?.PLAYING)
+            // Keep the poster on whatever is loaded (track changes, random cue)
+            const vid = e.target.getVideoData?.()?.video_id
+            if (vid) setPosterId(vid)
             if (e.data === S?.PLAYING) {
               setPlaying(true)
               const data = e.target.getVideoData()
@@ -229,6 +263,9 @@ export default function MusicPlayerButton({
       if (player) { try { player.destroy() } catch {} }
       ytPlayerRef.current = null
       setPlaying(false)
+      if (coverTimerRef.current) clearTimeout(coverTimerRef.current)
+      coverTimerRef.current = null
+      setCovered(true)
     }
   }, [playlistId, portalTarget]) // no 'open' — player lives independently of panel visibility
 
@@ -240,7 +277,7 @@ export default function MusicPlayerButton({
       clickTimerRef.current = null
       if (ytPlayerRef.current) {
         if (playing) {
-          ytPlayerRef.current.pauseVideo()
+          pause()
         } else {
           // Synchronous call inside the user gesture — required for iOS
           ytPlayerRef.current.playVideo()
@@ -269,7 +306,7 @@ export default function MusicPlayerButton({
   const handleBlockerClick = () => {
     if (!ytPlayerRef.current) return
     if (playing) {
-      ytPlayerRef.current.pauseVideo()
+      pause()
     } else {
       ytPlayerRef.current.playVideo()
     }
@@ -286,6 +323,11 @@ export default function MusicPlayerButton({
       <div className="yt-wrap" style={{ paddingBottom: `${aspectPb}%` }}>
         {/* YT API replaces this div with an iframe */}
         <div id={playerIdRef.current} />
+        {/* Poster while not playing — hides YouTube's pause / resume UI */}
+        <div
+          className={covered ? 'yt-cover yt-cover--on' : 'yt-cover'}
+          style={posterId ? { backgroundImage: `url(https://i.ytimg.com/vi/${posterId}/hqdefault.jpg)` } : undefined}
+        />
         {/* Intercepts YouTube hover UI; tap = play/pause */}
         <div className="yt-blocker" onClick={handleBlockerClick} />
       </div>
@@ -405,16 +447,34 @@ export default function MusicPlayerButton({
              takes taps and drags (play/pause only) */
           pointer-events: none !important;
           position: absolute !important;
-          inset: 0 !important;
+          /* 60px taller top and bottom: the video still fits the width
+             exactly, but YouTube's title bar and corner logo sit in the
+             letterbox, outside the wrap's overflow */
+          top: -60px !important;
+          left: 0 !important;
           width: 100% !important;
-          height: 100% !important;
+          height: calc(100% + 120px) !important;
           border: none !important;
           display: block !important;
+        }
+        .yt-cover {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          pointer-events: none;
+          background: #000 center / cover no-repeat;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+        /* Snaps on with no fade, so nothing of YouTube's UI shows first */
+        .yt-cover--on {
+          opacity: 1;
+          transition: none;
         }
         .yt-blocker {
           position: absolute;
           inset: 0;
-          z-index: 1;
+          z-index: 2;
           pointer-events: all;
           cursor: pointer;
         }
