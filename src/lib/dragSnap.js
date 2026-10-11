@@ -6,9 +6,10 @@ import { useEffect } from 'react'
 // Drag-and-park for UI elements: press squeezes, a drag past a few px lifts
 // the element and it follows the pointer 1:1, and on release it stays where
 // it was dropped (a drop never counts as a tap). A tap on a parked element
-// springs it home and still acts as a tap. Everything parked also goes home
-// together on resetDragged(), which the shop calls when the grid folds back
-// into its stacks. The orb has its own drag and always springs straight home.
+// still acts as a tap (opens / closes) and springs it home, unless
+// `stayOnTap`. Everything parked also goes home together on resetDragged(),
+// which the shop calls when the grid folds back into its stacks. The orb has
+// its own drag and always springs straight home.
 //
 // Elements are moved with the CSS `translate` / `scale` properties, which
 // compose with `transform`, so an element's own transform animations (FLIP,
@@ -51,8 +52,8 @@ export function resetDragged() {
  *   buttons and fields) are left alone and never drag
  * @property {string} [key] remembers where `root` is parked across remounts
  *   (only when `targets` is unset), until it goes home
- * @property {boolean} [independent] ignores resetDragged(); only a tap sends
- *   it home
+ * @property {boolean} [stayOnTap] a tap on a parked element acts as usual but
+ *   leaves it parked; only resetDragged() sends it home
  * @property {boolean} [jumpHome] on resetDragged(), parked elements jump home
  *   with no spring, for a caller that animates them itself (the grid's FLIP)
  * @property {(el: HTMLElement, x: number, y: number) => void} [onDragMove]
@@ -71,7 +72,7 @@ export function resetDragged() {
  * @returns {() => void} cleanup
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction, ignore, key, independent, jumpHome, onDragMove, onDrop, onLift } = opts
+  const { targets, enabled, touchAction, ignore, key, stayOnTap, jumpHome, onDragMove, onDrop, onLift } = opts
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
   /** @type {Set<HTMLElement>} parked away from home, for the reset */
@@ -302,8 +303,9 @@ export function attachDragSnap(root, opts = {}) {
     const p = press
     press = null
     if (!p.active) {
-      // A tap: the element's own click acts, and a parked one goes home
-      if (e.type === 'pointerup' && stateOf(p.el).parked) sendHome(p.el)
+      // A tap: the element's own click acts (opens / closes), and a parked
+      // one goes home unless it stays put on taps
+      if (e.type === 'pointerup' && !stayOnTap && stateOf(p.el).parked) sendHome(p.el)
       else setScale(p.el, 1)
       return
     }
@@ -352,7 +354,7 @@ export function attachDragSnap(root, opts = {}) {
 
   const prevTouchAction = root.style.touchAction
   if (touchAction) root.style.touchAction = touchAction
-  if (!independent) window.addEventListener(RESET_EVENT, onReset)
+  window.addEventListener(RESET_EVENT, onReset)
   root.addEventListener('pointerdown', onDown)
   root.addEventListener('pointermove', onMove)
   root.addEventListener('pointerup', onUp)
