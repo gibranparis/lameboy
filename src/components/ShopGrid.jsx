@@ -710,7 +710,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
         setHover(false)
         const product = productOf(tile)
         if (cancelled || !product || !overCart(x, y)) return false
-        window.dispatchEvent(new CustomEvent(QUICK_ADD, { detail: { product } }))
+        // The tile goes with it, so the hoodie jumps into the bag from wherever it is
+        window.dispatchEvent(new CustomEvent(QUICK_ADD, { detail: { product, tile } }))
         return true
       },
     })
