@@ -5,7 +5,7 @@
 // ring of black hoodies) spins out around it, like the orb's balls around a
 // dragged orb. The ring rolls with the drag like a wheel: dragged right it
 // spins clockwise, dragged left counter-clockwise, as fast as it's dragged
-// (and then some), and it keeps its momentum when the drag slows, winding
+// and it keeps its momentum when the drag slows, winding
 // down with friction. A rainbow glow lights the grabbed hoodie when it's
 // really going. Let go and the clones fold back into it.
 //
@@ -14,11 +14,11 @@
 // nothing else on the page is touched apart from the grabbed hoodie's glow.
 
 const CLONES = 6
-const ROLL = 3.2 // spin = drag speed / ring radius × this (a wheel, and then some)
-const MAX_SPIN = 40 // rad/s (over 6 turns a second)
+const ROLL = 1.4 // spin = drag speed / ring radius × this (a wheel rolling with the drag)
+const MAX_SPIN = 11 // rad/s (under 2 turns a second, so it reads clearly)
 const GRIP = 12 // 1/s: how quickly the drag gets the ring up to its speed
-const FRICTION = 1.8 // s: how long the momentum takes to wind down once the drag stops
-const IDLE_SPIN = 1.6 // rad/s: it never stops while held
+const FRICTION = 1.5 // s: how long the momentum takes to wind down once the drag stops
+const IDLE_SPIN = 1 // rad/s: it never stops while held
 const CLONE_SCALE = 0.58 // clone size against the grabbed hoodie
 const GAP = 6 // px between the grabbed hoodie and the ring
 const ENTER_S = 0.28 // s to spin out of the grabbed hoodie onto the ring

@@ -28,7 +28,7 @@ const BREATH = 0.08 // each scattered ball pulses this much, out of step
 const BREATH_SPEED = 4.5 // rad/s
 const TRAIL = 4 // fading copies trailing each scattered ball
 const TRAIL_GAP = 0.2 // rad between copies along the ring
-const CROWN_VIOLET = new THREE.Color('#9333ea') // scattered centre ball fills in
+const CROWN_VIOLET = new THREE.Color('#c86bff') // scattered centre ball fills in
 const ORBIT_SPEED = 3.2 // rad/s
 const ORBIT_TILT = 0.45 // depth swing, so the ring passes in front and behind
 const VIVID = new THREE.Color() // scratch colour for the momentum frenzy
@@ -56,7 +56,7 @@ function OrbCross({
   pickRef = null,
   flashRef = null,
   scatter = null, // { x, y } px from the canvas centre while dragged, else null
-  spinRef = null, // { current: { boost, vivid } }: extra rpm, and 0–1 rainbow frenzy
+  spinRef = null, // { current: { boost, vivid, floor, orbit } }: extra rpm, 0–1 rainbow frenzy (floor: one held on), and the dragged ring's turn (rad/s, + counter-clockwise on screen)
   cameraZ = 3,
 }) {
   const group = useRef()
@@ -99,7 +99,10 @@ function OrbCross({
     if (!settled || !sc.home) {
       sc.home = settled
       if (settled) sc.p = sc.v = 0
-      sc.theta += ORBIT_SPEED * dt
+      // The scattered ring turns the way the caller says (it follows the drag)
+      const orbitW = spin?.orbit ?? ORBIT_SPEED
+      sc.theta += orbitW * dt
+      const back = orbitW < 0 ? -1 : 1 // comet tails trail behind the way it's going
       const p = Math.max(0, sc.p)
       // The ring lives in screen space; undo the group's spin to place it
       const rot = group.current.rotation.y
@@ -134,7 +137,7 @@ function OrbCross({
           if (!g) continue
           g.visible = showTrail
           if (!showTrail) continue
-          place(g.position, c, a - (k + 1) * TRAIL_GAP)
+          place(g.position, c, a - back * (k + 1) * TRAIL_GAP)
           g.scale.setScalar(size * (0.82 - k * 0.15))
           const gm = /** @type {THREE.MeshBasicMaterial} */ (g.material)
           gm.opacity = (0.42 - k * 0.09) * Math.min(1, p)
@@ -172,7 +175,8 @@ function OrbCross({
     // Momentum frenzy: every ball, arm and halo blends toward fast-cycling
     // rainbow colours (each ball its own hue), more the harder it was flung;
     // as it calms down they blend back to their real colours
-    const vivid = Math.max(0, Math.min(1, spin?.vivid || 0))
+    // floor: a frenzy the caller holds on (the splash's hand-off into the shop)
+    const vivid = Math.max(0, Math.min(1, Math.max(spin?.vivid || 0, spin?.floor || 0)))
     if (vivid > 0.002 || sc.vivid) {
       const t = state.clock.getElapsedTime()
       const meshes = [...coreRefs.current, ...haloRefs.current, ...armRefs.current]
@@ -273,8 +277,8 @@ function OrbCross({
       solar: '#ffd400',
       heart: '#00a832',
       throat: '#0066ff',
-      thirdEye: '#3a00b5',
-      crownV: '#9333ea',
+      thirdEye: '#6d5cff',
+      crownV: '#c86bff',
       crownW: '#d8d0f0',
     }
 
@@ -362,8 +366,8 @@ function OrbCross({
     solar: '#ffd400',
     heart: '#00a832',
     throat: '#0066ff',
-    thirdEye: '#3a00b5',
-    crownV: '#9333ea',
+    thirdEye: '#6d5cff',
+    crownV: '#c86bff',
     crownW: '#d8d0f0',
   }
 
@@ -662,7 +666,7 @@ export default function BlueOrbCross3D({
   colorFadeMs = 0, // > 0: blend between colours over this many ms
   pickRef = null, // filled with (clientX, clientY) => colour of the ball there
   scatter = null, // { x, y } px from centre: balls orbit that point (drag)
-  spinRef = null, // { current: { boost, vivid } } driven by the caller each frame
+  spinRef = null, // { current: { boost, vivid, orbit } } driven by the caller each frame
   overscan = 1, // canvas this many times the box, so scattered balls aren't clipped
 }) {
   const [maxDpr, setMaxDpr] = useState(2)
