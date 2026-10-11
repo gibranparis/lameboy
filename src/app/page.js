@@ -406,6 +406,7 @@ export default function Page() {
             gateStep={gateStep}
             isProceeding={isProceeding}
             videoRevealed={videoRevealed}
+            orbHeld={orbHeld}
           />
         </main>
       )}

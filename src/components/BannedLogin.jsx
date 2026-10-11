@@ -1,7 +1,7 @@
 // src/components/BannedLogin.jsx
 'use client'
 
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from 'react'
 
 export default function BannedLogin({
   onAdvanceGate,
@@ -9,6 +9,7 @@ export default function BannedLogin({
   gateStep = 0,
   isProceeding = false,
   videoRevealed = false,
+  orbHeld = false, // the orb is being dragged (or springing home)
 }) {
   const [now, setNow] = useState(() => new Date())
   const [visitorLocation, setVisitorLocation] = useState('Cape Coral, USA') // Visitor's actual location
@@ -116,6 +117,32 @@ export default function BannedLogin({
     if (typeof onProceed === 'function') onProceed()
   }, [onProceed])
 
+  // While the orb is dragged away, the time + location glide up into the
+  // middle it left; once it's home they bounce back under it. Web
+  // Animations, because the gate turns CSS transitions off (globals.css).
+  const labelRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  const labelAnim = useRef(/** @type {Animation|null} */ (null))
+  const firstLabelRun = useRef(true)
+  useLayoutEffect(() => {
+    const el = labelRef.current
+    if (!el) return
+    if (firstLabelRun.current) { firstLabelRun.current = false; if (!orbHeld) return }
+    // Start from wherever it is now, even mid-bounce
+    const from = new DOMMatrixReadOnly(getComputedStyle(el).transform).m42
+    labelAnim.current?.cancel()
+    const r = el.getBoundingClientRect()
+    const vh = window.visualViewport?.height ?? window.innerHeight
+    const to = orbHeld ? vh / 2 - (r.top + r.height / 2 - from) : 0
+    el.style.transform = `translateY(${to}px)`
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    labelAnim.current = el.animate(
+      [{ transform: `translateY(${from}px)` }, { transform: `translateY(${to}px)` }],
+      orbHeld
+        ? { duration: 400, easing: 'cubic-bezier(0.2, 0.9, 0.2, 1)' } // quick glide up
+        : { duration: 650, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' } // springs past its spot
+    )
+  }, [orbHeld])
+
   return (
     <div
       onClick={advanceGate}
@@ -138,10 +165,19 @@ export default function BannedLogin({
         userSelect: 'none',
       }}
     >
+      <div
+        ref={labelRef}
+        style={{
+          marginTop: 150,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          pointerEvents: 'none',
+        }}
+      >
       {/* Time */}
       <span
         style={{
-          marginTop: 150,
           textAlign: 'center',
           fontSize: 'clamp(12px, 1.2vw, 14px)',
           fontWeight: 800,
@@ -181,6 +217,7 @@ export default function BannedLogin({
           {displayLocation}
         </span>
       )}
+      </div>
     </div>
   )
 }
