@@ -2,6 +2,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { haptic } from '@/lib/haptics'
 
 // Drag-and-park for UI elements: press squeezes, a drag past a few px lifts
 // the element and it follows the pointer 1:1, and on release it stays where
@@ -43,6 +44,28 @@ const parkedAt = new Map()
 
 /** Parts of a pop-up a press should use as-is instead of dragging it */
 export const POPUP_CONTROLS = 'button, a, input, select, textarea, label, iframe, [contenteditable]'
+
+/** Everything on the shop page a flicked item bounces off */
+const PINBALL_WALLS = [
+  '[data-cart-button]',
+  '.heart-submit',
+  '.ipod-btn',
+  '.lame-logo-button',
+  '[aria-label="Toggle day / night"]',
+  '[data-orb-shell]',
+  '#yt-panel-anchor > *',
+  '.category-stack',
+  ".shop-grid[data-view-mode='grid'] .product-tile .product-box",
+].join(', ')
+
+/** opts.fling for anything on the shop page: flicked, it pinballs off the
+ *  screen edges and every other control, hoodie, stack, the orb and the
+ *  video (never itself), with a light tap per bounce, then finds its way home */
+export const pinball = {
+  obstacles: (/** @type {HTMLElement} */ el) =>
+    [...document.querySelectorAll(PINBALL_WALLS)].filter((o) => o !== el && !el.contains(o) && !o.contains(el)),
+  onBounce: () => haptic(4),
+}
 
 // Each attached root's controls, so parkAt() / sendHome() can move it from outside
 /** @type {WeakMap<HTMLElement, { to: (x: number, y: number) => void, home: () => void }>} */

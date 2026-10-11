@@ -4,15 +4,16 @@
 import { useMemo, useRef } from 'react'
 import DayNightToggle from '@/components/DayNightToggle'
 import CartButton from '@/components/CartButton'
-import { useDragSnap } from '@/lib/dragSnap'
+import { useDragSnap, pinball } from '@/lib/dragSnap'
 
 export default function HeaderBar({ ctrlPx, shopReady = true }) {
   // The toggle / cart stay wherever they're dragged until the grid folds and
   // keep working right there (the cart opens beside it)
   const toggleRef = useRef(null)
   const cartRef = useRef(null)
-  useDragSnap(toggleRef, { touchAction: 'none', key: 'toggle', stayOnTap: true })
-  useDragSnap(cartRef, { touchAction: 'none', key: 'cart', stayOnTap: true })
+  // Dropped, they stay put; flicked, they pinball around and back home
+  useDragSnap(toggleRef, { touchAction: 'none', key: 'toggle', stayOnTap: true, fling: pinball })
+  useDragSnap(cartRef, { touchAction: 'none', key: 'cart', stayOnTap: true, fling: pinball })
 
   const headerPx = useMemo(() => {
     const n = Number(ctrlPx)

@@ -8,7 +8,7 @@ import ProductOverlay from '@/components/ProductOverlay'
 import { PRODUCTS } from '@/lib/products'
 import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
-import { attachDragSnap, resetDragged } from '@/lib/dragSnap'
+import { attachDragSnap, resetDragged, pinball } from '@/lib/dragSnap'
 import { createPileSpin } from '@/lib/pileSpin'
 import { createTileRing } from '@/lib/tileRing'
 import { haptic } from '@/lib/haptics'
@@ -698,19 +698,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       stayOnTap: true, // a tap opens the product where it's parked
       // Flicked: it pinballs around the screen off the other hoodies and the
       // controls, then finds its way back to its spot
-      fling: {
-        body: (tile) => tile.querySelector('.product-box') || tile,
-        obstacles: (tile) => [
-          // Other stacks whole, other grid hoodies by their card
-          ...[...el.querySelectorAll('.category-stack, .product-tile')]
-            .filter((t) => t !== tile && !tile.contains(t) && !(t.matches('.product-tile') && t.closest('.category-stack')))
-            .map((t) => (t.matches('.category-stack') ? t : t.querySelector('.product-box') || t)),
-          ...document.querySelectorAll(
-            '[data-cart-button], .heart-submit, .ipod-btn, .lame-logo-button, [aria-label="Toggle day / night"], [data-orb-shell], #yt-panel-anchor > *'
-          ),
-        ],
-        onBounce: () => haptic(4),
-      },
+      fling: { ...pinball, body: (tile) => tile.querySelector('.product-box') || tile },
       onDragMove: (tile, x, y) => {
         if (isPile(tile)) pileSpin.move(tile, x, y)
         else tileRing.move(tile, x, y)
