@@ -2,11 +2,12 @@
 // @ts-check
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { clearProfile, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
 import EmailChips from '@/components/EmailChips'
 import { CONTACT_EMAIL } from '@/lib/store-info'
 import { attachDragSnap, POPUP_CONTROLS } from '@/lib/dragSnap'
+import { placeNear } from '@/lib/popupPlacement'
 
 const CHAKRA_COLORS = [
   '#FF0000', // Root – red
@@ -162,6 +163,13 @@ export default function NewsletterForm({ open, onClose }) {
 
   useEffect(() => { if (!open) setEditing(false) }, [open])
 
+  // Opens beside the heart wherever it's been dragged (null: its usual spot
+  // under the heart's home)
+  const [placed, setPlaced] = useState(/** @type {null | Record<string, any>} */ (null))
+  useLayoutEffect(() => {
+    if (open) setPlaced(placeNear(document.querySelector('.heart-submit'), { width: 260, maxHeight: 560, prefer: 'below' }))
+  }, [open])
+
   useEffect(() => {
     if (open) requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
     else setVisible(false)
@@ -304,6 +312,7 @@ export default function NewsletterForm({ open, onClose }) {
     <div
       ref={panelRef}
       className={`nl-panel ${visible ? 'nl-panel--visible' : ''}`}
+      style={placed || undefined}
       role="dialog"
       aria-label={signedIn && !submitted ? 'Your profile' : 'Newsletter signup'}
     >

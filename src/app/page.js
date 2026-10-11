@@ -297,13 +297,15 @@ export default function Page() {
     try { window.scrollTo(0, 0) } catch {}
   }, [mode])
 
-  // Top-row controls stay wherever they're dragged until tapped or the grid folds
+  // Top-row controls stay wherever they're dragged until the grid folds; the
+  // iPod and heart keep working right where they are (their pop-ups open
+  // beside them), the logo springs home on a tap
   const ipodRef = useRef(null)
   const logoRef = useRef(null)
   const heartRef = useRef(null)
-  useDragSnap(ipodRef, { touchAction: 'none', key: 'ipod' }, [inShop])
+  useDragSnap(ipodRef, { touchAction: 'none', key: 'ipod', stayOnTap: true }, [inShop])
   useDragSnap(logoRef, { touchAction: 'none', key: 'logo' }, [inShop])
-  useDragSnap(heartRef, { touchAction: 'none', key: 'heart' }, [inShop, loaderShow])
+  useDragSnap(heartRef, { touchAction: 'none', key: 'heart', stayOnTap: true }, [inShop, loaderShow])
 
   useEffect(() => {
     const root = document.documentElement

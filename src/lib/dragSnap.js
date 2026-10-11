@@ -27,6 +27,7 @@ const reducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 const RESET_EVENT = 'lb:drag-reset'
+export const DRAG_RESET = RESET_EVENT
 // Where keyed elements were left, so one that remounts (a pop-up reopened)
 // comes back where it was parked
 /** @type {Map<string, {x: number, y: number}>} */
@@ -34,6 +35,31 @@ const parkedAt = new Map()
 
 /** Parts of a pop-up a press should use as-is instead of dragging it */
 export const POPUP_CONTROLS = 'button, a, input, select, textarea, label, iframe, [contenteditable]'
+
+// Each attached root's mover, so parkAt() can place it from outside
+/** @type {WeakMap<HTMLElement, (x: number, y: number) => void>} */
+const movers = new WeakMap()
+
+/**
+ * Parks an attached element `x`/`y` px from its home, as if dropped there
+ * (e.g. the video opening beside a moved iPod)
+ * @param {HTMLElement | null | undefined} el
+ * @param {number} x
+ * @param {number} y
+ */
+export function parkAt(el, x, y) {
+  if (el) movers.get(el)?.(x, y)
+}
+
+/**
+ * How far an element has been dragged from home ({0, 0} when it's home)
+ * @param {Element | null | undefined} el
+ */
+export function parkedOffset(el) {
+  const t = el instanceof HTMLElement ? el.style.translate : ''
+  const [x = 0, y = 0] = t ? t.split(/\s+/).map((v) => parseFloat(v) || 0) : []
+  return { x, y }
+}
 
 /** Sends every parked element home (the grid folding back into stacks) */
 export function resetDragged() {
@@ -352,11 +378,28 @@ export function attachDragSnap(root, opts = {}) {
     lift(root, m)
   }
 
+  if (!targets) {
+    movers.set(root, (x, y) => {
+      const m = stateOf(root)
+      m.x = x
+      m.y = y
+      m.vx = m.vy = 0
+      m.held = false
+      m.parked = true
+      parked.add(root)
+      if (key) parkedAt.set(key, { x, y })
+      write(root, m)
+      lift(root, m)
+    })
+  }
+
   const prevTouchAction = root.style.touchAction
   if (touchAction) root.style.touchAction = touchAction
   window.addEventListener(RESET_EVENT, onReset)
   root.addEventListener('pointerdown', onDown)
-  root.addEventListener('pointermove', onMove)
+  // On window: a quick mouse can leave a small element before the drag
+  // starts (and captures the pointer); touch is captured from the start
+  window.addEventListener('pointermove', onMove)
   root.addEventListener('pointerup', onUp)
   root.addEventListener('pointercancel', onUp)
   window.addEventListener('pointerup', onAnyUp, true)
@@ -369,8 +412,9 @@ export function attachDragSnap(root, opts = {}) {
   return () => {
     if (touchAction) root.style.touchAction = prevTouchAction
     window.removeEventListener(RESET_EVENT, onReset)
+    movers.delete(root)
     root.removeEventListener('pointerdown', onDown)
-    root.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointermove', onMove)
     root.removeEventListener('pointerup', onUp)
     root.removeEventListener('pointercancel', onUp)
     window.removeEventListener('pointerup', onAnyUp, true)

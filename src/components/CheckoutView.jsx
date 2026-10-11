@@ -1,9 +1,10 @@
 'use client'
 
 import { useCart } from '@/contexts/CartContext'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import CheckoutItem from './CheckoutItem'
 import { attachDragSnap, POPUP_CONTROLS } from '@/lib/dragSnap'
+import { placeNear } from '@/lib/popupPlacement'
 import { COUNTRIES } from '@/lib/countries'
 
 /**
@@ -135,6 +136,13 @@ export default function CheckoutView({ onClose }) {
     setTimeout(() => onClose?.(), 240)
   }
 
+  // Opens beside the cart button wherever it's been dragged (null: its usual
+  // bottom-right spot)
+  const [placed, setPlaced] = useState(/** @type {null | Record<string, any>} */ (null))
+  useLayoutEffect(() => {
+    setPlaced(placeNear(document.querySelector('[data-cart-button]'), { width: 300, maxHeight: 420, prefer: 'above' }))
+  }, [])
+
   // Animate in on mount
   useEffect(() => {
     requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
@@ -223,6 +231,7 @@ export default function CheckoutView({ onClose }) {
         transition: 'opacity 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
         pointerEvents: visible ? 'auto' : 'none',
         boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+        ...placed,
       }}
     >
       {/* Header */}

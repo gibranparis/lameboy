@@ -7,11 +7,12 @@ import CartButton from '@/components/CartButton'
 import { useDragSnap } from '@/lib/dragSnap'
 
 export default function HeaderBar({ ctrlPx, shopReady = true }) {
-  // The toggle / cart stay wherever they're dragged until tapped or the grid folds
+  // The toggle / cart stay wherever they're dragged until the grid folds and
+  // keep working right there (the cart opens beside it)
   const toggleRef = useRef(null)
   const cartRef = useRef(null)
-  useDragSnap(toggleRef, { touchAction: 'none', key: 'toggle' })
-  useDragSnap(cartRef, { touchAction: 'none', key: 'cart' })
+  useDragSnap(toggleRef, { touchAction: 'none', key: 'toggle', stayOnTap: true })
+  useDragSnap(cartRef, { touchAction: 'none', key: 'cart', stayOnTap: true })
 
   const headerPx = useMemo(() => {
     const n = Number(ctrlPx)
