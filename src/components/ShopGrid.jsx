@@ -600,6 +600,35 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
   const overlayOpenRef = useRef(overlayOpen)
   useEffect(() => { overlayOpenRef.current = overlayOpen }, [overlayOpen])
 
+  /* ---------------- Tap open space: fold the grid back into stacks ---------------- */
+  // Anywhere in the shop's main area counts, not just the grid strip (which
+  // only spans the tile rows at the bottom). Taps on photos, controls and
+  // the heart panel don't; nor does the tap that closes that panel.
+  const viewModeRef = useRef(viewMode)
+  viewModeRef.current = viewMode
+  useEffect(() => {
+    let panelOpenAtPress = false
+    const onDown = () => {
+      panelOpenAtPress = !!document.querySelector('.nl-panel--visible')
+    }
+    const onClick = (/** @type {MouseEvent} */ e) => {
+      const root = document.documentElement
+      if (viewModeRef.current !== VIEW_GRID || overlayOpenRef.current) return
+      if (root.dataset.overlayOpen === '1' || root.hasAttribute('data-checkout-open')) return
+      if (panelOpenAtPress) return
+      const t = /** @type {Element|null} */ (e.target instanceof Element ? e.target : null)
+      if (!t?.closest('main.shop-main')) return
+      if (t.closest('a, button, input, select, textarea, label, [role="button"], .product-img-wrap, .product-meta, .nl-panel')) return
+      collapseToStacks()
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    document.addEventListener('click', onClick)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      document.removeEventListener('click', onClick)
+    }
+  }, [collapseToStacks])
+
   /* ---------------- Drag a tile or stack; it springs home, then taps ---------------- */
   const tilesRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   useEffect(() => {
@@ -716,11 +745,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
         data-component="shop-grid"
         data-view-mode={viewMode}
         data-stack-reversed={stackReversed ? 'true' : undefined}
-        onClick={() => {
-          if (viewMode !== VIEW_GRID || overlayOpen) return
-          // Collapse back to stacks when tapping empty grid background
-          collapseToStacks()
-        }}
       >
         {viewMode === VIEW_STACKS ? (
           /* ---------- STACKED DECK VIEW ---------- */
