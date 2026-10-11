@@ -55,11 +55,16 @@ export default function MusicPlayerButton({
     }
   }
 
+  // The YT.Player object exists from the moment it's created, but its
+  // methods (playVideo, …) only arrive once YouTube has loaded it; calling
+  // one before then throws and took the whole page down
+  const playerReady = () => typeof ytPlayerRef.current?.playVideo === 'function'
+
   // Cover before pausing — the PAUSED event lands a beat after YouTube
   // has already drawn its paused UI
   const pause = () => {
     coverFor(false)
-    ytPlayerRef.current?.pauseVideo()
+    if (playerReady()) ytPlayerRef.current.pauseVideo()
   }
 
   // Theme sync
@@ -135,7 +140,7 @@ export default function MusicPlayerButton({
   useEffect(() => {
     if (!autoOpen) return
     setOpen(true)
-    if (ytPlayerRef.current) {
+    if (playerReady()) {
       if (!playing) ytPlayerRef.current.playVideo()
     } else {
       pendingPlayRef.current = true // played as soon as the player is ready
@@ -321,7 +326,7 @@ export default function MusicPlayerButton({
     if (clickTimerRef.current) return // second click of a double-click
     if (!open) {
       setOpen(true)
-      if (ytPlayerRef.current) {
+      if (playerReady()) {
         if (!playing) ytPlayerRef.current.playVideo()
       } else {
         // Player not ready yet (very fast first click); play when onReady fires
@@ -342,7 +347,7 @@ export default function MusicPlayerButton({
       clearTimeout(clickTimerRef.current)
       clickTimerRef.current = null
     }
-    if (ytPlayerRef.current) {
+    if (playerReady()) {
       ytPlayerRef.current.nextVideo()
     } else {
       setOpen(true)
@@ -351,7 +356,7 @@ export default function MusicPlayerButton({
 
   // Tapping the video area pauses/resumes — user gesture, works on mobile
   const handleBlockerClick = () => {
-    if (!ytPlayerRef.current) return
+    if (!playerReady()) return
     if (playing) {
       pause()
     } else {
