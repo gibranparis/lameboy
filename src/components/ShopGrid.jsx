@@ -997,8 +997,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       )}
 
       <style jsx>{`
+        /* Vertical room comes from the page (see the open band in page.js), so the
+           grid's gaps above and below stay equal; only the sides are padded here */
         .shop-wrap {
           width: 100%;
+          padding-top: 0;
+          padding-bottom: 0;
         }
 
         /* ---------- GRID VIEW ---------- */
@@ -1011,9 +1015,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
           direction: rtl;
           align-content: flex-end;
           gap: var(--col-gap);
-          padding: clamp(16px, 3vw, 24px);
-          padding-right: calc(var(--header-pad-x, 16px) + 16px);
-          padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
+          /* Same breathing room above and below: the open band centres the grid,
+             so the video → hoodies and hoodies → bottom bar gaps match */
+          padding: clamp(8px, 2vw, 16px) calc(var(--header-pad-x, 16px) + 16px) clamp(8px, 2vw, 16px) clamp(16px, 3vw, 24px);
           transition: gap 220ms ease;
           box-sizing: border-box;
         }
@@ -1052,9 +1056,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: clamp(10px, 2vw, 18px);
-          padding: clamp(16px, 3vw, 24px);
-          padding-right: calc(var(--header-pad-x, 16px) + 16px);
-          padding-bottom: calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px) + clamp(24px, 4vw, 36px));
+          padding: clamp(8px, 2vw, 16px) calc(var(--header-pad-x, 16px) + 16px) clamp(8px, 2vw, 16px) clamp(16px, 3vw, 24px);
           box-sizing: border-box;
         }
 

@@ -89,7 +89,7 @@ export function clearProfile() {
   notify()
 }
 
-/* ---------- evolution: progress earned by shopping ---------- */
+/* ---------- tokens: progress earned by shopping ---------- */
 // What a customer has spent on merchandise (cents, shipping not counted),
 // kept per email on this device like the rest of the profile and counted
 // once per payment. The goal is never shown as money: customers only see
@@ -119,8 +119,8 @@ export function addSpend(email, paymentId, cents) {
   notify()
 }
 
-/** How far `email` has evolved, 0–100 (a percentage, never the amount). */
-export function evolutionPercent(email) {
+/** How many tokens `email` has earned, 0–100 (a percentage, never the amount). */
+export function tokensPercent(email) {
   if (typeof window === 'undefined' || !email) return 0
   const mine = readSpent()[String(email).trim().toLowerCase()]
   const cents = Number(mine?.cents) || 0

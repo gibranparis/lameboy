@@ -3,7 +3,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { clearProfile, evolutionPercent, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
+import { clearProfile, tokensPercent, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
 import EmailChips from '@/components/EmailChips'
 import { CONTACT_EMAIL } from '@/lib/store-info'
 import { attachDragSnap, POPUP_CONTROLS } from '@/lib/dragSnap'
@@ -20,12 +20,12 @@ const CHAKRA_COLORS = [
 ]
 
 /**
- * Green progress pill for a signed-in customer: how far they've "evolved"
- * by shopping. Only the percentage shows (one decimal, so every dollar
- * nudges it); the amount behind 100% never does. Fills up from empty each
- * time the panel opens; glows once complete.
+ * Green tokens bar for a signed-in customer: tokens earned by shopping.
+ * Only the percentage shows (one decimal, so every dollar nudges it); the
+ * amount behind 100% never does. Hash marks every 10% read like a gauge.
+ * Fills up from empty each time the panel opens; glows once complete.
  */
-function EvolutionPill({ percent, open }) {
+function TokensBar({ percent, open }) {
   const [shown, setShown] = useState(0)
   useEffect(() => {
     if (!open) { setShown(0); return }
@@ -35,7 +35,7 @@ function EvolutionPill({ percent, open }) {
   const done = percent >= 100
   // Any progress at all shows as a visible sliver
   const width = percent > 0 ? Math.max(shown, shown > 0 ? 3 : 0) : 0
-  const label = done ? 'fully evolved' : 'evolution'
+  const label = 'tokens'
   return (
     <div
       className={`nl-evo ${done ? 'nl-evo--done' : ''}`}
@@ -51,6 +51,7 @@ function EvolutionPill({ percent, open }) {
       </div>
       <div className="nl-evo-track">
         <div className="nl-evo-fill" style={{ width: `${width}%` }} />
+        <div className="nl-evo-hash" aria-hidden="true" />
       </div>
       <style jsx>{`
         .nl-evo { margin: 2px 0 14px; }
@@ -68,6 +69,16 @@ function EvolutionPill({ percent, open }) {
         :global(html[data-theme='day']) .nl-evo-track {
           background: rgba(0,0,0,0.07);
           box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
+        }
+        /* hash marks every 10%, over both the fill and the empty track */
+        .nl-evo-hash {
+          position: absolute; inset: 0; pointer-events: none;
+          /* drop the tile's last mark, which would sit on the 100% edge */
+          clip-path: inset(0 2px 0 0);
+          background: linear-gradient(90deg, transparent calc(100% - 2px), rgba(255,255,255,0.22) 0) 0 0 / 10% 100%;
+        }
+        :global(html[data-theme='day']) .nl-evo-hash {
+          background: linear-gradient(90deg, transparent calc(100% - 2px), rgba(0,0,0,0.16) 0) 0 0 / 10% 100%;
         }
         .nl-evo-fill {
           position: relative; height: 100%; border-radius: inherit; overflow: hidden;
@@ -405,7 +416,7 @@ export default function NewsletterForm({ open, onClose }) {
       ) : signedIn && profile ? (
         <div className="nl-form">
           <div className="nl-title"><ChakraText text={`hi ${firstName}`.trim()} /></div>
-          <EvolutionPill percent={evolutionPercent(profile.email)} open={visible} />
+          <TokensBar percent={tokensPercent(profile.email)} open={visible} />
 
           {editing ? (
             <form
