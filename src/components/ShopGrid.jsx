@@ -37,14 +37,20 @@ function springCurve(/** @type {number} */ k, /** @type {number} */ c) {
   out[out.length - 1] = 1
   return out
 }
+// Unfolding / folding a stack moves tiles ~3x as far as a column change, so
+// those springs are slower (peak speed per px roughly matches a resize)
 const SPRINGS = {
-  open: springCurve(170, 15), // stacks → grid: lively, ~12% past home
-  close: springCurve(210, 21), // grid → stacks: softer landing
+  open: springCurve(40, 8), // stacks → grid: ~7% past home, ~1.5s to rest
+  close: springCurve(42, 10), // grid → stacks: softer landing
   density: springCurve(200, 18), // column changes
 }
-// Tiles set off one after another rather than all at once
-const STAGGER_MS = 22
-const STAGGER_MAX_MS = 240
+// Tiles set off one after another rather than all at once; a stack deals
+// its cards out more slowly than a resize shuffles them
+const STAGGER = {
+  open: { step: 45, max: 320 },
+  close: { step: 45, max: 320 },
+  density: { step: 22, max: 240 },
+}
 // Opening / closing a stack mounts fresh <img>s; hold the spring until
 // they've painted (or this long), so tiles don't fly as blank cards and
 // pop in already home
@@ -320,7 +326,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       }))
       const anim = tile.animate(frames, {
         duration,
-        delay: Math.min(order++ * STAGGER_MS, STAGGER_MAX_MS),
+        delay: Math.min(order++ * STAGGER[flip.kind].step, STAGGER[flip.kind].max),
         easing: 'linear',
         fill: 'backwards', // hold the start position through the stagger delay
       })
