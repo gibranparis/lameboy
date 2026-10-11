@@ -38,6 +38,7 @@ function OrbCross({
   flashDecayMs = 140,
   skipColorLerp = false,
   colorFadeMs = 0,
+  pickRef = null,
 }) {
   const group = useRef()
   // Materials in draw order; when colorFadeMs > 0 the frame loop eases each
@@ -178,6 +179,7 @@ function OrbCross({
       armGlowGeoZ,
       centers,
       chakraColors,
+      r,
     }
   }, [geomScale, armRatio, offsetFactor, includeYAxis, includeZAxis])
 
@@ -191,7 +193,45 @@ function OrbCross({
     armGlowGeoZ,
     centers,
     chakraColors,
+    r: sphereR,
   } = memo
+
+  // pickRef.current(clientX, clientY) → the chakra colour of the ball under
+  // that screen point (the centre ball reads as its violet crown), or of the
+  // nearest ball when the point is between them. Front balls win overlaps.
+  useEffect(() => {
+    if (!pickRef) return
+    const v = new THREE.Vector3()
+    pickRef.current = (x, y) => {
+      const g = group.current
+      if (!g) return null
+      const rect = gl.domElement.getBoundingClientRect()
+      const focal = rect.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))
+      let best = null
+      centers.forEach((c, i) => {
+        v.set(c[0], c[1], c[2]).applyMatrix4(g.matrixWorld)
+        const dist = v.distanceTo(camera.position)
+        v.project(camera)
+        const sx = rect.left + ((v.x + 1) / 2) * rect.width
+        const sy = rect.top + ((1 - v.y) / 2) * rect.height
+        const d = Math.hypot(x - sx, y - sy)
+        const hit = d <= (sphereR / dist) * focal
+        const cand = { i, d, depth: v.z, hit }
+        if (
+          !best ||
+          (cand.hit && !best.hit) ||
+          (cand.hit && best.hit && cand.depth < best.depth) ||
+          (!cand.hit && !best.hit && cand.d < best.d)
+        ) best = cand
+      })
+      if (!best) return null
+      // Ball 0 is the centre: white core, violet crown halo
+      const { core, halo } = chakraColors[best.i]
+      return best.i === 0 ? halo : core
+    }
+    return () => { pickRef.current = null }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickRef, centers, chakraColors, sphereR, gl, camera])
 
   const CHAKRA = {
     root: '#cc0014',
@@ -467,6 +507,7 @@ export default function BlueOrbCross3D({
   solidOverride = false,
   skipColorLerp = false,
   colorFadeMs = 0, // > 0: blend between colours over this many ms
+  pickRef = null, // filled with (clientX, clientY) => colour of the ball there
 }) {
   const [maxDpr, setMaxDpr] = useState(2)
   const [reduced, setReduced] = useState(false)
@@ -535,6 +576,7 @@ export default function BlueOrbCross3D({
           solidOverride={solidOverride}
           skipColorLerp={skipColorLerp}
           colorFadeMs={colorFadeMs}
+          pickRef={pickRef}
         />
       </Canvas>
     </div>
