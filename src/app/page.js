@@ -271,12 +271,18 @@ export default function Page() {
   const heartFilled = isSignedIn(useProfile())
 
   /* ===================== Shop → splash ===================== */
+  // Once entered, the shop stays mounted (hidden) while the splash page shows,
+  // so the music player inside it keeps playing across the round trip
+  const [shopMounted, setShopMounted] = useState(false)
+  useEffect(() => { if (inShop) setShopMounted(true) }, [inShop])
+
   // The LAME logo takes you back to the splash page with the orb ready for a
   // fresh tap. autoStartedRef stays set, so the splash video (when on) doesn't
   // auto-run the sequence and bounce you straight back into the shop.
   const returnToGate = useCallback(() => {
     if (mode !== 'shop') return
-    window.dispatchEvent(new Event('lb:reset')) // close + pause the player, fold the grid
+    // Fold the grid and close any overlay; the music player keeps playing
+    window.dispatchEvent(new Event('lb:fold-shop'))
     setNewsletterOpen(false)
     setCheckoutOpen(false)
     proceedFired.current = false
@@ -412,8 +418,15 @@ export default function Page() {
       )}
 
       {/* Shop */}
-      {inShop && (
-        <>
+      {(inShop || shopMounted) && (
+        <div
+          aria-hidden={!inShop}
+          style={
+            inShop
+              ? { display: 'contents' }
+              : { position: 'fixed', inset: 0, overflow: 'hidden', visibility: 'hidden', pointerEvents: 'none' }
+          }
+        >
           <HeaderBar ctrlPx={ctrlPx} shopReady={shopReady} />
 
           {/* Player panel anchor — fixed just below the header buttons.
@@ -561,7 +574,7 @@ export default function Page() {
             </div>
           </main>
 
-        </>
+        </div>
       )}
 
 

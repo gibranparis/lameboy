@@ -480,7 +480,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       if (viewMode !== VIEW_STACKS) collapseToStacks()
     }
     window.addEventListener('lb:reset', onReset)
-    return () => window.removeEventListener('lb:reset', onReset)
+    // Leaving for the splash page folds the shop too, but leaves the music
+    window.addEventListener('lb:fold-shop', onReset)
+    return () => {
+      window.removeEventListener('lb:reset', onReset)
+      window.removeEventListener('lb:fold-shop', onReset)
+    }
   }, [close, collapseToStacks, viewMode])
 
   /* ---------------- Signal "shop ready" (redundant safety) ---------------- */
