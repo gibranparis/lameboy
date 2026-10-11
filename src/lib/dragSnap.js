@@ -157,7 +157,7 @@ export const pinball = {
 }
 
 // Each attached root's controls, so parkAt() / sendHome() can move it from outside
-/** @type {WeakMap<HTMLElement, { to: (x: number, y: number) => void, home: () => void }>} */
+/** @type {WeakMap<HTMLElement, { to: (x: number, y: number) => void, home: () => void, fling: (vx: number, vy: number) => void }>} */
 const movers = new WeakMap()
 
 /**
@@ -169,6 +169,18 @@ const movers = new WeakMap()
  */
 export function parkAt(el, x, y) {
   if (el) movers.get(el)?.to(x, y)
+}
+
+/**
+ * Sends an attached element flying at (vx, vy) px/s, as if flicked: it
+ * pinballs round and finds its way home (with its own `fling` setup; one
+ * without just springs home). E.g. a flicked iPod takes its video with it.
+ * @param {HTMLElement | null | undefined} el
+ * @param {number} vx
+ * @param {number} vy
+ */
+export function flingAway(el, vx, vy) {
+  if (el) movers.get(el)?.fling(vx, vy)
 }
 
 /**
@@ -312,10 +324,11 @@ export function resetDragged(opts = {}) {
  * @property {(el: HTMLElement, x: number, y: number, cancelled: boolean) => boolean} [onDrop]
  *   called when a drag ends; return true when the drop was used (e.g. on the
  *   cart) and the element springs home instead of parking
- * @property {{ obstacles?: (el: HTMLElement) => Element[], body?: (el: HTMLElement) => Element, onBounce?: (el: HTMLElement) => void }} [fling]
+ * @property {{ obstacles?: (el: HTMLElement) => Element[], body?: (el: HTMLElement) => Element, onBounce?: (el: HTMLElement) => void, onLaunch?: (el: HTMLElement, vx: number, vy: number) => void }} [fling]
  *   a fast release (a flick) sends the element flying: it bounces off the
  *   screen edges and `obstacles`, pinball style, then springs home. `body`
- *   is the part that collides (default the element); onBounce fires per hit
+ *   is the part that collides (default the element); onBounce fires per hit;
+ *   onLaunch fires when a flick sends it off, with its velocity
  * @property {(lifted: boolean) => void} [onLift] called with true when a drag
  *   lifts an element, and false once it is back home and at rest (e.g. to
  *   raise its container above everything while it's away)
@@ -614,6 +627,7 @@ export function attachDragSnap(root, opts = {}) {
       if (key && p.el === root) parkedAt.delete(key)
       launch(m, p.vx, p.vy, (fling.body?.(p.el) || p.el).getBoundingClientRect(), fling.obstacles?.(p.el) || [])
       setScale(p.el, 1)
+      fling.onLaunch?.(p.el, m.vx, m.vy)
       return
     }
     drop(p)
@@ -660,6 +674,17 @@ export function attachDragSnap(root, opts = {}) {
   if (!targets) {
     movers.set(root, {
       home: () => { if (stateOf(root).parked) sendHome(root) },
+      fling: (vx, vy) => {
+        const m = stateOf(root)
+        if (!fling || reducedMotion()) return sendHome(root)
+        m.held = false
+        m.parked = false
+        parked.delete(root)
+        if (key) parkedAt.delete(key)
+        launch(m, vx, vy, (fling.body?.(root) || root).getBoundingClientRect(), fling.obstacles?.(root) || [])
+        lift(root, m)
+        run(root)
+      },
       to: (x, y) => {
         const m = stateOf(root)
         m.x = x
