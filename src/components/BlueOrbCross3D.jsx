@@ -22,7 +22,8 @@ function isNearBlack(hex) {
 // the arms shrink away, and a spring pulls everything back on release
 const SCATTER_K = 150 // spring stiffness
 const SCATTER_C = 17 // damping (≈0.7: a little snap past home)
-const ORBIT_R = 1.0 // ring radius, world units (~44px on the gate)
+const ORBIT_R = 1.25 // ring radius, world units (~55px on the gate)
+const BALL_GROW = 2 // scattered balls swell to this scale
 const ORBIT_SPEED = 3.2 // rad/s
 const ORBIT_TILT = 0.45 // depth swing, so the ring passes in front and behind
 
@@ -96,6 +97,7 @@ function OrbCross({
       const cr = Math.cos(rot)
       const sr = Math.sin(rot)
       const n = centers.length
+      const grow = 1 + (BALL_GROW - 1) * p
       centers.forEach((c, i) => {
         const a = sc.theta + (i * Math.PI * 2) / n
         const wx = sc.cx + ORBIT_R * Math.cos(a)
@@ -108,6 +110,8 @@ function OrbCross({
         const z = c[2] + (lz - c[2]) * p
         coreRefs.current[i]?.position.set(x, y, z)
         haloRefs.current[i]?.position.set(x, y, z)
+        coreRefs.current[i]?.scale.setScalar(grow)
+        haloRefs.current[i]?.scale.setScalar(grow * glowScale)
       })
       const armScale = Math.max(0.001, 1 - Math.min(1, p))
       armRefs.current.forEach((m) => m?.scale.setScalar(armScale))

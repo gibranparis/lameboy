@@ -353,8 +353,6 @@ export default function OrbShell({
 
   const GREEN_ZOOM = '#00a832'
   const BLACK_GLOW = '#000000'
-  const cycleLabels = ['5', '4', '3', '4', '5', 'stack']
-  const nextCycleLabel = cycleLabels[cycleStep] || '5'
 
   // watch overlay-open attribute
   useEffect(() => {
@@ -583,26 +581,6 @@ export default function OrbShell({
           scatter={scatter}
           overscan={3}
         />
-        {!inGateLike && !overlayOpen && (
-          <span
-            style={{
-              position: 'absolute',
-              bottom: '-18px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              fontSize: '12px',
-              lineHeight: 1,
-              color: 'white',
-              background: 'rgba(0, 0, 0, 0.5)',
-              padding: '2px 6px',
-              borderRadius: '999px',
-              pointerEvents: 'none',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {`Next: ${nextCycleLabel}`}
-          </span>
-        )}
       </button>
     </div>
   )
