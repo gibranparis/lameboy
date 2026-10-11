@@ -10,6 +10,11 @@ import { attachDragSnap, pinball } from '@/lib/dragSnap'
 // YouTube flashes its title bar / "More videos" panel for a moment after
 // playback resumes, so the cover stays up this long past PLAYING
 const UNCOVER_DELAY_MS = 150
+// The video's size once resized (px wide), remembered on this device
+const VIDEO_W_KEY = 'lb:video-w'
+/** Never smaller than a thumbnail, never wider than the screen */
+const clampVideoW = (/** @type {number} */ w) =>
+  Math.round(Math.max(160, Math.min(w, typeof window === 'undefined' ? 960 : Math.min(1000, window.innerWidth - 16))))
 
 /**
  * @param {{ playlistId?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
@@ -38,6 +43,9 @@ export default function MusicPlayerButton({
   const pendingPlayRef = useRef(false)
   // Ref on the panel div — used by ResizeObserver to track player height
   const panelRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  // Resized by the corner handle, a pinch or ⌘ / ctrl + scroll (px; null:
+  // its usual size). Remembered on this device.
+  const [videoW, setVideoW] = useState(/** @type {number|null} */ (null))
   // Poster over the iframe whenever it isn't playing, so YouTube's paused /
   // buffering / end-screen UI never shows. Shows the current video's thumbnail.
   const [covered, setCovered] = useState(true)
@@ -167,6 +175,8 @@ export default function MusicPlayerButton({
       touchAction: 'none',
       onLift,
       fling: pinball,
+      ring: false, // no ring of clones for the video
+      ignore: '.yt-resize', // the corner handle resizes it instead
     })
     return () => {
       detach()
@@ -174,6 +184,83 @@ export default function MusicPlayerButton({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portalTarget])
+
+  // Resizing: the corner handle, a two-finger pinch on it, or ⌘ / ctrl +
+  // scroll. It stays the shape of the video; the grid re-centres under it
+  // (its height feeds --yt-panel-h).
+  useEffect(() => {
+    try {
+      const saved = Number(localStorage.getItem(VIDEO_W_KEY))
+      if (saved > 0) setVideoW(clampVideoW(saved))
+    } catch {}
+  }, [])
+  useEffect(() => {
+    try {
+      if (videoW) localStorage.setItem(VIDEO_W_KEY, String(Math.round(videoW)))
+      else localStorage.removeItem(VIDEO_W_KEY)
+    } catch {}
+  }, [videoW])
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const widthNow = () => el.getBoundingClientRect().width
+    const onWheel = (/** @type {WheelEvent} */ e) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      setVideoW(clampVideoW(widthNow() * Math.exp(-e.deltaY * 0.003)))
+    }
+    // Two fingers on it: pinch its size (dragSnap lets go of the drag)
+    let pinch = /** @type {null | { d: number, w: number }} */ (null)
+    const dist = (/** @type {TouchList} */ t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+    const onTouchStart = (/** @type {TouchEvent} */ e) => {
+      if (e.touches.length === 2) pinch = { d: dist(e.touches), w: widthNow() }
+    }
+    const onTouchMove = (/** @type {TouchEvent} */ e) => {
+      if (!pinch || e.touches.length !== 2) return
+      if (e.cancelable) e.preventDefault()
+      setVideoW(clampVideoW(pinch.w * (dist(e.touches) / pinch.d)))
+    }
+    const onTouchEnd = (/** @type {TouchEvent} */ e) => {
+      if (e.touches.length < 2) pinch = null
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('touchcancel', onTouchEnd)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [portalTarget])
+
+  // The corner handle: drag it out to grow the video, in to shrink it
+  // (sideways counts double, as the video grows from its middle); a
+  // double-tap puts it back to its usual size
+  const resizeRef = useRef(/** @type {null | { id: number, x: number, y: number, w: number }} */ (null))
+  const onResizeDown = (/** @type {React.PointerEvent<HTMLDivElement>} */ e) => {
+    e.stopPropagation()
+    const el = panelRef.current
+    if (!el) return
+    resizeRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY, w: el.getBoundingClientRect().width }
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+  }
+  const onResizeMove = (/** @type {React.PointerEvent<HTMLDivElement>} */ e) => {
+    const r = resizeRef.current
+    if (!r || r.id !== e.pointerId) return
+    e.stopPropagation()
+    const fromX = 2 * (e.clientX - r.x)
+    const fromY = (e.clientY - r.y) / (aspectPb / 100)
+    setVideoW(clampVideoW(r.w + (Math.abs(fromX) > Math.abs(fromY) ? fromX : fromY)))
+  }
+  const onResizeUp = (/** @type {React.PointerEvent<HTMLDivElement>} */ e) => {
+    if (resizeRef.current?.id !== e.pointerId) return
+    e.stopPropagation()
+    resizeRef.current = null
+  }
 
   // Pre-initialize the YouTube player as soon as the anchor div is in the DOM.
   // This is critical for mobile (iOS): playVideo() must be called synchronously
@@ -353,7 +440,7 @@ export default function MusicPlayerButton({
   ].filter(Boolean).join(' ')
 
   const panel = (
-    <div ref={panelRef} className={panelClass}>
+    <div ref={panelRef} className={panelClass} style={videoW ? { width: videoW } : undefined}>
       <div className="yt-wrap" style={{ paddingBottom: `${aspectPb}%` }}>
         {/* YT API replaces this div with an iframe */}
         <div id={playerIdRef.current} />
@@ -364,6 +451,20 @@ export default function MusicPlayerButton({
         />
         {/* Intercepts YouTube hover UI; tap = play/pause */}
         <div className="yt-blocker" onClick={handleBlockerClick} />
+        {/* Corner handle: drag to resize, double-tap for the usual size */}
+        <div
+          className="yt-resize"
+          role="slider"
+          aria-label="Resize video"
+          aria-valuenow={Math.round(videoW ?? 0)}
+          title="Drag to resize · double-tap to reset"
+          onPointerDown={onResizeDown}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeUp}
+          onPointerCancel={onResizeUp}
+          onDoubleClick={(e) => { e.stopPropagation(); setVideoW(null) }}
+          onClick={(e) => e.stopPropagation()}
+        />
       </div>
     </div>
   )
@@ -512,6 +613,25 @@ export default function MusicPlayerButton({
           pointer-events: all;
           cursor: pointer;
         }
+        /* Resize handle: a small corner grip over the video */
+        .yt-resize {
+          position: absolute;
+          right: 0;
+          bottom: 0;
+          width: 30px;
+          height: 30px;
+          z-index: 3;
+          cursor: nwse-resize;
+          touch-action: none;
+          pointer-events: all;
+          background:
+            linear-gradient(135deg, transparent 52%, rgba(255,255,255,0.85) 52%, rgba(255,255,255,0.85) 58%, transparent 58%,
+              transparent 68%, rgba(255,255,255,0.85) 68%, rgba(255,255,255,0.85) 74%, transparent 74%);
+          filter: drop-shadow(0 0 2px rgba(0,0,0,0.7));
+          opacity: 0.75;
+          transition: opacity 0.15s ease;
+        }
+        .yt-resize:hover { opacity: 1; }
       `}</style>
     </>
   )
