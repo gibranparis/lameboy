@@ -249,7 +249,7 @@ export default function NewsletterForm({ open, onClose }) {
   // under the heart's home)
   const [placed, setPlaced] = useState(/** @type {null | Record<string, any>} */ (null))
   useLayoutEffect(() => {
-    if (open) setPlaced(placeNear(document.querySelector('.heart-submit'), { width: 260, maxHeight: 560, prefer: 'below' }))
+    if (open) setPlaced(placeNear(document.querySelector('.heart-submit'), { popup: panelRef.current, width: 302, maxHeight: 560, prefer: 'below' }))
   }, [open])
 
   useEffect(() => {
@@ -277,7 +277,7 @@ export default function NewsletterForm({ open, onClose }) {
       key: 'heart-panel',
       ignore: POPUP_CONTROLS,
     })
-  }, [open])
+  }, [open, placed]) // re-attached once placed, so a remembered spot is kept on screen from there
 
   useEffect(() => {
     if (!open) return
