@@ -92,13 +92,6 @@ export default function MusicPlayerButton({
     return () => window.removeEventListener('lb:reset', onReset)
   }, [])
 
-  // The LAME logo button dispatches this to show/hide the panel — pure
-  // visibility, playback keeps running underneath either way
-  useEffect(() => {
-    const onToggleVisibility = () => setOpen((v) => !v)
-    window.addEventListener('lb:toggle-player-visibility', onToggleVisibility)
-    return () => window.removeEventListener('lb:toggle-player-visibility', onToggleVisibility)
-  }, [])
 
   // Watch for product overlay — hide panel visually but keep audio running.
   // Checkout open is intentionally excluded: let the panel fade naturally with the backdrop.
@@ -269,23 +262,26 @@ export default function MusicPlayerButton({
     }
   }, [playlistId, portalTarget]) // no 'open' — player lives independently of panel visibility
 
-  // Single click: toggle play/pause only — panel visibility is controlled
-  // separately by the LAME logo button, not by this button.
+  // Single click: opens the player and starts the music, or hides it again
+  // (the music keeps playing; tap the video to pause). Opening plays right
+  // away, inside the tap, which iOS needs; hiding waits a beat so a
+  // double-click can still skip a track instead.
   const handleClick = () => {
-    if (clickTimerRef.current) return
-    clickTimerRef.current = setTimeout(() => {
-      clickTimerRef.current = null
+    if (clickTimerRef.current) return // second click of a double-click
+    if (!open) {
+      setOpen(true)
       if (ytPlayerRef.current) {
-        if (playing) {
-          pause()
-        } else {
-          // Synchronous call inside the user gesture — required for iOS
-          ytPlayerRef.current.playVideo()
-        }
+        if (!playing) ytPlayerRef.current.playVideo()
       } else {
         // Player not ready yet (very fast first click); play when onReady fires
         pendingPlayRef.current = true
       }
+      clickTimerRef.current = setTimeout(() => { clickTimerRef.current = null }, 220)
+      return
+    }
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null
+      setOpen(false)
     }, 220)
   }
 
@@ -340,7 +336,7 @@ export default function MusicPlayerButton({
         type="button"
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        aria-label={playing ? 'Pause music' : 'Play music'}
+        aria-label={open ? 'Hide player' : 'Show player'}
         data-playing={playing ? '1' : '0'}
         className="ipod-btn"
         style={{
