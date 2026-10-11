@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useCart } from '@/contexts/CartContext'
+import { CART_LANDED, cartFlying } from '@/lib/cartFlight'
 
 const BIRKINS = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png']
 const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
@@ -17,6 +18,7 @@ const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
 export default function CartButton({ size = 48, inHeader = false, imgSrc, onClick }) {
   const { count, cartReady } = useCart()
   const [pulse, setPulse] = useState(false)
+  const [bumpCls, setBumpCls] = useState('')
   const [isNight, setIsNight] = useState(false)
 
   useEffect(() => {
@@ -57,7 +59,19 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   const tPulse = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
   const tBump = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
 
-  // Pulse when items are added — not when the saved cart loads in
+  // 'lb-catch' is the bigger squash-and-bounce for an item landing in the bag
+  // (in state: React rewrites className on every render)
+  const bump = (cls = 'lb-bump', ms = 240) => {
+    setPulse(true)
+    setBumpCls(cls)
+    if (tBump.current) clearTimeout(tBump.current)
+    tBump.current = setTimeout(() => setBumpCls(''), ms)
+    if (tPulse.current) clearTimeout(tPulse.current)
+    tPulse.current = setTimeout(() => setPulse(false), 360)
+  }
+
+  // Pulse when items are added — not when the saved cart loads in. An item
+  // jumping in from the product page bumps it as it lands instead.
   const prevCount = useRef(count)
   const wasReady = useRef(false)
   useEffect(() => {
@@ -65,18 +79,17 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
     const live = wasReady.current // the saved cart arrives in the same render cartReady flips
     prevCount.current = count
     wasReady.current = cartReady
-    if (!live || !grew) return
-    setPulse(true)
-    try {
-      btnRef.current?.classList.add('lb-bump')
-      if (tBump.current) clearTimeout(tBump.current)
-      tBump.current = setTimeout(() => btnRef.current?.classList.remove('lb-bump'), 240)
-    } catch {
-      /* ignore */
-    }
-    if (tPulse.current) clearTimeout(tPulse.current)
-    tPulse.current = setTimeout(() => setPulse(false), 360)
+    if (!live || !grew || cartFlying()) return
+    bump()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count, cartReady])
+
+  useEffect(() => {
+    const onLanded = () => bump('lb-catch', 460)
+    window.addEventListener(CART_LANDED, onLanded)
+    return () => window.removeEventListener(CART_LANDED, onLanded)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => () => {
     if (tPulse.current) clearTimeout(tPulse.current)
@@ -153,7 +166,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
       <button
         ref={btnRef}
         type="button"
-        className={`cart-fab ${pulse ? 'cart-pulse' : ''}`}
+        className={`cart-fab ${pulse ? 'cart-pulse' : ''} ${bumpCls}`}
         aria-label={aria}
         title="Cart"
         data-cart-button
@@ -201,6 +214,26 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
         }
         .lb-bump {
           animation: lbBump 240ms ease;
+        }
+        .lb-catch {
+          animation: lbCatch 460ms cubic-bezier(0.3, 1.4, 0.5, 1);
+        }
+        @keyframes lbCatch {
+          0% {
+            transform: scale(1);
+          }
+          25% {
+            transform: scale(1.22, 0.82);
+          }
+          55% {
+            transform: scale(0.92, 1.12);
+          }
+          80% {
+            transform: scale(1.04, 0.97);
+          }
+          100% {
+            transform: scale(1);
+          }
         }
         @keyframes lbBump {
           0% {

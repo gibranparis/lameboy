@@ -4,6 +4,7 @@
 import Image from 'next/image'
 import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE } from '@/lib/store-info'
+import { startCartFlight, landCartFlight } from '@/lib/cartFlight'
 
 /* ---------------- utils ---------------- */
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -213,6 +214,8 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
 
   const addToCart = useCallback(() => {
     if (!picked) return
+    // The cart button waits to bump until the item has jumped in
+    if (onAddedToCart) startCartFlight()
     try {
       window.dispatchEvent(
         new CustomEvent('lb:add-to-cart', {
@@ -818,7 +821,7 @@ export default function ProductOverlay({
     }, 300)
   }, [finishClose, reduceMotion, getFreshTileRect])
 
-  /* zoom-to-cart close after add-to-cart: item stays visible while shrinking to cart button */
+  /* add-to-cart close: the item hops up and drops into the cart button */
   const animateCloseAfterAdd = useCallback(() => {
     if (closingRef.current) return
     closingRef.current = true
@@ -828,41 +831,16 @@ export default function ProductOverlay({
     pendingResetRef.current = true
 
     const hero = heroRef.current
-    // Find the cart button position instead of grid position
-    const cartContainer = document.querySelector('[data-cart-container]')
-    const cartRect = cartContainer ? cartContainer.getBoundingClientRect() : null
-    const canZoomToCart = hero && cartRect && !reduceMotion
+    const cartBtn = document.querySelector('[data-cart-button]')
+    const cartRect = cartBtn ? cartBtn.getBoundingClientRect() : null
 
-    if (!canZoomToCart) {
-      // Fallback to original behavior if cart button not found
-      const fr = getFreshTileRect()
-      if (hero && fr && !reduceMotion) {
-        const from = hero.getBoundingClientRect()
-        const to = fr
-        const fromCx = from.left + from.width / 2
-        const fromCy = from.top + from.height / 2
-        const toCx = to.left + to.width / 2
-        const toCy = to.top + to.height / 2
-        const sx = to.width / Math.max(1, from.width)
-        const sy = to.height / Math.max(1, from.height)
-        const s = Math.max(sx, sy)
-        const dx = toCx - fromCx
-        const dy = toCy - fromCy
-        hero.style.willChange = 'transform'
-        hero.style.transition = 'transform 340ms cubic-bezier(.2,.8,.2,1)'
-        hero.style.transformOrigin = 'center center'
-        hero.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`
-        window.setTimeout(() => {
-          hero.style.willChange = ''
-          finishClose()
-        }, 360)
-      } else {
-        window.setTimeout(finishClose, 160)
-      }
+    if (!hero || !cartRect || reduceMotion || typeof hero.animate !== 'function') {
+      landCartFlight()
+      window.setTimeout(finishClose, 160)
       return
     }
 
-    // Reveal grid with a slight delay so the zoom starts first
+    // Reveal grid with a slight delay so the jump starts first
     window.setTimeout(() => {
       try {
         const gridEl = document.querySelector('[data-component="shop-grid"]')
@@ -871,32 +849,39 @@ export default function ProductOverlay({
     }, 60)
 
     const from = hero.getBoundingClientRect()
-    const to = cartRect
-
-    // Center-to-center with uniform scale
-    const fromCx = from.left + from.width / 2
-    const fromCy = from.top + from.height / 2
-    const toCx = to.left + to.width / 2
-    const toCy = to.top + to.height / 2
-
-    const sx = to.width / Math.max(1, from.width)
-    const sy = to.height / Math.max(1, from.height)
-    const s = Math.max(sx, sy) * 0.6 // Make it smaller to fit in the bag
-
-    const dx = toCx - fromCx
-    const dy = toCy - fromCy
-
-    // Item stays fully visible — just shrinks into cart position
-    hero.style.willChange = 'transform'
-    hero.style.transition = 'transform 340ms cubic-bezier(.2,.8,.2,1)'
+    const dx = cartRect.left + cartRect.width / 2 - (from.left + from.width / 2)
+    const dy = cartRect.top + cartRect.height / 2 - (from.top + from.height / 2)
+    // Small enough to drop into the bag
+    const s = (Math.max(cartRect.width, cartRect.height) / Math.max(1, from.width, from.height)) * 0.6
+    // A real hop: steady sideways, up then down like a ball tossed into a
+    // basket, a little spin, shrinking as it goes and vanishing into the bag.
+    // y(t) = dy·t − a·t(1−t) peaks `hop` px above the start whatever dy is.
+    const hop = Math.max(90, Math.min(160, from.height * 0.3))
+    const a = dy + 2 * hop + 2 * Math.sqrt(Math.max(0, hop * hop + hop * dy))
+    const N = 30
+    const frames = []
+    for (let i = 0; i <= N; i++) {
+      const t = i / N
+      const x = dx * t
+      const y = dy * t - a * t * (1 - t)
+      const k = 1 + (s - 1) * t * t
+      const r = 12 * Math.sin(Math.PI * t)
+      frames.push({
+        transform: `translate(${x}px, ${y}px) rotate(${r}deg) scale(${k})`,
+        opacity: t < 0.88 ? 1 : (1 - t) / 0.12,
+      })
+    }
     hero.style.transformOrigin = 'center center'
-    hero.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`
-
-    window.setTimeout(() => {
-      hero.style.willChange = ''
+    const anim = hero.animate(frames, { duration: 720, easing: 'linear', fill: 'forwards' })
+    let done = false
+    const land = () => {
+      if (done) return
+      done = true
+      landCartFlight()
       finishClose()
-    }, 360)
-  }, [finishClose, reduceMotion, getFreshTileRect])
+    }
+    anim.finished.then(land, land)
+  }, [finishClose, reduceMotion])
 
   /* signal mount for grid guard */
   useEffect(() => {
