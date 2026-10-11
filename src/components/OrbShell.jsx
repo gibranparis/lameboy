@@ -471,6 +471,10 @@ export default function OrbShell({
     }
   }, [canDrag, inShop, onHoldChange, setScaleTarget, writeShell, runSpin])
 
+  // The shop's zoom step (set below, once the shop actions exist): a flick of
+  // the orb counts as a tap and takes it too
+  const shopStep = useRef(/** @type {null | (() => void)} */ (null))
+
   const onOrbPointerEnd = useCallback((e) => {
     const s = dragStart.current
     if (!s || s.id !== e.pointerId) return
@@ -508,12 +512,14 @@ export default function OrbShell({
     m.held = false
     if (inShop) {
       // In the shop it doesn't spring back: dropped, it stays put; flicked, it
-      // pinballs round the screen and finds its way home. Taps still zoom.
+      // pinballs round the screen and finds its way home, and the flick zooms
+      // the grid like a tap does
       setGrabColor(null)
       const el = shellRef.current
       if (flick && el) {
         m.parked = false
         launch(m, relV.x, relV.y, el.getBoundingClientRect(), pinball.obstacles(el))
+        shopStep.current?.()
       } else {
         m.parked = true
         m.vx = m.vy = 0
@@ -626,6 +632,7 @@ export default function OrbShell({
   }, [pulse])
 
   const runShopStep = () => fireZoom(gridStacked.current ? 'in' : orbNextRef.current)
+  shopStep.current = runShopStep
 
   const onShopClick = useCallback(() => {
     if (suppressClick.current) { suppressClick.current = false; return } // end of a drag
