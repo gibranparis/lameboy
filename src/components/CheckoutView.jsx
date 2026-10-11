@@ -207,7 +207,8 @@ export default function CheckoutView({ onClose }) {
         WebkitBackdropFilter: 'blur(18px)',
         border: `1px solid ${border}`,
         borderRadius: 16,
-        zIndex: 10008,
+        // Above the dragged video (#yt-panel-anchor[data-video-lifted])
+        zIndex: 2147483001,
         opacity: visible ? 1 : 0,
         transform: visible ? 'scale(1)' : 'scale(0)',
         transformOrigin: 'bottom right',
