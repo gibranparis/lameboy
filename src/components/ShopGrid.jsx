@@ -696,6 +696,21 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       enabled: () => !overlayOpenRef.current && document.documentElement.dataset.overlayOpen !== '1',
       jumpHome: true, // the fold's FLIP flies them into the stack
       stayOnTap: true, // a tap opens the product where it's parked
+      // Flicked: it pinballs around the screen off the other hoodies and the
+      // controls, then finds its way back to its spot
+      fling: {
+        body: (tile) => tile.querySelector('.product-box') || tile,
+        obstacles: (tile) => [
+          // Other stacks whole, other grid hoodies by their card
+          ...[...el.querySelectorAll('.category-stack, .product-tile')]
+            .filter((t) => t !== tile && !tile.contains(t) && !(t.matches('.product-tile') && t.closest('.category-stack')))
+            .map((t) => (t.matches('.category-stack') ? t : t.querySelector('.product-box') || t)),
+          ...document.querySelectorAll(
+            '[data-cart-button], .heart-submit, .ipod-btn, .lame-logo-button, [aria-label="Toggle day / night"], [data-orb-shell], #yt-panel-anchor > *'
+          ),
+        ],
+        onBounce: () => haptic(4),
+      },
       onDragMove: (tile, x, y) => {
         if (isPile(tile)) pileSpin.move(tile, x, y)
         else tileRing.move(tile, x, y)
