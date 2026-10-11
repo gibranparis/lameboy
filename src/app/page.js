@@ -296,14 +296,13 @@ export default function Page() {
     try { window.scrollTo(0, 0) } catch {}
   }, [mode])
 
-  // Top-row controls drag and spring home, then act like a tap
+  // Top-row controls stay wherever they're dragged until tapped or the grid folds
   const ipodRef = useRef(null)
   const logoRef = useRef(null)
   const heartRef = useRef(null)
-  // The iPod starts audio, which iOS only allows inside the touch itself
-  useDragSnap(ipodRef, { touchAction: 'none', clickOn: 'release' }, [inShop])
-  useDragSnap(logoRef, { touchAction: 'none' }, [inShop])
-  useDragSnap(heartRef, { touchAction: 'none' }, [inShop, loaderShow])
+  useDragSnap(ipodRef, { touchAction: 'none', key: 'ipod' }, [inShop])
+  useDragSnap(logoRef, { touchAction: 'none', key: 'logo' }, [inShop])
+  useDragSnap(heartRef, { touchAction: 'none', key: 'heart' }, [inShop, loaderShow])
 
   useEffect(() => {
     const root = document.documentElement

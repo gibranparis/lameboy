@@ -3,6 +3,7 @@
 import { useCart } from '@/contexts/CartContext'
 import { useState, useEffect, useRef } from 'react'
 import CheckoutItem from './CheckoutItem'
+import { attachDragSnap, POPUP_CONTROLS } from '@/lib/dragSnap'
 import { COUNTRIES } from '@/lib/countries'
 
 /**
@@ -154,6 +155,13 @@ export default function CheckoutView({ onClose }) {
       window.removeEventListener('theme-change', onTheme)
       document.removeEventListener('theme-change', onTheme)
     }
+  }, [])
+
+  // Drag it anywhere by any spot that isn't a control; it stays there (even
+  // after closing and reopening) until tapped or the grid folds
+  useEffect(() => {
+    if (!panelRef.current) return
+    return attachDragSnap(panelRef.current, { touchAction: 'none', key: 'cart-panel', ignore: POPUP_CONTROLS })
   }, [])
 
   // Escape key

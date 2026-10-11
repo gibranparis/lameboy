@@ -129,9 +129,8 @@ export default function MusicPlayerButton({
     }
   }, [portalTarget]) // re-run once portal is in DOM so panelRef.current is set
 
-  // Drag the video anywhere and it stays there, still playing. Tapping it
-  // while it's away pauses it and rubber-bands it home; at home a tap
-  // plays / pauses as usual.
+  // Drag the video anywhere and it stays there, still playing. It ignores the
+  // shop-wide reset: only a tap on it (which also plays / pauses) sends it home.
   useEffect(() => {
     const el = panelRef.current
     if (!el) return
@@ -144,7 +143,7 @@ export default function MusicPlayerButton({
       if (lifted) anchor.setAttribute('data-video-lifted', '1')
       else anchor.removeAttribute('data-video-lifted')
     }
-    const detach = attachDragSnap(el, { touchAction: 'none', onParkedTap: () => pause(), onLift })
+    const detach = attachDragSnap(el, { touchAction: 'none', independent: true, onLift })
     return () => {
       detach()
       onLift(false)

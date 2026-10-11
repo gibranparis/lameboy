@@ -8,7 +8,7 @@ import ProductOverlay from '@/components/ProductOverlay'
 import { PRODUCTS } from '@/lib/products'
 import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
-import { attachDragSnap } from '@/lib/dragSnap'
+import { attachDragSnap, resetDragged } from '@/lib/dragSnap'
 
 /** Storage key for saved grid density */
 const KEY_DENSITY = 'lb:grid-cols'
@@ -284,9 +284,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     setCols(MAX_COLS)
   }, [])
 
-  /** Transition from grid → stacked deck with FLIP animation */
+  /** Transition from grid → stacked deck with FLIP animation. Everything
+   *  dragged around the page goes home with it; dragged tiles fly from where
+   *  they were dropped into the stack (measured before they jump home). */
   const collapseToStacks = useCallback(() => {
     flipSnapshotRef.current = { rects: snapshotTiles(), kind: 'close' }
+    resetDragged()
     setViewMode(VIEW_STACKS)
     // Toggle stack order after each full zoom cycle
     setStackReversed((prev) => !prev)
@@ -634,7 +637,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     }
   }, [collapseToStacks])
 
-  /* ---------------- Drag a tile or stack; it springs home, then taps ---------------- */
+  /* ---------------- Drag a tile or stack; it stays put until tapped or the grid folds ---------------- */
   const tilesRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   useEffect(() => {
     const el = tilesRef.current
@@ -642,6 +645,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     return attachDragSnap(el, {
       targets: ['.category-stack', ".shop-grid[data-view-mode='grid'] .product-tile"],
       enabled: () => !overlayOpenRef.current && document.documentElement.dataset.overlayOpen !== '1',
+      jumpHome: true, // the fold's FLIP flies them into the stack
     })
   }, [])
 
