@@ -45,6 +45,17 @@ const SPRINGS = {
 // Tiles set off one after another rather than all at once
 const STAGGER_MS = 22
 const STAGGER_MAX_MS = 240
+// Opening / closing a stack mounts fresh <img>s; hold the spring until
+// they've painted (or this long), so tiles don't fly as blank cards and
+// pop in already home
+const IMG_WAIT_MAX_MS = 400
+
+function imagesReady(/** @type {HTMLImageElement[]} */ imgs) {
+  return Promise.race([
+    Promise.all(imgs.map((img) => (img.decode ? img.decode().catch(() => {}) : null))),
+    new Promise((r) => setTimeout(r, IMG_WAIT_MAX_MS)),
+  ])
+}
 
 /** Each tile's card (.product-box) rect by product id — the card, not the
  *  tile, so the title row under grid tiles doesn't skew the scale */
@@ -317,6 +328,17 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     })
     if (!anims.length) return
     flipAnimsRef.current = anims
+
+    // Hold every tile at its start until its photo can paint
+    const imgs = /** @type {HTMLImageElement[]} */ (
+      anims.map((a) => /** @type {KeyframeEffect} */ (a.effect)?.target?.querySelector?.('img')).filter(Boolean)
+    )
+    if (imgs.some((img) => !img.complete || !img.naturalWidth)) {
+      anims.forEach((a) => a.pause())
+      imagesReady(imgs).then(() => {
+        if (flipAnimsRef.current === anims) anims.forEach((a) => a.play())
+      })
+    }
 
     // Suppress tile-fade-in while tiles fly
     grid.dataset.flipping = '1'
@@ -727,7 +749,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
                           height={800}
                           className="product-img"
                           priority={i === 0}
-                          loading={i === 0 ? 'eager' : 'lazy'}
+                          loading="eager"
                           unoptimized
                           sizes="(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw"
                           onLoad={() => {
@@ -787,7 +809,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
                     height={800}
                     className="product-img"
                     priority={idx === 0}
-                    loading={idx < 3 ? 'eager' : 'lazy'}
+                    loading="eager"
                     unoptimized
                     sizes={cols <= 2 ? '100vw' : '(max-width: 480px) 42vw, (max-width: 768px) 28vw, (max-width: 1280px) 18vw, 14vw'}
                     onLoad={() => {
