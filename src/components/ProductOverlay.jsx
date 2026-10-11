@@ -3,10 +3,10 @@
 
 import Image from 'next/image'
 import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react'
-import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE } from '@/lib/store-info'
+import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE, HOODIE_DETAILS } from '@/lib/store-info'
 import { startCartFlight, landCartFlight } from '@/lib/cartFlight'
 import { haptic } from '@/lib/haptics'
-import { attachDragSnap, parkedOffset, springHome, forgetParked, DRAG_RESET } from '@/lib/dragSnap'
+import { attachDragSnap, parkedOffset, springHome, forgetParked } from '@/lib/dragSnap'
 
 /* ---------------- utils ---------------- */
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -190,6 +190,8 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     // Opening pre-selects a size (dims show right away) and keeps every size
     // pill visible so it can be switched; closing clears the selection.
     const next = open ? null : defaultSize(sizes, product?.variants)
+    // Every dragged pill (sizes, Add to Cart) starts back home
+    forgetParked('pdp-')
     setOpen(!open)
     setPicked(next)
     onSizePicked?.(next)
@@ -266,46 +268,41 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     onSizePicked?.(null)
   }, [product])
 
-  // Every pill (+, sizes, Add to Cart) drags and keeps working wherever it's
-  // dropped, remembered across reopening until the grid folds. The sizes /
-  // Add to Cart / "Added" open beside the + wherever it's been moved.
+  // The size pills and Add to Cart drag and keep working wherever they're
+  // dropped; toggling the +, which itself stays put, sends them all home
+  // (and so does closing the product page)
   const wrapRef = useRef(/** @type {HTMLDivElement|null} */ (null))
-  const [plusOff, setPlusOff] = useState({ x: 0, y: 0 })
   useEffect(() => {
     const wrap = wrapRef.current
     if (!wrap) return
     const els = /** @type {HTMLElement[]} */ (Array.from(wrap.querySelectorAll('[data-drag-key]')))
-    const detach = els.map((el) => {
-      const isPlus = el.dataset.dragKey === 'plus'
-      const off = attachDragSnap(el, {
-        key: `pdp-${el.dataset.dragKey}`,
-        stayOnTap: true,
-        touchAction: 'none',
-        onDrop: isPlus
-          ? (target) => {
-              setPlusOff(parkedOffset(target))
-              return false
-            }
-          : undefined,
-      })
-      if (isPlus) setPlusOff(parkedOffset(el)) // restored from a previous drag
-      return off
-    })
+    const detach = els.map((el) => attachDragSnap(el, {
+      key: `pdp-${el.dataset.dragKey}`,
+      stayOnTap: true,
+      touchAction: 'none',
+    }))
     return () => detach.forEach((d) => d())
   }, [open, picked, showAdded, sizes])
-  useEffect(() => {
-    const onReset = () => setPlusOff({ x: 0, y: 0 })
-    window.addEventListener(DRAG_RESET, onReset)
-    return () => {
-      window.removeEventListener(DRAG_RESET, onReset)
-      // The product page closed: its pills start at home next time
-      forgetParked('pdp-')
+  useEffect(() => () => forgetParked('pdp-'), [])
+
+  // Add to Cart sits evenly between the size pills and the bottom orb
+  const rowRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  const atcRef = useRef(/** @type {HTMLButtonElement|null} */ (null))
+  const [atcGap, setAtcGap] = useState(28)
+  useLayoutEffect(() => {
+    if (!open || !picked) return
+    const place = () => {
+      const row = rowRef.current
+      const atc = atcRef.current
+      const orb = document.querySelector('[data-orb-shell]')
+      if (!row || !atc || !orb) return
+      const room = orb.getBoundingClientRect().top - row.getBoundingClientRect().bottom
+      setAtcGap(Math.max(18, Math.round((room - atc.offsetHeight) / 2)))
     }
-  }, [])
-  const followPlus = {
-    translate: `${plusOff.x}px ${plusOff.y}px`,
-    transition: 'translate 0.32s cubic-bezier(0.34, 1.56, 0.64, 1)',
-  }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [open, picked, showAdded])
 
   const glyph = open ? '–' : '+'
   const addedStyle = {
@@ -321,7 +318,6 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     <div ref={wrapRef} style={{ display: 'grid', justifyItems: 'center', position: 'relative', zIndex: 523 }}>
       <button
         type="button"
-        data-drag-key="plus"
         data-ui="size-toggle"
         className={[
           'pill',
@@ -356,7 +352,6 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           display: 'flex',
           justifyContent: 'center',
           marginTop: 10,
-          ...followPlus,
         }}>
           <span
             aria-live="polite"
@@ -383,10 +378,9 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
             display: 'grid',
             justifyItems: 'center',
             gap: 10,
-            ...followPlus,
-          }}
+            }}
         >
-          <div className="row-nowrap size-panel" data-ui="size-panel" style={{ gap: 8 }}>
+          <div ref={rowRef} className="row-nowrap size-panel" data-ui="size-panel" style={{ gap: 8 }}>
             {sizes.map((sz) => (
               <button
                 key={sz}
@@ -413,10 +407,11 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           {picked && (
             <button
               type="button"
+              ref={atcRef}
               className="atc-btn"
               data-drag-key="atc"
               onClick={addToCart}
-              style={{ marginTop: 18 }} /* breathing room under the size pills */
+              style={{ marginTop: atcGap - 10 }} /* the column's own 10px gap is part of it */
               aria-label={`Add size ${picked} to cart`}
             >
               <span className="atc-text">Add to Cart</span>
@@ -1503,6 +1498,7 @@ export default function ProductOverlay({
         if (!ctx) return
         ctx.drawImage(img, 0, 0)
         alphaCanvasRef.current = c
+        setAlphaTick((n) => n + 1) // the measurements can now check the photo's pixels
       } catch {
         alphaCanvasRef.current = null
       }
@@ -1510,6 +1506,90 @@ export default function ProductOverlay({
     img.src = src
     return function () { cancelled = true }
   }, [imgs, clampedImgIdx])
+
+  /* Where the measurements sit: their usual top-right spot, slid right (and
+     then up) just far enough that they never cover the hoodie itself. Checked
+     against the photo's real pixels (its alpha), at the zoom it settles at
+     (the "+" zooms it a little), so a transparent corner is fine to use. */
+  const [alphaTick, setAlphaTick] = useState(0)
+  const [dimsPos, setDimsPos] = useState(/** @type {null | { top: number, right: number }} */ (null))
+  const placeDims = useCallback(() => {
+    const d = dimsRef.current
+    const img = heroImgRef.current
+    if (!d || !img || pinchZoom.scale > 1) return
+    // What position: fixed measures against (no scrollbar)
+    const vw = document.documentElement.clientWidth
+    const vh = window.innerHeight
+    const W = d.offsetWidth
+    const H = d.offsetHeight
+    const css = getComputedStyle(document.documentElement)
+    const safeTop = parseFloat(css.getPropertyValue('--safe-top')) || 0
+    const ctrl = parseFloat(css.getPropertyValue('--header-ctrl')) || 64
+    const top0 = safeTop + 0.12 * vh // the usual spot
+    const right0 = 0.1 * vw + 8 // a little further right than it used to sit
+    const topMin = safeTop + ctrl + 6 // just under the top bar
+    const EDGE = 10
+
+    // The photo's box at the zoom it's heading to (safe mid-transition)
+    const r = img.getBoundingClientRect()
+    const tf = getComputedStyle(img).transform
+    const cur = tf && tf !== 'none' ? new DOMMatrixReadOnly(tf).a || 1 : 1
+    const k = (heroZoomed ? 1.09 : 1) / cur
+    const bw = r.width * k
+    const bh = r.height * k
+    const bl = r.left + r.width / 2 - bw / 2
+    const bt = r.top + r.height / 2 - bh / 2
+    // Where the picture is drawn inside it (object-fit: contain, 45% across)
+    const cvs = alphaCanvasRef.current
+    let C = { l: bl, t: bt, w: bw, h: bh }
+    if (cvs && cvs.width && cvs.height) {
+      const ia = cvs.width / cvs.height
+      if (ia > bw / bh) { const h = bw / ia; C = { l: bl, t: bt + (bh - h) / 2, w: bw, h } }
+      else { const w = bh * ia; C = { l: bl + (bw - w) * 0.45, t: bt, w, h: bh } }
+    }
+    let px = null
+    try { px = cvs ? /** @type {CanvasRenderingContext2D} */ (cvs.getContext('2d')).getImageData(0, 0, cvs.width, cvs.height).data : null } catch {}
+    // How much hoodie a W×H box at (left, top) would cover
+    const covers = (/** @type {number} */ left, /** @type {number} */ top) => {
+      const x0 = Math.max(left, C.l), x1 = Math.min(left + W, C.l + C.w)
+      const y0 = Math.max(top, C.t), y1 = Math.min(top + H, C.t + C.h)
+      if (x1 <= x0 || y1 <= y0) return 0
+      if (!px || !cvs) return (x1 - x0) * (y1 - y0) // no pixels yet: the box counts
+      let n = 0
+      for (let y = y0; y < y1; y += 3) {
+        const cy = Math.min(cvs.height - 1, Math.floor(((y - C.t) / C.h) * cvs.height))
+        for (let x = x0; x < x1; x += 3) {
+          const cx = Math.min(cvs.width - 1, Math.floor(((x - C.l) / C.w) * cvs.width))
+          if (px[(cy * cvs.width + cx) * 4 + 3] > 24) n++
+        }
+      }
+      return n
+    }
+    let best = { top: top0, right: right0, n: Infinity }
+    const tryAt = (/** @type {number} */ top, /** @type {number} */ right) => {
+      const n = covers(vw - right - W, top)
+      if (n < best.n) best = { top, right, n }
+      return n === 0
+    }
+    // Slide right first, then up, then both
+    let found = false
+    for (let rt = right0; rt >= EDGE && !found; rt -= 6) found = tryAt(top0, rt)
+    for (let tp = top0; tp >= topMin && !found; tp -= 6) found = tryAt(tp, right0)
+    for (let tp = top0; tp >= topMin && !found; tp -= 6) {
+      for (let rt = right0; rt >= EDGE && !found; rt -= 6) found = tryAt(tp, rt)
+    }
+    setDimsPos({ top: Math.round(best.top), right: Math.round(Math.max(EDGE, best.right)) })
+  }, [heroZoomed, pinchZoom.scale])
+  useLayoutEffect(() => {
+    if (!hasDims) { setDimsPos(null); return }
+    placeDims()
+    const t = setTimeout(placeDims, 260) // again once the "+" zoom has settled
+    window.addEventListener('resize', placeDims)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('resize', placeDims)
+    }
+  }, [hasDims, placeDims, alphaTick, clampedImgIdx, product])
 
   // Hero image click: check alpha — transparent pixels close overlay, opaque pixels do normal behavior.
   // Accounts for object-fit:contain letterboxing when mapping click → pixel coordinates.
@@ -1910,12 +1990,19 @@ export default function ProductOverlay({
           >
             {priceText}
           </div>
-          <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: '0.02em' }}>
-            Made to order · ships in {SHIP_DAYS_MIN}–{SHIP_DAYS_MAX} business days
-          </p>
-          <p style={{ margin: '2px 0 0', fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: '0.02em' }}>
-            {FINAL_SALE_LINE}
-          </p>
+          {/* Shipping lines; once "+" is pressed, the hoodie's make instead */}
+          {(selectedSize
+            ? (product.details?.length ? product.details : HOODIE_DETAILS)
+            : [`Made to order · ships in ${SHIP_DAYS_MIN}–${SHIP_DAYS_MAX} business days`, FINAL_SALE_LINE]
+          ).map((line, i) => (
+            <p
+              key={`${selectedSize ? 'make' : 'ship'}-${i}`}
+              className="product-fine-line"
+              style={{ margin: `${i ? 2 : 6}px 0 0`, fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: '0.02em' }}
+            >
+              {line}
+            </p>
+          ))}
           <div style={{ marginTop: 12 }}>
             <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} note={stockMessage} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} />
           </div>
@@ -1938,8 +2025,8 @@ export default function ProductOverlay({
               }}
               style={{
                 position: 'fixed',
-                top: 'calc(var(--safe-top, 0px) + 4vh + 8vh)',
-                right: 'calc(15vw + 8px)',
+                top: dimsPos ? dimsPos.top : 'calc(var(--safe-top, 0px) + 4vh + 8vh)',
+                right: dimsPos ? dimsPos.right : 'calc(10vw + 8px)',
                 pointerEvents: 'auto',
                 cursor: 'grab',
                 textAlign: 'right',

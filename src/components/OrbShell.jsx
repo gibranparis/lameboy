@@ -565,7 +565,7 @@ export default function OrbShell({
   const LANDING_FADE_MS = 500
 
   return (
-    <div ref={shellRef} style={shellStyle}>
+    <div ref={shellRef} style={shellStyle} data-orb-shell="">
       <button
         type="button"
         aria-label={inGateLike ? 'Orb' : overlayOpen ? 'Back' : 'Zoom products'}
