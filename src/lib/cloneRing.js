@@ -92,13 +92,23 @@ function snapshot(src) {
 }
 
 /**
- * @param {{ box?: (el: HTMLElement) => Element | null | undefined, alive?: (el: HTMLElement) => boolean }} [opts]
+ * @param {{ box?: (el: HTMLElement) => Element | null | undefined, alive?: (el: HTMLElement) => boolean, scale?: number, round?: boolean, gap?: number, fill?: number }} [opts]
  *   box: the part of the grabbed piece that's cloned and circled (default
  *   the piece itself, e.g. a tile's hoodie card); alive: false clears the
- *   ring away (e.g. the grid folded into its stacks)
+ *   ring away (e.g. the grid folded into its stacks); scale: clone size
+ *   against the piece; round: a round piece (the orb), so the ring hugs it
+ *   instead of clearing square corners; gap: px between piece and ring;
+ *   fill: how much of its box the piece really fills (the orb's cross sits
+ *   in the middle of a roomier box), so the ring spaces the piece itself
  */
 export function createCloneRing(opts = {}) {
   const boxOf = (/** @type {HTMLElement} */ el) => /** @type {HTMLElement} */ (opts.box?.(el) || el)
+  const cloneScale = opts.scale ?? CLONE_SCALE
+  const gap = opts.gap ?? GAP
+  // How far out the ring has to sit to clear the piece and a clone: half
+  // their size for round ones, half the diagonal for square ones
+  const reach = opts.round ? 0.5 : 0.71
+  const fill = opts.fill ?? 1
   /** @type {HTMLElement | null} */
   let grabbed = null
   /** @type {HTMLDivElement | null} */
@@ -148,8 +158,9 @@ export function createCloneRing(opts = {}) {
     const vw = window.innerWidth
     const vh = window.innerHeight
     // Ring size: clear of the grabbed piece, room for every clone, on screen
-    let size = span * CLONE_SCALE
-    const radius = (/** @type {number} */ sz) => Math.max(span * 0.71 + sz * 0.71 + GAP, (CLONES * sz * 1.05) / (2 * Math.PI))
+    let size = span * cloneScale
+    const radius = (/** @type {number} */ sz) =>
+      Math.max((span + sz) * fill * reach + gap, (CLONES * sz * fill * 1.05) / (2 * Math.PI))
     let R = radius(size)
     const maxR = Math.min(vw, vh) * 0.47
     if (R + size / 2 > maxR) {

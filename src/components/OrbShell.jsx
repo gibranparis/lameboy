@@ -161,7 +161,8 @@ export default function OrbShell({
   const suppressClick = useRef(false)
   // The shop orb's ring of clones (made on its first grab)
   const orbRing = useRef(/** @type {ReturnType<typeof createCloneRing> | null} */ (null))
-  const ringOf = () => (orbRing.current ??= createCloneRing())
+  // Big and close: nearly full-size orbs hugging it, almost touching
+  const ringOf = () => (orbRing.current ??= createCloneRing({ scale: 0.9, round: true, gap: 6, fill: 0.5 }))
   useEffect(() => () => orbRing.current?.stop(), [])
   // parked: left where it was dropped (shop); flying / walls: a flick's
   // pinball flight home (see dragSnap's flightStep)
