@@ -2,17 +2,32 @@
 'use client'
 
 import { useMemo, useRef } from 'react'
-import DayNightToggle from '@/components/DayNightToggle'
+import DayNightToggle, { THEME_FLIP } from '@/components/DayNightToggle'
 import CartButton from '@/components/CartButton'
 import { useDragSnap, pinball } from '@/lib/dragSnap'
+import { haptic } from '@/lib/haptics'
+
+// Day ↔ night, with a tap of feedback (it runs inside the release, so iOS allows it)
+const flipTheme = () => {
+  window.dispatchEvent(new Event(THEME_FLIP))
+  haptic(8)
+}
 
 export default function HeaderBar({ ctrlPx, shopReady = true }) {
   // The toggle / cart stay wherever they're dragged until the grid folds and
   // keep working right there (the cart opens beside it)
   const toggleRef = useRef(null)
   const cartRef = useRef(null)
-  // Dropped, they stay put; flicked, they pinball around and back home
-  useDragSnap(toggleRef, { touchAction: 'none', key: 'toggle', stayOnTap: true, fling: pinball })
+  // Dropped, they stay put; flicked, they pinball around and back home. The
+  // toggle also flips day / night on a quick sideways swipe, like a switch,
+  // and on every flick as it flies off
+  useDragSnap(toggleRef, {
+    touchAction: 'none',
+    key: 'toggle',
+    stayOnTap: true,
+    swipe: flipTheme,
+    fling: { ...pinball, onLaunch: flipTheme },
+  })
   useDragSnap(cartRef, { touchAction: 'none', key: 'cart', stayOnTap: true, fling: pinball })
 
   const headerPx = useMemo(() => {

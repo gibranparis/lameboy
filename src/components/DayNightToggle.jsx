@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 /** @typedef {'day'|'night'} Theme */
 const THEME_KEY = 'lb:theme';
+/** Window event that flips the toggle from outside (a swipe or a flick of it) */
+export const THEME_FLIP = 'lb:theme-flip';
 
 /* ---------- Tiny cloud layer (day) ---------- */
 function Clouds() {
@@ -95,6 +97,13 @@ export default function DayNightToggle({
 
   function setTheme(next /** @type {Theme} */) { isControlled ? onChange?.(next) : setInternal(next); }
   function toggle() { setTheme(isNight ? 'day' : 'night'); }
+
+  // Swiped or flicked (see HeaderBar): flips just like a tap
+  useEffect(() => {
+    const flip = () => setTheme(isNight ? 'day' : 'night');
+    window.addEventListener(THEME_FLIP, flip);
+    return () => window.removeEventListener(THEME_FLIP, flip);
+  });
 
   // preload moon, sun, and constellation to avoid first-switch flash
   useEffect(() => {

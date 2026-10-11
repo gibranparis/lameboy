@@ -31,6 +31,10 @@ const FLING_DRAG = 0.55 // 1/s air drag while flying
 const FLING_BOUNCE = 0.86 // speed kept off a wall or another item
 const FLING_FLIGHT = 1.4 // s before home's pull is at full strength
 const FLING_EDGE = 6 // px inside the screen edge it bounces off
+// A swipe (opts.swipe): a quick, short, sideways drag, like flipping a switch
+const SWIPE_MIN = 14 // px across
+const SWIPE_MAX = 72 // px across; longer is a move (or a flick)
+const SWIPE_MS = 320 // press to release
 
 const reducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -322,6 +326,9 @@ export function resetDragged(opts = {}) {
  *   screen edges and `obstacles`, pinball style, then springs home. `body`
  *   is the part that collides (default the element); onBounce fires per hit;
  *   onLaunch as a flick sends it off
+ * @property {(el: HTMLElement, dir: 1 | -1) => void} [swipe] called for a
+ *   quick, short sideways swipe (dir 1 = right), which then goes back to
+ *   where it was pressed instead of parking or flying
  * @property {(lifted: boolean) => void} [onLift] called with true when a drag
  *   lifts an element, and false once it is back home and at rest (e.g. to
  *   raise its container above everything while it's away)
@@ -334,12 +341,12 @@ export function resetDragged(opts = {}) {
  *   with homeAll() to send everything it parked home
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction, ignore, key, stayOnTap, jumpHome, onDragMove, onDrop, onLift, fling } = opts
+  const { targets, enabled, touchAction, ignore, key, stayOnTap, jumpHome, onDragMove, onDrop, onLift, fling, swipe } = opts
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
   /** @type {Set<HTMLElement>} parked away from home, for the reset */
   const parked = new Set()
-  /** @type {null | { id: number, el: HTMLElement, hit: EventTarget | null, x: number, y: number, bx: number, by: number, active: boolean, vx: number, vy: number, t: number, lx: number, ly: number }} */
+  /** @type {null | { id: number, el: HTMLElement, hit: EventTarget | null, x: number, y: number, bx: number, by: number, active: boolean, vx: number, vy: number, t: number, t0: number, lx: number, ly: number }} */
   let press = null
   // Pointers currently down that started on root (to spot a pinch)
   const down = new Set()
@@ -507,7 +514,7 @@ export function attachDragSnap(root, opts = {}) {
       m.vx = m.vy = 0
     }
     // Drags continue from where the element is (it may be parked away)
-    press = { id: e.pointerId, el, hit: e.target, x: e.clientX, y: e.clientY, bx: m.x, by: m.y, active: false, vx: 0, vy: 0, t: performance.now(), lx: e.clientX, ly: e.clientY }
+    press = { id: e.pointerId, el, hit: e.target, x: e.clientX, y: e.clientY, bx: m.x, by: m.y, active: false, vx: 0, vy: 0, t: performance.now(), t0: performance.now(), lx: e.clientX, ly: e.clientY }
     setScale(el, PRESS_SCALE)
   }
 
@@ -607,6 +614,27 @@ export function attachDragSnap(root, opts = {}) {
     if (onDrop?.(p.el, e.clientX, e.clientY, e.type !== 'pointerup')) {
       stateOf(p.el).held = false
       sendHome(p.el)
+      return
+    }
+    // A swipe: it goes back to where it was pressed (home, or its parked spot)
+    const sx = e.clientX - p.x
+    const sy = e.clientY - p.y
+    if (
+      swipe && e.type === 'pointerup' && performance.now() - p.t0 <= SWIPE_MS &&
+      Math.abs(sx) >= SWIPE_MIN && Math.abs(sx) <= SWIPE_MAX && Math.abs(sx) > Math.abs(sy) * 1.5
+    ) {
+      const m = stateOf(p.el)
+      if (m.parked) {
+        m.held = false
+        m.x = p.bx
+        m.y = p.by
+        m.vx = m.vy = 0
+        write(p.el, m)
+        setScale(p.el, 1)
+      } else {
+        sendHome(p.el)
+      }
+      swipe(p.el, sx > 0 ? 1 : -1)
       return
     }
     // A flick: it flies off, pinballs around and finds its way home
