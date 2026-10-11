@@ -10,6 +10,7 @@ import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
 import { attachDragSnap, resetDragged } from '@/lib/dragSnap'
 import { createPileSpin } from '@/lib/pileSpin'
+import { createTileRing } from '@/lib/tileRing'
 import { haptic } from '@/lib/haptics'
 import { QUICK_ADD } from '@/components/QuickAddSizes'
 import { CART_LANDED } from '@/lib/cartFlight'
@@ -687,6 +688,8 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     }
     // A stack dragged fast spins up like a little whirlwind (pileSpin)
     const pileSpin = createPileSpin()
+    // A hoodie grabbed in the grid: the others orbit it in a ring (tileRing)
+    const tileRing = createTileRing()
     const isPile = (/** @type {HTMLElement} */ tile) => tile.matches('.category-stack')
     const detach = attachDragSnap(el, {
       targets: ['.category-stack', ".shop-grid[data-view-mode='grid'] .product-tile"],
@@ -695,10 +698,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       stayOnTap: true, // a tap opens the product where it's parked
       onDragMove: (tile, x, y) => {
         if (isPile(tile)) pileSpin.move(tile, x, y)
+        else tileRing.move(tile, x, y)
         setHover(!!productOf(tile) && overCart(x, y))
       },
       onDrop: (tile, x, y, cancelled) => {
         if (isPile(tile)) pileSpin.release(tile)
+        else tileRing.release(tile)
         setHover(false)
         const product = productOf(tile)
         if (cancelled || !product || !overCart(x, y)) return false
@@ -711,6 +716,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       tilesDragRef.current = null
       detach()
       pileSpin.stop()
+      tileRing.stop()
       setHover(false)
     }
   }, [])
