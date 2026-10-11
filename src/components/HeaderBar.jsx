@@ -42,7 +42,9 @@ export default function HeaderBar({ ctrlPx, shopReady = true }) {
         paddingBottom: 'var(--safe-bottom, 0px)',
         background: 'transparent',
         overflow: 'visible',
-        pointerEvents: 'auto',
+        // Only its controls take taps: when a dragged cart / toggle lifts the
+        // bar to the top layer, its empty middle mustn't block the orb
+        pointerEvents: 'none',
         // Reveal: DayNightToggle slides in from center-right to bottom-left
         opacity: shopReady ? 1 : 0,
         transform: shopReady

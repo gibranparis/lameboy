@@ -61,6 +61,59 @@ export function parkedOffset(el) {
   return { x, y }
 }
 
+// Last dragged on top: every lift takes the next layer, for the element and
+// for the outermost layer it lives in (the top bar, the bottom bar, the
+// video's holder, the product page), so it rises over things in other
+// layers too. Starts above every resting layer; never lowers anything (the
+// pop-ups, quick-add pills and a dragged orb stay higher still).
+const LAYER_BASE = 100000
+let topLayer = LAYER_BASE
+/** @type {Map<HTMLElement, { v: string, p: string, owners: Set<HTMLElement> }>} */
+const raisedOuter = new Map()
+
+const zOf = (/** @type {HTMLElement} */ el) => parseInt(getComputedStyle(el).zIndex, 10)
+
+/** The outermost positioned, z-indexed (or fixed) ancestor: the layer that
+ *  competes with other layers on the page */
+const outerLayer = (/** @type {HTMLElement} */ el) => {
+  let outer = null
+  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    const s = getComputedStyle(a)
+    if (s.position === 'fixed' || s.position === 'sticky' || (s.position !== 'static' && s.zIndex !== 'auto')) {
+      outer = /** @type {HTMLElement} */ (a)
+    }
+  }
+  return outer
+}
+
+/** Puts `el` (and its outer layer) on top; returns that outer layer. With
+ *  `bump` false (a remounted drag keeping its spot) it only re-registers. */
+const takeTopLayer = (/** @type {HTMLElement} */ el, bump = true) => {
+  const layer = bump ? ++topLayer : 0
+  if (bump && !(zOf(el) > layer)) el.style.setProperty('z-index', String(layer), 'important')
+  const outer = outerLayer(el)
+  if (outer) {
+    let held = raisedOuter.get(outer)
+    if (!held) {
+      held = { v: outer.style.getPropertyValue('z-index'), p: outer.style.getPropertyPriority('z-index'), owners: new Set() }
+      raisedOuter.set(outer, held)
+    }
+    held.owners.add(el)
+    if (bump && !(zOf(outer) > layer)) outer.style.setProperty('z-index', String(layer), 'important')
+  }
+  return outer
+}
+
+/** `el` is home: its outer layer goes back once nothing in it is lifted */
+const leaveTopLayer = (/** @type {HTMLElement} */ el, /** @type {HTMLElement | null} */ outer) => {
+  const held = outer && raisedOuter.get(outer)
+  if (!held) return
+  held.owners.delete(el)
+  if (held.owners.size) return
+  raisedOuter.delete(outer)
+  outer.style.setProperty('z-index', held.v, held.p)
+}
+
 /** Sends every parked element home (the grid folding back into stacks) */
 export function resetDragged() {
   parkedAt.clear()
@@ -126,7 +179,7 @@ export function attachDragSnap(root, opts = {}) {
     if (!m) {
       // trans / z: the element's own inline transition and z-index while we
       // override them (null when not overridden)
-      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, lifted: false, raf: 0, trans: null, z: null }
+      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, lifted: false, raf: 0, trans: null, z: null, outer: null }
       states.set(el, m)
     }
     return m
@@ -137,16 +190,25 @@ export function attachDragSnap(root, opts = {}) {
     el.style.scale = String(m.s)
   }
 
-  // Lifted above its neighbours (never lowered: pop-ups already sit high)
-  const raise = (/** @type {HTMLElement} */ el, m) => {
-    if (m.z !== null) return
-    m.z = el.style.zIndex
-    const z = parseInt(getComputedStyle(el).zIndex, 10)
-    if (!(z >= 50)) el.style.zIndex = '50'
+  // Every lift goes on top of everything dragged before it. A parked element
+  // re-attached after a re-render keeps the layer it already has.
+  const raise = (/** @type {HTMLElement} */ el, m, bump = true) => {
+    const kept = !bump && parseInt(el.style.zIndex, 10) > LAYER_BASE
+    if (m.z === null) m.z = kept ? { v: '', p: '' } : { v: el.style.getPropertyValue('z-index'), p: el.style.getPropertyPriority('z-index') }
+    m.outer = takeTopLayer(el, !kept)
   }
 
-  const lift = (/** @type {HTMLElement} */ el, m) => {
-    raise(el, m)
+  // Home again: back to its own layer
+  const lower = (/** @type {HTMLElement} */ el, m) => {
+    if (m.z === null) return
+    el.style.setProperty('z-index', m.z.v, m.z.p)
+    m.z = null
+    leaveTopLayer(el, m.outer)
+    m.outer = null
+  }
+
+  const lift = (/** @type {HTMLElement} */ el, m, bump = true) => {
+    raise(el, m, bump)
     if (!m.lifted) {
       m.lifted = true
       onLift?.(true)
@@ -203,10 +265,7 @@ export function attachDragSnap(root, opts = {}) {
         el.style.translate = ''
         el.style.scale = ''
         rest(el, m)
-        if (m.z !== null) {
-          el.style.zIndex = m.z
-          m.z = null
-        }
+        lower(el, m)
         if (m.lifted) {
           m.lifted = false
           onLift?.(false)
@@ -297,10 +356,7 @@ export function attachDragSnap(root, opts = {}) {
       el.style.translate = ''
       el.style.scale = ''
       rest(el, m)
-      if (m.z !== null) {
-        el.style.zIndex = m.z
-        m.z = null
-      }
+      lower(el, m)
       if (m.lifted) {
         m.lifted = false
         onLift?.(false)
@@ -375,7 +431,7 @@ export function attachDragSnap(root, opts = {}) {
     m.parked = true
     parked.add(root)
     write(root, m)
-    lift(root, m)
+    lift(root, m, false)
   }
 
   if (!targets) {

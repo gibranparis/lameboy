@@ -158,9 +158,8 @@ export default function MusicPlayerButton({
   useEffect(() => {
     const el = panelRef.current
     if (!el) return
-    // While it's lifted or parked away from home, its anchor rises above
-    // everything (header, iPod, orb, overlays) so the video is never under
-    // whatever it's dragged over
+    // While it's lifted or parked away from home its anchor goes see-through
+    // (dragSnap lifts the anchor to the top layer: last dragged wins)
     const anchor = portalTarget
     const onLift = (/** @type {boolean} */ lifted) => {
       if (!anchor) return
