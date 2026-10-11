@@ -270,6 +270,26 @@ export default function Page() {
   const [newsletterOpen, setNewsletterOpen] = useState(false)
   const heartFilled = isSignedIn(useProfile())
 
+  /* ===================== Shop → splash ===================== */
+  // The LAME logo takes you back to the splash page with the orb ready for a
+  // fresh tap. autoStartedRef stays set, so the splash video (when on) doesn't
+  // auto-run the sequence and bounce you straight back into the shop.
+  const returnToGate = useCallback(() => {
+    if (mode !== 'shop') return
+    window.dispatchEvent(new Event('lb:reset')) // close + pause the player, fold the grid
+    setNewsletterOpen(false)
+    setCheckoutOpen(false)
+    proceedFired.current = false
+    heldRemaining.current = null
+    setSequenceActive(false)
+    setIsProceeding(false)
+    setOrbHeld(false)
+    setGateStep(0)
+    setLoaderShow(false)
+    setMode('gate')
+    try { window.scrollTo(0, 0) } catch {}
+  }, [mode])
+
   // Top-row controls drag and spring home, then act like a tap
   const ipodRef = useRef(null)
   const logoRef = useRef(null)
@@ -453,14 +473,11 @@ export default function Page() {
                 <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
               </div>
 
-              {/* Center: LAME logo — toggles the music/video player's
-                  visibility only; playback keeps running either way */}
+              {/* Center: LAME logo — back to the splash page */}
               <button
                 ref={logoRef}
-                aria-label="Show/hide player"
-                onClick={() => {
-                  window.dispatchEvent(new Event('lb:toggle-player-visibility'))
-                }}
+                aria-label="Back to start"
+                onClick={returnToGate}
                 style={{
                   pointerEvents: 'auto',
                   background: 'none',
