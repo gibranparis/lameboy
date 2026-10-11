@@ -6,6 +6,9 @@ import CheckoutItem from './CheckoutItem'
 import { attachDragSnap, POPUP_CONTROLS } from '@/lib/dragSnap'
 import { placeNear } from '@/lib/popupPlacement'
 import { COUNTRIES } from '@/lib/countries'
+import { getProfile } from '@/lib/profile'
+import { freeShipCaption, freeShipPercent } from '@/lib/freeShipping'
+import TokensMeter from './TokensMeter'
 
 /**
  * Lightweight "estimate shipping" widget — just ZIP + country, no full
@@ -16,10 +19,9 @@ import { COUNTRIES } from '@/lib/countries'
  * or returns nothing, falls back to static copy rather than showing a
  * number that might be wrong.
  */
-function ShippingEstimate({ items, night }) {
+function ShippingEstimate({ items, night, country, setCountry }) {
   const [open, setOpen] = useState(false)
   const [zip, setZip] = useState('')
-  const [country, setCountry] = useState('US')
   const [status, setStatus] = useState('idle') // idle | loading | done | unavailable
   const [cheapest, setCheapest] = useState(null)
 
@@ -108,7 +110,7 @@ function ShippingEstimate({ items, night }) {
           </div>
           {status === 'done' && cheapest != null && (
             <span style={{ fontSize: 12, color: textMuted }}>
-              Estimated shipping: <strong style={{ color: textPrimary }}>${(cheapest / 100).toFixed(2)}</strong> — finalized at checkout
+              Estimated shipping: <strong style={{ color: textPrimary }}>{cheapest === 0 ? 'FREE' : `$${(cheapest / 100).toFixed(2)}`}</strong> — finalized at checkout
             </span>
           )}
           {status === 'unavailable' && (
@@ -123,6 +125,9 @@ function ShippingEstimate({ items, night }) {
 export default function CheckoutView({ onClose }) {
   const { items, total, count, goToCheckout } = useCart()
   const [visible, setVisible] = useState(false)
+  // Where it ships decides the free-shipping target ($80 US, $120 abroad):
+  // the saved address's country, until the estimate picks another
+  const [country, setCountry] = useState(() => getProfile()?.country || 'US')
   const [night, setNight] = useState(false)
   const panelRef = useRef(null)
   const closingRef = useRef(false)
@@ -306,7 +311,12 @@ export default function CheckoutView({ onClose }) {
           borderTop: `1px solid ${border}`,
           flexShrink: 0,
         }}>
-          <ShippingEstimate items={items} night={night} />
+          <TokensMeter
+            percent={freeShipPercent(total, country)}
+            caption={freeShipCaption(total, country)}
+            open={visible}
+          />
+          <ShippingEstimate items={items} night={night} country={country} setCountry={setCountry} />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: textPrimary }}>Total</span>
             <span style={{ fontSize: 14, fontWeight: 600, color: textPrimary }}>
