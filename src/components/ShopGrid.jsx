@@ -9,6 +9,7 @@ import { PRODUCTS } from '@/lib/products'
 import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
 import { attachDragSnap, resetDragged } from '@/lib/dragSnap'
+import { createPileSpin } from '@/lib/pileSpin'
 import { haptic } from '@/lib/haptics'
 import { QUICK_ADD } from '@/components/QuickAddSizes'
 import { CART_LANDED } from '@/lib/cartFlight'
@@ -684,13 +685,20 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
         haptic(6)
       } else root.removeAttribute('data-cart-drop-hover')
     }
+    // A stack dragged fast spins up like a little whirlwind (pileSpin)
+    const pileSpin = createPileSpin()
+    const isPile = (/** @type {HTMLElement} */ tile) => tile.matches('.category-stack')
     const detach = attachDragSnap(el, {
       targets: ['.category-stack', ".shop-grid[data-view-mode='grid'] .product-tile"],
       enabled: () => !overlayOpenRef.current && document.documentElement.dataset.overlayOpen !== '1',
       jumpHome: true, // the fold's FLIP flies them into the stack
       stayOnTap: true, // a tap opens the product where it's parked
-      onDragMove: (tile, x, y) => setHover(!!productOf(tile) && overCart(x, y)),
+      onDragMove: (tile, x, y) => {
+        if (isPile(tile)) pileSpin.move(tile, x, y)
+        setHover(!!productOf(tile) && overCart(x, y))
+      },
       onDrop: (tile, x, y, cancelled) => {
+        if (isPile(tile)) pileSpin.release(tile)
         setHover(false)
         const product = productOf(tile)
         if (cancelled || !product || !overCart(x, y)) return false
@@ -702,6 +710,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     return () => {
       tilesDragRef.current = null
       detach()
+      pileSpin.stop()
       setHover(false)
     }
   }, [])
