@@ -7,11 +7,11 @@ import CartButton from '@/components/CartButton'
 import { useDragSnap } from '@/lib/dragSnap'
 
 export default function HeaderBar({ ctrlPx, shopReady = true }) {
-  // Drag the toggle / cart and they spring home, then act like a tap
+  // The toggle / cart stay wherever they're dragged until the orb resets them
   const toggleRef = useRef(null)
   const cartRef = useRef(null)
-  useDragSnap(toggleRef, { touchAction: 'none' })
-  useDragSnap(cartRef, { touchAction: 'none' })
+  useDragSnap(toggleRef, { touchAction: 'none', key: 'toggle' })
+  useDragSnap(cartRef, { touchAction: 'none', key: 'cart' })
 
   const headerPx = useMemo(() => {
     const n = Number(ctrlPx)

@@ -6,6 +6,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { clearProfile, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
 import EmailChips from '@/components/EmailChips'
 import { CONTACT_EMAIL } from '@/lib/store-info'
+import { attachDragSnap, POPUP_CONTROLS } from '@/lib/dragSnap'
 
 const CHAKRA_COLORS = [
   '#FF0000', // Root – red
@@ -173,6 +174,20 @@ export default function NewsletterForm({ open, onClose }) {
     if (window.matchMedia('(pointer: coarse)').matches) return
     nameRef.current.focus()
   }, [visible])
+
+  // Drag it anywhere by any spot that isn't a control; it stays there (even
+  // after closing and reopening) until the orb resets it. When it's taller
+  // than the screen it keeps its touch scrolling instead (mouse drags only).
+  useEffect(() => {
+    const el = panelRef.current
+    if (!open || !el) return
+    const scrolls = el.scrollHeight > el.clientHeight + 1
+    return attachDragSnap(el, {
+      touchAction: scrolls ? undefined : 'none',
+      key: 'heart-panel',
+      ignore: POPUP_CONTROLS,
+    })
+  }, [open])
 
   useEffect(() => {
     if (!open) return

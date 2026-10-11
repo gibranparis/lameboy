@@ -634,7 +634,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     }
   }, [collapseToStacks])
 
-  /* ---------------- Drag a tile or stack; it springs home, then taps ---------------- */
+  /* ---------------- Drag a tile or stack; it stays put until the orb resets it ---------------- */
   const tilesRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   useEffect(() => {
     const el = tilesRef.current

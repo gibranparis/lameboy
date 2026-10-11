@@ -3,17 +3,17 @@
 
 import { useEffect } from 'react'
 
-// Drag-and-spring-back for UI elements, matching the orb: press squeezes,
-// a drag past a few px lifts the element and it follows the pointer 1:1,
-// and on release it springs home. As it arrives it gets a click on whatever
-// was pressed, so a drag ends exactly like a tap.
+// Drag-and-park for UI elements: press squeezes, a drag past a few px lifts
+// the element and it follows the pointer 1:1, and on release it stays where
+// it was dropped (a drop never counts as a tap). Everything parked springs
+// home together on resetDragged(), which the bottom orb calls on every tap.
+// The orb itself has its own drag and always springs straight home.
 //
 // Elements are moved with the CSS `translate` / `scale` properties, which
 // compose with `transform`, so an element's own transform animations (FLIP,
 // hover scale, reveal) are left alone.
 
 const DRAG_THRESHOLD_PX = 8
-const ARRIVE_PX = 6 // counts as home within this distance
 const POS_K = 260 // position stiffness
 const POS_C = 18 // position damping (≈0.56: one small overshoot)
 const SCALE_K = 420
@@ -24,6 +24,21 @@ const LIFT_SCALE = 1.06
 const reducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
+const RESET_EVENT = 'lb:drag-reset'
+// Where keyed elements were left, so one that remounts (a pop-up reopened)
+// comes back where it was parked
+/** @type {Map<string, {x: number, y: number}>} */
+const parkedAt = new Map()
+
+/** Parts of a pop-up a press should use as-is instead of dragging it */
+export const POPUP_CONTROLS = 'button, a, input, select, textarea, label, iframe, [contenteditable]'
+
+/** Springs every parked element home (the bottom orb's tap) */
+export function resetDragged() {
+  parkedAt.clear()
+  try { window.dispatchEvent(new Event(RESET_EVENT)) } catch {}
+}
+
 /**
  * @typedef {object} DragSnapOptions
  * @property {string[]} [targets] selectors tried in order (closest match from
@@ -31,13 +46,10 @@ const reducedMotion = () =>
  * @property {() => boolean} [enabled] checked on every press
  * @property {string} [touchAction] set on `root` so touch drags reach it
  *   (e.g. 'none'); leave unset when the caller styles the targets itself
- * @property {'arrive' | 'release'} [clickOn] when a released drag clicks:
- *   'arrive' (default) as the element gets home, or 'release' the moment
- *   the finger lifts. Use 'release' for anything that starts audio/video:
- *   iOS only allows that inside the touch itself.
- * @property {() => void} [onParkedTap] makes a dragged element stay where it
- *   is dropped (no spring home, no click). A tap on it while parked calls
- *   this instead of its click, and springs it home.
+ * @property {string} [ignore] presses that start on a match (e.g. a pop-up's
+ *   buttons and fields) are left alone and never drag
+ * @property {string} [key] remembers where `root` is parked across remounts
+ *   (only when `targets` is unset), until resetDragged()
  * @property {(lifted: boolean) => void} [onLift] called with true when a drag
  *   lifts an element, and false once it is back home and at rest (e.g. to
  *   raise its container above everything while it's away)
@@ -49,10 +61,11 @@ const reducedMotion = () =>
  * @returns {() => void} cleanup
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction, clickOn = 'arrive', onParkedTap, onLift } = opts
-  const stay = typeof onParkedTap === 'function'
+  const { targets, enabled, touchAction, ignore, key, onLift } = opts
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
+  /** @type {Set<HTMLElement>} parked away from home, for the reset */
+  const parked = new Set()
   /** @type {null | { id: number, el: HTMLElement, hit: EventTarget | null, x: number, y: number, bx: number, by: number, active: boolean }} */
   let press = null
   // Pointers currently down that started on root (to spot a pinch)
@@ -60,8 +73,6 @@ export function attachDragSnap(root, opts = {}) {
   // Set when a drag ends, so the click (and touchend) the browser sends
   // right after it doesn't also fire the element's tap action
   let suppress = false
-  // Our own click on arrival must get through
-  let releasing = false
 
   const findTarget = (/** @type {EventTarget|null} */ t) => {
     if (!targets) return root
@@ -76,7 +87,9 @@ export function attachDragSnap(root, opts = {}) {
   const stateOf = (/** @type {HTMLElement} */ el) => {
     let m = states.get(el)
     if (!m) {
-      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, lifted: false, raf: 0, onArrive: null, saved: null }
+      // trans / z: the element's own inline transition and z-index while we
+      // override them (null when not overridden)
+      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, lifted: false, raf: 0, trans: null, z: null }
       states.set(el, m)
     }
     return m
@@ -87,12 +100,38 @@ export function attachDragSnap(root, opts = {}) {
     el.style.scale = String(m.s)
   }
 
+  // Lifted above its neighbours (never lowered: pop-ups already sit high)
+  const raise = (/** @type {HTMLElement} */ el, m) => {
+    if (m.z !== null) return
+    m.z = el.style.zIndex
+    const z = parseInt(getComputedStyle(el).zIndex, 10)
+    if (!(z >= 50)) el.style.zIndex = '50'
+  }
+
+  const lift = (/** @type {HTMLElement} */ el, m) => {
+    raise(el, m)
+    if (!m.lifted) {
+      m.lifted = true
+      onLift?.(true)
+    }
+  }
+
+  // Stop the frame loop and hand the element its own transitions back (a
+  // parked pop-up still fades / scales closed)
+  const rest = (/** @type {HTMLElement} */ el, m) => {
+    m.raf = 0
+    if (m.trans !== null) {
+      el.style.transition = m.trans
+      m.trans = null
+    }
+  }
+
   const run = (/** @type {HTMLElement} */ el) => {
     const m = stateOf(el)
     if (m.raf) return
-    if (!m.saved) {
+    if (m.trans === null) {
       // Keep the element's own transitions from smoothing per-frame writes
-      m.saved = { transition: el.style.transition, zIndex: el.style.zIndex }
+      m.trans = el.style.transition
       el.style.transition = 'none'
     }
     let last = performance.now()
@@ -108,18 +147,13 @@ export function attachDragSnap(root, opts = {}) {
       m.vs += (-SCALE_K * (m.s - m.ts) - SCALE_C * m.vs) * dt
       m.s += m.vs * dt
 
-      if (m.onArrive && !m.held && Math.hypot(m.x, m.y) < ARRIVE_PX) {
-        const done = m.onArrive
-        m.onArrive = null
-        done()
-      }
       const scaleSettled = Math.abs(m.s - m.ts) < 0.002 && Math.abs(m.vs) < 0.02
       if (m.parked && !m.held && scaleSettled) {
         // Parked away from home: rest there (still lifted above its row)
         m.s = m.ts
         m.vs = 0
         write(el, m)
-        m.raf = 0
+        rest(el, m)
         return
       }
       const settled =
@@ -131,12 +165,11 @@ export function attachDragSnap(root, opts = {}) {
         m.s = 1
         el.style.translate = ''
         el.style.scale = ''
-        if (m.saved) {
-          el.style.transition = m.saved.transition
-          el.style.zIndex = m.saved.zIndex
-          m.saved = null
+        rest(el, m)
+        if (m.z !== null) {
+          el.style.zIndex = m.z
+          m.z = null
         }
-        m.raf = 0
         if (m.lifted) {
           m.lifted = false
           onLift?.(false)
@@ -148,7 +181,7 @@ export function attachDragSnap(root, opts = {}) {
         m.s = m.ts
         m.vs = 0
         write(el, m)
-        m.raf = 0
+        rest(el, m)
         return
       }
       write(el, m)
@@ -168,12 +201,13 @@ export function attachDragSnap(root, opts = {}) {
     suppress = false
     if (down.size > 1) {
       // A second finger (pinch): let go of the drag without acting
-      if (press) release(press.el, false)
+      if (press) drop(press)
       press = null
       return
     }
     if (enabled && !enabled()) return
     if (e.pointerType === 'mouse' && e.button !== 0) return
+    if (ignore && /** @type {any} */ (e.target)?.closest?.(ignore)) return
     const el = findTarget(e.target)
     if (!el) return
     const m = stateOf(el)
@@ -193,12 +227,7 @@ export function attachDragSnap(root, opts = {}) {
       try { press.el.setPointerCapture(e.pointerId) } catch {}
       m.held = true
       setScale(press.el, LIFT_SCALE)
-      if (!m.saved) m.saved = { transition: press.el.style.transition, zIndex: press.el.style.zIndex }
-      press.el.style.zIndex = '50'
-      if (!m.lifted) {
-        m.lifted = true
-        onLift?.(true)
-      }
+      lift(press.el, m)
       try { window.getSelection()?.removeAllRanges() } catch {}
     }
     m.x = press.bx + dx
@@ -207,29 +236,31 @@ export function attachDragSnap(root, opts = {}) {
     write(press.el, m)
   }
 
-  /** Spring home; when `act`, click what was pressed as it arrives */
-  const release = (/** @type {HTMLElement} */ el, /** @type {boolean} */ act, hit = null) => {
+  /** Spring home (the reset) */
+  const sendHome = (/** @type {HTMLElement} */ el) => {
     const m = stateOf(el)
+    parked.delete(el)
     m.held = false
     m.parked = false
     m.ts = 1
-    if (act) {
-      const tap = () => {
-        const target = /** @type {HTMLElement|null} */ (hit && /** @type {any} */ (hit).isConnected ? hit : el)
-        releasing = true
-        try { target?.click() } finally { releasing = false }
-      }
-      if (clickOn === 'release') tap()
-      else m.onArrive = tap
-    }
     if (reducedMotion()) {
-      m.x = m.y = 0
+      m.x = m.y = m.vx = m.vy = 0
       write(el, m)
-      const done = m.onArrive
-      m.onArrive = null
-      if (done) done()
     }
     run(el)
+  }
+
+  /** A drag ends: the element stays where it was let go */
+  const drop = (/** @type {{ el: HTMLElement, active: boolean }} */ p) => {
+    const m = stateOf(p.el)
+    m.held = false
+    if (p.active) {
+      m.parked = true
+      m.vx = m.vy = 0
+      parked.add(p.el)
+      if (key && p.el === root) parkedAt.set(key, { x: m.x, y: m.y })
+    }
+    setScale(p.el, 1)
   }
 
   // Counted on window: a mouse can be released anywhere
@@ -240,30 +271,15 @@ export function attachDragSnap(root, opts = {}) {
     const p = press
     press = null
     if (!p.active) {
-      const m = stateOf(p.el)
-      if (stay && m.parked) {
-        // A tap on a parked element: its own action, then home (no click)
-        m.parked = false
-        suppress = true
-        onParkedTap?.()
-        release(p.el, false)
-        return
-      }
-      setScale(p.el, 1) // a tap: let the element's own click handler act
+      setScale(p.el, 1) // a tap (parked or not): the element's own click acts
       return
     }
     suppress = true
-    if (stay && e.type === 'pointerup') {
-      // Dropped: stays put, lifted above its neighbours
-      const m = stateOf(p.el)
-      m.held = false
-      m.parked = true
-      m.vx = m.vy = 0
-      setScale(p.el, 1)
-      return
-    }
-    // A cancelled gesture (e.g. the browser took it for a scroll) only springs back
-    release(p.el, e.type === 'pointerup', p.hit)
+    drop(p)
+  }
+
+  const onReset = () => {
+    for (const el of [...parked]) sendHome(el)
   }
 
   // While a drag is live, don't let ancestors (e.g. a pull-to-pan) see moves
@@ -278,14 +294,27 @@ export function attachDragSnap(root, opts = {}) {
   // No native image drag or text selection while pressing
   const onNativeDrag = (/** @type {Event} */ e) => { if (press) e.preventDefault() }
   const onClick = (/** @type {MouseEvent} */ e) => {
-    if (releasing || !suppress) return
+    if (!suppress) return
     suppress = false
     e.stopPropagation()
     e.preventDefault()
   }
 
+  // A keyed element that was parked before it remounted comes back there
+  const saved = key && !targets ? parkedAt.get(key) : null
+  if (saved) {
+    const m = stateOf(root)
+    m.x = saved.x
+    m.y = saved.y
+    m.parked = true
+    parked.add(root)
+    write(root, m)
+    lift(root, m)
+  }
+
   const prevTouchAction = root.style.touchAction
   if (touchAction) root.style.touchAction = touchAction
+  window.addEventListener(RESET_EVENT, onReset)
   root.addEventListener('pointerdown', onDown)
   root.addEventListener('pointermove', onMove)
   root.addEventListener('pointerup', onUp)
@@ -299,6 +328,7 @@ export function attachDragSnap(root, opts = {}) {
   root.addEventListener('click', onClick, true)
   return () => {
     if (touchAction) root.style.touchAction = prevTouchAction
+    window.removeEventListener(RESET_EVENT, onReset)
     root.removeEventListener('pointerdown', onDown)
     root.removeEventListener('pointermove', onMove)
     root.removeEventListener('pointerup', onUp)
@@ -314,7 +344,7 @@ export function attachDragSnap(root, opts = {}) {
 }
 
 /**
- * React wrapper: attaches drag-and-spring-back to `ref.current`.
+ * React wrapper: attaches drag-and-park to `ref.current`.
  * @param {React.RefObject<HTMLElement>} ref
  * @param {DragSnapOptions} [opts]
  * @param {any[]} [deps] re-attach when these change (e.g. the element remounts)

@@ -3,6 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BlueOrbCross3D from '@/components/BlueOrbCross3D'
+import { resetDragged } from '@/lib/dragSnap'
 
 export default function OrbShell({
   mode, // 'gate' | 'shop'
@@ -424,7 +425,10 @@ export default function OrbShell({
     return () => document.removeEventListener('lb:zoom', onExternal)
   }, [pulse])
 
+  // Every orb tap (or drag release) also sends everything that was dragged
+  // around the page back home
   const runShopStep = () => {
+    resetDragged()
     actions[cycleStep]()
     setCycleStep((prev) => (prev + 1) % actions.length)
   }
@@ -451,6 +455,7 @@ export default function OrbShell({
     (e) => {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault()
+        resetDragged()
         actions[cycleStep]()
         setCycleStep((prev) => (prev + 1) % actions.length)
       }
