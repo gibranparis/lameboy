@@ -3,6 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BlueOrbCross3D from '@/components/BlueOrbCross3D'
+import { DRAG_RESET, FLICK_SPEED, flightStep, launch, pinball } from '@/lib/dragSnap'
 
 // Spin momentum (see "Spin momentum" below). The cross has 2-fold symmetry
 // about its spin axis, so it's kept well under half a turn per 60 fps frame,
@@ -145,9 +146,6 @@ export default function OrbShell({
   // Draggable on the gate until the sequence ends, and in the shop once the
   // orb has landed in the bottom bar
   const canDrag = inShop ? !landing : mode === 'gate' && !loaderShow && !isProceeding
-  // What a released drag does in the shop: the same zoom step as a tap
-  // (set below, once the shop actions exist)
-  const shopAction = useRef(/** @type {null | (() => void)} */ (null))
   // Colour of the ball pressed in the shop; the next zoom flashes it
   const shopPick = useRef(/** @type {string|null} */ (null))
 
@@ -160,7 +158,9 @@ export default function OrbShell({
   const dragStart = useRef(/** @type {{id:number,x:number,y:number,active:boolean}|null} */ (null))
   // Set when a drag ends so the click the browser fires after it is ignored
   const suppressClick = useRef(false)
-  const motion = useRef({ x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false })
+  // parked: left where it was dropped (shop); flying / walls: a flick's
+  // pinball flight home (see dragSnap's flightStep)
+  const motion = useRef({ x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, flying: 0, walls: /** @type {Element[] | null} */ (null) })
   const motionRaf = useRef(0)
   const onSettle = useRef(/** @type {null | (() => void)} */ (null))
   const reducedMotion = useRef(false)
@@ -187,7 +187,10 @@ export default function OrbShell({
       const m = motion.current
       const dt = Math.min(0.032, (now - last) / 1000)
       last = now
-      if (!m.held) {
+      if (!m.held && m.flying && el) {
+        // Flicked: pinballs round the screen, then the spring takes it home
+        flightStep(m, dt, now, el.getBoundingClientRect(), pinball.onBounce)
+      } else if (!m.held && !m.parked) {
         m.vx += (-POS_K * m.x - POS_C * m.vx) * dt
         m.vy += (-POS_K * m.y - POS_C * m.vy) * dt
         m.x += m.vx * dt
@@ -195,15 +198,23 @@ export default function OrbShell({
       }
       m.vs += (-SCALE_K * (m.s - m.ts) - SCALE_C * m.vs) * dt
       m.s += m.vs * dt
+      if (m.parked && !m.held && Math.abs(m.s - m.ts) < 0.002 && Math.abs(m.vs) < 0.02) {
+        // Left where it was dropped: rest there (still above everything)
+        m.s = m.ts
+        m.vs = 0
+        writeShell()
+        motionRaf.current = 0
+        return
+      }
       // Start whatever waits on the release as the orb snaps into place,
       // rather than after its bounce has fully died out
-      if (onSettle.current && !m.held && Math.hypot(m.x, m.y) < ARRIVE_PX) {
+      if (onSettle.current && !m.held && !m.flying && !m.parked && Math.hypot(m.x, m.y) < ARRIVE_PX) {
         const done = onSettle.current
         onSettle.current = null
         done()
       }
       const settled =
-        !m.held &&
+        !m.held && !m.flying && !m.parked &&
         Math.hypot(m.x, m.y) < 0.5 && Math.hypot(m.vx, m.vy) < 10 &&
         Math.abs(m.s - m.ts) < 0.002 && Math.abs(m.vs) < 0.02
       if (settled) {
@@ -237,6 +248,28 @@ export default function OrbShell({
     motion.current.ts = reducedMotion.current ? 1 : ts
     runMotion()
   }, [runMotion])
+
+  // Everything dropped around the shop goes home together (a tap on open
+  // space, the grid folding): the orb too, from wherever it was left
+  useEffect(() => {
+    const home = () => {
+      const m = motion.current
+      if (!m.parked && !m.flying) return
+      m.parked = false
+      m.flying = 0
+      m.walls = null
+      runMotion()
+    }
+    window.addEventListener(DRAG_RESET, home)
+    return () => window.removeEventListener(DRAG_RESET, home)
+  }, [runMotion])
+  // Leaving the shop: no parked orb carried along
+  useEffect(() => {
+    if (inShop) return
+    const m = motion.current
+    m.parked = false
+    m.flying = 0
+  }, [inShop])
 
   const buzz = useCallback((ms) => {
     try { navigator.vibrate?.(ms) } catch {}
@@ -283,7 +316,14 @@ export default function OrbShell({
     suppressClick.current = false
     if (!canDrag) return
     if (e.pointerType === 'mouse' && e.button !== 0) return
-    dragStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false }
+    // A drag carries on from wherever it is (parked, or caught mid-flight)
+    const mo = motion.current
+    if (mo.flying) {
+      mo.flying = 0
+      mo.walls = null
+      mo.vx = mo.vy = 0
+    }
+    dragStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false, bx: mo.x, by: mo.y }
     const box = shellRef.current?.getBoundingClientRect()
     grabOffset.current = box
       ? { x: e.clientX - (box.left + box.width / 2), y: e.clientY - (box.top + box.height / 2) }
@@ -336,7 +376,7 @@ export default function OrbShell({
   }, [handOff])
   // dir: which way it spins (+1 dragged right, -1 dragged left); vx: signed
   // smoothed horizontal drag speed, px/s
-  const fling = useRef({ speed: 0, vx: 0, dir: 1, lastX: 0, lastY: 0, lastT: 0, held: false, raf: 0 })
+  const fling = useRef({ speed: 0, vx: 0, vy: 0, dir: 1, lastX: 0, lastY: 0, lastT: 0, held: false, raf: 0 })
   const runSpin = useCallback(() => {
     const f = fling.current
     if (f.raf) return
@@ -397,8 +437,8 @@ export default function OrbShell({
       if (shellRef.current) shellRef.current.style.zIndex = '2147483003'
       if (!inShop && onHoldChange) onHoldChange(true)
     }
-    m.x = dx
-    m.y = dy
+    m.x = (s.bx || 0) + dx
+    m.y = (s.by || 0) + dy
     m.vx = m.vy = 0
     writeShell()
     if (!reducedMotion.current) {
@@ -408,6 +448,7 @@ export default function OrbShell({
       if (!f.held) {
         f.held = true
         f.vx = 0
+        f.vy = 0
         spinRef.current.orbit = 0
         f.lastX = e.clientX
         f.lastY = e.clientY
@@ -420,6 +461,7 @@ export default function OrbShell({
         // Spins the way it's dragged (a straight up/down drag keeps the last way)
         if (Math.abs(dx) > 1.5) f.dir = Math.sign(dx)
         f.vx = f.vx * 0.35 + (dx / dtm) * 1000 * 0.65
+        f.vy = f.vy * 0.35 + ((e.clientY - f.lastY) / dtm) * 1000 * 0.65
         // Quick to wind up, slower to let go
         f.speed = v > f.speed ? f.speed * 0.3 + v * 0.7 : f.speed * 0.75 + v * 0.25
         f.lastX = e.clientX
@@ -444,6 +486,12 @@ export default function OrbShell({
     // Drag released: spring home, then resume the sequence (gate) or take
     // the next zoom step (shop). The click or touchend that follows is ignored.
     suppressClick.current = true
+    // How it was let go: a flick (fast, not held still first) or a drop
+    const rel = fling.current
+    const flick =
+      inShop && !reducedMotion.current && rel.held && e.type === 'pointerup' &&
+      performance.now() - rel.lastT < 80 && Math.hypot(rel.vx, rel.vy) > FLICK_SPEED
+    const relV = { x: rel.vx, y: rel.vy }
     if (fling.current.held) {
       // The fling: a fast release keeps (and adds to) the momentum
       const f = fling.current
@@ -458,16 +506,26 @@ export default function OrbShell({
     setScatter(null) // re-forms the cross as the orb flies home
     const m = motion.current
     m.held = false
-    const start = inShop
-      ? () => {
-          setGrabColor(null)
-          shopAction.current && shopAction.current()
-        }
-      : () => {
-          setGrabColor(null)
-          onHoldChange && onHoldChange(false)
-          onAdvanceGate && onAdvanceGate() // no-op unless the press didn't start it
-        }
+    if (inShop) {
+      // In the shop it doesn't spring back: dropped, it stays put; flicked, it
+      // pinballs round the screen and finds its way home. Taps still zoom.
+      setGrabColor(null)
+      const el = shellRef.current
+      if (flick && el) {
+        m.parked = false
+        launch(m, relV.x, relV.y, el.getBoundingClientRect(), pinball.obstacles(el))
+      } else {
+        m.parked = true
+        m.vx = m.vy = 0
+      }
+      runMotion()
+      return
+    }
+    const start = () => {
+      setGrabColor(null)
+      onHoldChange && onHoldChange(false)
+      onAdvanceGate && onAdvanceGate() // no-op unless the press didn't start it
+    }
     if (reducedMotion.current) {
       m.x = m.y = 0
       writeShell()
@@ -568,7 +626,6 @@ export default function OrbShell({
   }, [pulse])
 
   const runShopStep = () => fireZoom(gridStacked.current ? 'in' : orbNextRef.current)
-  shopAction.current = runShopStep
 
   const onShopClick = useCallback(() => {
     if (suppressClick.current) { suppressClick.current = false; return } // end of a drag
