@@ -200,6 +200,7 @@ export default function OrbShell({
         if (el) {
           el.style.transform = m.s === 1 ? 'translate(-50%, -50%)' : `translate(-50%, -50%) scale(${m.s})`
           el.style.transition = shellStyle.transition || ''
+          el.style.zIndex = String(shellStyle.zIndex ?? '') // back down once home
         }
         motionRaf.current = 0
         const done = onSettle.current
@@ -211,7 +212,7 @@ export default function OrbShell({
       motionRaf.current = requestAnimationFrame(tick)
     }
     motionRaf.current = requestAnimationFrame(tick)
-  }, [shellStyle.transition, writeShell])
+  }, [shellStyle.transition, shellStyle.zIndex, writeShell])
 
   // Push the scale spring: a positive kick makes the orb swell, then settle
   const kickScale = useCallback((v) => {
@@ -303,6 +304,9 @@ export default function OrbShell({
       setDragging(true)
       if (!reducedMotion.current) setScatter(grabOffset.current)
       setScaleTarget(LIFT_SCALE)
+      // While dragged (and flying home) it sits above everything: header,
+      // top row, video, pop-ups
+      if (shellRef.current) shellRef.current.style.zIndex = '2147483003'
       if (!inShop && onHoldChange) onHoldChange(true)
     }
     m.x = dx
