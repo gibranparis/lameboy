@@ -432,7 +432,8 @@ export default function Page() {
           <HeaderBar ctrlPx={ctrlPx} shopReady={shopReady} />
 
           {/* Player panel anchor — fixed just below the header buttons.
-              background spans full width so grid items are occluded behind it. */}
+              Transparent: only the video itself covers the grid, so hoodies
+              stay visible on either side of it. */}
           <div
             id="yt-panel-anchor"
             style={{
@@ -444,7 +445,6 @@ export default function Page() {
               display: 'flex',
               justifyContent: 'center',
               pointerEvents: 'none',
-              background: 'var(--bg, #f5f5f0)',
             }}
           />
 

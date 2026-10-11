@@ -606,18 +606,6 @@ html:has([data-shop-root]) .logo-3d {
 }
 
 /* Overlay/animation guards */
-/* Music player anchor sits above the overlay (z 9980 vs 520); suppress its
-   background so it doesn't paint a bar on top of the product overlay. */
-html[data-overlay-open] #yt-panel-anchor {
-  background: transparent !important;
-}
-/* Dragged or parked video: dragSnap lifts its holder to the top layer (last
-   dragged wins); its empty home slot stays see-through so it doesn't paint
-   a bar over what's underneath */
-#yt-panel-anchor[data-video-lifted] {
-  background: transparent !important;
-}
-
 :root[data-overlay-open] .shop-grid {
   visibility: hidden;
   pointer-events: none;
