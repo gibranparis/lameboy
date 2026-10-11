@@ -3,7 +3,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { clearProfile, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
+import { clearProfile, evolutionPercent, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
 import EmailChips from '@/components/EmailChips'
 import { CONTACT_EMAIL } from '@/lib/store-info'
 import { attachDragSnap, POPUP_CONTROLS } from '@/lib/dragSnap'
@@ -18,6 +18,88 @@ const CHAKRA_COLORS = [
   '#6A0DAD', // Third Eye – indigo
   '#EE82EE', // Crown – violet
 ]
+
+/**
+ * Green progress pill for a signed-in customer: how far they've "evolved"
+ * by shopping. Only the percentage shows (one decimal, so every dollar
+ * nudges it); the amount behind 100% never does. Fills up from empty each
+ * time the panel opens; glows once complete.
+ */
+function EvolutionPill({ percent, open }) {
+  const [shown, setShown] = useState(0)
+  useEffect(() => {
+    if (!open) { setShown(0); return }
+    const t = setTimeout(() => setShown(percent), 120)
+    return () => clearTimeout(t)
+  }, [open, percent])
+  const done = percent >= 100
+  // Any progress at all shows as a visible sliver
+  const width = percent > 0 ? Math.max(shown, shown > 0 ? 3 : 0) : 0
+  const label = done ? 'fully evolved' : 'evolution'
+  return (
+    <div
+      className={`nl-evo ${done ? 'nl-evo--done' : ''}`}
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.floor(percent * 10) / 10}
+    >
+      <div className="nl-evo-head">
+        <span>{label}</span>
+        <span>{(Math.floor(percent * 10) / 10).toFixed(1)}%</span>
+      </div>
+      <div className="nl-evo-track">
+        <div className="nl-evo-fill" style={{ width: `${width}%` }} />
+      </div>
+      <style jsx>{`
+        .nl-evo { margin: 2px 0 14px; }
+        .nl-evo-head {
+          display: flex; justify-content: space-between; align-items: baseline;
+          font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+          color: rgba(255,255,255,0.55); margin-bottom: 6px;
+        }
+        :global(html[data-theme='day']) .nl-evo-head { color: rgba(0,0,0,0.5); }
+        .nl-evo-track {
+          position: relative; height: 12px; border-radius: 9999px; overflow: hidden;
+          background: rgba(255,255,255,0.1);
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        :global(html[data-theme='day']) .nl-evo-track {
+          background: rgba(0,0,0,0.07);
+          box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
+        }
+        .nl-evo-fill {
+          position: relative; height: 100%; border-radius: inherit; overflow: hidden;
+          background: linear-gradient(90deg, #08c94f, var(--hover-green, #0bf05f) 60%, #7dffb0);
+          box-shadow: 0 0 10px rgba(11,240,95,0.45);
+          transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        /* a soft light gliding along the filled part */
+        .nl-evo-fill::after {
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
+          transform: translateX(-120%);
+          animation: nl-evo-sheen 2.8s ease-in-out 1.2s infinite;
+        }
+        @keyframes nl-evo-sheen {
+          0% { transform: translateX(-120%); }
+          55%, 100% { transform: translateX(220%); }
+        }
+        .nl-evo--done .nl-evo-head span:first-child { color: var(--hover-green, #0bf05f); }
+        .nl-evo--done .nl-evo-track { animation: nl-evo-glow 2.2s ease-in-out infinite; }
+        @keyframes nl-evo-glow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(11,240,95,0); }
+          50% { box-shadow: 0 0 14px 2px rgba(11,240,95,0.55); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .nl-evo-fill { transition: none; }
+          .nl-evo-fill::after, .nl-evo--done .nl-evo-track { animation: none; }
+        }
+      `}</style>
+    </div>
+  )
+}
 
 function ChakraText({ text }) {
   return (
@@ -323,6 +405,7 @@ export default function NewsletterForm({ open, onClose }) {
       ) : signedIn && profile ? (
         <div className="nl-form">
           <div className="nl-title"><ChakraText text={`hi ${firstName}`.trim()} /></div>
+          <EvolutionPill percent={evolutionPercent(profile.email)} open={visible} />
 
           {editing ? (
             <form
