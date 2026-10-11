@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } fr
 import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE } from '@/lib/store-info'
 import { startCartFlight, landCartFlight } from '@/lib/cartFlight'
 import { haptic } from '@/lib/haptics'
-import { attachDragSnap, parkedOffset, DRAG_RESET } from '@/lib/dragSnap'
+import { attachDragSnap, parkedOffset, springHome, forgetParked, DRAG_RESET } from '@/lib/dragSnap'
 
 /* ---------------- utils ---------------- */
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -296,7 +296,11 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
   useEffect(() => {
     const onReset = () => setPlusOff({ x: 0, y: 0 })
     window.addEventListener(DRAG_RESET, onReset)
-    return () => window.removeEventListener(DRAG_RESET, onReset)
+    return () => {
+      window.removeEventListener(DRAG_RESET, onReset)
+      // The product page closed: its pills start at home next time
+      forgetParked('pdp-')
+    }
   }, [])
   const followPlus = {
     translate: `${plusOff.x}px ${plusOff.y}px`,
@@ -1251,8 +1255,10 @@ export default function ProductOverlay({
 
   // Combined touch handler
   const handleTouchStart = useCallback((/** @type {any} */ e) => {
-    // A press on a draggable pill drags the pill, not the product
-    if (e.target?.closest?.('[data-drag-key]')) return
+    // The measurements handle their own drag and pinch; a one-finger press
+    // on the photo or a pill drags it, not the product (two still pinch)
+    if (e.target?.closest?.('[data-own-gestures]')) return
+    if (e.touches.length === 1 && e.target?.closest?.('[data-drag-key]')) return
     if (e.touches.length === 2) {
       handlePinchStart(e)
     } else if (e.touches.length === 1) {
@@ -1376,11 +1382,70 @@ export default function ProductOverlay({
     setSelectedSize(null)
   }, [index])
 
+  // The product photo drags anywhere (zoom: pinch, or ⌘ / ctrl + scroll); a
+  // tap brings it back (handleHeroImgClick). The measurements drag too and
+  // zoom with a pinch or the scroll wheel; a tap brings them back.
+  const heroImgRef = useRef(/** @type {HTMLImageElement|null} */ (null))
+  const hasImg = !!imgs.length
+  useEffect(() => {
+    const el = heroImgRef.current
+    if (!el) return
+    return attachDragSnap(el, { touchAction: 'none', enabled: () => !closingRef.current })
+  }, [hasImg])
+
+  const dimsRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  const [dimsZoom, setDimsZoom] = useState(1)
+  const hasDims = !!(selectedSize && SIZE_CHART[String(selectedSize)])
+  useEffect(() => {
+    const el = dimsRef.current
+    if (!hasDims || !el) {
+      setDimsZoom(1)
+      return
+    }
+    const zoomBy = (/** @type {number} */ f) => setDimsZoom((z) => clamp(z * f, 0.6, 3))
+    const onWheel = (/** @type {WheelEvent} */ e) => {
+      e.preventDefault()
+      e.stopPropagation() // not a product swipe
+      zoomBy(Math.exp(-e.deltaY * 0.004))
+    }
+    // Two fingers on it: pinch its size (dragSnap lets go of the drag)
+    let pinch = /** @type {null | { d: number }} */ (null)
+    const dist = (/** @type {TouchList} */ t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+    const onTouchStart = (/** @type {TouchEvent} */ e) => {
+      if (e.touches.length === 2) pinch = { d: dist(e.touches) }
+    }
+    const onTouchMove = (/** @type {TouchEvent} */ e) => {
+      if (!pinch || e.touches.length !== 2) return
+      if (e.cancelable) e.preventDefault()
+      const d = dist(e.touches)
+      zoomBy(d / pinch.d)
+      pinch.d = d
+    }
+    const onTouchEnd = (/** @type {TouchEvent} */ e) => {
+      if (e.touches.length < 2) pinch = null
+    }
+    const detach = attachDragSnap(el, { touchAction: 'none' })
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('touchcancel', onTouchEnd)
+    return () => {
+      detach()
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [hasDims])
+
   // Load the original (unoptimized) PNG for alpha hit-testing.
   // This bypasses Next.js image optimization so the raw alpha channel is preserved.
   useEffect(() => {
     alphaCanvasRef.current = null
     setPinchZoom({ scale: 1, x: 0, y: 0 })  // Reset pinch zoom when image changes
+    springHome(heroImgRef.current) // and bring a dragged photo back
     const src = imgs[clampedImgIdx]
     if (!src) return
     let cancelled = false
@@ -1409,8 +1474,11 @@ export default function ProductOverlay({
   const handleHeroImgClick = useCallback(function (e) {
     e.stopPropagation()
 
-    // If pinch zoomed, reset zoom on click
-    if (pinchZoom.scale > 1) {
+    // Dragged or zoomed: a tap brings it back to how it sat when the page
+    // opened (dragSnap has already started springing it home); the slight
+    // "+" zoom stays as it was
+    const moved = parkedOffset(e.currentTarget)
+    if (pinchZoom.scale !== 1 || Math.hypot(moved.x, moved.y) > 1) {
       setPinchZoom({ scale: 1, x: 0, y: 0 })
       return
     }
@@ -1641,7 +1709,7 @@ export default function ProductOverlay({
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
           onPointerDown={(e) => {
-            if (/** @type {any} */ (e.target)?.closest?.('[data-drag-key]')) return // dragging a pill
+            if (/** @type {any} */ (e.target)?.closest?.('[data-drag-key]')) return // dragging the photo, a pill or the measurements
             if (e.pointerType !== 'touch') swipe.onDown(e)
           }}
           onPointerMove={(e) => {
@@ -1726,6 +1794,8 @@ export default function ProductOverlay({
                     width={2048}
                     height={1536}
                     className="product-hero-img"
+                    ref={heroImgRef}
+                    data-drag-key="hero"
                     priority
                     fetchPriority="high"
                     quality={95}
@@ -1819,15 +1889,26 @@ export default function ProductOverlay({
           if (!dims) return null
           return (
             <div
+              ref={dimsRef}
               className="dims-overlay"
+              data-drag-key="dims"
+              data-own-gestures=""
+              onClick={(e) => {
+                e.stopPropagation()
+                setDimsZoom(1) // a tap: back to its spot and size (dragSnap sends it home)
+              }}
               style={{
                 position: 'fixed',
                 top: 'calc(var(--safe-top, 0px) + 4vh + 8vh)',
                 right: 'calc(15vw + 8px)',
-                pointerEvents: 'none',
+                pointerEvents: 'auto',
+                cursor: 'grab',
                 textAlign: 'right',
                 alignItems: 'flex-end',
                 zIndex: 522,
+                transform: `scale(${dimsZoom})`,
+                transformOrigin: 'top right',
+                transition: 'transform 0.15s ease-out',
               }}
             >
               <span className="dims-size" style={{ color: night ? '#fff' : '#0f1115' }}>{SIZE_NAMES[String(sz)] || String(sz)}</span>
@@ -1861,7 +1942,7 @@ export default function ProductOverlay({
           flex-direction: column;
           align-items: flex-end;
           gap: 2px;
-          animation: dims-in 0.22s ease both;
+          animation: dims-in 0.22s ease backwards; /* not both: the zoom owns transform after it */
         }
         @keyframes dims-in {
           from { opacity: 0; transform: translateY(-4px); }

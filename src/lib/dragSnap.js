@@ -36,8 +36,8 @@ const parkedAt = new Map()
 /** Parts of a pop-up a press should use as-is instead of dragging it */
 export const POPUP_CONTROLS = 'button, a, input, select, textarea, label, iframe, [contenteditable]'
 
-// Each attached root's mover, so parkAt() can place it from outside
-/** @type {WeakMap<HTMLElement, (x: number, y: number) => void>} */
+// Each attached root's controls, so parkAt() / sendHome() can move it from outside
+/** @type {WeakMap<HTMLElement, { to: (x: number, y: number) => void, home: () => void }>} */
 const movers = new WeakMap()
 
 /**
@@ -48,7 +48,24 @@ const movers = new WeakMap()
  * @param {number} y
  */
 export function parkAt(el, x, y) {
-  if (el) movers.get(el)?.(x, y)
+  if (el) movers.get(el)?.to(x, y)
+}
+
+/**
+ * Springs one attached element home (e.g. the product photo on a new product)
+ * @param {HTMLElement | null | undefined} el
+ */
+export function springHome(el) {
+  if (el) movers.get(el)?.home()
+}
+
+/**
+ * Forgets remembered parked spots whose key starts with `prefix`, so those
+ * elements mount at home next time (e.g. the product page's pills once it closes)
+ * @param {string} prefix
+ */
+export function forgetParked(prefix) {
+  for (const k of [...parkedAt.keys()]) if (k.startsWith(prefix)) parkedAt.delete(k)
 }
 
 /**
@@ -441,17 +458,20 @@ export function attachDragSnap(root, opts = {}) {
   }
 
   if (!targets) {
-    movers.set(root, (x, y) => {
-      const m = stateOf(root)
-      m.x = x
-      m.y = y
-      m.vx = m.vy = 0
-      m.held = false
-      m.parked = true
-      parked.add(root)
-      if (key) parkedAt.set(key, { x, y })
-      write(root, m)
-      lift(root, m)
+    movers.set(root, {
+      home: () => { if (stateOf(root).parked) sendHome(root) },
+      to: (x, y) => {
+        const m = stateOf(root)
+        m.x = x
+        m.y = y
+        m.vx = m.vy = 0
+        m.held = false
+        m.parked = true
+        parked.add(root)
+        if (key) parkedAt.set(key, { x, y })
+        write(root, m)
+        lift(root, m)
+      },
     })
   }
 
