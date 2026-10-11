@@ -18,6 +18,14 @@ function isNearBlack(hex) {
   return r + g + b <= 18
 }
 
+// Drag scatter: the balls leave the cross for a ring around the grab point,
+// the arms shrink away, and a spring pulls everything back on release
+const SCATTER_K = 150 // spring stiffness
+const SCATTER_C = 17 // damping (≈0.7: a little snap past home)
+const ORBIT_R = 1.0 // ring radius, world units (~44px on the gate)
+const ORBIT_SPEED = 3.2 // rad/s
+const ORBIT_TILT = 0.45 // depth swing, so the ring passes in front and behind
+
 function OrbCross({
   rpm = 14.4,
   color = '#32ffc7',
@@ -39,12 +47,23 @@ function OrbCross({
   skipColorLerp = false,
   colorFadeMs = 0,
   pickRef = null,
+  flashRef = null,
+  scatter = null, // { x, y } px from the canvas centre while dragged, else null
+  cameraZ = 3,
 }) {
   const group = useRef()
+  const coreRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
+  const haloRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
+  const armRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
+  const scat = useRef({ p: 0, v: 0, theta: 0, cx: 0, cy: 0, home: true })
   // Materials in draw order; when colorFadeMs > 0 the frame loop eases each
   // one from the colour it was showing toward its new target colour
   const fadeMats = useRef(/** @type {THREE.Material[]|null} */ (null))
-  const { gl, scene, camera } = useThree()
+  const { gl, scene, camera, size } = useThree()
+
+  useEffect(() => {
+    camera.position.z = cameraZ
+  }, [camera, cameraZ])
 
   const coarse =
     typeof window !== 'undefined' &&
@@ -54,6 +73,45 @@ function OrbCross({
   useFrame((state, dt) => {
     if (!group.current) return
     group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt
+
+    const sc = scat.current
+    if (scatter) {
+      // Grab point → world units on the z = 0 plane
+      const focal = size.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))
+      const k = camera.position.z / focal
+      sc.cx = scatter.x * k
+      sc.cy = -scatter.y * k
+    }
+    const target = scatter ? 1 : 0
+    sc.v += (SCATTER_K * (target - sc.p) - SCATTER_C * sc.v) * Math.min(dt, 0.032)
+    sc.p += sc.v * Math.min(dt, 0.032)
+    const settled = !scatter && Math.abs(sc.p) < 0.001 && Math.abs(sc.v) < 0.01
+    if (!settled || !sc.home) {
+      sc.home = settled
+      if (settled) sc.p = sc.v = 0
+      sc.theta += ORBIT_SPEED * dt
+      const p = Math.max(0, sc.p)
+      // The ring lives in screen space; undo the group's spin to place it
+      const rot = group.current.rotation.y
+      const cr = Math.cos(rot)
+      const sr = Math.sin(rot)
+      const n = centers.length
+      centers.forEach((c, i) => {
+        const a = sc.theta + (i * Math.PI * 2) / n
+        const wx = sc.cx + ORBIT_R * Math.cos(a)
+        const wy = sc.cy + ORBIT_R * Math.sin(a)
+        const wz = ORBIT_R * ORBIT_TILT * Math.sin(a + Math.PI / 2)
+        const lx = wx * cr - wz * sr
+        const lz = wx * sr + wz * cr
+        const x = c[0] + (lx - c[0]) * p
+        const y = c[1] + (wy - c[1]) * p
+        const z = c[2] + (lz - c[2]) * p
+        coreRefs.current[i]?.position.set(x, y, z)
+        haloRefs.current[i]?.position.set(x, y, z)
+      })
+      const armScale = Math.max(0.001, 1 - Math.min(1, p))
+      armRefs.current.forEach((m) => m?.scale.setScalar(armScale))
+    }
 
     if (fadeMats.current && colorFadeMs > 0) {
       // ~95% of the way there after colorFadeMs
@@ -421,6 +479,7 @@ function OrbCross({
     const u = group.current.userData
     u.flashUntil = performance.now() + (u.flashDecayMs || flashDecayMs)
   }
+  if (flashRef) flashRef.current = triggerFlash
 
   const handlePointerDown = interactive
     ? (e) => {
@@ -448,29 +507,30 @@ function OrbCross({
       tabIndex={interactive ? 0 : -1}
     >
       {/* Bars */}
-      <mesh geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
-      {includeYAxis && <mesh geometry={armGeoY} material={barCoreMat} />}
+      <mesh ref={(m) => { armRefs.current[0] = m }} geometry={armGeoX} material={barCoreMat} rotation={[0, 0, Math.PI / 2]} />
+      {includeYAxis && <mesh ref={(m) => { armRefs.current[1] = m }} geometry={armGeoY} material={barCoreMat} />}
       {includeZAxis && (
-        <mesh geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
+        <mesh ref={(m) => { armRefs.current[2] = m }} geometry={armGeoZ} material={barCoreMat} rotation={[Math.PI / 2, 0, 0]} />
       )}
 
       {/* Spheres */}
       {centers.map((p, i) => (
-        <mesh key={`core-${i}`} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />
+        <mesh key={`core-${i}`} ref={(m) => { coreRefs.current[i] = m }} geometry={sphereGeo} material={sphereCoreMats[i]} position={p} />
       ))}
 
       {/* Single-pass glow (no extra halo2/halo3 = no “double orb”) */}
       {glow && (
         <>
-          <mesh geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} />
-          {includeYAxis && <mesh geometry={armGlowGeoY} material={barHaloMat} />}
+          <mesh ref={(m) => { armRefs.current[3] = m }} geometry={armGlowGeoX} material={barHaloMat} rotation={[0, 0, Math.PI / 2]} />
+          {includeYAxis && <mesh ref={(m) => { armRefs.current[4] = m }} geometry={armGlowGeoY} material={barHaloMat} />}
           {includeZAxis && (
-            <mesh geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />
+            <mesh ref={(m) => { armRefs.current[5] = m }} geometry={armGlowGeoZ} material={barHaloMat} rotation={[Math.PI / 2, 0, 0]} />
           )}
 
           {centers.map((p, i) => (
             <mesh
               key={`halo-${i}`}
+              ref={(m) => { haloRefs.current[i] = m }}
               geometry={sphereGeo}
               material={sphereHaloMats[i]}
               position={p}
@@ -508,8 +568,15 @@ export default function BlueOrbCross3D({
   skipColorLerp = false,
   colorFadeMs = 0, // > 0: blend between colours over this many ms
   pickRef = null, // filled with (clientX, clientY) => colour of the ball there
+  scatter = null, // { x, y } px from centre: balls orbit that point (drag)
+  overscan = 1, // canvas this many times the box, so scattered balls aren't clipped
 }) {
   const [maxDpr, setMaxDpr] = useState(2)
+  const flashRef = useRef(/** @type {null | (() => void)} */ (null))
+  // An overscanned canvas spills past the box, so it can't take pointer
+  // events (it would widen the hit area); the box flashes the orb instead
+  const os = Math.max(1, overscan)
+  const spill = `${(-(os - 1) / 2) * 100}%`
   const [reduced, setReduced] = useState(false)
 
   useEffect(() => {
@@ -535,20 +602,27 @@ export default function BlueOrbCross3D({
         height,
         width: height,
         display: 'inline-block',
-        contain: 'layout paint style',
+        contain: os > 1 ? 'layout style' : 'layout paint style',
         isolation: 'isolate',
         pointerEvents: interactive ? 'auto' : 'none',
         ...style,
       }}
+      onPointerDown={
+        os > 1 && interactive
+          ? () => { flashRef.current?.(); onActivate?.() }
+          : undefined
+      }
     >
       <Canvas
         dpr={[1, maxDpr]}
-        camera={{ position: [0, 0, 3], fov: 45 }}
+        camera={{ position: [0, 0, 3 * os], fov: 45 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         style={{
           position: 'absolute',
-          inset: 0,
-          pointerEvents: interactive ? 'auto' : 'none',
+          ...(os > 1
+            ? { left: spill, top: spill, width: `${os * 100}%`, height: `${os * 100}%` }
+            : { inset: 0 }),
+          pointerEvents: os > 1 ? 'none' : interactive ? 'auto' : 'none',
           outline: 'none',
           zIndex: 2,
         }}
@@ -577,6 +651,9 @@ export default function BlueOrbCross3D({
           skipColorLerp={skipColorLerp}
           colorFadeMs={colorFadeMs}
           pickRef={pickRef}
+          flashRef={flashRef}
+          scatter={scatter}
+          cameraZ={3 * os}
         />
       </Canvas>
     </div>
