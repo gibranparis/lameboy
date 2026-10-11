@@ -5,8 +5,9 @@
 import { useEffect, useState } from 'react'
 
 /**
- * The green tokens meter: the cart's progress toward free shipping (see
- * lib/freeShipping). Hash marks every 10% read like a gauge. It fills up from
+ * The tokens meter: the cart's progress toward free shipping (see
+ * lib/freeShipping). Green while it fills, blue once free shipping is
+ * unlocked (it turns as the fill reaches the end). Hash marks every 10% read like a gauge. It fills up from
  * `from` (default empty) each time it opens, and slides to the new level
  * whenever the cart changes; glows once complete.
  * `tally` (e.g. "50 / 80" tokens) shows in place of the percentage.
@@ -20,7 +21,8 @@ export default function TokensMeter({ percent, open = true, from = 0, tally, cap
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, percent])
-  const done = percent >= 100
+  // Complete once the fill itself gets there, so it turns blue on arrival
+  const done = percent >= 100 && shown >= 100
   // Any progress at all shows as a visible sliver
   const width = percent > 0 ? Math.max(shown, shown > 0 ? 3 : 0) : 0
   const label = 'tokens'
@@ -74,8 +76,17 @@ export default function TokensMeter({ percent, open = true, from = 0, tally, cap
           position: relative; height: 100%; border-radius: inherit; overflow: hidden;
           background: linear-gradient(90deg, #08c94f, var(--hover-green, #0bf05f) 60%, #7dffb0);
           box-shadow: 0 0 10px rgba(11,240,95,0.45);
-          transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+          transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s ease;
         }
+        /* free shipping unlocked: blue fades in over the green as the fill lands */
+        .nl-evo-fill::before {
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(90deg, #1f5fe0, #3d8bff 60%, #8fd0ff);
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+        .nl-evo--done .nl-evo-fill { box-shadow: 0 0 10px rgba(61,139,255,0.5); transition-delay: 0s, 0.9s; }
+        .nl-evo--done .nl-evo-fill::before { opacity: 1; transition: opacity 0.5s ease 0.9s; }
         /* a soft light gliding along the filled part */
         .nl-evo-fill::after {
           content: ''; position: absolute; inset: 0;
@@ -93,16 +104,16 @@ export default function TokensMeter({ percent, open = true, from = 0, tally, cap
         }
         :global(html[data-theme='day']) .nl-evo-caption { color: rgba(0,0,0,0.5); }
         .nl-evo--done .nl-evo-head span:first-child,
-        .nl-evo--done .nl-evo-caption { color: var(--hover-green, #0bf05f); }
+        .nl-evo--done .nl-evo-caption { color: #5aa8ff; transition: color 0.5s ease 0.9s; }
         :global(html[data-theme='day']) .nl-evo--done .nl-evo-head span:first-child,
-        :global(html[data-theme='day']) .nl-evo--done .nl-evo-caption { color: #08a443; }
-        .nl-evo--done .nl-evo-track { animation: nl-evo-glow 2.2s ease-in-out infinite; }
+        :global(html[data-theme='day']) .nl-evo--done .nl-evo-caption { color: #1f5fe0; }
+        .nl-evo--done .nl-evo-track { animation: nl-evo-glow 2.2s ease-in-out 0.9s infinite; }
         @keyframes nl-evo-glow {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(11,240,95,0); }
-          50% { box-shadow: 0 0 14px 2px rgba(11,240,95,0.55); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(61,139,255,0); }
+          50% { box-shadow: 0 0 14px 2px rgba(61,139,255,0.55); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .nl-evo-fill { transition: none; }
+          .nl-evo-fill, .nl-evo-fill::before, .nl-evo--done .nl-evo-fill::before { transition: none; }
           .nl-evo-fill::after, .nl-evo--done .nl-evo-track { animation: none; }
         }
       `}</style>
