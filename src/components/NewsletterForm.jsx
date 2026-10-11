@@ -469,7 +469,8 @@ export default function NewsletterForm({ open, onClose }) {
           border: 1px solid rgba(255,255,255,0.08);
           border-radius: 16px;
           padding: 20px;
-          z-index: 10009;
+          /* above the dragged video (#yt-panel-anchor[data-video-lifted]) */
+          z-index: 2147483002;
           opacity: 0;
           transform: scale(0);
           transform-origin: top right;
