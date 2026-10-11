@@ -158,7 +158,7 @@ export default function CheckoutView({ onClose }) {
   }, [])
 
   // Drag it anywhere by any spot that isn't a control; it stays there (even
-  // after closing and reopening) until the orb resets it
+  // after closing and reopening) until tapped or the grid folds
   useEffect(() => {
     if (!panelRef.current) return
     return attachDragSnap(panelRef.current, { touchAction: 'none', key: 'cart-panel', ignore: POPUP_CONTROLS })

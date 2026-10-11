@@ -176,7 +176,7 @@ export default function NewsletterForm({ open, onClose }) {
   }, [visible])
 
   // Drag it anywhere by any spot that isn't a control; it stays there (even
-  // after closing and reopening) until the orb resets it. When it's taller
+  // after closing and reopening) until tapped or the grid folds. When it's taller
   // than the screen it keeps its touch scrolling instead (mouse drags only).
   useEffect(() => {
     const el = panelRef.current

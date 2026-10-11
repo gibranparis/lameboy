@@ -7,7 +7,7 @@ import CartButton from '@/components/CartButton'
 import { useDragSnap } from '@/lib/dragSnap'
 
 export default function HeaderBar({ ctrlPx, shopReady = true }) {
-  // The toggle / cart stay wherever they're dragged until the orb resets them
+  // The toggle / cart stay wherever they're dragged until tapped or the grid folds
   const toggleRef = useRef(null)
   const cartRef = useRef(null)
   useDragSnap(toggleRef, { touchAction: 'none', key: 'toggle' })

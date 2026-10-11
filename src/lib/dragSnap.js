@@ -5,9 +5,10 @@ import { useEffect } from 'react'
 
 // Drag-and-park for UI elements: press squeezes, a drag past a few px lifts
 // the element and it follows the pointer 1:1, and on release it stays where
-// it was dropped (a drop never counts as a tap). Everything parked springs
-// home together on resetDragged(), which the bottom orb calls on every tap.
-// The orb itself has its own drag and always springs straight home.
+// it was dropped (a drop never counts as a tap). A tap on a parked element
+// springs it home and still acts as a tap. Everything parked also goes home
+// together on resetDragged(), which the shop calls when the grid folds back
+// into its stacks. The orb has its own drag and always springs straight home.
 //
 // Elements are moved with the CSS `translate` / `scale` properties, which
 // compose with `transform`, so an element's own transform animations (FLIP,
@@ -33,7 +34,7 @@ const parkedAt = new Map()
 /** Parts of a pop-up a press should use as-is instead of dragging it */
 export const POPUP_CONTROLS = 'button, a, input, select, textarea, label, iframe, [contenteditable]'
 
-/** Springs every parked element home (the bottom orb's tap) */
+/** Sends every parked element home (the grid folding back into stacks) */
 export function resetDragged() {
   parkedAt.clear()
   try { window.dispatchEvent(new Event(RESET_EVENT)) } catch {}
@@ -49,7 +50,11 @@ export function resetDragged() {
  * @property {string} [ignore] presses that start on a match (e.g. a pop-up's
  *   buttons and fields) are left alone and never drag
  * @property {string} [key] remembers where `root` is parked across remounts
- *   (only when `targets` is unset), until resetDragged()
+ *   (only when `targets` is unset), until it goes home
+ * @property {boolean} [independent] ignores resetDragged(); only a tap sends
+ *   it home
+ * @property {boolean} [jumpHome] on resetDragged(), parked elements jump home
+ *   with no spring, for a caller that animates them itself (the grid's FLIP)
  * @property {(lifted: boolean) => void} [onLift] called with true when a drag
  *   lifts an element, and false once it is back home and at rest (e.g. to
  *   raise its container above everything while it's away)
@@ -61,7 +66,7 @@ export function resetDragged() {
  * @returns {() => void} cleanup
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction, ignore, key, onLift } = opts
+  const { targets, enabled, touchAction, ignore, key, independent, jumpHome, onLift } = opts
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
   /** @type {Set<HTMLElement>} parked away from home, for the reset */
@@ -236,18 +241,38 @@ export function attachDragSnap(root, opts = {}) {
     write(press.el, m)
   }
 
-  /** Spring home (the reset) */
-  const sendHome = (/** @type {HTMLElement} */ el) => {
+  /** Spring home (or jump, with no animation) */
+  const sendHome = (/** @type {HTMLElement} */ el, jump = false) => {
     const m = stateOf(el)
     parked.delete(el)
+    if (key && el === root) parkedAt.delete(key)
     m.held = false
     m.parked = false
     m.ts = 1
-    if (reducedMotion()) {
+    if (jump || reducedMotion()) {
       m.x = m.y = m.vx = m.vy = 0
+      m.s = 1
+      m.vs = 0
       write(el, m)
     }
     run(el)
+    // A jump settles on the loop's first frame; finish it now so the caller
+    // measures the element at home
+    if (jump) {
+      cancelAnimationFrame(m.raf)
+      m.raf = 0
+      el.style.translate = ''
+      el.style.scale = ''
+      rest(el, m)
+      if (m.z !== null) {
+        el.style.zIndex = m.z
+        m.z = null
+      }
+      if (m.lifted) {
+        m.lifted = false
+        onLift?.(false)
+      }
+    }
   }
 
   /** A drag ends: the element stays where it was let go */
@@ -271,7 +296,9 @@ export function attachDragSnap(root, opts = {}) {
     const p = press
     press = null
     if (!p.active) {
-      setScale(p.el, 1) // a tap (parked or not): the element's own click acts
+      // A tap: the element's own click acts, and a parked one goes home
+      if (e.type === 'pointerup' && stateOf(p.el).parked) sendHome(p.el)
+      else setScale(p.el, 1)
       return
     }
     suppress = true
@@ -279,7 +306,7 @@ export function attachDragSnap(root, opts = {}) {
   }
 
   const onReset = () => {
-    for (const el of [...parked]) sendHome(el)
+    for (const el of [...parked]) sendHome(el, !!jumpHome)
   }
 
   // While a drag is live, don't let ancestors (e.g. a pull-to-pan) see moves
@@ -314,7 +341,7 @@ export function attachDragSnap(root, opts = {}) {
 
   const prevTouchAction = root.style.touchAction
   if (touchAction) root.style.touchAction = touchAction
-  window.addEventListener(RESET_EVENT, onReset)
+  if (!independent) window.addEventListener(RESET_EVENT, onReset)
   root.addEventListener('pointerdown', onDown)
   root.addEventListener('pointermove', onMove)
   root.addEventListener('pointerup', onUp)

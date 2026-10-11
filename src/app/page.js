@@ -296,7 +296,7 @@ export default function Page() {
     try { window.scrollTo(0, 0) } catch {}
   }, [mode])
 
-  // Top-row controls stay wherever they're dragged until the orb resets them
+  // Top-row controls stay wherever they're dragged until tapped or the grid folds
   const ipodRef = useRef(null)
   const logoRef = useRef(null)
   const heartRef = useRef(null)
