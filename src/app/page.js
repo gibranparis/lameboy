@@ -16,7 +16,7 @@ const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr:
 // Shop
 import ShopGrid from '@/components/ShopGrid'
 import { isSignedIn, useProfile } from '@/lib/profile'
-import { useDragSnap, pinball, flingAway } from '@/lib/dragSnap'
+import { useDragSnap, pinball } from '@/lib/dragSnap'
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
@@ -50,12 +50,6 @@ function useHeaderCtrlPx(defaultPx = 64) {
     return () => window.removeEventListener('resize', read)
   }, [defaultPx])
   return px
-}
-
-const IPOD_FLING = {
-  ...pinball,
-  onLaunch: (/** @type {HTMLElement} */ _el, /** @type {number} */ vx, /** @type {number} */ vy) =>
-    flingAway(/** @type {HTMLElement | null} */ (document.querySelector('#yt-panel-anchor > *')), vx, vy),
 }
 
 export default function Page() {
@@ -310,8 +304,7 @@ export default function Page() {
   const logoRef = useRef(null)
   const heartRef = useRef(null)
   // Dropped, they stay put; flicked, they pinball around and back home
-  // A flicked iPod takes the video with it (and the other way round)
-  useDragSnap(ipodRef, { touchAction: 'none', key: 'ipod', stayOnTap: true, fling: IPOD_FLING }, [inShop])
+  useDragSnap(ipodRef, { touchAction: 'none', key: 'ipod', stayOnTap: true, fling: pinball }, [inShop])
   useDragSnap(logoRef, { touchAction: 'none', key: 'logo', fling: pinball }, [inShop])
   useDragSnap(heartRef, { touchAction: 'none', key: 'heart', stayOnTap: true, fling: pinball }, [inShop, loaderShow])
 

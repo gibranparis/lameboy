@@ -5,7 +5,7 @@
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { attachDragSnap, flingAway, pinball } from '@/lib/dragSnap'
+import { attachDragSnap, pinball } from '@/lib/dragSnap'
 
 // YouTube flashes its title bar / "More videos" panel for a moment after
 // playback resumes, so the cover stays up this long past PLAYING
@@ -151,8 +151,7 @@ export default function MusicPlayerButton({
   // Drag the video anywhere and it stays there, still playing, and it opens
   // there again after being closed (its own spot, never under a moved iPod).
   // A tap on it plays / pauses and sends it home; a tap on open space or the
-  // grid folding into stacks does too. Flicked, it pinballs home and takes
-  // the iPod with it (a flicked iPod takes the video too).
+  // grid folding into stacks does too. Flicked, it pinballs home on its own.
   useEffect(() => {
     const el = panelRef.current
     if (!el) return
@@ -167,7 +166,7 @@ export default function MusicPlayerButton({
     const detach = attachDragSnap(el, {
       touchAction: 'none',
       onLift,
-      fling: { ...pinball, onLaunch: (_el, vx, vy) => flingAway(/** @type {HTMLElement | null} */ (document.querySelector('.music-player-container')), vx, vy) },
+      fling: pinball,
     })
     return () => {
       detach()
