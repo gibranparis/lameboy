@@ -15,10 +15,56 @@ const EDGE = 16
 
 /**
  * Size pills that pop out of the cart button when a product tile is dropped
- * on it (styled like the product page's). Picking one hops it into the bag:
- * a little anticipation lift, a gravity drop, then the bag catches it with a
- * squash, a ripple and a haptic tap. One-size products skip the pills.
+ * on it (styled like the product page's). Picking one flashes it green and
+ * a little copy of the hoodie hops from it into the bag; the bag catches it
+ * with a squash, a ripple and a haptic tap. One-size products skip the pills.
  */
+const HOODIE = 58 // px, the little hoodie that hops into the bag
+
+/**
+ * A little copy of the hoodie hops from (x0, y0) into the bag at (x1, y1),
+ * like the product page's add to cart: popping up where the pill was, steady
+ * sideways, up then down like a ball tossed into a basket, a little spin,
+ * shrinking into the bag's mouth and gone as it lands
+ * @returns {Promise<void>} resolves when it lands
+ */
+function hopIntoBag(/** @type {string} */ src, /** @type {number} */ x0, /** @type {number} */ y0, /** @type {number} */ x1, /** @type {number} */ y1, delay = 0) {
+  const img = document.createElement('img')
+  img.src = src
+  img.alt = ''
+  img.setAttribute('aria-hidden', 'true')
+  img.draggable = false
+  img.style.cssText = `position:fixed;left:${x0 - HOODIE / 2}px;top:${y0 - HOODIE / 2}px;width:${HOODIE}px;height:${HOODIE}px;object-fit:contain;pointer-events:none;z-index:2147483003;opacity:0;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.18))`
+  document.body.appendChild(img)
+  const dx = x1 - x0
+  const dy = y1 - y0
+  // y(t) = dy·t − a·t(1−t) peaks `hop` px above the start whatever dy is
+  const hop = 70
+  const a = dy + 2 * hop + 2 * Math.sqrt(Math.max(0, hop * hop + hop * dy))
+  const N = 28
+  const frames = []
+  // Pops up out of the pill first
+  frames.push({ transform: 'translate(0, 0) scale(0.3)', opacity: 0, offset: 0 })
+  frames.push({ transform: 'translate(0, -4px) scale(1.08)', opacity: 1, offset: 0.16 })
+  for (let i = 0; i <= N; i++) {
+    const t = i / N
+    const x = dx * t
+    const y = -4 * (1 - t) + dy * t - a * t * (1 - t)
+    const k = 1.08 + (0.32 - 1.08) * t * t
+    const rot = 14 * Math.sin(Math.PI * t) * Math.sign(dx || 1)
+    frames.push({
+      transform: `translate(${x}px, ${y}px) rotate(${rot}deg) scale(${k})`,
+      opacity: t < 0.88 ? 1 : (1 - t) / 0.12,
+      offset: 0.22 + 0.78 * t,
+    })
+  }
+  const anim = img.animate(frames, { duration: 680, delay, easing: 'linear', fill: 'forwards' })
+  return anim.finished.then(
+    () => img.remove(),
+    () => img.remove()
+  )
+}
+
 export default function QuickAddSizes() {
   /** @type {[null | { product: any, sizes: string[], cx: number, cy: number, left: number, bottom: number }, Function]} */
   const [open, setOpen] = useState(null)
@@ -44,10 +90,14 @@ export default function QuickAddSizes() {
       if (!product || !r) return
       const sizes = product.sizes?.length ? product.sizes : DEFAULT_SIZES
       if (sizes.length === 1) {
-        // Nothing to choose: straight in
+        // Nothing to choose: the little hoodie hops straight in from just above the bag
         haptic([8, 300, 16])
         add(product, sizes[0])
-        setTimeout(landCartFlight, 220)
+        const src = product.thumb || product.image
+        const cx = r.left + r.width / 2
+        if (src && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+          hopIntoBag(src, cx, r.top - 40, cx, r.top + r.height / 2).then(landCartFlight, landCartFlight)
+        } else setTimeout(landCartFlight, 220)
         return
       }
       const cx = r.left + r.width / 2
@@ -84,31 +134,22 @@ export default function QuickAddSizes() {
     add(open.product, size)
 
     const r = btn.getBoundingClientRect()
-    const dx = open.cx - (r.left + r.width / 2)
-    const dy = open.cy - (r.top + r.height / 2)
     const land = () => {
       landCartFlight()
       close()
     }
-    if (typeof btn.animate !== 'function' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    const src = open.product.thumb || open.product.image
+    if (!src || typeof btn.animate !== 'function' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       land()
       return
     }
-    // Anticipation, then a ballistic drop: x steady, y accelerating, shrinking
-    // into the bag's mouth and gone just as it lands
-    const frames = [{ transform: 'translate(0, 0) scale(1)', opacity: 1, offset: 0 }]
-    frames.push({ transform: 'translate(0, -7px) scale(1.14)', opacity: 1, offset: 0.22 })
-    const N = 10
-    for (let i = 1; i <= N; i++) {
-      const t = i / N
-      const y = -7 + (dy + 7) * t * t
-      frames.push({
-        transform: `translate(${dx * t}px, ${y}px) scale(${1.14 - 0.84 * t})`,
-        opacity: t < 0.85 ? 1 : (1 - t) / 0.15,
-        offset: 0.22 + 0.78 * t,
-      })
-    }
-    btn.animate(frames, { duration: 400, easing: 'linear', fill: 'forwards' }).finished.then(land, land)
+    // The picked pill flashes green and pops away; a little copy of the
+    // hoodie takes its place and hops into the bag
+    btn.animate(
+      [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.18)', opacity: 1, offset: 0.4 }, { transform: 'scale(0)', opacity: 0 }],
+      { duration: 260, delay: 90, easing: 'ease-in', fill: 'forwards' }
+    )
+    hopIntoBag(src, r.left + r.width / 2, r.top + r.height / 2, open.cx, open.cy, 150).then(land, land)
   }
 
   if (!open) return null
