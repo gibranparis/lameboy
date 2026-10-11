@@ -5,7 +5,7 @@
 import Image from 'next/image'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ProductOverlay from '@/components/ProductOverlay'
-import { PRODUCTS, getCategoryGroups } from '@/lib/products'
+import { PRODUCTS } from '@/lib/products'
 import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
 import { attachDragSnap } from '@/lib/dragSnap'
@@ -142,8 +142,19 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
   /* ---------------- View mode (stacks vs grid) ---------------- */
   const [viewMode, setViewMode] = useState(VIEW_STACKS)
   const [stackReversed, setStackReversed] = useState(false)
-  // Use pre-computed category groups (no client-side computation)
-  const categoryGroups = getCategoryGroups()
+  // Group the same products the grid shows. (The static groups from
+  // lib/products carry the hardcoded ids, not the live ones, so no stack
+  // card matched its grid tile and fold/unfold couldn't animate.)
+  const categoryGroups = useMemo(() => {
+    /** @type {Map<string, any[]>} */
+    const groups = new Map()
+    seed.forEach((/** @type {any} */ p) => {
+      const cat = p.category || 'uncategorized'
+      if (!groups.has(cat)) groups.set(cat, [])
+      groups.get(cat)?.push(p)
+    })
+    return groups
+  }, [seed])
 
   useEffect(() => {
     try { sessionStorage.setItem('lb:view-mode', viewMode) } catch {}
