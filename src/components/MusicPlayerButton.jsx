@@ -129,12 +129,14 @@ export default function MusicPlayerButton({
     }
   }, [portalTarget]) // re-run once portal is in DOM so panelRef.current is set
 
-  // Drag the video like the other controls: it springs home, and letting go
-  // plays / pauses it (fired on release so iOS counts it as the user's touch)
+  // Drag the video anywhere and it stays there, still playing. Tapping it
+  // while it's away pauses it and rubber-bands it home; at home a tap
+  // plays / pauses as usual.
   useEffect(() => {
     const el = panelRef.current
     if (!el) return
-    return attachDragSnap(el, { touchAction: 'none', clickOn: 'release' })
+    return attachDragSnap(el, { touchAction: 'none', onParkedTap: () => pause() })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portalTarget])
 
   // Pre-initialize the YouTube player as soon as the anchor div is in the DOM.
