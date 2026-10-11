@@ -613,7 +613,7 @@ function CheckoutPage({ geoCountry, geoRegion }) {
     // Buying counts as joining: remember what was actually used (fills the
     // heart). A blank phone (US card orders) doesn't wipe a saved one.
     saveProfile({ ...saved, phone: saved.phone || undefined })
-    // Counts toward the heart panel's evolution bar (merchandise only)
+    // Counts toward the heart panel's tokens bar (merchandise only)
     addSpend(saved.email || getProfile()?.email, intentId, subtotal)
     if (saved.email) setEmail(saved.email)
     reset()

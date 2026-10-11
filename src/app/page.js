@@ -561,11 +561,14 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Main — flex column. Spacer pushes grid to bottom. */}
+          {/* Main — flex column: header, then the open band the grid centres in, then the bottom bar */}
           <main
             className="shop-main"
             style={{
               paddingTop: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
+              // Room for the bottom bar (toggle / orb / cart), so the open band
+              // below ends where the bar begins
+              paddingBottom: 'calc(var(--header-ctrl, 64px) + var(--safe-bottom, 0px))',
               display: 'flex',
               flexDirection: 'column',
               minHeight: '100dvh',
@@ -579,19 +582,23 @@ export default function Page() {
               transitionDelay: shopReady ? '0.22s' : '0s',
             }}
           >
-            {/* margin auto centres the grid in the open space between the player and
-                the bottom bar (the stack sits centre-right, and the grid grows
-                evenly up and down as it zooms) — no DOM element in the dead zones,
-                so iOS touches there pass directly to <main> with no interference.
-                paddingTop matches the open player height so scrolling all the way up
-                reveals the full top item above the player boundary. */}
+            {/* The open band runs from the bottom of the player (paddingTop matches
+                its height) to the top of the bottom bar; margin auto centres the grid
+                in it, so the gap above the hoodies always equals the gap below at
+                every zoom step (the stack sits centre-right). When the grid outgrows
+                the band the page scrolls, and scrolling all the way up reveals the
+                full top item above the player boundary. No DOM element in the dead
+                zones, so iOS touches there pass directly to <main>. */}
             <div style={{
-              marginTop: 'auto',
-              marginBottom: 'auto',
+              flex: '1 0 auto',
+              display: 'flex',
+              flexDirection: 'column',
               paddingTop: 'var(--yt-panel-h, 0px)',
               transition: 'padding-top 0.28s ease',
             }}>
-              <ShopGrid products={shopProducts} autoOpenFirstOnMount shopReady={shopReady} />
+              <div style={{ marginTop: 'auto', marginBottom: 'auto' }}>
+                <ShopGrid products={shopProducts} autoOpenFirstOnMount shopReady={shopReady} />
+              </div>
               {!loaderShow && (
                 <NewsletterForm open={newsletterOpen} onClose={() => setNewsletterOpen(false)} />
               )}
