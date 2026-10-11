@@ -804,6 +804,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
           Array.from(categoryGroups.entries()).map((/** @type {[string, any[]]} */ [category, items]) => {
             // Track the global seed index for each product so FLIP matches
             const seedIndices = items.map((/** @type {any} */ p) => seed.indexOf(p))
+            // A stack's badge counts everything in it, on whichever card is on top
+            const stackQty = items.reduce((/** @type {number} */ n, /** @type {any} */ p) => n + getProductQty(p.id), 0)
+            const topIdx = stackReversed ? items.length - 1 : 0
             return (
               <div
                 key={category}
@@ -850,6 +853,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
                             if (seedIndices[i] === 0) handleFirstDecode()
                           }}
                         />
+                        {i === topIdx && stackQty > 0 && (
+                          <span
+                            className="product-badge"
+                            aria-label={`${stackQty} in cart`}
+                            style={{ left: '76%', top: '28%' }}
+                          >
+                            {stackQty}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
