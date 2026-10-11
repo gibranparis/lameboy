@@ -18,6 +18,48 @@ const MAX_COLS = 5
 const VIEW_STACKS = 'stacks'
 const VIEW_GRID = 'grid'
 
+/* ---------- Bouncy FLIP: tiles spring between layouts ---------- */
+// A damped spring sampled per 60fps frame, 0 → 1 with overshoot; played as
+// linear keyframes so it runs on the compositor like a CSS transition
+function springCurve(/** @type {number} */ k, /** @type {number} */ c) {
+  const out = [0]
+  let x = 0
+  let v = 0
+  const dt = 1 / 60 / 4
+  for (let f = 0; f < 150; f++) {
+    for (let i = 0; i < 4; i++) {
+      v += (k * (1 - x) - c * v) * dt
+      x += v * dt
+    }
+    out.push(x)
+    if (Math.abs(1 - x) < 0.002 && Math.abs(v) < 0.02) break
+  }
+  out[out.length - 1] = 1
+  return out
+}
+const SPRINGS = {
+  open: springCurve(170, 15), // stacks → grid: lively, ~12% past home
+  close: springCurve(210, 21), // grid → stacks: softer landing
+  density: springCurve(200, 18), // column changes
+}
+// Tiles set off one after another rather than all at once
+const STAGGER_MS = 22
+const STAGGER_MAX_MS = 240
+
+/** Each tile's card (.product-box) rect by product id — the card, not the
+ *  tile, so the title row under grid tiles doesn't skew the scale */
+function snapshotTiles() {
+  /** @type {Map<string, DOMRect>} */
+  const snap = new Map()
+  const grid = document.querySelector('[data-component="shop-grid"]')
+  grid?.querySelectorAll('.product-tile').forEach((tile) => {
+    const key = /** @type {HTMLElement} */ (tile).dataset.productId
+    const box = tile.querySelector('.product-box') || tile
+    if (key) snap.set(key, box.getBoundingClientRect())
+  })
+  return snap
+}
+
 function clampCols(n) {
   const v = Number(n) || MAX_COLS
   return Math.max(MIN_COLS, Math.min(MAX_COLS, v | 0))
@@ -194,20 +236,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
   const prevColsRef = useRef(cols)
 
   /* ---------- FLIP animation: smooth slide on density change ---------- */
-  const flipSnapshotRef = useRef(/** @type {Map<string,DOMRect>|null} */ (null))
+  const flipSnapshotRef = useRef(/** @type {{ rects: Map<string,DOMRect>, kind: 'open'|'close'|'density' }|null} */ (null))
+  const flipAnimsRef = useRef(/** @type {Animation[]} */ ([]))
 
   /** Capture tile positions, then update cols so useLayoutEffect can FLIP */
   const setColsWithFlip = useCallback((/** @type {number|((p:number)=>number)} */ v) => {
-    const grid = document.querySelector('[data-component="shop-grid"]')
-    if (grid) {
-      const tiles = grid.querySelectorAll('.product-tile')
-      const snap = new Map()
-      tiles.forEach((tile) => {
-        const key = /** @type {HTMLElement} */ (tile).dataset.productId
-        if (key) snap.set(key, tile.getBoundingClientRect())
-      })
-      flipSnapshotRef.current = snap
-    }
+    flipSnapshotRef.current = { rects: snapshotTiles(), kind: 'density' }
     setCols(v)
   }, [])
 
@@ -216,16 +250,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
 
   /** Transition from stacked deck → grid with FLIP animation */
   const revealGrid = useCallback(() => {
-    const grid = document.querySelector('[data-component="shop-grid"]')
-    if (grid) {
-      const tiles = grid.querySelectorAll('.product-tile')
-      const snap = new Map()
-      tiles.forEach((tile) => {
-        const key = /** @type {HTMLElement} */ (tile).dataset.productId
-        if (key) snap.set(key, tile.getBoundingClientRect())
-      })
-      flipSnapshotRef.current = snap
-    }
+    flipSnapshotRef.current = { rects: snapshotTiles(), kind: 'open' }
     gridRevealedAtRef.current = Date.now()
     setViewMode(VIEW_GRID)
     setCols(MAX_COLS)
@@ -233,86 +258,77 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
 
   /** Transition from grid → stacked deck with FLIP animation */
   const collapseToStacks = useCallback(() => {
-    const grid = document.querySelector('[data-component="shop-grid"]')
-    if (grid) {
-      const tiles = grid.querySelectorAll('.product-tile')
-      const snap = new Map()
-      tiles.forEach((tile) => {
-        const key = /** @type {HTMLElement} */ (tile).dataset.productId
-        if (key) snap.set(key, tile.getBoundingClientRect())
-      })
-      flipSnapshotRef.current = snap
-    }
+    flipSnapshotRef.current = { rects: snapshotTiles(), kind: 'close' }
     setViewMode(VIEW_STACKS)
     // Toggle stack order after each full zoom cycle
     setStackReversed((prev) => !prev)
   }, [])
 
-  /** After React re-renders with new cols, FLIP tiles from old → new pos.
-   *  Only runs for density changes (collapseToStacks / setColsWithFlip),
-   *  NOT for the stacks→grid reveal (revealGrid takes no snapshot). */
+  /** After React re-renders (stacks ↔ grid, or a column change), spring each
+   *  tile from where it was to where it now sits. Uses the individual
+   *  `translate` / `scale` properties so the tiles' own CSS transforms (the
+   *  stack peek offsets) stay put underneath. */
   useLayoutEffect(() => {
-    const snap = flipSnapshotRef.current
-    if (!snap || !snap.size) return
+    const flip = flipSnapshotRef.current
+    if (!flip || !flip.rects.size) return
     flipSnapshotRef.current = null
 
-    const grid = document.querySelector('[data-component="shop-grid"]')
+    const grid = /** @type {HTMLElement|null} */ (document.querySelector('[data-component="shop-grid"]'))
     if (!grid) return
-    const tiles = /** @type {HTMLElement[]} */ (Array.from(grid.querySelectorAll('.product-tile')))
+    // A new layout change mid-bounce starts from wherever the tiles were
+    // (the snapshot already measured them mid-flight)
+    flipAnimsRef.current.forEach((a) => a.cancel())
+    flipAnimsRef.current = []
+    delete grid.dataset.flipping
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
 
-    const flips = []
+    const tiles = /** @type {HTMLElement[]} */ (Array.from(grid.querySelectorAll('.product-tile')))
+    const curve = SPRINGS[flip.kind]
+    const duration = ((curve.length - 1) * 1000) / 60
+
+    /** @type {Animation[]} */
+    const anims = []
+    let order = 0
     tiles.forEach((tile) => {
       const key = tile.dataset.productId
-      const prev = key ? snap.get(key) : null
+      const prev = key ? flip.rects.get(key) : null
       if (!prev) return
-      const next = tile.getBoundingClientRect()
+      const box = /** @type {HTMLElement} */ (tile.querySelector('.product-box') || tile)
+      const next = box.getBoundingClientRect()
       const dx = (prev.left + prev.width / 2) - (next.left + next.width / 2)
       const dy = (prev.top + prev.height / 2) - (next.top + next.height / 2)
-      const sx = next.width > 0 ? prev.width / next.width : 1
-      const sy = next.height > 0 ? prev.height / next.height : 1
-      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01) return
-      flips.push({ tile, dx, dy, sx, sy })
-    })
+      const s0 = next.width > 0 ? prev.width / next.width : 1
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(s0 - 1) < 0.01) return
 
-    if (!flips.length) return
-
-    // Suppress tile-fade-in during FLIP — fill-mode:both would snap opacity to 0
-    // before the first paint, causing a visible flash on viewMode transitions.
-    /** @type {HTMLElement} */ (grid).dataset.flipping = '1'
-
-    // Invert — place each tile at its OLD position
-    flips.forEach(({ tile, dx, dy, sx, sy }) => {
-      tile.style.transformOrigin = '50% 50%'
-      tile.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
-      tile.style.transition = 'none'
-    })
-
-    // Force reflow so the "from" state registers
-    void grid.offsetHeight
-
-    // Play — animate to final (natural) position
-    flips.forEach(({ tile }) => {
-      tile.style.transition = 'transform 380ms cubic-bezier(0.25, 1, 0.5, 1)'
-      tile.style.transform = 'translate(0,0) scale(1,1)'
-    })
-
-    // Cleanup after animation finishes
-    const t = setTimeout(() => {
-      flips.forEach(({ tile }) => {
-        // Disable transitions while clearing inline styles so the
-        // CSS-defined transition doesn't fire on the non-visual change
-        tile.style.transition = 'none'
-        tile.style.transform = ''
-        tile.style.transformOrigin = ''
+      // Scale about the card's centre (the tile may be taller: title row)
+      const tileRect = tile.getBoundingClientRect()
+      tile.style.transformOrigin = `${next.left + next.width / 2 - tileRect.left}px ${next.top + next.height / 2 - tileRect.top}px`
+      const frames = curve.map((x) => ({
+        translate: `${dx * (1 - x)}px ${dy * (1 - x)}px`,
+        scale: String(s0 + (1 - s0) * x),
+      }))
+      const anim = tile.animate(frames, {
+        duration,
+        delay: Math.min(order++ * STAGGER_MS, STAGGER_MAX_MS),
+        easing: 'linear',
+        fill: 'backwards', // hold the start position through the stagger delay
       })
-      // Re-enable CSS transitions and clear flipping flag next frame
-      requestAnimationFrame(() => {
-        flips.forEach(({ tile }) => { tile.style.transition = '' })
-        delete /** @type {HTMLElement} */ (grid).dataset.flipping
-      })
-    }, 400)
+      anims.push(anim)
+    })
+    if (!anims.length) return
+    flipAnimsRef.current = anims
 
-    return () => clearTimeout(t)
+    // Suppress tile-fade-in while tiles fly
+    grid.dataset.flipping = '1'
+    Promise.all(anims.map((a) => a.finished)).then(
+      () => {
+        if (flipAnimsRef.current !== anims) return
+        flipAnimsRef.current = []
+        delete grid.dataset.flipping
+        tiles.forEach((tile) => { tile.style.transformOrigin = '' })
+      },
+      () => {} // cancelled by a newer layout change, which cleans up instead
+    )
   }, [cols, viewMode])
 
   const broadcastDensity = useCallback((/** @type {number} */ density, /** @type {string} */ mode) => {
