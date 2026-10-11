@@ -11,41 +11,42 @@ const reducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 /**
- * The tokens meter, played like a game: the cart's tokens toward the free
- * shipping goal (see lib/freeShipping). The count rolls up like a score with
- * a "+N" for what was just earned, each 10% milestone lights up as the fill
- * passes it, and reaching the goal levels it up: the bar turns blue and
- * glows. It counts up from `from` (default empty) each time it opens, and
- * rolls to the new total whenever the cart changes.
- * @param {{ tokens: number, goal: number, open?: boolean, from?: number, showGain?: boolean, className?: string }} props
+ * The rolling token count shared by the meter and the pill: rolls from where
+ * it was to `tokens` like a score, with a "+N" for what was just earned. It
+ * counts up from `from` (default empty) each time it opens.
+ * @param {{ tokens: number, open?: boolean, from?: number, showGain?: boolean }} opts
  *   showGain: show the "+N" even for the first count after opening (the
  *   pop-up over the bag, where that first count is the add itself)
  */
-export default function TokensMeter({ tokens, goal, open = true, from = 0, showGain = false, className = '' }) {
+export function useTokenCount({ tokens, open = true, from = 0, showGain = false }) {
   const [val, setVal] = useState(from)
   const valRef = useRef(from)
-  const counted = useRef(false) // has it counted since it opened
+  // The total it last counted toward since it opened (null: not yet)
+  const target = useRef(/** @type {number | null} */ (null))
   const [gain, setGain] = useState(/** @type {null | { n: number, key: number }} */ (null))
 
   useEffect(() => {
     if (!open) {
       valRef.current = from
-      counted.current = false
+      target.current = null
       setVal(from)
       return
     }
+    const prev = target.current
+    target.current = tokens
+    // "+N" for tokens earned while it's up (or, with showGain, from `from`)
+    if (prev === null ? showGain && tokens > from : tokens > prev) {
+      setGain({ n: Math.round(tokens - (prev ?? from)), key: Date.now() })
+    }
     const start = valRef.current
-    const first = !counted.current
-    counted.current = true
     if (tokens === start) return
-    if (tokens > start && (showGain || !first)) setGain({ n: Math.round(tokens - start), key: Date.now() })
     if (reducedMotion()) {
       valRef.current = tokens
       setVal(tokens)
       return
     }
     let raf = 0
-    const t0 = performance.now() + (first ? 120 : 0)
+    const t0 = performance.now() + (prev === null ? 120 : 0)
     const tick = (/** @type {number} */ now) => {
       const p = Math.min(1, Math.max(0, (now - t0) / COUNT_MS))
       const v = start + (tokens - start) * (1 - Math.pow(1 - p, 4))
@@ -57,6 +58,21 @@ export default function TokensMeter({ tokens, goal, open = true, from = 0, showG
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tokens])
+
+  return { val, gain }
+}
+
+/**
+ * The tokens meter, played like a game: the cart's tokens toward the free
+ * shipping goal (see lib/freeShipping). The count rolls up like a score with
+ * a "+N" for what was just earned, each 10% milestone lights up as the fill
+ * passes it, and reaching the goal levels it up: the bar turns blue and
+ * glows. It counts up from `from` (default empty) each time it opens, and
+ * rolls to the new total whenever the cart changes.
+ * @param {{ tokens: number, goal: number, open?: boolean, from?: number, showGain?: boolean, className?: string }} props
+ */
+export default function TokensMeter({ tokens, goal, open = true, from = 0, showGain = false, className = '' }) {
+  const { val, gain } = useTokenCount({ tokens, open, from, showGain })
 
   const shown = Math.round(val)
   const percent = goal > 0 ? Math.min(100, (val / goal) * 100) : 0

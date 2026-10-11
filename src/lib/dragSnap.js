@@ -142,6 +142,7 @@ export const FLICK_SPEED = FLING_SPEED
 const PINBALL_WALLS = [
   '[data-cart-button]',
   '.heart-submit',
+  '[data-tokens-pill]',
   '.ipod-btn',
   '.lame-logo-button',
   '[aria-label="Toggle day / night"]',
