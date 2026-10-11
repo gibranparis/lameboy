@@ -16,7 +16,9 @@ const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr:
 // Shop
 import ShopGrid from '@/components/ShopGrid'
 import { isSignedIn, useProfile } from '@/lib/profile'
-import { useDragSnap, pinball } from '@/lib/dragSnap'
+import { useDragSnap, pinball, resetDragged } from '@/lib/dragSnap'
+import { askForMotion, onShake } from '@/lib/shake'
+import { haptic } from '@/lib/haptics'
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
@@ -305,6 +307,22 @@ export default function Page() {
   const heartRef = useRef(null)
   // Dropped, they stay put; flicked, they pinball around and back home
   useDragSnap(ipodRef, { touchAction: 'none', key: 'ipod', stayOnTap: true, fling: pinball }, [inShop])
+  // Shake the phone and every piece that's been moved springs back into
+  // place (like a tap on open space). iOS asks for motion access on the
+  // first tap in the shop.
+  useEffect(() => {
+    if (!inShop) return
+    const ask = () => askForMotion()
+    window.addEventListener('pointerdown', ask, { once: true, capture: true })
+    const stop = onShake(() => {
+      haptic([12, 40, 12])
+      resetDragged({ spring: true })
+    })
+    return () => {
+      window.removeEventListener('pointerdown', ask, { capture: true })
+      stop()
+    }
+  }, [inShop])
   useDragSnap(logoRef, { touchAction: 'none', key: 'logo', fling: pinball }, [inShop])
   useDragSnap(heartRef, { touchAction: 'none', key: 'heart', stayOnTap: true, fling: pinball }, [inShop, loaderShow])
 
