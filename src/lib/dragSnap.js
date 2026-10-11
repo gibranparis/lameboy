@@ -170,7 +170,8 @@ export function resetDragged(opts = {}) {
 /**
  * @param {HTMLElement} root element that receives the pointer events
  * @param {DragSnapOptions} [opts]
- * @returns {() => void} cleanup
+ * @returns {(() => void) & { homeAll: (jump?: boolean) => void }} cleanup,
+ *   with homeAll() to send everything it parked home
  */
 export function attachDragSnap(root, opts = {}) {
   const { targets, enabled, touchAction, ignore, key, stayOnTap, jumpHome, onDragMove, onDrop, onLift } = opts
@@ -491,7 +492,7 @@ export function attachDragSnap(root, opts = {}) {
   root.addEventListener('dragstart', onNativeDrag)
   root.addEventListener('selectstart', onNativeDrag)
   root.addEventListener('click', onClick, true)
-  return () => {
+  const cleanup = () => {
     if (touchAction) root.style.touchAction = prevTouchAction
     window.removeEventListener(RESET_EVENT, onReset)
     movers.delete(root)
@@ -507,6 +508,12 @@ export function attachDragSnap(root, opts = {}) {
     root.removeEventListener('selectstart', onNativeDrag)
     root.removeEventListener('click', onClick, true)
   }
+  /** Sends everything this instance has parked home (jump: no spring, for a
+   *  caller about to animate them itself, e.g. a FLIP after a layout change) */
+  cleanup.homeAll = (jump = false) => {
+    for (const el of [...parked]) sendHome(el, jump)
+  }
+  return cleanup
 }
 
 /**

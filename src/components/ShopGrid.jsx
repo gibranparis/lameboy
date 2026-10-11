@@ -271,8 +271,15 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
   const flipAnimsRef = useRef(/** @type {Animation[]} */ ([]))
 
   /** Capture tile positions, then update cols so useLayoutEffect can FLIP */
+  // A layout change (zoom, stacks ↔ grid) re-racks dragged tiles: they're
+  // measured where they were dropped, then jump home, so the FLIP below
+  // flies them straight into their new slots in one move (they used to
+  // FLIP to the slot and then jump back out to their dragged offset)
+  const tilesDragRef = useRef(/** @type {null | { homeAll: (jump?: boolean) => void }} */ (null))
+
   const setColsWithFlip = useCallback((/** @type {number|((p:number)=>number)} */ v) => {
     flipSnapshotRef.current = { rects: snapshotTiles(), kind: 'density' }
+    tilesDragRef.current?.homeAll(true)
     setCols(v)
   }, [])
 
@@ -282,6 +289,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
   /** Transition from stacked deck → grid with FLIP animation */
   const revealGrid = useCallback(() => {
     flipSnapshotRef.current = { rects: snapshotTiles(), kind: 'open' }
+    tilesDragRef.current?.homeAll(true)
     gridRevealedAtRef.current = Date.now()
     setViewMode(VIEW_GRID)
     setCols(MAX_COLS)
@@ -690,7 +698,9 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
         return true
       },
     })
+    tilesDragRef.current = detach
     return () => {
+      tilesDragRef.current = null
       detach()
       setHover(false)
     }
