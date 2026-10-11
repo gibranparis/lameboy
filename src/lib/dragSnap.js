@@ -78,6 +78,36 @@ export function parkedOffset(el) {
   return { x, y }
 }
 
+const ON_SCREEN_EDGE = 12
+
+/** Its spot with no drag and none of its own transform (a pop-up mounts at
+ *  scale(0)); transitions are held off so putting the transform back doesn't
+ *  animate */
+const homeRect = (/** @type {HTMLElement} */ el) => {
+  const s = el.style
+  const prev = [s.transition, s.transform, s.translate, s.scale]
+  s.transition = 'none'
+  s.transform = s.translate = s.scale = 'none'
+  const r = el.getBoundingClientRect()
+  ;[, s.transform, s.translate, s.scale] = prev
+  void el.offsetWidth
+  s.transition = prev[0]
+  return r
+}
+
+/** Offset `x`/`y` nudged so the element sits fully on screen (or as much as fits) */
+const onScreen = (/** @type {HTMLElement} */ el, x, y) => {
+  const r = homeRect(el)
+  const fit = (/** @type {number} */ d, /** @type {number} */ lo, /** @type {number} */ hi, /** @type {number} */ room) =>
+    hi - lo > room - 2 * ON_SCREEN_EDGE
+      ? ON_SCREEN_EDGE - lo
+      : Math.max(ON_SCREEN_EDGE - lo, Math.min(room - ON_SCREEN_EDGE - hi, d))
+  return {
+    x: fit(x, r.left, r.right, window.innerWidth),
+    y: fit(y, r.top, r.bottom, window.innerHeight),
+  }
+}
+
 // Last dragged on top: every lift takes the next layer, for the element and
 // for the outermost layer it lives in (the top bar, the bottom bar, the
 // video's holder, the product page), so it rises over things in other
@@ -446,12 +476,15 @@ export function attachDragSnap(root, opts = {}) {
     e.preventDefault()
   }
 
-  // A keyed element that was parked before it remounted comes back there
+  // A keyed element that was parked before it remounted comes back there,
+  // pulled fully on screen (a pop-up never reopens cropped)
   const saved = key && !targets ? parkedAt.get(key) : null
   if (saved) {
     const m = stateOf(root)
-    m.x = saved.x
-    m.y = saved.y
+    const { x, y } = onScreen(root, saved.x, saved.y)
+    parkedAt.set(key, { x, y })
+    m.x = x
+    m.y = y
     m.parked = true
     parked.add(root)
     write(root, m)
