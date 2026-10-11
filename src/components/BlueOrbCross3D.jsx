@@ -31,6 +31,7 @@ const TRAIL_GAP = 0.2 // rad between copies along the ring
 const CROWN_VIOLET = new THREE.Color('#9333ea') // scattered centre ball fills in
 const ORBIT_SPEED = 3.2 // rad/s
 const ORBIT_TILT = 0.45 // depth swing, so the ring passes in front and behind
+const VIVID = new THREE.Color() // scratch colour for the momentum frenzy
 
 function OrbCross({
   rpm = 14.4,
@@ -55,6 +56,7 @@ function OrbCross({
   pickRef = null,
   flashRef = null,
   scatter = null, // { x, y } px from the canvas centre while dragged, else null
+  spinRef = null, // { current: { boost, vivid } }: extra rpm, and 0–1 rainbow frenzy
   cameraZ = 3,
 }) {
   const group = useRef()
@@ -62,7 +64,7 @@ function OrbCross({
   const haloRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
   const armRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
   const trailRefs = useRef(/** @type {THREE.Mesh[]} */ ([]))
-  const scat = useRef({ p: 0, v: 0, theta: 0, cx: 0, cy: 0, home: true, tint: 0 })
+  const scat = useRef({ p: 0, v: 0, theta: 0, cx: 0, cy: 0, home: true, tint: 0, vivid: false })
   // Materials in draw order; when colorFadeMs > 0 the frame loop eases each
   // one from the colour it was showing toward its new target colour
   const fadeMats = useRef(/** @type {THREE.Material[]|null} */ (null))
@@ -79,7 +81,8 @@ function OrbCross({
 
   useFrame((state, dt) => {
     if (!group.current) return
-    group.current.rotation.y += ((rpm * Math.PI * 2) / 60) * dt
+    const spin = spinRef?.current
+    group.current.rotation.y += (((rpm + (spin?.boost || 0)) * Math.PI * 2) / 60) * dt
 
     const sc = scat.current
     if (scatter) {
@@ -166,6 +169,25 @@ function OrbCross({
       sc.tint = tint
     }
 
+    // Momentum frenzy: every ball, arm and halo blends toward fast-cycling
+    // rainbow colours (each ball its own hue), more the harder it was flung;
+    // as it calms down they blend back to their real colours
+    const vivid = Math.max(0, Math.min(1, spin?.vivid || 0))
+    if (vivid > 0.002 || sc.vivid) {
+      const t = state.clock.getElapsedTime()
+      const meshes = [...coreRefs.current, ...haloRefs.current, ...armRefs.current]
+      meshes.forEach((mesh, i) => {
+        const m = /** @type {any} */ (mesh?.material)
+        if (!m?.color) return
+        const base = m.userData.toColor || (m.userData.vbase ||= m.color.clone())
+        VIVID.setHSL((t * 0.9 + (i % centers.length) / centers.length) % 1, 1, 0.56)
+        m.color.copy(base).lerp(VIVID, vivid)
+        if (m.emissive) m.emissive.copy(base).lerp(VIVID, vivid)
+        if (vivid <= 0.002) delete m.userData.vbase
+      })
+      sc.vivid = vivid > 0.002
+    }
+
     const u = group.current.userData
     if (!u) return
 
@@ -193,6 +215,8 @@ function OrbCross({
         b = Math.min(1, b * (0.85 + 0.3 * k))
       }
 
+      // Brighter while in a frenzy
+      b = Math.min(1, b * (1 + vivid * 0.8))
       // single halo system only (prevents “double orb” look)
       u.barHalo.opacity = b * 0.5
       u.sphereHalos.forEach((m) => (m.opacity = b))
@@ -638,6 +662,7 @@ export default function BlueOrbCross3D({
   colorFadeMs = 0, // > 0: blend between colours over this many ms
   pickRef = null, // filled with (clientX, clientY) => colour of the ball there
   scatter = null, // { x, y } px from centre: balls orbit that point (drag)
+  spinRef = null, // { current: { boost, vivid } } driven by the caller each frame
   overscan = 1, // canvas this many times the box, so scattered balls aren't clipped
 }) {
   const [maxDpr, setMaxDpr] = useState(2)
@@ -722,6 +747,7 @@ export default function BlueOrbCross3D({
           pickRef={pickRef}
           flashRef={flashRef}
           scatter={scatter}
+          spinRef={spinRef}
           cameraZ={3 * os}
         />
       </Canvas>
