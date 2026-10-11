@@ -35,6 +35,9 @@ const reducedMotion = () =>
  *   'arrive' (default) as the element gets home, or 'release' the moment
  *   the finger lifts. Use 'release' for anything that starts audio/video:
  *   iOS only allows that inside the touch itself.
+ * @property {() => void} [onParkedTap] makes a dragged element stay where it
+ *   is dropped (no spring home, no click). A tap on it while parked calls
+ *   this instead of its click, and springs it home.
  */
 
 /**
@@ -43,10 +46,11 @@ const reducedMotion = () =>
  * @returns {() => void} cleanup
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction, clickOn = 'arrive' } = opts
+  const { targets, enabled, touchAction, clickOn = 'arrive', onParkedTap } = opts
+  const stay = typeof onParkedTap === 'function'
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
-  /** @type {null | { id: number, el: HTMLElement, hit: EventTarget | null, x: number, y: number, active: boolean }} */
+  /** @type {null | { id: number, el: HTMLElement, hit: EventTarget | null, x: number, y: number, bx: number, by: number, active: boolean }} */
   let press = null
   // Pointers currently down that started on root (to spot a pinch)
   const down = new Set()
@@ -69,7 +73,7 @@ export function attachDragSnap(root, opts = {}) {
   const stateOf = (/** @type {HTMLElement} */ el) => {
     let m = states.get(el)
     if (!m) {
-      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, raf: 0, onArrive: null, saved: null }
+      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, raf: 0, onArrive: null, saved: null }
       states.set(el, m)
     }
     return m
@@ -92,7 +96,7 @@ export function attachDragSnap(root, opts = {}) {
     const tick = (/** @type {number} */ now) => {
       const dt = Math.min(0.032, (now - last) / 1000)
       last = now
-      if (!m.held) {
+      if (!m.held && !m.parked) {
         m.vx += (-POS_K * m.x - POS_C * m.vx) * dt
         m.vy += (-POS_K * m.y - POS_C * m.vy) * dt
         m.x += m.vx * dt
@@ -105,6 +109,15 @@ export function attachDragSnap(root, opts = {}) {
         const done = m.onArrive
         m.onArrive = null
         done()
+      }
+      const scaleSettled = Math.abs(m.s - m.ts) < 0.002 && Math.abs(m.vs) < 0.02
+      if (m.parked && !m.held && scaleSettled) {
+        // Parked away from home: rest there (still lifted above its row)
+        m.s = m.ts
+        m.vs = 0
+        write(el, m)
+        m.raf = 0
+        return
       }
       const settled =
         !m.held &&
@@ -156,7 +169,9 @@ export function attachDragSnap(root, opts = {}) {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const el = findTarget(e.target)
     if (!el) return
-    press = { id: e.pointerId, el, hit: e.target, x: e.clientX, y: e.clientY, active: false }
+    const m = stateOf(el)
+    // Drags continue from where the element is (it may be parked away)
+    press = { id: e.pointerId, el, hit: e.target, x: e.clientX, y: e.clientY, bx: m.x, by: m.y, active: false }
     setScale(el, PRESS_SCALE)
   }
 
@@ -175,8 +190,8 @@ export function attachDragSnap(root, opts = {}) {
       press.el.style.zIndex = '50'
       try { window.getSelection()?.removeAllRanges() } catch {}
     }
-    m.x = dx
-    m.y = dy
+    m.x = press.bx + dx
+    m.y = press.by + dy
     m.vx = m.vy = 0
     write(press.el, m)
   }
@@ -185,6 +200,7 @@ export function attachDragSnap(root, opts = {}) {
   const release = (/** @type {HTMLElement} */ el, /** @type {boolean} */ act, hit = null) => {
     const m = stateOf(el)
     m.held = false
+    m.parked = false
     m.ts = 1
     if (act) {
       const tap = () => {
@@ -213,10 +229,28 @@ export function attachDragSnap(root, opts = {}) {
     const p = press
     press = null
     if (!p.active) {
+      const m = stateOf(p.el)
+      if (stay && m.parked) {
+        // A tap on a parked element: its own action, then home (no click)
+        m.parked = false
+        suppress = true
+        onParkedTap?.()
+        release(p.el, false)
+        return
+      }
       setScale(p.el, 1) // a tap: let the element's own click handler act
       return
     }
     suppress = true
+    if (stay && e.type === 'pointerup') {
+      // Dropped: stays put, lifted above its neighbours
+      const m = stateOf(p.el)
+      m.held = false
+      m.parked = true
+      m.vx = m.vy = 0
+      setScale(p.el, 1)
+      return
+    }
     // A cancelled gesture (e.g. the browser took it for a scroll) only springs back
     release(p.el, e.type === 'pointerup', p.hit)
   }
