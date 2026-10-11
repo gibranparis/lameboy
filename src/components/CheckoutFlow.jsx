@@ -6,7 +6,7 @@ import EmailChips from '@/components/EmailChips'
 import { getStripePromise } from '@/lib/stripe-client'
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { COUNTRIES, US_STATES } from '@/lib/countries'
-import { clearProfile, getProfile, saveProfile } from '@/lib/profile'
+import { addSpend, clearProfile, getProfile, saveProfile } from '@/lib/profile'
 import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE } from '@/lib/store-info'
 
 const INPUT = {
@@ -613,6 +613,8 @@ function CheckoutPage({ geoCountry, geoRegion }) {
     // Buying counts as joining: remember what was actually used (fills the
     // heart). A blank phone (US card orders) doesn't wipe a saved one.
     saveProfile({ ...saved, phone: saved.phone || undefined })
+    // Counts toward the heart panel's evolution bar (merchandise only)
+    addSpend(saved.email || getProfile()?.email, intentId, subtotal)
     if (saved.email) setEmail(saved.email)
     reset()
 

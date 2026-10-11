@@ -89,6 +89,44 @@ export function clearProfile() {
   notify()
 }
 
+/* ---------- evolution: progress earned by shopping ---------- */
+// What a customer has spent on merchandise (cents, shipping not counted),
+// kept per email on this device like the rest of the profile and counted
+// once per payment. The goal is never shown as money: customers only see
+// how far along they are (each dollar is 0.1%).
+const SPENT_KEY = 'lb:spent'
+const EVOLVE_GOAL_CENTS = 100000
+
+function readSpent() {
+  const v = readKey(SPENT_KEY)
+  return v && typeof v === 'object' ? v : {}
+}
+
+/** Record a completed order's merchandise subtotal for `email` (once per payment). */
+export function addSpend(email, paymentId, cents) {
+  if (typeof window === 'undefined' || !email || !(cents > 0)) return
+  try {
+    const all = readSpent()
+    const key = String(email).trim().toLowerCase()
+    const mine = all[key] && typeof all[key] === 'object' ? all[key] : { cents: 0, ids: [] }
+    if (!Array.isArray(mine.ids)) mine.ids = []
+    if (paymentId && mine.ids.includes(paymentId)) return
+    mine.cents = (Number(mine.cents) || 0) + Math.round(cents)
+    if (paymentId) mine.ids = [...mine.ids, paymentId].slice(-200)
+    all[key] = mine
+    localStorage.setItem(SPENT_KEY, JSON.stringify(all))
+  } catch {}
+  notify()
+}
+
+/** How far `email` has evolved, 0–100 (a percentage, never the amount). */
+export function evolutionPercent(email) {
+  if (typeof window === 'undefined' || !email) return 0
+  const mine = readSpent()[String(email).trim().toLowerCase()]
+  const cents = Number(mine?.cents) || 0
+  return Math.min(100, (cents / EVOLVE_GOAL_CENTS) * 100)
+}
+
 /** A customer counts as signed in once they've given us an email. */
 export function isSignedIn(profile) {
   return Boolean(profile?.email)
