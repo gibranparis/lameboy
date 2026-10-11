@@ -31,6 +31,10 @@ const reducedMotion = () =>
  * @property {() => boolean} [enabled] checked on every press
  * @property {string} [touchAction] set on `root` so touch drags reach it
  *   (e.g. 'none'); leave unset when the caller styles the targets itself
+ * @property {'arrive' | 'release'} [clickOn] when a released drag clicks:
+ *   'arrive' (default) as the element gets home, or 'release' the moment
+ *   the finger lifts. Use 'release' for anything that starts audio/video:
+ *   iOS only allows that inside the touch itself.
  */
 
 /**
@@ -39,7 +43,7 @@ const reducedMotion = () =>
  * @returns {() => void} cleanup
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction } = opts
+  const { targets, enabled, touchAction, clickOn = 'arrive' } = opts
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
   /** @type {null | { id: number, el: HTMLElement, hit: EventTarget | null, x: number, y: number, active: boolean }} */
@@ -183,11 +187,13 @@ export function attachDragSnap(root, opts = {}) {
     m.held = false
     m.ts = 1
     if (act) {
-      m.onArrive = () => {
+      const tap = () => {
         const target = /** @type {HTMLElement|null} */ (hit && /** @type {any} */ (hit).isConnected ? hit : el)
         releasing = true
         try { target?.click() } finally { releasing = false }
       }
+      if (clickOn === 'release') tap()
+      else m.onArrive = tap
     }
     if (reducedMotion()) {
       m.x = m.y = 0

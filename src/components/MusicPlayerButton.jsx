@@ -5,6 +5,7 @@
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { attachDragSnap } from '@/lib/dragSnap'
 
 /**
  * @param {{ playlistId?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
@@ -107,6 +108,14 @@ export default function MusicPlayerButton({
       document.documentElement.style.setProperty('--yt-panel-h', '0px')
     }
   }, [portalTarget]) // re-run once portal is in DOM so panelRef.current is set
+
+  // Drag the video like the other controls: it springs home, and letting go
+  // plays / pauses it (fired on release so iOS counts it as the user's touch)
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    return attachDragSnap(el, { touchAction: 'none', clickOn: 'release' })
+  }, [portalTarget])
 
   // Pre-initialize the YouTube player as soon as the anchor div is in the DOM.
   // This is critical for mobile (iOS): playVideo() must be called synchronously
@@ -357,6 +366,7 @@ export default function MusicPlayerButton({
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
         .yt-panel {
+          position: relative; /* so it can rise above the grid while dragged */
           width: min(480px, calc(100vw - 2 * var(--header-ctrl, 64px)));
           background: #000;
           pointer-events: all;
@@ -391,6 +401,9 @@ export default function MusicPlayerButton({
           transition: padding-bottom 0.35s ease;
         }
         .yt-wrap iframe {
+          /* YouTube's own buttons never get a touch; the blocker on top
+             takes taps and drags (play/pause only) */
+          pointer-events: none !important;
           position: absolute !important;
           inset: 0 !important;
           width: 100% !important;

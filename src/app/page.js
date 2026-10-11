@@ -274,7 +274,8 @@ export default function Page() {
   const ipodRef = useRef(null)
   const logoRef = useRef(null)
   const heartRef = useRef(null)
-  useDragSnap(ipodRef, { touchAction: 'none' }, [inShop])
+  // The iPod starts audio, which iOS only allows inside the touch itself
+  useDragSnap(ipodRef, { touchAction: 'none', clickOn: 'release' }, [inShop])
   useDragSnap(logoRef, { touchAction: 'none' }, [inShop])
   useDragSnap(heartRef, { touchAction: 'none' }, [inShop, loaderShow])
 

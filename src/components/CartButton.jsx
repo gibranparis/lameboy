@@ -4,19 +4,18 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
+import { useCart } from '@/contexts/CartContext'
 
 const BIRKINS = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png']
 const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
 
 /**
  * CartButton
- * Listens for:
- *  - 'lb:add-to-cart' | 'cart:add' -> detail: { count|qty }
- *  - 'cart:set'                    -> detail: { count }
- *  - 'cart:clear'
+ * The badge shows the cart's real item count (sum of quantities) from
+ * CartContext, and pulses whenever that count goes up.
  */
 export default function CartButton({ size = 48, inHeader = false, imgSrc, onClick }) {
-  const [count, setCount] = useState(0)
+  const { count, cartReady } = useCart()
   const [pulse, setPulse] = useState(false)
   const [isNight, setIsNight] = useState(false)
 
@@ -58,40 +57,30 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   const tPulse = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
   const tBump = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
 
+  // Pulse when items are added — not when the saved cart loads in
+  const prevCount = useRef(count)
+  const wasReady = useRef(false)
   useEffect(() => {
-    const add = (delta = 1) => {
-      setCount((c) => Math.max(0, c + delta))
-      setPulse(true)
-      try {
-        btnRef.current?.classList.add('lb-bump')
-        if (tBump.current) clearTimeout(tBump.current)
-        tBump.current = setTimeout(() => btnRef.current?.classList.remove('lb-bump'), 240)
-      } catch {
-        /* ignore */
-      }
-      if (tPulse.current) clearTimeout(tPulse.current)
-      tPulse.current = setTimeout(() => setPulse(false), 360)
-    }
-    const onAdd = (e) => add(Number(e?.detail?.count ?? e?.detail?.qty ?? 1) || 1)
-    const onSet = (e) => setCount(Math.max(0, Number(e?.detail?.count ?? 0) || 0))
-    const onClear = () => setCount(0)
-
-    for (const target of [window, document]) {
-      target.addEventListener('lb:add-to-cart', onAdd)
-      target.addEventListener('cart:add', onAdd)
-      target.addEventListener('cart:set', onSet)
-      target.addEventListener('cart:clear', onClear)
-    }
-    return () => {
-      for (const target of [window, document]) {
-        target.removeEventListener('lb:add-to-cart', onAdd)
-        target.removeEventListener('cart:add', onAdd)
-        target.removeEventListener('cart:set', onSet)
-        target.removeEventListener('cart:clear', onClear)
-      }
-      if (tPulse.current) clearTimeout(tPulse.current)
+    const grew = count > prevCount.current
+    const live = wasReady.current // the saved cart arrives in the same render cartReady flips
+    prevCount.current = count
+    wasReady.current = cartReady
+    if (!live || !grew) return
+    setPulse(true)
+    try {
+      btnRef.current?.classList.add('lb-bump')
       if (tBump.current) clearTimeout(tBump.current)
+      tBump.current = setTimeout(() => btnRef.current?.classList.remove('lb-bump'), 240)
+    } catch {
+      /* ignore */
     }
+    if (tPulse.current) clearTimeout(tPulse.current)
+    tPulse.current = setTimeout(() => setPulse(false), 360)
+  }, [count, cartReady])
+
+  useEffect(() => () => {
+    if (tPulse.current) clearTimeout(tPulse.current)
+    if (tBump.current) clearTimeout(tBump.current)
   }, [])
 
   const aria = useMemo(
