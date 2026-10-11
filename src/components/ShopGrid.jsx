@@ -10,7 +10,6 @@ import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
 import { attachDragSnap, resetDragged, pinball } from '@/lib/dragSnap'
 import { createPileSpin } from '@/lib/pileSpin'
-import { createTileRing } from '@/lib/tileRing'
 import { haptic } from '@/lib/haptics'
 import { QUICK_ADD } from '@/components/QuickAddSizes'
 import { CART_LANDED } from '@/lib/cartFlight'
@@ -688,8 +687,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     }
     // A stack dragged fast spins up like a little whirlwind (pileSpin)
     const pileSpin = createPileSpin()
-    // A hoodie grabbed in the grid: the others orbit it in a ring (tileRing)
-    const tileRing = createTileRing()
     const isPile = (/** @type {HTMLElement} */ tile) => tile.matches('.category-stack')
     const detach = attachDragSnap(el, {
       targets: ['.category-stack', ".shop-grid[data-view-mode='grid'] .product-tile"],
@@ -699,14 +696,18 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       // Flicked: it pinballs around the screen off the other hoodies and the
       // controls, then finds its way back to its spot
       fling: { ...pinball, body: (tile) => tile.querySelector('.product-box') || tile },
+      // Grabbed, a ring of clones spins round it: of the hoodie card, or of
+      // the whole pile (cleared if the grid folds into the stacks meanwhile)
+      ring: {
+        box: (tile) => (isPile(tile) ? tile : tile.querySelector('.product-box') || tile),
+        alive: (tile) => isPile(tile) || !!tile.closest("[data-view-mode='grid']"),
+      },
       onDragMove: (tile, x, y) => {
         if (isPile(tile)) pileSpin.move(tile, x, y)
-        else tileRing.move(tile, x, y)
         setHover(!!productOf(tile) && overCart(x, y))
       },
       onDrop: (tile, x, y, cancelled) => {
         if (isPile(tile)) pileSpin.release(tile)
-        else tileRing.release(tile)
         setHover(false)
         const product = productOf(tile)
         if (cancelled || !product || !overCart(x, y)) return false
@@ -720,7 +721,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
       tilesDragRef.current = null
       detach()
       pileSpin.stop()
-      tileRing.stop()
       setHover(false)
     }
   }, [])

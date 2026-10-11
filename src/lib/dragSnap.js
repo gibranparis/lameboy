@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react'
 import { haptic } from '@/lib/haptics'
+import { createCloneRing, CLONE_RING_ATTR } from '@/lib/cloneRing'
 
 // Drag-and-park for UI elements: press squeezes, a drag past a few px lifts
 // the element and it follows the pointer 1:1, and on release it stays where
@@ -160,6 +161,8 @@ export const pinball = {
     [...document.querySelectorAll(PINBALL_WALLS)].filter(
       (o) =>
         o !== el && !el.contains(o) && !o.contains(el) &&
+        // a grabbed piece's ring of clones is only a picture of it
+        !o.closest(`[${CLONE_RING_ATTR}]`) &&
         // nothing hidden counts (e.g. the grid behind an open product page)
         (!o.checkVisibility || o.checkVisibility({ visibilityProperty: true, opacityProperty: true }))
     ),
@@ -330,6 +333,10 @@ export function resetDragged(opts = {}) {
  * @property {(el: HTMLElement, dir: 1 | -1) => void} [swipe] called for a
  *   quick, short sideways swipe (dir 1 = right), which then goes back to
  *   where it was pressed instead of parking or flying
+ * @property {boolean | { box?: (el: HTMLElement) => Element | null | undefined, alive?: (el: HTMLElement) => boolean }} [ring]
+ *   the ring of clones round it while it's grabbed (see cloneRing):
+ *   everything with a `fling` gets one, cloning its `body`; false: none;
+ *   or what to clone (box) and when it's gone (alive)
  * @property {(lifted: boolean) => void} [onLift] called with true when a drag
  *   lifts an element, and false once it is back home and at rest (e.g. to
  *   raise its container above everything while it's away)
@@ -342,7 +349,7 @@ export function resetDragged(opts = {}) {
  *   with homeAll() to send everything it parked home
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction, ignore, key, stayOnTap, jumpHome, onDragMove, onDrop, onLift, fling, swipe } = opts
+  const { targets, enabled, touchAction, ignore, key, stayOnTap, jumpHome, onDragMove, onDrop, onLift, fling, swipe, ring: withRing = true } = opts
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
   /** @type {Set<HTMLElement>} parked away from home, for the reset */
@@ -354,6 +361,12 @@ export function attachDragSnap(root, opts = {}) {
   // Set when a drag ends, so the click (and touchend) the browser sends
   // right after it doesn't also fire the element's tap action
   let suppress = false
+  // Grabbed, a ring of clones of it spins round it (the part that collides,
+  // e.g. a tile's hoodie card, is the part that's cloned)
+  const ring =
+    fling && withRing
+      ? createCloneRing(typeof withRing === 'object' ? withRing : { box: (el) => fling.body?.(el) || el })
+      : null
 
   const findTarget = (/** @type {EventTarget|null} */ t) => {
     if (!targets) return root
@@ -498,7 +511,10 @@ export function attachDragSnap(root, opts = {}) {
     suppress = false
     if (down.size > 1) {
       // A second finger (pinch): let go of the drag without acting
-      if (press) drop(press)
+      if (press) {
+        ring?.release(press.el)
+        drop(press)
+      }
       press = null
       return
     }
@@ -548,6 +564,7 @@ export function attachDragSnap(root, opts = {}) {
     press.lx = e.clientX
     press.ly = e.clientY
     write(press.el, m)
+    ring?.move(press.el, e.clientX, e.clientY)
     onDragMove?.(press.el, e.clientX, e.clientY)
   }
 
@@ -612,6 +629,7 @@ export function attachDragSnap(root, opts = {}) {
       return
     }
     suppress = true
+    ring?.release(p.el)
     if (onDrop?.(p.el, e.clientX, e.clientY, e.type !== 'pointerup')) {
       stateOf(p.el).held = false
       sendHome(p.el)
@@ -742,6 +760,7 @@ export function attachDragSnap(root, opts = {}) {
     root.removeEventListener('dragstart', onNativeDrag)
     root.removeEventListener('selectstart', onNativeDrag)
     root.removeEventListener('click', onClick, true)
+    ring?.stop()
   }
   /** Sends everything this instance has parked home (jump: no spring, for a
    *  caller about to animate them itself, e.g. a FLIP after a layout change) */

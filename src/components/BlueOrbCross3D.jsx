@@ -714,7 +714,9 @@ export default function BlueOrbCross3D({
       <Canvas
         dpr={[1, maxDpr]}
         camera={{ position: [0, 0, 3 * os], fov: 45 }}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+        // preserveDrawingBuffer: a grabbed orb's ring of clones copies this
+        // canvas every frame (lib/cloneRing)
+        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: true }}
         style={{
           position: 'absolute',
           ...(os > 1
