@@ -139,6 +139,10 @@ export default function OrbShell({
 
   const shellRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   const [dragging, setDragging] = useState(false)
+  // While dragged, the balls break from the cross and orbit the grab point
+  // (px from the orb's centre); null snaps them back into the cross
+  const [scatter, setScatter] = useState(/** @type {{x:number,y:number}|null} */ (null))
+  const grabOffset = useRef({ x: 0, y: 0 })
   const dragStart = useRef(/** @type {{id:number,x:number,y:number,active:boolean}|null} */ (null))
   // Set when a drag ends so the click the browser fires after it is ignored
   const suppressClick = useRef(false)
@@ -249,6 +253,9 @@ export default function OrbShell({
   //
   // In the shop the same drag works on the bottom-bar orb: it lifts, follows
   // the finger, springs home, then does what a tap does (the next zoom step).
+  //
+  // In both, a dragged orb breaks apart: its balls orbit the finger and the
+  // arms shrink away, then everything snaps back into the cross on release.
 
   const onGateClick = useCallback(() => {
     if (suppressClick.current) { suppressClick.current = false; return }
@@ -262,6 +269,10 @@ export default function OrbShell({
     if (!canDrag) return
     if (e.pointerType === 'mouse' && e.button !== 0) return
     dragStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false }
+    const box = shellRef.current?.getBoundingClientRect()
+    grabOffset.current = box
+      ? { x: e.clientX - (box.left + box.width / 2), y: e.clientY - (box.top + box.height / 2) }
+      : { x: 0, y: 0 }
     setScaleTarget(PRESS_SCALE)
     // Read the ball while they still show their own colours; set in the same
     // event as the sequence start, so the touched colour shows instead of red
@@ -285,6 +296,7 @@ export default function OrbShell({
       try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
       m.held = true
       setDragging(true)
+      if (!reducedMotion.current) setScatter(grabOffset.current)
       setScaleTarget(LIFT_SCALE)
       if (!inShop && onHoldChange) onHoldChange(true)
     }
@@ -310,6 +322,7 @@ export default function OrbShell({
     // the next zoom step (shop). The click or touchend that follows is ignored.
     suppressClick.current = true
     setDragging(false)
+    setScatter(null) // re-forms the cross as the orb flies home
     const m = motion.current
     m.held = false
     const start = inShop
@@ -567,6 +580,8 @@ export default function OrbShell({
           solidOverride={orbSolidOverride}
           colorFadeMs={inGateLike ? GATE_FADE_MS : landing ? LANDING_FADE_MS : 0}
           pickRef={pickRef}
+          scatter={scatter}
+          overscan={3}
         />
         {!inGateLike && !overlayOpen && (
           <span
