@@ -620,10 +620,12 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
   const overlayOpenRef = useRef(overlayOpen)
   useEffect(() => { overlayOpenRef.current = overlayOpen }, [overlayOpen])
 
-  /* ---------------- Tap open space: fold the grid back into stacks ---------------- */
+  /* ---------------- Tap open space: everything back in place ---------------- */
   // Anywhere in the shop's main area counts, not just the grid strip (which
-  // only spans the tile rows at the bottom). Taps on photos, controls and
-  // the heart panel don't; nor does the tap that closes that panel.
+  // only spans the tile rows at the bottom). In the grid it folds back into
+  // stacks (which sends everything home); already stacked, it sends
+  // everything that was dragged around back to its spot. Taps on photos,
+  // controls and the heart panel don't; nor does the tap that closes that panel.
   const viewModeRef = useRef(viewMode)
   viewModeRef.current = viewMode
   useEffect(() => {
@@ -633,13 +635,14 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     }
     const onClick = (/** @type {MouseEvent} */ e) => {
       const root = document.documentElement
-      if (viewModeRef.current !== VIEW_GRID || overlayOpenRef.current) return
+      if (overlayOpenRef.current) return
       if (root.dataset.overlayOpen === '1' || root.hasAttribute('data-checkout-open')) return
       if (panelOpenAtPress) return
       const t = /** @type {Element|null} */ (e.target instanceof Element ? e.target : null)
       if (!t?.closest('main.shop-main')) return
       if (t.closest('a, button, input, select, textarea, label, [role="button"], .product-img-wrap, .product-meta, .nl-panel')) return
-      collapseToStacks()
+      if (viewModeRef.current === VIEW_GRID) collapseToStacks()
+      else resetDragged({ spring: true })
     }
     document.addEventListener('pointerdown', onDown, true)
     document.addEventListener('click', onClick)
