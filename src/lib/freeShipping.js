@@ -7,6 +7,9 @@
 
 export const FREE_SHIP_DOMESTIC_CENTS = 8000
 export const FREE_SHIP_INTL_CENTS = 12000
+// The meter counts tokens, never dollars: a token is 8¢ of merchandise
+// (12.5 per $1), so free US shipping takes 1,000 tokens and abroad 1,500
+export const CENTS_PER_TOKEN = 8
 
 /** Cents a cart needs for free shipping to `country` (US until we know). */
 export function freeShipThreshold(country) {
@@ -17,17 +20,12 @@ export function qualifiesForFreeShipping(subtotalCents, country) {
   return subtotalCents >= freeShipThreshold(country)
 }
 
-/** How full the tokens meter is, 0–100. */
-export function freeShipPercent(subtotalCents, country) {
-  return Math.min(100, (Math.max(0, subtotalCents) / freeShipThreshold(country)) * 100)
-}
-
-/** The line under the meter: what's left, or that it's unlocked. */
-export function freeShipCaption(subtotalCents, country) {
-  const left = freeShipThreshold(country) - subtotalCents
-  if (left <= 0) return 'free shipping unlocked'
-  const dollars = left % 100 === 0 ? String(left / 100) : (left / 100).toFixed(2)
-  return `$${dollars} to free shipping`
+/** Tokens the cart holds, and the goal that unlocks free shipping to `country`. */
+export function freeShipTokens(subtotalCents, country) {
+  return {
+    tokens: Math.floor(Math.max(0, subtotalCents) / CENTS_PER_TOKEN),
+    goal: freeShipThreshold(country) / CENTS_PER_TOKEN,
+  }
 }
 
 /**

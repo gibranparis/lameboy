@@ -7,7 +7,7 @@ import { attachDragSnap, POPUP_CONTROLS } from '@/lib/dragSnap'
 import { placeNear } from '@/lib/popupPlacement'
 import { COUNTRIES } from '@/lib/countries'
 import { getProfile } from '@/lib/profile'
-import { freeShipCaption, freeShipPercent } from '@/lib/freeShipping'
+import { freeShipTokens } from '@/lib/freeShipping'
 import TokensMeter from './TokensMeter'
 
 /**
@@ -311,11 +311,7 @@ export default function CheckoutView({ onClose }) {
           borderTop: `1px solid ${border}`,
           flexShrink: 0,
         }}>
-          <TokensMeter
-            percent={freeShipPercent(total, country)}
-            caption={freeShipCaption(total, country)}
-            open={visible}
-          />
+          <TokensMeter {...freeShipTokens(total, country)} open={visible} />
           <ShippingEstimate items={items} night={night} country={country} setCountry={setCountry} />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: textPrimary }}>Total</span>

@@ -314,10 +314,6 @@ html[data-loader-active] {
 :root[data-mode='shop'] header[role='banner'] > *:last-child {
   justify-self: end;
 }
-:root[data-checkout-open='1'] header[role='banner'] {
-  background: var(--bg, #f7f7f2) !important;
-}
-
 .cart-fab {
   position: relative;
   display: inline-flex;
