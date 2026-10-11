@@ -507,7 +507,10 @@ export default function OrbShell({
       runSpin()
     }
     setDragging(false)
-    setScatter(null) // re-forms the cross as the orb flies home
+    // Flicked in the shop, the balls stay scattered, rolling, while it
+    // pinballs, and form the cross again once it's home; otherwise the cross
+    // re-forms as it lets go
+    if (!flick) setScatter(null)
     const m = motion.current
     m.held = false
     if (inShop) {
@@ -519,6 +522,7 @@ export default function OrbShell({
       if (flick && el) {
         m.parked = false
         launch(m, relV.x, relV.y, el.getBoundingClientRect(), pinball.obstacles(el))
+        onSettle.current = () => setScatter(null)
         shopStep.current?.()
       } else {
         m.parked = true
