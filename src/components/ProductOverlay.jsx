@@ -161,7 +161,20 @@ const SIZE_CHART = {
 }
 
 /* ---------------- + / sizes ---------------- */
-function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, onAddedToCart, onToggleZoom, onSizePicked, triggerRef }) {
+// Size pre-selected when "+" opens: the first one in stock (variants come from
+// Supabase); without stock data, just the first size.
+function defaultSize(sizes, variants) {
+  if (variants?.length) {
+    const inStock = sizes.find((sz) => {
+      const v = variants.find((x) => x.size === sz)
+      return v && typeof v.stock === 'number' && v.stock > 0
+    })
+    if (inStock) return inStock
+  }
+  return sizes[0] ?? null
+}
+
+function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, product, note, onAddedToCart, onToggleZoom, onSizePicked, triggerRef }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState(null)
   const [hotSize, setHotSize] = useState(null)
@@ -171,20 +184,16 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
 
   const onToggle = useCallback(() => {
     if (showAdded) return
-    // If a size is picked, go back to size selection (not all the way to "+")
-    if (picked) {
-      setPicked(null)
-      onSizePicked?.(null)
-      setPlusHot(true)
-      clearTimeout(timers.current.plusTick)
-      timers.current.plusTick = setTimeout(() => setPlusHot(false), 160)
-      return
-    }
-    setOpen((v) => !v)
+    // Opening pre-selects a size (dims show right away) and keeps every size
+    // pill visible so it can be switched; closing clears the selection.
+    const next = open ? null : defaultSize(sizes, product?.variants)
+    setOpen(!open)
+    setPicked(next)
+    onSizePicked?.(next)
     setPlusHot(true)
     clearTimeout(timers.current.plusTick)
     timers.current.plusTick = setTimeout(() => setPlusHot(false), 160)
-  }, [showAdded, picked, onSizePicked])
+  }, [showAdded, open, sizes, product, onSizePicked])
 
   const onPlusClick = useCallback(() => {
     onToggle()
@@ -256,7 +265,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     onSizePicked?.(null)
   }, [product])
 
-  const glyph = picked ? picked : open ? '–' : '+'
+  const glyph = open ? '–' : '+'
   const addedStyle = {
     color: priceStyle?.color || 'inherit',
     fontSize: priceStyle?.fontSize || 'inherit',
@@ -266,7 +275,8 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
   }
 
   return (
-    <div style={{ display: 'grid', justifyItems: 'center', position: 'relative' }}>
+    // zIndex keeps the size pills above the add-to-cart tap zone (z 521)
+    <div style={{ display: 'grid', justifyItems: 'center', position: 'relative', zIndex: 523 }}>
       <button
         type="button"
         data-ui="size-toggle"
@@ -281,16 +291,14 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         aria-label={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
         title={open ? 'Close sizes' : showAdded ? 'Added' : 'Choose size'}
         style={{
-          width: open && !picked ? 22 : 28,
-          height: open && !picked ? 22 : 28,
+          width: open ? 22 : 28,
+          height: open ? 22 : 28,
           transition: 'width 0.15s ease, height 0.15s ease',
         }}
       >
         <span aria-hidden style={{
           opacity: showAdded ? 0 : 1,
-          fontSize: open && !picked ? 12 : picked ? 10 : undefined,
-          fontWeight: picked ? 700 : undefined,
-          letterSpacing: picked ? '0.02em' : undefined,
+          fontSize: open ? 12 : undefined,
         }}>
           {glyph}
         </span>
@@ -319,71 +327,70 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
         </div>
       )}
 
-      {/* Size pills – only rendered when + is open and no size picked yet */}
-      {open && !picked && (
+      {/* Size pills stay open with the picked one lit; Add to Cart sits underneath */}
+      {open && !showAdded && (
         <div
-          className="row-nowrap size-panel"
-          data-ui="size-panel"
           style={{
-            gap: 8,
             position: 'absolute',
             top: '100%',
             left: '50%',
             transform: 'translateX(-50%)',
             marginTop: 10,
+            display: 'grid',
+            justifyItems: 'center',
+            gap: 10,
           }}
         >
-          {sizes.map((sz) => (
-            <button
-              key={sz}
-              type="button"
-              className={[
-                'pill',
-                'size-pill',
-                hotSize === sz ? 'is-hot' : '',
-              ].join(' ')}
-              data-size={sz}
-              onClick={() => pick(sz)}
-              aria-label={`Size ${sz}`}
-              title={`Size ${sz}`}
-              style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, padding: 0 }}
-            >
-              {sz}
-            </button>
-          ))}
-        </div>
-      )}
+          <div className="row-nowrap size-panel" data-ui="size-panel" style={{ gap: 8 }}>
+            {sizes.map((sz) => (
+              <button
+                key={sz}
+                type="button"
+                className={[
+                  'pill',
+                  'size-pill',
+                  picked === sz ? 'is-selected' : '',
+                  hotSize === sz ? 'is-hot' : '',
+                ].join(' ')}
+                data-size={sz}
+                onClick={() => pick(sz)}
+                aria-label={`Size ${sz}`}
+                aria-pressed={picked === sz}
+                title={`Size ${sz}`}
+                style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, padding: 0 }}
+              >
+                {sz}
+              </button>
+            ))}
+          </div>
 
-      {/* Add to Cart – replaces size pills, centered under "-" */}
-      {picked && open && !showAdded && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          display: 'flex',
-          justifyContent: 'center',
-          marginTop: 10,
-        }}>
-          <button
-            type="button"
-            className="atc-label"
-            onClick={addToCart}
-            aria-label="Add to cart"
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              ...addedStyle,
-              fontSize: 16,
-              fontWeight: 800,
-              letterSpacing: '0.04em',
-            }}
-          >
-            Add to Cart
-          </button>
+          {picked && (
+            <button
+              type="button"
+              className="atc-label"
+              onClick={addToCart}
+              aria-label="Add to cart"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                ...addedStyle,
+                fontSize: 16,
+                fontWeight: 800,
+                letterSpacing: '0.04em',
+              }}
+            >
+              Add to Cart
+            </button>
+          )}
+
+          {note && (
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.02em', color: '#ff4444', whiteSpace: 'nowrap' }}>
+              {note}
+            </div>
+          )}
         </div>
       )}
 
@@ -1657,13 +1664,8 @@ export default function ProductOverlay({
             {FINAL_SALE_LINE}
           </p>
           <div style={{ marginTop: 12 }}>
-            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} triggerRef={addToCartTriggerRef} />
+            <PlusSizesInline sizes={sizes} priceStyle={priceStyle} product={product} note={stockMessage} onAddedToCart={animateCloseAfterAdd} onToggleZoom={handleToggleZoom} onSizePicked={handleSizePicked} triggerRef={addToCartTriggerRef} />
           </div>
-          {stockMessage && (
-            <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, letterSpacing: '0.02em', color: '#ff4444' }}>
-              {stockMessage}
-            </div>
-          )}
         </div>
 
         {/* Size dimensions – top-right, below heart button, never on top of image */}
