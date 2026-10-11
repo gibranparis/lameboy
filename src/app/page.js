@@ -561,12 +561,15 @@ export default function Page() {
               transitionDelay: shopReady ? '0.22s' : '0s',
             }}
           >
-            {/* marginTop:auto pushes grid to bottom — no DOM element in the dead zone,
-                so iOS touches in that gap pass directly to <main> with no interference.
+            {/* margin auto centres the grid in the open space between the player and
+                the bottom bar (the stack sits centre-right, and the grid grows
+                evenly up and down as it zooms) — no DOM element in the dead zones,
+                so iOS touches there pass directly to <main> with no interference.
                 paddingTop matches the open player height so scrolling all the way up
                 reveals the full top item above the player boundary. */}
             <div style={{
               marginTop: 'auto',
+              marginBottom: 'auto',
               paddingTop: 'var(--yt-panel-h, 0px)',
               transition: 'padding-top 0.28s ease',
             }}>

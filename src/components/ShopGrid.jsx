@@ -725,27 +725,6 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     }
   }, [])
 
-  // Tiles take every touch drag while the page fits the screen; once it
-  // scrolls they only take sideways drags, so vertical swipes still scroll
-  useEffect(() => {
-    const root = document.documentElement
-    const check = () => {
-      if (root.scrollHeight > window.innerHeight + 1) root.setAttribute('data-page-scrolls', '1')
-      else root.removeAttribute('data-page-scrolls')
-    }
-    check()
-    // The body changes size when the gate unmounts after the hand-off
-    const ro = new ResizeObserver(check)
-    ro.observe(document.body)
-    if (gridRef.current) ro.observe(gridRef.current)
-    window.addEventListener('resize', check)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', check)
-      root.removeAttribute('data-page-scrolls')
-    }
-  }, [])
-
   useEffect(() => {
     const wrap = gridRef.current
     if (!wrap) return
@@ -1039,14 +1018,11 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
           box-sizing: border-box;
         }
 
-        /* Draggable tiles (see attachDragSnap above) */
+        /* Draggable tiles (see attachDragSnap above): always grabbable; when the
+           grid outgrows the screen the page scrolls from the open space around them */
         .category-stack,
         .shop-grid[data-view-mode='grid'] .product-tile {
           touch-action: none;
-        }
-        :global(html[data-page-scrolls='1']) .category-stack,
-        :global(html[data-page-scrolls='1']) .shop-grid[data-view-mode='grid'] .product-tile {
-          touch-action: pan-y;
         }
 
         /* Each tile fills exactly 1/cols of the available width */
