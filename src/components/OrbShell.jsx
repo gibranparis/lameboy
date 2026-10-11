@@ -81,8 +81,15 @@ export default function OrbShell({
     }
   }, [])
 
+  // Dragging the orb on the gate turns it the colour of the ball that was
+  // grabbed; it hands back to the sequence once the orb is home
+  const [grabColor, setGrabColor] = useState(/** @type {string|null} */ (null))
+  const grabbed = useRef(/** @type {string|null} */ (null))
+  const pickRef = useRef(/** @type {null | ((x: number, y: number) => string|null)} */ (null))
+
   const gateOverride = useMemo(() => {
     if (loaderShow || isProceeding) return BLACK
+    if (grabColor) return grabColor
     if (gateStep === 1) return RED
     if (gateStep === 2) return ORANGE
     if (gateStep === 3) return YELLOW
@@ -91,7 +98,7 @@ export default function OrbShell({
     if (gateStep === 6) return PURPLE
     if (gateStep === 7) return PINK
     return null
-  }, [gateStep, isProceeding, loaderShow])
+  }, [gateStep, grabColor, isProceeding, loaderShow])
 
   const gateSolid = gateStep >= 1 || isProceeding || loaderShow
 
@@ -236,8 +243,9 @@ export default function OrbShell({
   /* ===================== Gate interactions ===================== */
   // Every gesture starts the same sequence: all seven chakras, then black,
   // then the shop. Touching the orb starts it at once (red on contact); a
-  // drag holds the current colour until the orb is back home. Once it's
-  // running, more taps never skip a colour.
+  // drag pauses it and turns the orb the colour of the ball it was grabbed
+  // by (while the balls still show their own colours) until it's back home.
+  // Once it's running, more taps never skip a colour.
   //
   // In the shop the same drag works on the bottom-bar orb: it lifts, follows
   // the finger, springs home, then does what a tap does (the next zoom step).
@@ -255,6 +263,8 @@ export default function OrbShell({
     if (e.pointerType === 'mouse' && e.button !== 0) return
     dragStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false }
     setScaleTarget(PRESS_SCALE)
+    // Read the ball before the press turns the whole orb red
+    grabbed.current = !inShop && gateStep === 0 ? pickRef.current?.(e.clientX, e.clientY) ?? null : null
     if (!inShop && gateStep === 0) {
       buzz(8)
       onAdvanceGate && onAdvanceGate()
@@ -275,6 +285,7 @@ export default function OrbShell({
       setDragging(true)
       setScaleTarget(LIFT_SCALE)
       if (!inShop && onHoldChange) onHoldChange(true)
+      if (!inShop && grabbed.current) setGrabColor(grabbed.current)
     }
     m.x = dx
     m.y = dy
@@ -300,6 +311,7 @@ export default function OrbShell({
     const start = inShop
       ? () => { shopAction.current && shopAction.current() }
       : () => {
+          setGrabColor(null)
           onHoldChange && onHoldChange(false)
           onAdvanceGate && onAdvanceGate() // no-op unless the press didn't start it
         }
@@ -550,6 +562,7 @@ export default function OrbShell({
           flashDecayMs={inGateLike ? 0 : 140}
           solidOverride={orbSolidOverride}
           colorFadeMs={inGateLike ? GATE_FADE_MS : landing ? LANDING_FADE_MS : 0}
+          pickRef={pickRef}
         />
         {!inGateLike && !overlayOpen && (
           <span
