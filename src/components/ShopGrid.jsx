@@ -9,6 +9,8 @@ import { PRODUCTS } from '@/lib/products'
 import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
 import { attachDragSnap, resetDragged } from '@/lib/dragSnap'
+import { haptic } from '@/lib/haptics'
+import { QUICK_ADD } from '@/components/QuickAddSizes'
 
 /** Storage key for saved grid density */
 const KEY_DENSITY = 'lb:grid-cols'
@@ -638,15 +640,46 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
   }, [collapseToStacks])
 
   /* ---------------- Drag a tile or stack; it stays put until tapped or the grid folds ---------------- */
+  // A product tile dropped on the cart button springs home and the cart
+  // offers its sizes (QuickAddSizes); the bag swells while one hovers over it
   const tilesRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  const seedRef = useRef(seed)
+  seedRef.current = seed
   useEffect(() => {
     const el = tilesRef.current
     if (!el) return
-    return attachDragSnap(el, {
+    const root = document.documentElement
+    const productOf = (/** @type {HTMLElement} */ tile) =>
+      tile.matches('.product-tile') ? seedRef.current[Number(tile.dataset.seedIdx)] : null
+    const overCart = (/** @type {number} */ x, /** @type {number} */ y) => {
+      const r = document.querySelector('[data-cart-button]')?.getBoundingClientRect()
+      const pad = 18 // a forgiving target
+      return !!r && x > r.left - pad && x < r.right + pad && y > r.top - pad && y < r.bottom + pad
+    }
+    const setHover = (/** @type {boolean} */ on) => {
+      if (on === root.hasAttribute('data-cart-drop-hover')) return
+      if (on) {
+        root.setAttribute('data-cart-drop-hover', '')
+        haptic(6)
+      } else root.removeAttribute('data-cart-drop-hover')
+    }
+    const detach = attachDragSnap(el, {
       targets: ['.category-stack', ".shop-grid[data-view-mode='grid'] .product-tile"],
       enabled: () => !overlayOpenRef.current && document.documentElement.dataset.overlayOpen !== '1',
       jumpHome: true, // the fold's FLIP flies them into the stack
+      onDragMove: (tile, x, y) => setHover(!!productOf(tile) && overCart(x, y)),
+      onDrop: (tile, x, y, cancelled) => {
+        setHover(false)
+        const product = productOf(tile)
+        if (cancelled || !product || !overCart(x, y)) return false
+        window.dispatchEvent(new CustomEvent(QUICK_ADD, { detail: { product } }))
+        return true
+      },
     })
+    return () => {
+      detach()
+      setHover(false)
+    }
   }, [])
 
   // Tiles take every touch drag while the page fits the screen; once it

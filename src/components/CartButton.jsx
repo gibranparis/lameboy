@@ -85,7 +85,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   }, [count, cartReady])
 
   useEffect(() => {
-    const onLanded = () => bump('lb-catch', 460)
+    const onLanded = () => bump('lb-catch', 760) // long enough for the ripples
     window.addEventListener(CART_LANDED, onLanded)
     return () => window.removeEventListener(CART_LANDED, onLanded)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -187,6 +187,13 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
             }}
           />
         </span>
+        {/* Ripples out of the bag as an item lands in it */}
+        {bumpCls === 'lb-catch' && (
+          <>
+            <span className="cart-ripple" aria-hidden />
+            <span className="cart-ripple cart-ripple--late" aria-hidden />
+          </>
+        )}
         {count > 0 && (
           <span aria-hidden="true" style={S.badge}>
             {count}
@@ -214,6 +221,37 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
         }
         .lb-bump {
           animation: lbBump 240ms ease;
+        }
+        /* A product tile dragged over the bag: it opens up to take it */
+        :global(html[data-cart-drop-hover]) .cart-fab {
+          transform: scale(1.22) rotate(-6deg);
+          transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+          filter: drop-shadow(0 0 8px rgba(11, 240, 95, 0.75));
+        }
+        .cart-ripple {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 100%;
+          height: 100%;
+          margin: -50% 0 0 -50%;
+          border-radius: 50%;
+          border: 2px solid rgba(11, 240, 95, 0.7);
+          pointer-events: none;
+          animation: cartRipple 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .cart-ripple--late {
+          animation-delay: 110ms;
+        }
+        @keyframes cartRipple {
+          from {
+            transform: scale(0.6);
+            opacity: 0.9;
+          }
+          to {
+            transform: scale(2.1);
+            opacity: 0;
+          }
         }
         .lb-catch {
           animation: lbCatch 460ms cubic-bezier(0.3, 1.4, 0.5, 1);

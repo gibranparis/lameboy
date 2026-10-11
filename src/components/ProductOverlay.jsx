@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE } from '@/lib/store-info'
 import { startCartFlight, landCartFlight } from '@/lib/cartFlight'
+import { haptic } from '@/lib/haptics'
 
 /* ---------------- utils ---------------- */
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -214,6 +215,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
 
   const addToCart = useCallback(() => {
     if (!picked) return
+    haptic(10)
     // The cart button waits to bump until the item has jumped in
     if (onAddedToCart) startCartFlight()
     try {
@@ -370,20 +372,9 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           {picked && (
             <button
               type="button"
-              className="atc-label"
+              className="atc-btn"
               onClick={addToCart}
-              aria-label="Add to cart"
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                ...addedStyle,
-                fontSize: 16,
-                fontWeight: 800,
-                letterSpacing: '0.04em',
-              }}
+              aria-label={`Add size ${picked} to cart`}
             >
               Add to Cart
             </button>
@@ -398,24 +389,55 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
       )}
 
       <style jsx>{`
-        .atc-label {
-          animation: atc-in 0.22s ease both, atc-glow 1.9s ease-in-out 0.3s infinite;
+        /* Green pill like the lit size / + pills: pops in, breathes a soft
+           ring to invite a tap, squishes under the finger */
+        .atc-btn {
+          height: 36px;
+          padding: 0 20px;
+          border: none;
+          border-radius: 9999px;
+          background: var(--hover-green, #0bf05f);
+          color: #000;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          white-space: nowrap;
+          cursor: pointer;
+          box-shadow:
+            inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+            0 2px 10px rgba(0, 0, 0, 0.14);
+          transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+          animation:
+            atc-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+            atc-breathe 2.2s ease-out 0.5s infinite;
+        }
+        .atc-btn:hover {
+          transform: scale(1.04);
+        }
+        .atc-btn:active {
+          transform: scale(0.93);
+          transition-duration: 0.06s;
         }
         @keyframes atc-in {
-          from { opacity: 0; transform: translateY(-4px); }
-          to   { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translateY(-6px) scale(0.8); }
+          to   { opacity: 1; transform: none; }
         }
-        @keyframes atc-glow {
-          0%, 100% {
-            filter: none;
-            transform: scale(1);
-            opacity: 1;
+        @keyframes atc-breathe {
+          0% {
+            box-shadow:
+              inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+              0 2px 10px rgba(0, 0, 0, 0.14),
+              0 0 0 0 rgba(11, 240, 95, 0.55);
           }
-          50% {
-            filter: drop-shadow(0 0 5px rgba(11,240,95,.9)) drop-shadow(0 0 14px rgba(11,240,95,.35));
-            transform: scale(1.03);
-            opacity: 0.92;
+          70%, 100% {
+            box-shadow:
+              inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+              0 2px 10px rgba(0, 0, 0, 0.14),
+              0 0 0 10px rgba(11, 240, 95, 0);
           }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .atc-btn { animation: none; }
         }
         .plus-pill {
           width: 28px;

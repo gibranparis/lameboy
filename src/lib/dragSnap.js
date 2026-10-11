@@ -55,6 +55,11 @@ export function resetDragged() {
  *   it home
  * @property {boolean} [jumpHome] on resetDragged(), parked elements jump home
  *   with no spring, for a caller that animates them itself (the grid's FLIP)
+ * @property {(el: HTMLElement, x: number, y: number) => void} [onDragMove]
+ *   called with the pointer's position on every move of a live drag
+ * @property {(el: HTMLElement, x: number, y: number, cancelled: boolean) => boolean} [onDrop]
+ *   called when a drag ends; return true when the drop was used (e.g. on the
+ *   cart) and the element springs home instead of parking
  * @property {(lifted: boolean) => void} [onLift] called with true when a drag
  *   lifts an element, and false once it is back home and at rest (e.g. to
  *   raise its container above everything while it's away)
@@ -66,7 +71,7 @@ export function resetDragged() {
  * @returns {() => void} cleanup
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction, ignore, key, independent, jumpHome, onLift } = opts
+  const { targets, enabled, touchAction, ignore, key, independent, jumpHome, onDragMove, onDrop, onLift } = opts
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
   /** @type {Set<HTMLElement>} parked away from home, for the reset */
@@ -239,6 +244,7 @@ export function attachDragSnap(root, opts = {}) {
     m.y = press.by + dy
     m.vx = m.vy = 0
     write(press.el, m)
+    onDragMove?.(press.el, e.clientX, e.clientY)
   }
 
   /** Spring home (or jump, with no animation) */
@@ -302,6 +308,11 @@ export function attachDragSnap(root, opts = {}) {
       return
     }
     suppress = true
+    if (onDrop?.(p.el, e.clientX, e.clientY, e.type !== 'pointerup')) {
+      stateOf(p.el).held = false
+      sendHome(p.el)
+      return
+    }
     drop(p)
   }
 

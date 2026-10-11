@@ -21,6 +21,7 @@ const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: fal
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
 const NewsletterForm = nextDynamic(() => import('@/components/NewsletterForm'), { ssr: false })
+const QuickAddSizes = nextDynamic(() => import('@/components/QuickAddSizes'), { ssr: false })
 const MusicPlayerButton = nextDynamic(() => import('@/components/MusicPlayerButton'), { ssr: false })
 
 const RUNNER_H = 14
@@ -579,6 +580,9 @@ export default function Page() {
 
       {/* Checkout side panel */}
       {checkoutOpen && <CheckoutView onClose={() => setCheckoutOpen(false)} />}
+
+      {/* Sizes that pop out of the cart when a tile is dropped on it */}
+      {inShop && <QuickAddSizes />}
     </div>
   )
 }
