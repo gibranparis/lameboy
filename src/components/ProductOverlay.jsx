@@ -416,6 +416,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
               className="atc-btn"
               data-drag-key="atc"
               onClick={addToCart}
+              style={{ marginTop: 18 }} /* breathing room under the size pills */
               aria-label={`Add size ${picked} to cart`}
             >
               <span className="atc-text">Add to Cart</span>
@@ -824,7 +825,15 @@ function useSwipe({ imgsLen, prodsLen, index, setImgIdx, onIndexChange, onDirFla
   // Clean up momentum on unmount
   useEffect(() => cancelMomentum, [cancelMomentum])
 
-  return { onDown, onMove, onUp }
+  // Drops a swipe without acting on it (e.g. one whose release landed
+  // outside the overlay and never arrived)
+  const cancel = useCallback(() => {
+    state.current.active = false
+    state.current.ax = 0
+    state.current.ay = 0
+  }, [])
+
+  return { onDown, onMove, onUp, cancel }
 }
 
 /* ---------------- component ---------------- */
@@ -1256,9 +1265,10 @@ export default function ProductOverlay({
   // Combined touch handler
   const handleTouchStart = useCallback((/** @type {any} */ e) => {
     // The measurements handle their own drag and pinch; a one-finger press
-    // on the photo or a pill drags it, not the product (two still pinch)
-    if (e.target?.closest?.('[data-own-gestures]')) return
-    if (e.touches.length === 1 && e.target?.closest?.('[data-drag-key]')) return
+    // on a pill, or on the photo once zoomed, drags it, not the product
+    // (two fingers still pinch)
+    if (e.target?.closest?.('[data-own-gestures]')) return swipe.cancel()
+    if (e.touches.length === 1 && grabsPress(e.target)) return swipe.cancel()
     if (e.touches.length === 2) {
       handlePinchStart(e)
     } else if (e.touches.length === 1) {
@@ -1342,6 +1352,20 @@ export default function ProductOverlay({
     }
   }, [pinchZoom.scale])
 
+  /* a mouse swipe ends wherever the button is released, even outside the
+     overlay (over the top bar, say), so moving the mouse afterwards can't
+     keep swiping products */
+  useEffect(() => {
+    const cancelSwipe = swipe.cancel
+    const end = (/** @type {PointerEvent} */ e) => { if (e.pointerType !== 'touch') cancelSwipe() }
+    window.addEventListener('pointerup', end, true)
+    window.addEventListener('pointercancel', end, true)
+    return () => {
+      window.removeEventListener('pointerup', end, true)
+      window.removeEventListener('pointercancel', end, true)
+    }
+  }, [swipe.cancel])
+
   /* overlay flag */
   useEffect(() => {
     document.documentElement.setAttribute('data-overlay-open', '1')
@@ -1382,16 +1406,30 @@ export default function ProductOverlay({
     setSelectedSize(null)
   }, [index])
 
-  // The product photo drags anywhere (zoom: pinch, or ⌘ / ctrl + scroll); a
-  // tap brings it back (handleHeroImgClick). The measurements drag too and
-  // zoom with a pinch or the scroll wheel; a tap brings them back.
+  // Once zoomed (pinch, or ⌘ / ctrl + scroll) the product photo drags
+  // anywhere; unzoomed, a drag on it still swipes products. A tap brings it
+  // back (handleHeroImgClick), and so does zooming back out. The measurements
+  // drag too and zoom with a pinch or the scroll wheel; a tap brings them back.
   const heroImgRef = useRef(/** @type {HTMLImageElement|null} */ (null))
+  const heroZoomRef = useRef(1)
+  heroZoomRef.current = pinchZoom.scale
   const hasImg = !!imgs.length
   useEffect(() => {
     const el = heroImgRef.current
     if (!el) return
-    return attachDragSnap(el, { touchAction: 'none', enabled: () => !closingRef.current })
-  }, [hasImg])
+    return attachDragSnap(el, {
+      touchAction: 'none',
+      enabled: () => !closingRef.current && heroZoomRef.current > 1,
+    })
+  }, [hasImg, product, clampedImgIdx]) // a new product / image mounts a new <img>
+  useEffect(() => {
+    if (pinchZoom.scale <= 1) springHome(heroImgRef.current)
+  }, [pinchZoom.scale])
+  // A press the element under it drags itself instead of swiping products
+  const grabsPress = (/** @type {any} */ target) => {
+    const el = target?.closest?.('[data-drag-key]')
+    return !!el && (el.dataset.dragKey !== 'hero' || heroZoomRef.current > 1)
+  }
 
   const dimsRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   const [dimsZoom, setDimsZoom] = useState(1)
@@ -1709,7 +1747,7 @@ export default function ProductOverlay({
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
           onPointerDown={(e) => {
-            if (/** @type {any} */ (e.target)?.closest?.('[data-drag-key]')) return // dragging the photo, a pill or the measurements
+            if (grabsPress(e.target)) return swipe.cancel() // dragging a pill, the measurements, or the zoomed photo
             if (e.pointerType !== 'touch') swipe.onDown(e)
           }}
           onPointerMove={(e) => {
@@ -1796,6 +1834,7 @@ export default function ProductOverlay({
                     className="product-hero-img"
                     ref={heroImgRef}
                     data-drag-key="hero"
+                    draggable={false} // no native image drag: a mouse drag swipes products (or moves it once zoomed)
                     priority
                     fetchPriority="high"
                     quality={95}
