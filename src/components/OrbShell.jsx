@@ -364,7 +364,30 @@ export default function OrbShell({
 
   const [pressColor, setPressColor] = useState(null) // '#00a832' | null
   const [overlayOpen, setOverlayOpen] = useState(false)
-  const [cycleStep, setCycleStep] = useState(0)
+  // Which way the next tap zooms. It follows the grid's real state (ShopGrid
+  // broadcasts lb:grid-density on every change) instead of counting taps, so
+  // the orb never falls out of step when the grid folds or changes some other
+  // way (a tap on open space, closing a product page, a re-rack): from stacks
+  // it zooms in, and it turns around at the closest zoom (3 columns), so a
+  // tap always does something. stacks → 5 → 4 → 3 → 4 → 5 → stacks.
+  const [orbState, setOrbState] = useState({ next: /** @type {'in' | 'out'} */ ('in'), stacked: true })
+  const orbNextRef = useRef(/** @type {'in' | 'out'} */ ('in'))
+  const gridStacked = useRef(true)
+  useEffect(() => {
+    const MIN_COLS = 3 // ShopGrid's closest zoom
+    const onGrid = (/** @type {any} */ e) => {
+      const d = e?.detail || {}
+      if (d.viewMode) gridStacked.current = d.viewMode === 'stacks'
+      const density = Number(d.density)
+      let next = orbNextRef.current
+      if (gridStacked.current) next = 'in'
+      else if (Number.isFinite(density) && density <= MIN_COLS) next = 'out'
+      orbNextRef.current = next
+      setOrbState({ next, stacked: gridStacked.current })
+    }
+    document.addEventListener('lb:grid-density', onGrid)
+    return () => document.removeEventListener('lb:grid-density', onGrid)
+  }, [])
 
   const GREEN_ZOOM = '#00a832'
   const BLACK_GLOW = '#000000'
@@ -410,14 +433,6 @@ export default function OrbShell({
     [pulse]
   )
 
-  const actions = [
-    () => fireZoom('in'),  // stacks -> 5
-    () => fireZoom('in'),  // 5 -> 4
-    () => fireZoom('in'),  // 4 -> 3
-    () => fireZoom('out'), // 3 -> 4
-    () => fireZoom('out'), // 4 -> 5
-    () => fireZoom('out'), // 5 -> stacks
-  ]
 
   // mirror external zoom pulses visually
   useEffect(() => {
@@ -428,17 +443,14 @@ export default function OrbShell({
     return () => document.removeEventListener('lb:zoom', onExternal)
   }, [pulse])
 
-  const runShopStep = () => {
-    actions[cycleStep]()
-    setCycleStep((prev) => (prev + 1) % actions.length)
-  }
+  const runShopStep = () => fireZoom(gridStacked.current ? 'in' : orbNextRef.current)
   shopAction.current = runShopStep
 
   const onShopClick = useCallback(() => {
     if (suppressClick.current) { suppressClick.current = false; return } // end of a drag
     runShopStep()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions, cycleStep])
+  }, [fireZoom])
 
   const onShopTouchEnd = useCallback(
     (e) => {
@@ -447,7 +459,7 @@ export default function OrbShell({
       runShopStep()
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [actions, cycleStep]
+    [fireZoom]
   )
   const onShopContextMenu = useCallback((e) => { e.preventDefault() }, [])
 
@@ -455,26 +467,26 @@ export default function OrbShell({
     (e) => {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault()
-        actions[cycleStep]()
-        setCycleStep((prev) => (prev + 1) % actions.length)
+        runShopStep()
       }
     },
-    [actions, cycleStep]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fireZoom]
   )
 
   const onShopWheel = useCallback(
     (e) => {
       try { e.preventDefault() } catch {}
-      actions[cycleStep]()
-      setCycleStep((prev) => (prev + 1) % actions.length)
+      runShopStep()
     },
-    [actions, cycleStep]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fireZoom]
   )
 
   const rpmValue = useMemo(() => {
     if (inGateLike) return 44
-    return cycleStep === 0 || cycleStep >= 4 ? 44 : -44
-  }, [inGateLike, cycleStep])
+    return orbState.next === 'out' || orbState.stacked ? 44 : -44
+  }, [inGateLike, orbState])
 
   /* ===================== Unified render ===================== */
 
@@ -588,7 +600,7 @@ export default function OrbShell({
           armRatio={inGateLike ? 0.33 : 0.35}
           glow={orbGlow}
           glowOpacity={orbGlowOpacity}
-          includeYAxis={inGateLike ? true : cycleStep === 0 || cycleStep >= 4}
+          includeYAxis={inGateLike ? true : orbState.next === 'out' || orbState.stacked}
           includeZAxis={true}
           respectReducedMotion={false}
           interactive={!inGateLike || (!isProceeding && !loaderShow)}
