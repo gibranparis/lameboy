@@ -4,6 +4,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BlueOrbCross3D from '@/components/BlueOrbCross3D'
 
+// Spin momentum (see "Spin momentum" below). The cross has 2-fold symmetry
+// about its spin axis, so it's kept well under half a turn per 60 fps frame,
+// past which it looks like it's turning backwards
+const BOOST_PER_PX = 0.09 // extra rpm per px/s of drag
+const MAX_BOOST = 180 // rpm while held
+const MAX_FLING_BOOST = 230 // rpm right after a fling
+const ORBIT_PER_PX = 0.014 // rad/s of the balls' turn round the finger per px/s of drag
+const MAX_ORBIT = 12 // rad/s
+const IDLE_ORBIT = 2.2 // rad/s, their lazy turn while held still
+
 export default function OrbShell({
   mode, // 'gate' | 'shop'
   loaderShow, // boolean
@@ -64,9 +74,11 @@ export default function OrbShell({
   const YELLOW = '#ffd400'  // solar chakra
   const GREEN  = '#00a832'  // heart chakra
   const BLUE   = '#0066ff'  // throat chakra
-  const PURPLE = '#3a00b5'  // third-eye chakra
-  const PINK   = '#9333ea'  // crown chakra (warm violet)
-  const BLACK  = '#000'
+  const PURPLE = '#6d5cff'  // third-eye chakra (bright indigo)
+  const PINK   = '#c86bff'  // crown chakra (luminous violet)
+  // The hand-off into the shop: the crown violet goes into the full rainbow
+  // frenzy, glowing (it was a dark orb, which read dull against the video)
+  const CROWN_LIGHT = PINK
 
   const [isNight, setIsNight] = useState(false)
   useEffect(() => {
@@ -88,7 +100,7 @@ export default function OrbShell({
   const pickRef = useRef(/** @type {null | ((x: number, y: number) => string|null)} */ (null))
 
   const gateOverride = useMemo(() => {
-    if (loaderShow || isProceeding) return BLACK
+    if (loaderShow || isProceeding) return CROWN_LIGHT
     if (grabColor) return grabColor
     if (gateStep === 1) return RED
     if (gateStep === 2) return ORANGE
@@ -295,10 +307,36 @@ export default function OrbShell({
   // the faster the drag, the more rpm and the wilder (rainbow) its colours,
   // spinning the way it's dragged (right or left). Letting go flings that
   // momentum on, a little extra even, and it winds back down over a couple of
-  // seconds. Fed to BlueOrbCross3D through a ref, frame by frame.
-  const spinRef = useRef({ boost: 0, vivid: 0 })
-  // dir: which way it spins (+1 dragged right, -1 dragged left)
-  const fling = useRef({ speed: 0, dir: 1, lastX: 0, lastY: 0, lastT: 0, held: false, raf: 0 })
+  // seconds. While it's held its balls orbit the finger, rolling with the drag
+  // like a wheel (right: clockwise, left: counter-clockwise) and coasting on
+  // when it slows. Spin is capped below where the eye starts reading it as
+  // turning backwards (wagon-wheel effect). Fed to BlueOrbCross3D through a
+  // ref, frame by frame.
+  const spinRef = useRef({ boost: 0, vivid: 0, floor: 0, orbit: 0 })
+  // The splash's hand-off into the shop: the orb blazes in the rainbow
+  // frenzy, easing in and back out as the shop takes over
+  const handOff = inGateLike && (loaderShow || isProceeding)
+  useEffect(() => {
+    if (reducedMotion.current) return
+    const sp = spinRef.current
+    let raf = 0
+    let last = performance.now()
+    const tick = (/** @type {number} */ now) => {
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      sp.floor += ((handOff ? 1 : 0) - sp.floor) * Math.min(1, dt * (handOff ? 5 : 2.5))
+      if (!handOff && sp.floor < 0.003) {
+        sp.floor = 0
+        return
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [handOff])
+  // dir: which way it spins (+1 dragged right, -1 dragged left); vx: signed
+  // smoothed horizontal drag speed, px/s
+  const fling = useRef({ speed: 0, vx: 0, dir: 1, lastX: 0, lastY: 0, lastT: 0, held: false, raf: 0 })
   const runSpin = useCallback(() => {
     const f = fling.current
     if (f.raf) return
@@ -310,8 +348,18 @@ export default function OrbShell({
       if (f.held) {
         // Held still, the wind-up fades; moving keeps it fed (onOrbPointerMove)
         if (now - f.lastT > 120) f.speed *= Math.exp(-dt * 5)
+        if (now - f.lastT > 80) f.vx *= Math.exp(-dt * 10)
         // Turning the drag around swings the spin through zero and back up the other way
-        sp.boost += (f.dir * Math.min(900, f.speed * 0.28) - sp.boost) * Math.min(1, dt * 8)
+        sp.boost += (f.dir * Math.min(MAX_BOOST, f.speed * BOOST_PER_PX) - sp.boost) * Math.min(1, dt * 8)
+        // The balls round the finger roll with the drag (+ is counter-clockwise,
+        // so dragged right they go clockwise); slower than they're going, they coast
+        const drive = Math.max(-MAX_ORBIT, Math.min(MAX_ORBIT, -f.vx * ORBIT_PER_PX))
+        if (Math.abs(f.vx) > 30 && (Math.sign(drive) !== Math.sign(sp.orbit) || Math.abs(drive) > Math.abs(sp.orbit))) {
+          sp.orbit += (drive - sp.orbit) * Math.min(1, dt * 10)
+        } else {
+          const idle = (sp.orbit >= 0 ? 1 : -1) * IDLE_ORBIT
+          sp.orbit = idle + (sp.orbit - idle) * Math.exp(-dt / 1.5)
+        }
         sp.vivid += (Math.min(1, Math.max(0, (f.speed - 250) / 1400)) - sp.vivid) * Math.min(1, dt * 6)
       } else {
         // Let go: the momentum winds down
@@ -359,6 +407,8 @@ export default function OrbShell({
       const now = performance.now()
       if (!f.held) {
         f.held = true
+        f.vx = 0
+        spinRef.current.orbit = 0
         f.lastX = e.clientX
         f.lastY = e.clientY
         f.lastT = now
@@ -369,6 +419,7 @@ export default function OrbShell({
         const v = (Math.hypot(dx, e.clientY - f.lastY) / dtm) * 1000
         // Spins the way it's dragged (a straight up/down drag keeps the last way)
         if (Math.abs(dx) > 1.5) f.dir = Math.sign(dx)
+        f.vx = f.vx * 0.35 + (dx / dtm) * 1000 * 0.65
         // Quick to wind up, slower to let go
         f.speed = v > f.speed ? f.speed * 0.3 + v * 0.7 : f.speed * 0.75 + v * 0.25
         f.lastX = e.clientX
@@ -398,7 +449,7 @@ export default function OrbShell({
       const f = fling.current
       const sp = spinRef.current
       f.held = false
-      sp.boost = f.dir * Math.min(1100, Math.max(f.dir * sp.boost, f.speed * 0.28) * 1.3)
+      sp.boost = f.dir * Math.min(MAX_FLING_BOOST, Math.max(f.dir * sp.boost, f.speed * BOOST_PER_PX) * 1.3)
       sp.vivid = Math.min(1, Math.max(sp.vivid, f.speed / 1100))
       f.speed = 0
       runSpin()
@@ -590,9 +641,7 @@ export default function OrbShell({
   const orbHaloTint = inGateLike
     ? gateOverride === RED
       ? '#880011'        // deep blood-crimson — evil moon glow
-      : gateOverride === BLACK
-        ? '#444444'      // visible dark aura instead of near-invisible #111
-        : null
+      : null
     : pressColor === BLACK_GLOW
       ? '#444444'
       : pressColor || grabColor || (isNight ? WHITE : null)
@@ -604,7 +653,7 @@ export default function OrbShell({
   const orbGlow = true
   const orbGlowOpacity = inGateLike
     ? loaderShow || isProceeding
-      ? 0.12   // subtle halo survives into black phase (lerped smooth by useFrame)
+      ? 1.0    // the crown light glows full into the shop
       : gateSolid
         ? 1.0
         : gateStep >= 1
@@ -617,7 +666,7 @@ export default function OrbShell({
   const orbColor = inGateLike
     ? gateSolid
       ? loaderShow || isProceeding
-        ? BLACK
+        ? CROWN_LIGHT
         : gateStep === 1 ? RED
         : gateStep === 2 ? ORANGE
         : gateStep === 3 ? YELLOW
