@@ -1231,9 +1231,11 @@ export default function ProductOverlay({
     })
   }, [getTouchDistance, getTouchCenter])
 
+  // Letting go keeps the zoom (it sticks until zoomed back out); only a
+  // pinch that ends nearly all the way out settles back to normal
   const handlePinchEnd = useCallback(() => {
     pinchState.current.isPinching = false
-    setPinchZoom({ scale: 1, x: 0, y: 0 })
+    setPinchZoom((prev) => (prev.scale < 1.05 ? { scale: 1, x: 0, y: 0 } : prev))
   }, [])
 
   // Pan when zoomed in (single finger drag while zoomed)
@@ -1406,10 +1408,11 @@ export default function ProductOverlay({
     setSelectedSize(null)
   }, [index])
 
-  // Once zoomed (pinch, or ⌘ / ctrl + scroll) the product photo drags
-  // anywhere; unzoomed, a drag on it still swipes products. A tap brings it
-  // back (handleHeroImgClick), and so does zooming back out. The measurements
-  // drag too and zoom with a pinch or the scroll wheel; a tap brings them back.
+  // Once zoomed (pinch, or ⌘ / ctrl + scroll) the zoom sticks and the product
+  // photo drags anywhere, staying where it's dropped (taps leave it be);
+  // zooming back out springs it home with a little bounce. Unzoomed, a drag
+  // on it still swipes products. The measurements drag too and zoom with a
+  // pinch or the scroll wheel; a tap brings them back.
   const heroImgRef = useRef(/** @type {HTMLImageElement|null} */ (null))
   const heroZoomRef = useRef(1)
   heroZoomRef.current = pinchZoom.scale
@@ -1419,6 +1422,7 @@ export default function ProductOverlay({
     if (!el) return
     return attachDragSnap(el, {
       touchAction: 'none',
+      stayOnTap: true, // only zooming out sends it home
       enabled: () => !closingRef.current && heroZoomRef.current > 1,
     })
   }, [hasImg, product, clampedImgIdx]) // a new product / image mounts a new <img>
@@ -1512,14 +1516,10 @@ export default function ProductOverlay({
   const handleHeroImgClick = useCallback(function (e) {
     e.stopPropagation()
 
-    // Dragged or zoomed: a tap brings it back to how it sat when the page
-    // opened (dragSnap has already started springing it home); the slight
-    // "+" zoom stays as it was
+    // Zoomed in (or still on its way home): a tap does nothing, so the zoom
+    // sticks; zooming back out is what brings it home
     const moved = parkedOffset(e.currentTarget)
-    if (pinchZoom.scale !== 1 || Math.hypot(moved.x, moved.y) > 1) {
-      setPinchZoom({ scale: 1, x: 0, y: 0 })
-      return
-    }
+    if (pinchZoom.scale !== 1 || Math.hypot(moved.x, moved.y) > 1) return
 
     const cvs = alphaCanvasRef.current
     if (cvs) {
