@@ -290,13 +290,15 @@ export default function OrbShell({
     }
   }, [buzz, canDrag, gateStep, inShop, onAdvanceGate, setScaleTarget])
 
-  /* ===================== Gate momentum ===================== */
-  // On the splash, dragging the orb fast winds its spin up: the faster the
-  // drag, the more rpm and the wilder (rainbow) its colours. Letting go flings
-  // that momentum on, a little extra even, and it winds back down over a
-  // couple of seconds. Fed to BlueOrbCross3D through a ref, frame by frame.
+  /* ===================== Spin momentum ===================== */
+  // On the splash and in the shop, dragging the orb fast winds its spin up:
+  // the faster the drag, the more rpm and the wilder (rainbow) its colours,
+  // spinning the way it's dragged (right or left). Letting go flings that
+  // momentum on, a little extra even, and it winds back down over a couple of
+  // seconds. Fed to BlueOrbCross3D through a ref, frame by frame.
   const spinRef = useRef({ boost: 0, vivid: 0 })
-  const fling = useRef({ speed: 0, lastX: 0, lastY: 0, lastT: 0, held: false, raf: 0 })
+  // dir: which way it spins (+1 dragged right, -1 dragged left)
+  const fling = useRef({ speed: 0, dir: 1, lastX: 0, lastY: 0, lastT: 0, held: false, raf: 0 })
   const runSpin = useCallback(() => {
     const f = fling.current
     if (f.raf) return
@@ -308,14 +310,15 @@ export default function OrbShell({
       if (f.held) {
         // Held still, the wind-up fades; moving keeps it fed (onOrbPointerMove)
         if (now - f.lastT > 120) f.speed *= Math.exp(-dt * 5)
-        sp.boost += (Math.min(900, f.speed * 0.28) - sp.boost) * Math.min(1, dt * 8)
+        // Turning the drag around swings the spin through zero and back up the other way
+        sp.boost += (f.dir * Math.min(900, f.speed * 0.28) - sp.boost) * Math.min(1, dt * 8)
         sp.vivid += (Math.min(1, Math.max(0, (f.speed - 250) / 1400)) - sp.vivid) * Math.min(1, dt * 6)
       } else {
         // Let go: the momentum winds down
         sp.boost *= Math.exp(-dt / 1.3)
         sp.vivid *= Math.exp(-dt / 1.7)
       }
-      if (!f.held && sp.boost < 0.5 && sp.vivid < 0.003) {
+      if (!f.held && Math.abs(sp.boost) < 0.5 && sp.vivid < 0.003) {
         sp.boost = 0
         sp.vivid = 0
         f.raf = 0
@@ -350,7 +353,7 @@ export default function OrbShell({
     m.y = dy
     m.vx = m.vy = 0
     writeShell()
-    if (!inShop && !reducedMotion.current) {
+    if (!reducedMotion.current) {
       // How fast it's being dragged (px/s, smoothed): winds up the spin
       const f = fling.current
       const now = performance.now()
@@ -362,7 +365,10 @@ export default function OrbShell({
         runSpin()
       } else {
         const dtm = Math.max(4, now - f.lastT)
-        const v = (Math.hypot(e.clientX - f.lastX, e.clientY - f.lastY) / dtm) * 1000
+        const dx = e.clientX - f.lastX
+        const v = (Math.hypot(dx, e.clientY - f.lastY) / dtm) * 1000
+        // Spins the way it's dragged (a straight up/down drag keeps the last way)
+        if (Math.abs(dx) > 1.5) f.dir = Math.sign(dx)
         // Quick to wind up, slower to let go
         f.speed = v > f.speed ? f.speed * 0.3 + v * 0.7 : f.speed * 0.75 + v * 0.25
         f.lastX = e.clientX
@@ -392,7 +398,7 @@ export default function OrbShell({
       const f = fling.current
       const sp = spinRef.current
       f.held = false
-      sp.boost = Math.min(1100, Math.max(sp.boost, f.speed * 0.28) * 1.3)
+      sp.boost = f.dir * Math.min(1100, Math.max(f.dir * sp.boost, f.speed * 0.28) * 1.3)
       sp.vivid = Math.min(1, Math.max(sp.vivid, f.speed / 1100))
       f.speed = 0
       runSpin()
@@ -661,7 +667,7 @@ export default function OrbShell({
         <BlueOrbCross3D
           height={height}
           rpm={rpmValue}
-          spinRef={inGateLike ? spinRef : null}
+          spinRef={spinRef}
           color={orbColor}
           geomScale={inGateLike ? 1.2 : 1.12}
           offsetFactor={inGateLike ? 2.05 : 2.25}
