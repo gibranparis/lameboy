@@ -13,7 +13,8 @@ const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
 /**
  * CartButton
  * The badge shows the cart's real item count (sum of quantities) from
- * CartContext, and pulses whenever that count goes up.
+ * CartContext, and pulses whenever that count goes up. An item jumping in
+ * (product page, quick add) only ticks the number up as it lands in the bag.
  */
 export default function CartButton({ size = 48, inHeader = false, imgSrc, onClick }) {
   const { count, cartReady } = useCart()
@@ -70,8 +71,14 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
     tPulse.current = setTimeout(() => setPulse(false), 360)
   }
 
+  // The number on the badge: the real count, except while an added item is
+  // still in the air, when it holds the old number until the item lands
+  const [shown, setShown] = useState(count)
+  const countRef = useRef(count)
+  countRef.current = count
+
   // Pulse when items are added — not when the saved cart loads in. An item
-  // jumping in from the product page bumps it as it lands instead.
+  // jumping in bumps it (and ticks the number) as it lands instead.
   const prevCount = useRef(count)
   const wasReady = useRef(false)
   useEffect(() => {
@@ -79,13 +86,17 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
     const live = wasReady.current // the saved cart arrives in the same render cartReady flips
     prevCount.current = count
     wasReady.current = cartReady
-    if (!live || !grew || cartFlying()) return
-    bump()
+    if (live && grew && cartFlying()) return // held until CART_LANDED
+    setShown(count)
+    if (live && grew) bump()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count, cartReady])
 
   useEffect(() => {
-    const onLanded = () => bump('lb-catch', 760) // long enough for the ripples
+    const onLanded = () => {
+      setShown(countRef.current)
+      bump('lb-catch', 760) // long enough for the ripples
+    }
     window.addEventListener(CART_LANDED, onLanded)
     return () => window.removeEventListener(CART_LANDED, onLanded)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,8 +108,8 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   }, [])
 
   const aria = useMemo(
-    () => (count ? `Cart, ${count} item${count === 1 ? '' : 's'}` : 'Cart'),
-    [count]
+    () => (shown ? `Cart, ${shown} item${shown === 1 ? '' : 's'}` : 'Cart'),
+    [shown]
   )
 
   const iconSize = Math.round(size * 0.86)
@@ -194,9 +205,9 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
             <span className="cart-ripple cart-ripple--late" aria-hidden />
           </>
         )}
-        {count > 0 && (
+        {shown > 0 && (
           <span aria-hidden="true" style={S.badge}>
-            {count}
+            {shown}
           </span>
         )}
       </button>
