@@ -16,7 +16,7 @@ const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr:
 // Shop
 import ShopGrid from '@/components/ShopGrid'
 import { isSignedIn, useProfile } from '@/lib/profile'
-import { useDragSnap } from '@/lib/dragSnap'
+import { useDragSnap, pinball } from '@/lib/dragSnap'
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
 const HeartBeatButton = nextDynamic(() => import('@/components/HeartBeatButton'), { ssr: false })
 const CheckoutView = nextDynamic(() => import('@/components/CheckoutView'), { ssr: false })
@@ -303,9 +303,10 @@ export default function Page() {
   const ipodRef = useRef(null)
   const logoRef = useRef(null)
   const heartRef = useRef(null)
-  useDragSnap(ipodRef, { touchAction: 'none', key: 'ipod', stayOnTap: true }, [inShop])
-  useDragSnap(logoRef, { touchAction: 'none', key: 'logo' }, [inShop])
-  useDragSnap(heartRef, { touchAction: 'none', key: 'heart', stayOnTap: true }, [inShop, loaderShow])
+  // Dropped, they stay put; flicked, they pinball around and back home
+  useDragSnap(ipodRef, { touchAction: 'none', key: 'ipod', stayOnTap: true, fling: pinball }, [inShop])
+  useDragSnap(logoRef, { touchAction: 'none', key: 'logo', fling: pinball }, [inShop])
+  useDragSnap(heartRef, { touchAction: 'none', key: 'heart', stayOnTap: true, fling: pinball }, [inShop, loaderShow])
 
   useEffect(() => {
     const root = document.documentElement
