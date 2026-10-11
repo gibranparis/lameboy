@@ -22,6 +22,14 @@ const SCALE_K = 420
 const SCALE_C = 20 // ≈0.5: a crisp bounce
 const PRESS_SCALE = 0.94
 const LIFT_SCALE = 1.06
+// Flicked (opts.fling): it flies off and pinballs around the screen, then
+// finds its way home
+const FLING_SPEED = 650 // px/s at release to count as a flick
+const FLING_MAX_V = 4200 // px/s
+const FLING_DRAG = 0.55 // 1/s air drag while flying
+const FLING_BOUNCE = 0.86 // speed kept off a wall or another item
+const FLING_FLIGHT = 1.4 // s before home's pull is at full strength
+const FLING_EDGE = 6 // px inside the screen edge it bounces off
 
 const reducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -192,6 +200,10 @@ export function resetDragged(opts = {}) {
  * @property {(el: HTMLElement, x: number, y: number, cancelled: boolean) => boolean} [onDrop]
  *   called when a drag ends; return true when the drop was used (e.g. on the
  *   cart) and the element springs home instead of parking
+ * @property {{ obstacles?: (el: HTMLElement) => Element[], body?: (el: HTMLElement) => Element, onBounce?: (el: HTMLElement) => void }} [fling]
+ *   a fast release (a flick) sends the element flying: it bounces off the
+ *   screen edges and `obstacles`, pinball style, then springs home. `body`
+ *   is the part that collides (default the element); onBounce fires per hit
  * @property {(lifted: boolean) => void} [onLift] called with true when a drag
  *   lifts an element, and false once it is back home and at rest (e.g. to
  *   raise its container above everything while it's away)
@@ -204,12 +216,12 @@ export function resetDragged(opts = {}) {
  *   with homeAll() to send everything it parked home
  */
 export function attachDragSnap(root, opts = {}) {
-  const { targets, enabled, touchAction, ignore, key, stayOnTap, jumpHome, onDragMove, onDrop, onLift } = opts
+  const { targets, enabled, touchAction, ignore, key, stayOnTap, jumpHome, onDragMove, onDrop, onLift, fling } = opts
   /** @type {WeakMap<HTMLElement, any>} */
   const states = new WeakMap()
   /** @type {Set<HTMLElement>} parked away from home, for the reset */
   const parked = new Set()
-  /** @type {null | { id: number, el: HTMLElement, hit: EventTarget | null, x: number, y: number, bx: number, by: number, active: boolean }} */
+  /** @type {null | { id: number, el: HTMLElement, hit: EventTarget | null, x: number, y: number, bx: number, by: number, active: boolean, vx: number, vy: number, t: number, lx: number, ly: number }} */
   let press = null
   // Pointers currently down that started on root (to spot a pinch)
   const down = new Set()
@@ -232,7 +244,8 @@ export function attachDragSnap(root, opts = {}) {
     if (!m) {
       // trans / z: the element's own inline transition and z-index while we
       // override them (null when not overridden)
-      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, lifted: false, raf: 0, trans: null, z: null, outer: null }
+      // flying: when a flick set it flying (ms), else 0; walls: what it bounces off
+      m = { x: 0, y: 0, vx: 0, vy: 0, s: 1, vs: 0, ts: 1, held: false, parked: false, lifted: false, raf: 0, trans: null, z: null, outer: null, flying: 0, walls: null }
       states.set(el, m)
     }
     return m
@@ -278,6 +291,63 @@ export function attachDragSnap(root, opts = {}) {
     }
   }
 
+  /** One frame of a flick's flight: free flight with a little drag, bouncing
+   *  off the screen edges and the obstacles, while home pulls harder and
+   *  harder; once it's tamed the usual spring takes it the rest of the way */
+  const fly = (/** @type {HTMLElement} */ el, m, /** @type {number} */ dt, /** @type {number} */ now) => {
+    const age = (now - m.flying) / 1000
+    const pull = Math.min(1, (age / FLING_FLIGHT) ** 2)
+    const drag = FLING_DRAG + pull * 6
+    m.vx += (-POS_K * pull * m.x - drag * m.vx) * dt
+    m.vy += (-POS_K * pull * m.y - drag * m.vy) * dt
+    const px = m.x
+    const py = m.y
+    m.x += m.vx * dt
+    m.y += m.vy * dt
+    // Where it would be drawn (its last drawn box, moved on)
+    const b = /** @type {DOMRect} */ ((fling?.body?.(el) || el).getBoundingClientRect())
+    const ox = m.x - px
+    const oy = m.y - py
+    const box = { l: b.left + ox, r: b.right + ox, t: b.top + oy, b: b.bottom + oy }
+    let hit = false
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    // Screen edges
+    if (box.l < FLING_EDGE && m.vx < 0) { m.x += FLING_EDGE - box.l; m.vx = -m.vx * FLING_BOUNCE; hit = true }
+    else if (box.r > vw - FLING_EDGE && m.vx > 0) { m.x -= box.r - (vw - FLING_EDGE); m.vx = -m.vx * FLING_BOUNCE; hit = true }
+    if (box.t < FLING_EDGE && m.vy < 0) { m.y += FLING_EDGE - box.t; m.vy = -m.vy * FLING_BOUNCE; hit = true }
+    else if (box.b > vh - FLING_EDGE && m.vy > 0) { m.y -= box.b - (vh - FLING_EDGE); m.vy = -m.vy * FLING_BOUNCE; hit = true }
+    // Other items: off the side it came in through (the shallower overlap)
+    for (const w of m.walls || []) {
+      const o = w.getBoundingClientRect()
+      if (!o.width || box.r <= o.left || box.l >= o.right || box.b <= o.top || box.t >= o.bottom) {
+        w.__lbIn = false
+        continue
+      }
+      // Started overlapping it (dropped on it): let it fly out
+      if (w.__lbIn !== false) continue
+      const dl = box.r - o.left
+      const dr = o.right - box.l
+      const dtp = box.b - o.top
+      const db = o.bottom - box.t
+      const dx = Math.min(dl, dr)
+      const dy = Math.min(dtp, db)
+      if (dx < dy) {
+        if (dl < dr && m.vx > 0) { m.x -= dl; m.vx = -m.vx * FLING_BOUNCE; hit = true }
+        else if (dr <= dl && m.vx < 0) { m.x += dr; m.vx = -m.vx * FLING_BOUNCE; hit = true }
+      } else {
+        if (dtp < db && m.vy > 0) { m.y -= dtp; m.vy = -m.vy * FLING_BOUNCE; hit = true }
+        else if (db <= dtp && m.vy < 0) { m.y += db; m.vy = -m.vy * FLING_BOUNCE; hit = true }
+      }
+    }
+    if (hit) fling?.onBounce?.(el)
+    // Tamed: the usual spring brings it the rest of the way home
+    if (pull >= 1 || (age > 0.5 && Math.hypot(m.vx, m.vy) < 160)) {
+      m.flying = 0
+      m.walls = null
+    }
+  }
+
   const run = (/** @type {HTMLElement} */ el) => {
     const m = stateOf(el)
     if (m.raf) return
@@ -290,7 +360,9 @@ export function attachDragSnap(root, opts = {}) {
     const tick = (/** @type {number} */ now) => {
       const dt = Math.min(0.032, (now - last) / 1000)
       last = now
-      if (!m.held && !m.parked) {
+      if (!m.held && !m.parked && m.flying) {
+        fly(el, m, dt, now)
+      } else if (!m.held && !m.parked) {
         m.vx += (-POS_K * m.x - POS_C * m.vx) * dt
         m.vy += (-POS_K * m.y - POS_C * m.vy) * dt
         m.x += m.vx * dt
@@ -309,7 +381,7 @@ export function attachDragSnap(root, opts = {}) {
         return
       }
       const settled =
-        !m.held &&
+        !m.held && !m.flying &&
         Math.hypot(m.x, m.y) < 0.5 && Math.hypot(m.vx, m.vy) < 10 &&
         Math.abs(m.s - m.ts) < 0.002 && Math.abs(m.vs) < 0.02
       if (settled && m.ts === 1) {
@@ -360,8 +432,14 @@ export function attachDragSnap(root, opts = {}) {
     const el = findTarget(e.target)
     if (!el) return
     const m = stateOf(el)
+    // Caught mid-flight: it stops where it is
+    if (m.flying) {
+      m.flying = 0
+      m.walls = null
+      m.vx = m.vy = 0
+    }
     // Drags continue from where the element is (it may be parked away)
-    press = { id: e.pointerId, el, hit: e.target, x: e.clientX, y: e.clientY, bx: m.x, by: m.y, active: false }
+    press = { id: e.pointerId, el, hit: e.target, x: e.clientX, y: e.clientY, bx: m.x, by: m.y, active: false, vx: 0, vy: 0, t: performance.now(), lx: e.clientX, ly: e.clientY }
     setScale(el, PRESS_SCALE)
   }
 
@@ -382,6 +460,17 @@ export function attachDragSnap(root, opts = {}) {
     m.x = press.bx + dx
     m.y = press.by + dy
     m.vx = m.vy = 0
+    // How fast it's moving, for a flick on release
+    const now = performance.now()
+    const dtm = now - press.t
+    if (dtm > 0) {
+      const k = Math.min(1, dtm / 40)
+      press.vx += (((e.clientX - press.lx) / dtm) * 1000 - press.vx) * k
+      press.vy += (((e.clientY - press.ly) / dtm) * 1000 - press.vy) * k
+    }
+    press.t = now
+    press.lx = e.clientX
+    press.ly = e.clientY
     write(press.el, m)
     onDragMove?.(press.el, e.clientX, e.clientY)
   }
@@ -393,6 +482,8 @@ export function attachDragSnap(root, opts = {}) {
     if (key && el === root) parkedAt.delete(key)
     m.held = false
     m.parked = false
+    m.flying = 0
+    m.walls = null
     m.ts = 1
     if (jump || reducedMotion()) {
       m.x = m.y = m.vx = m.vy = 0
@@ -448,6 +539,30 @@ export function attachDragSnap(root, opts = {}) {
     if (onDrop?.(p.el, e.clientX, e.clientY, e.type !== 'pointerup')) {
       stateOf(p.el).held = false
       sendHome(p.el)
+      return
+    }
+    // A flick: it flies off, pinballs around and finds its way home
+    const still = performance.now() - p.t > 80 // held still before letting go
+    const speed = Math.hypot(p.vx, p.vy)
+    if (fling && e.type === 'pointerup' && !still && speed > FLING_SPEED && !reducedMotion()) {
+      const m = stateOf(p.el)
+      const k = Math.min(1, FLING_MAX_V / speed)
+      m.held = false
+      m.parked = false
+      parked.delete(p.el)
+      if (key && p.el === root) parkedAt.delete(key)
+      m.vx = p.vx * k
+      m.vy = p.vy * k
+      // Whatever it's sitting on as it leaves doesn't count until it's clear
+      const b = (fling.body?.(p.el) || p.el).getBoundingClientRect()
+      m.walls = fling.obstacles?.(p.el) || []
+      for (const w of m.walls) {
+        const o = w.getBoundingClientRect()
+        const on = !(b.right <= o.left || b.left >= o.right || b.bottom <= o.top || b.top >= o.bottom)
+        Object.assign(w, { __lbIn: on })
+      }
+      m.flying = performance.now()
+      setScale(p.el, 1)
       return
     }
     drop(p)
