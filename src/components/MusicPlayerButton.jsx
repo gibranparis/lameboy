@@ -19,6 +19,7 @@ export default function MusicPlayerButton({
   size = 56,
   dayImgSrc = '/music/ipod classic day.png',
   nightImgSrc = '/music/ipod classic night.png',
+  autoOpen = false, // true once the splash has cleared into the shop
 }) {
   const [open, setOpen] = useState(false)
   const [playing, setPlaying] = useState(false)
@@ -128,6 +129,19 @@ export default function MusicPlayerButton({
       document.documentElement.style.setProperty('--yt-panel-h', '0px')
     }
   }, [portalTarget]) // re-run once portal is in DOM so panelRef.current is set
+
+  // The player opens as the splash clears into the shop and starts playing
+  // (browsers may hold the sound until the first tap; the poster shows meanwhile)
+  useEffect(() => {
+    if (!autoOpen) return
+    setOpen(true)
+    if (ytPlayerRef.current) {
+      if (!playing) ytPlayerRef.current.playVideo()
+    } else {
+      pendingPlayRef.current = true // played as soon as the player is ready
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen])
 
   // Opening while the iPod has been dragged away: the video opens beside it
   // (below, or above when there's no room), not in its slot under the header

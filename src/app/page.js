@@ -486,7 +486,7 @@ export default function Page() {
                 display: 'grid',
                 placeItems: 'center',
               }} className="music-player-container">
-                <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" />
+                <MusicPlayerButton size={34} playlistId="PLjFcLJUkRnCfwuDzyq6SOJZQfirqpF5Cd" autoOpen={shopReady} />
               </div>
 
               {/* Center: LAME logo — back to the splash page */}
