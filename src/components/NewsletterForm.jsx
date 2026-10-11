@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { clearProfile, isSignedIn, saveProfile, useProfile } from '@/lib/profile'
 import { useCart } from '@/contexts/CartContext'
 import TokensMeter from '@/components/TokensMeter'
-import { freeShipCaption, freeShipPercent } from '@/lib/freeShipping'
+import { freeShipCaption, freeShipPercent, freeShipTally } from '@/lib/freeShipping'
 import EmailChips from '@/components/EmailChips'
 import { CONTACT_EMAIL } from '@/lib/store-info'
 import { attachDragSnap, POPUP_CONTROLS } from '@/lib/dragSnap'
@@ -330,6 +330,7 @@ export default function NewsletterForm({ open, onClose }) {
           <div className="nl-title"><ChakraText text={`hi ${firstName}`.trim()} /></div>
           <TokensMeter
             percent={freeShipPercent(cartTotal, profile.country)}
+            tally={freeShipTally(cartTotal, profile.country)}
             caption={freeShipCaption(cartTotal, profile.country)}
             open={visible}
           />

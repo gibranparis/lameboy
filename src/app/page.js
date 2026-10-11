@@ -467,7 +467,10 @@ export default function Page() {
             }}
           />
 
-          {/* ── Fixed control row: iPod (left) + heart (right) ── */}
+          {/* ── Fixed control row: iPod (left) + heart (right) ──
+              No bar of its own: transparent, so hoodies scrolling or moving
+              underneath are never cut off at its edge (only the controls
+              themselves sit on top, and it never takes a touch) */}
           <div
             style={{
               position: 'fixed',
@@ -477,7 +480,7 @@ export default function Page() {
               height: 'calc(var(--safe-top, 0px) + var(--header-ctrl, 64px))',
               zIndex: 9990,
               pointerEvents: 'none',
-              background: 'var(--bg, #f5f5f0)',
+              background: 'transparent',
               // Reveal: top row flies up from center
               opacity: shopReady ? 1 : 0,
               transform: shopReady

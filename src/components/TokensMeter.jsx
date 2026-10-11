@@ -9,9 +9,10 @@ import { useEffect, useState } from 'react'
  * lib/freeShipping). Hash marks every 10% read like a gauge. It fills up from
  * `from` (default empty) each time it opens, and slides to the new level
  * whenever the cart changes; glows once complete.
- * @param {{ percent: number, open?: boolean, from?: number, caption?: string, className?: string }} props
+ * `tally` (e.g. "50 / 80" tokens) shows in place of the percentage.
+ * @param {{ percent: number, open?: boolean, from?: number, tally?: string, caption?: string, className?: string }} props
  */
-export default function TokensMeter({ percent, open = true, from = 0, caption, className = '' }) {
+export default function TokensMeter({ percent, open = true, from = 0, tally, caption, className = '' }) {
   const [shown, setShown] = useState(from)
   useEffect(() => {
     if (!open) { setShown(from); return }
@@ -31,10 +32,11 @@ export default function TokensMeter({ percent, open = true, from = 0, caption, c
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.floor(percent * 10) / 10}
+      aria-valuetext={tally ? `${tally} tokens` : undefined}
     >
       <div className="nl-evo-head">
         <span>{label}</span>
-        <span>{(Math.floor(percent * 10) / 10).toFixed(1)}%</span>
+        <span>{tally ?? `${(Math.floor(percent * 10) / 10).toFixed(1)}%`}</span>
       </div>
       <div className="nl-evo-track">
         <div className="nl-evo-fill" style={{ width: `${width}%` }} />

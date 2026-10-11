@@ -8,7 +8,7 @@ import Image from 'next/image'
 import { useCart } from '@/contexts/CartContext'
 import { CART_LANDED, cartFlying } from '@/lib/cartFlight'
 import { getProfile } from '@/lib/profile'
-import { freeShipCaption, freeShipPercent } from '@/lib/freeShipping'
+import { freeShipCaption, freeShipPercent, freeShipTally } from '@/lib/freeShipping'
 import TokensMeter from '@/components/TokensMeter'
 
 const METER_MS = 2600 // how long the tokens pop-up stays after an add
@@ -71,7 +71,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   const totalRef = useRef(total)
   totalRef.current = total
   const meterFrom = useRef(total)
-  const [meter, setMeter] = useState(/** @type {null | { key: number, from: number, to: number, caption: string, pos: Record<string, number>, out: boolean }} */ (null))
+  const [meter, setMeter] = useState(/** @type {null | { key: number, from: number, to: number, tally: string, caption: string, pos: Record<string, number>, out: boolean }} */ (null))
   const tMeter = useRef(/** @type {ReturnType<typeof setTimeout>[]} */ ([]))
   const showMeter = () => {
     const now = totalRef.current
@@ -86,7 +86,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
     const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w))
     const pos = r.top > 110 ? { left, bottom: window.innerHeight - r.top + 8 } : { left, top: r.bottom + 8 }
     tMeter.current.forEach(clearTimeout)
-    setMeter({ key: Date.now(), from: freeShipPercent(from, country), to: freeShipPercent(now, country), caption: freeShipCaption(now, country), pos, out: false })
+    setMeter({ key: Date.now(), from: freeShipPercent(from, country), to: freeShipPercent(now, country), tally: freeShipTally(now, country), caption: freeShipCaption(now, country), pos, out: false })
     tMeter.current = [
       setTimeout(() => setMeter((m) => m && { ...m, out: true }), METER_MS),
       setTimeout(() => setMeter(null), METER_MS + 320),
@@ -265,7 +265,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
             border: `1px solid ${isNight ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
           }}
         >
-          <TokensMeter from={meter.from} percent={meter.to} caption={meter.caption} />
+          <TokensMeter from={meter.from} percent={meter.to} tally={meter.tally} caption={meter.caption} />
         </div>,
         document.body
       )}
