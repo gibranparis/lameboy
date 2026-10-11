@@ -5,7 +5,7 @@
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { attachDragSnap } from '@/lib/dragSnap'
+import { attachDragSnap, parkAt, parkedOffset } from '@/lib/dragSnap'
 
 // YouTube flashes its title bar / "More videos" panel for a moment after
 // playback resumes, so the cover stays up this long past PLAYING
@@ -128,6 +128,30 @@ export default function MusicPlayerButton({
       document.documentElement.style.setProperty('--yt-panel-h', '0px')
     }
   }, [portalTarget]) // re-run once portal is in DOM so panelRef.current is set
+
+  // Opening while the iPod has been dragged away: the video opens beside it
+  // (below, or above when there's no room), not in its slot under the header
+  useEffect(() => {
+    if (!open) return
+    const raf = requestAnimationFrame(() => {
+      const panel = panelRef.current
+      const ipod = document.querySelector('.music-player-container')
+      const moved = parkedOffset(ipod)
+      if (!panel || !ipod || (!moved.x && !moved.y)) return
+      const r = ipod.getBoundingClientRect()
+      const off = parkedOffset(panel)
+      const p = panel.getBoundingClientRect()
+      const home = { left: p.left - off.x, top: p.top - off.y }
+      const edge = 12
+      const gap = 8
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const left = Math.max(edge, Math.min(vw - edge - p.width, r.left + r.width / 2 - p.width / 2))
+      const top = r.bottom + gap + p.height <= vh - edge ? r.bottom + gap : Math.max(edge, r.top - gap - p.height)
+      parkAt(panel, left - home.left, top - home.top)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [open])
 
   // Drag the video anywhere and it stays there, still playing. A tap on it
   // plays / pauses and sends it home; the grid folding into stacks does too.

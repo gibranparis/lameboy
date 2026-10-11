@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } fr
 import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE } from '@/lib/store-info'
 import { startCartFlight, landCartFlight } from '@/lib/cartFlight'
 import { haptic } from '@/lib/haptics'
+import { attachDragSnap, parkedOffset, DRAG_RESET } from '@/lib/dragSnap'
 
 /* ---------------- utils ---------------- */
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n))
@@ -270,6 +271,43 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
     onSizePicked?.(null)
   }, [product])
 
+  // Every pill (+, sizes, Add to Cart) drags and keeps working wherever it's
+  // dropped, remembered across reopening until the grid folds. The sizes /
+  // Add to Cart / "Added" open beside the + wherever it's been moved.
+  const wrapRef = useRef(/** @type {HTMLDivElement|null} */ (null))
+  const [plusOff, setPlusOff] = useState({ x: 0, y: 0 })
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const els = /** @type {HTMLElement[]} */ (Array.from(wrap.querySelectorAll('[data-drag-key]')))
+    const detach = els.map((el) => {
+      const isPlus = el.dataset.dragKey === 'plus'
+      const off = attachDragSnap(el, {
+        key: `pdp-${el.dataset.dragKey}`,
+        stayOnTap: true,
+        touchAction: 'none',
+        onDrop: isPlus
+          ? (target) => {
+              setPlusOff(parkedOffset(target))
+              return false
+            }
+          : undefined,
+      })
+      if (isPlus) setPlusOff(parkedOffset(el)) // restored from a previous drag
+      return off
+    })
+    return () => detach.forEach((d) => d())
+  }, [open, picked, showAdded, sizes])
+  useEffect(() => {
+    const onReset = () => setPlusOff({ x: 0, y: 0 })
+    window.addEventListener(DRAG_RESET, onReset)
+    return () => window.removeEventListener(DRAG_RESET, onReset)
+  }, [])
+  const followPlus = {
+    translate: `${plusOff.x}px ${plusOff.y}px`,
+    transition: 'translate 0.32s cubic-bezier(0.34, 1.56, 0.64, 1)',
+  }
+
   const glyph = open ? '–' : '+'
   const addedStyle = {
     color: priceStyle?.color || 'inherit',
@@ -281,9 +319,10 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
 
   return (
     // zIndex keeps the size pills above the add-to-cart tap zone (z 521)
-    <div style={{ display: 'grid', justifyItems: 'center', position: 'relative', zIndex: 523 }}>
+    <div ref={wrapRef} style={{ display: 'grid', justifyItems: 'center', position: 'relative', zIndex: 523 }}>
       <button
         type="button"
+        data-drag-key="plus"
         data-ui="size-toggle"
         className={[
           'pill',
@@ -318,6 +357,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
           display: 'flex',
           justifyContent: 'center',
           marginTop: 10,
+          ...followPlus,
         }}>
           <span
             aria-live="polite"
@@ -344,6 +384,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
             display: 'grid',
             justifyItems: 'center',
             gap: 10,
+            ...followPlus,
           }}
         >
           <div className="row-nowrap size-panel" data-ui="size-panel" style={{ gap: 8 }}>
@@ -358,6 +399,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
                   hotSize === sz ? 'is-hot' : '',
                 ].join(' ')}
                 data-size={sz}
+                data-drag-key={`size-${sz}`}
                 onClick={() => pick(sz)}
                 aria-label={`Size ${sz}`}
                 aria-pressed={picked === sz}
@@ -373,6 +415,7 @@ function PlusSizesInline({ sizes = ['OS', 'S', 'M', 'L', 'XL'], priceStyle, prod
             <button
               type="button"
               className="atc-btn"
+              data-drag-key="atc"
               onClick={addToCart}
               aria-label={`Add size ${picked} to cart`}
             >
@@ -1213,6 +1256,8 @@ export default function ProductOverlay({
 
   // Combined touch handler
   const handleTouchStart = useCallback((/** @type {any} */ e) => {
+    // A press on a draggable pill drags the pill, not the product
+    if (e.target?.closest?.('[data-drag-key]')) return
     if (e.touches.length === 2) {
       handlePinchStart(e)
     } else if (e.touches.length === 1) {
@@ -1602,6 +1647,7 @@ export default function ProductOverlay({
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
           onPointerDown={(e) => {
+            if (/** @type {any} */ (e.target)?.closest?.('[data-drag-key]')) return // dragging a pill
             if (e.pointerType !== 'touch') swipe.onDown(e)
           }}
           onPointerMove={(e) => {
