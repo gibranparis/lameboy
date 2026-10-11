@@ -115,6 +115,10 @@ function getChips(value) {
   return matches.slice(0, 4).map(d => ({ label: d, full: beforeAt + '@' + d }))
 }
 
+// Safari blurs the input on the chip press, before the click arrives. Chips
+// stay up this long after a blur so that click still lands on them.
+const BLUR_LINGER_MS = 300
+
 const CHAKRA = ['#FF0000','#FF8C00','#FFD700','#00C853','#00BFFF','#6A0DAD','#EE82EE']
 
 function ChipText({ text }) {
@@ -133,8 +137,22 @@ function ChipText({ text }) {
  * }} props
  */
 export default function EmailChips({ value, onChange, focused, autofilled = false, theme = 'light' }) {
+  // Set in render (not an effect) on the focused → blurred step, so the chip
+  // buttons are never unmounted between the press and the click
+  const [prevFocused, setPrevFocused] = useState(focused)
+  const [lingering, setLingering] = useState(false)
+  if (prevFocused !== focused) {
+    setPrevFocused(focused)
+    setLingering(!focused)
+  }
+  useEffect(() => {
+    if (!lingering) return
+    const t = setTimeout(() => setLingering(false), BLUR_LINGER_MS)
+    return () => clearTimeout(t)
+  }, [lingering])
+
   // Suppress chips immediately after an autofill event; next keydown clears it.
-  const chips = focused && value && !autofilled ? getChips(value) : []
+  const chips = (focused || lingering) && value && !autofilled ? getChips(value) : []
   const show = chips.length > 0
 
   const valueRef = useRef(value)
@@ -160,8 +178,11 @@ export default function EmailChips({ value, onChange, focused, autofilled = fals
               key={full}
               type="button"
               className={`ec-chip ${dark ? 'ec-chip--dark' : 'ec-chip--light'}`}
-              onPointerDown={e => e.preventDefault()} // keeps keyboard open on mobile
-              onClick={() => onChange(full)}
+              // Keep the input focused (and the keyboard open). Safari needs
+              // mousedown too — it ignores this on pointerdown.
+              onPointerDown={e => e.preventDefault()}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { setLingering(false); onChange(full) }}
             >
               <ChipText text={label} />
             </button>
