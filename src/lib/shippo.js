@@ -148,5 +148,20 @@ export async function getRateById(rateId) {
     provider: rate.provider,
     name: rate.servicelevel?.name ?? rate.provider,
     price: Math.round(parseFloat(rate.amount) * 100),
+    shipment: rate.shipment,
+  }
+}
+
+/**
+ * Where a quoted shipment goes and what every rate on it costs (cents), so
+ * checkout can work out free shipping from Shippo's numbers alone.
+ * @param {string} shipmentId
+ */
+export async function getShipmentQuote(shipmentId) {
+  const shippo = getShippo()
+  const shipment = await shippo.shipments.get(shipmentId)
+  return {
+    country: shipment.addressTo?.country ?? null,
+    prices: (shipment.rates ?? []).map((r) => Math.round(parseFloat(r.amount) * 100)),
   }
 }

@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { getVariantsByIds } from '@/lib/supabase'
 import { getShippingRates } from '@/lib/shippo'
+import { applyFreeShipping } from '@/lib/freeShipping'
 
 export async function POST(req) {
   try {
@@ -41,10 +42,15 @@ export async function POST(req) {
       return NextResponse.json({ error: 'No valid items in cart' }, { status: 400 })
     }
 
-    const rates = await getShippingRates(destination, lines)
-    if (!rates.length) {
+    const quoted = await getShippingRates(destination, lines)
+    if (!quoted.length) {
       return NextResponse.json({ rates: [], error: 'No shipping rates available for this address' })
     }
+
+    // Over the free-shipping threshold the cheapest rate is free (checkout
+    // works the charge out again on its own)
+    const subtotalCents = lines.reduce((sum, l) => sum + l.variant.price_cents * l.qty, 0)
+    const rates = applyFreeShipping(quoted, subtotalCents, destination.country)
 
     return NextResponse.json({ rates })
   } catch (err) {

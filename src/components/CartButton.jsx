@@ -3,9 +3,15 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { useCart } from '@/contexts/CartContext'
 import { CART_LANDED, cartFlying } from '@/lib/cartFlight'
+import { getProfile } from '@/lib/profile'
+import { freeShipCaption, freeShipPercent } from '@/lib/freeShipping'
+import TokensMeter from '@/components/TokensMeter'
+
+const METER_MS = 2600 // how long the tokens pop-up stays after an add
 
 const BIRKINS = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png']
 const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
@@ -15,9 +21,11 @@ const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
  * The badge shows the cart's real item count (sum of quantities) from
  * CartContext, and pulses whenever that count goes up. An item jumping in
  * (product page, quick add) only ticks the number up as it lands in the bag.
+ * Each add also pops the tokens meter up over the bag for a moment, filling
+ * from where the cart was toward free shipping.
  */
 export default function CartButton({ size = 48, inHeader = false, imgSrc, onClick }) {
-  const { count, cartReady } = useCart()
+  const { count, total, cartReady } = useCart()
   const [pulse, setPulse] = useState(false)
   const [bumpCls, setBumpCls] = useState('')
   const [isNight, setIsNight] = useState(false)
@@ -57,6 +65,33 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   }, [candidates, size])
 
   const btnRef = useRef(/** @type {HTMLButtonElement|null} */ (null))
+
+  // The tokens pop-up: the cart total it last showed (it fills from there),
+  // and where it sits (above the bag, or below when the bag's near the top)
+  const totalRef = useRef(total)
+  totalRef.current = total
+  const meterFrom = useRef(total)
+  const [meter, setMeter] = useState(/** @type {null | { key: number, from: number, to: number, caption: string, pos: Record<string, number>, out: boolean }} */ (null))
+  const tMeter = useRef(/** @type {ReturnType<typeof setTimeout>[]} */ ([]))
+  const showMeter = () => {
+    const now = totalRef.current
+    const from = meterFrom.current
+    meterFrom.current = now
+    const btn = btnRef.current
+    // The cart panel has its own meter
+    if (!btn || now <= from || document.documentElement.hasAttribute('data-checkout-open')) return
+    const country = getProfile()?.country || 'US'
+    const r = btn.getBoundingClientRect()
+    const w = 176
+    const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w))
+    const pos = r.top > 110 ? { left, bottom: window.innerHeight - r.top + 8 } : { left, top: r.bottom + 8 }
+    tMeter.current.forEach(clearTimeout)
+    setMeter({ key: Date.now(), from: freeShipPercent(from, country), to: freeShipPercent(now, country), caption: freeShipCaption(now, country), pos, out: false })
+    tMeter.current = [
+      setTimeout(() => setMeter((m) => m && { ...m, out: true }), METER_MS),
+      setTimeout(() => setMeter(null), METER_MS + 320),
+    ]
+  }
   const tPulse = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
   const tBump = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null))
 
@@ -88,7 +123,12 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
     wasReady.current = cartReady
     if (live && grew && cartFlying()) return // held until CART_LANDED
     setShown(count)
-    if (live && grew) bump()
+    if (live && grew) {
+      bump()
+      showMeter()
+    } else {
+      meterFrom.current = totalRef.current // loaded or removed: nothing to show
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count, cartReady])
 
@@ -96,6 +136,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
     const onLanded = () => {
       setShown(countRef.current)
       bump('lb-catch', 760) // long enough for the ripples
+      showMeter()
     }
     window.addEventListener(CART_LANDED, onLanded)
     return () => window.removeEventListener(CART_LANDED, onLanded)
@@ -105,6 +146,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   useEffect(() => () => {
     if (tPulse.current) clearTimeout(tPulse.current)
     if (tBump.current) clearTimeout(tBump.current)
+    tMeter.current.forEach(clearTimeout)
   }, [])
 
   const aria = useMemo(
@@ -212,7 +254,48 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
         )}
       </button>
 
+      {meter && createPortal(
+        <div
+          key={meter.key}
+          className={`cart-meter ${meter.out ? 'cart-meter--out' : ''}`}
+          aria-hidden="true"
+          style={{
+            ...meter.pos,
+            background: isNight ? 'rgba(18,18,18,0.92)' : 'rgba(250,250,248,0.96)',
+            border: `1px solid ${isNight ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+          }}
+        >
+          <TokensMeter from={meter.from} percent={meter.to} caption={meter.caption} />
+        </div>,
+        document.body
+      )}
+
       <style jsx>{`
+        .cart-meter {
+          position: fixed;
+          width: 176px;
+          box-sizing: border-box;
+          padding: 10px 12px 0;
+          border-radius: 14px;
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
+          box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+          z-index: 2147483000;
+          pointer-events: none;
+          transform-origin: bottom right;
+          animation: cartMeterIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .cart-meter--out {
+          animation: cartMeterOut 300ms ease both;
+        }
+        @keyframes cartMeterIn {
+          from { opacity: 0; transform: scale(0.85) translateY(8px); }
+          to { opacity: 1; transform: none; }
+        }
+        @keyframes cartMeterOut {
+          from { opacity: 1; transform: none; }
+          to { opacity: 0; transform: scale(0.9) translateY(6px); }
+        }
         button:hover {
           transform: scale(1.05);
         }

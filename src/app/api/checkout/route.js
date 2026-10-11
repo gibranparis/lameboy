@@ -3,15 +3,17 @@
 // Elements in deferred-intent mode, so nothing exists until the customer
 // pays — by card or via Apple Pay / Google Pay / Link). Never trusts client-sent prices: item prices come from
 // Supabase and the shipping cost comes from re-fetching the chosen Shippo
-// rate by id. Nothing is written to the `orders` table here — that only
-// ever happens in the payment_intent.succeeded webhook, so the cart + address
+// rate by id (free shipping is worked out from that rate's own shipment:
+// where it goes and its cheapest rate). Nothing is written to the `orders`
+// table here — that only ever happens in the payment_intent.succeeded webhook, so the cart + address
 // this request validated is carried forward as PaymentIntent metadata for
 // the webhook to read back. The address in metadata is the full one sent
 // here — express-checkout rates are quoted from a partial wallet address,
 // so nothing downstream should read the address off the Shippo shipment.
 import { NextResponse } from 'next/server'
 import { getVariantsByIds } from '@/lib/supabase'
-import { getRateById } from '@/lib/shippo'
+import { getRateById, getShipmentQuote } from '@/lib/shippo'
+import { FREE_SHIP_DOMESTIC_CENTS, qualifiesForFreeShipping } from '@/lib/freeShipping'
 import { getStripe } from '@/lib/stripe'
 import { encodeItems } from '@/lib/order-metadata'
 
@@ -58,7 +60,16 @@ export async function POST(req) {
     }
 
     const rate = await getRateById(rateId)
-    const totalCents = subtotalCents + rate.price
+    // Free shipping: the threshold is for where the quoted shipment goes, and
+    // the cheapest rate on it comes off whichever one was picked
+    let shippingCents = rate.price
+    if (subtotalCents >= FREE_SHIP_DOMESTIC_CENTS && rate.shipment) {
+      const quote = await getShipmentQuote(rate.shipment)
+      if (qualifiesForFreeShipping(subtotalCents, quote.country || address.country)) {
+        shippingCents = Math.max(0, rate.price - Math.min(rate.price, ...quote.prices))
+      }
+    }
+    const totalCents = subtotalCents + shippingCents
 
     const stripe = getStripe()
     const paymentIntent = await stripe.paymentIntents.create({
@@ -90,7 +101,7 @@ export async function POST(req) {
         address_country: address.country,
         shipping_carrier: rate.provider,
         shipping_service: rate.name,
-        shipping_cost_cents: String(rate.price),
+        shipping_cost_cents: String(shippingCents),
         subtotal_cents: String(subtotalCents),
         ...encodeItems(lineItems),
       },
@@ -100,7 +111,7 @@ export async function POST(req) {
       clientSecret: paymentIntent.client_secret,
       totalCents,
       subtotalCents,
-      shippingCents: rate.price,
+      shippingCents,
     })
   } catch (err) {
     console.error('[api/checkout]', err)
