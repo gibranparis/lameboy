@@ -8,7 +8,7 @@ import ProductOverlay from '@/components/ProductOverlay'
 import { PRODUCTS } from '@/lib/products'
 import { PRODUCT_BBOX } from '@/lib/product-bbox'
 import { useCart } from '@/contexts/CartContext'
-import { attachDragSnap, resetDragged, pinball } from '@/lib/dragSnap'
+import { attachDragSnap, resetDragged, pinball, GRID_MOVED } from '@/lib/dragSnap'
 import { createPileSpin } from '@/lib/pileSpin'
 import { haptic } from '@/lib/haptics'
 import { QUICK_ADD } from '@/components/QuickAddSizes'
@@ -688,6 +688,7 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
     // A stack dragged fast spins up like a little whirlwind (pileSpin)
     const pileSpin = createPileSpin()
     const isPile = (/** @type {HTMLElement} */ tile) => tile.matches('.category-stack')
+    let movedNotified = false // once per drag
     const detach = attachDragSnap(el, {
       targets: ['.category-stack', ".shop-grid[data-view-mode='grid'] .product-tile"],
       enabled: () => !overlayOpenRef.current && document.documentElement.dataset.overlayOpen !== '1',
@@ -703,10 +704,16 @@ export default function ShopGrid({ products, autoOpenFirstOnMount = false, shopR
         alive: (tile) => isPile(tile) || !!tile.closest("[data-view-mode='grid']"),
       },
       onDragMove: (tile, x, y) => {
+        // Anything on the grid moving clears the tokens pill away (page.js)
+        if (!movedNotified) {
+          movedNotified = true
+          window.dispatchEvent(new Event(GRID_MOVED))
+        }
         if (isPile(tile)) pileSpin.move(tile, x, y)
         setHover(!!productOf(tile) && overCart(x, y))
       },
       onDrop: (tile, x, y, cancelled) => {
+        movedNotified = false
         if (isPile(tile)) pileSpin.release(tile)
         setHover(false)
         const product = productOf(tile)

@@ -1385,6 +1385,26 @@ export default function ProductOverlay({
   const heroImgRef = useRef(/** @type {HTMLImageElement|null} */ (null))
   const heroZoomRef = useRef(1)
   heroZoomRef.current = pinchZoom.scale
+  // Zooming in brings the photo to the middle of the screen, so it grows
+  // evenly into view instead of off one side: how far its centre sits from
+  // the screen's centre, measured as the zoom starts (it isn't panned or
+  // dragged yet then)
+  const zoomedIn = pinchZoom.scale > 1
+  const [toCentre, setToCentre] = useState({ x: 0, y: 0 })
+  useLayoutEffect(() => {
+    const el = heroImgRef.current
+    if (!zoomedIn || !el) {
+      setToCentre({ x: 0, y: 0 })
+      return
+    }
+    const r = el.getBoundingClientRect() // scaling about its centre doesn't move that centre
+    setToCentre({
+      x: Math.round(window.innerWidth / 2 - (r.left + r.width / 2)),
+      y: Math.round(window.innerHeight / 2 - (r.top + r.height / 2)),
+    })
+  }, [zoomedIn])
+  // Eased in over the first bit of zoom, so a small pinch doesn't jump
+  const centring = Math.min(1, Math.max(0, (pinchZoom.scale - 1) / 0.5))
   const hasImg = !!imgs.length
   useEffect(() => {
     const el = heroImgRef.current
@@ -1924,7 +1944,7 @@ export default function ProductOverlay({
                       objectPosition: '45% center',
                       imageRendering: 'auto',
                       cursor: 'pointer',
-                      transform: `translate(${pinchZoom.x}px, ${pinchZoom.y}px) scale(${
+                      transform: `translate(${pinchZoom.x + toCentre.x * centring}px, ${pinchZoom.y + toCentre.y * centring}px) scale(${
                         heroZoomed && pinchZoom.scale === 1 ? 1.09 : pinchZoom.scale
                       })`,
                       transition: pinchState.current.isPinching ? 'none' : 'transform 0.2s cubic-bezier(.2,.8,.2,1)',

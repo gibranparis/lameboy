@@ -16,12 +16,21 @@ const SLASHES = 10 // one per 10% of the way to free shipping
  * "+N" drops out when it grows, and once free shipping is unlocked they all
  * turn blue with a star. Like everything else on the shop page it can be
  * dragged and parked, or flicked to pinball around; a tap opens the heart
- * panel with the full meter and the count.
- * @param {{ tokens: number, goal: number, hidden?: boolean, onOpen?: () => void }} props
+ * panel with the full meter and the count. The page decides when it's up
+ * (`hidden`); onHold tells it while the pill itself is being moved.
+ * @param {{ tokens: number, goal: number, hidden?: boolean, onOpen?: () => void, onHold?: (held: boolean) => void }} props
  */
-export default function TokensPill({ tokens, goal, hidden = false, onOpen }) {
+export default function TokensPill({ tokens, goal, hidden = false, onOpen, onHold }) {
   const ref = useRef(/** @type {HTMLButtonElement | null} */ (null))
-  useDragSnap(ref, { touchAction: 'none', key: 'tokens-pill', stayOnTap: true, fling: pinball })
+  const onHoldRef = useRef(onHold)
+  onHoldRef.current = onHold
+  useDragSnap(ref, {
+    touchAction: 'none',
+    key: 'tokens-pill',
+    stayOnTap: true,
+    fling: pinball,
+    onLift: (lifted) => onHoldRef.current?.(lifted),
+  })
 
   const { val, gain } = useTokenCount({ tokens })
   const shown = Math.round(val)
