@@ -5,13 +5,8 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react'
 
 const HEART_SRC = '/human heart zero.png'
-// Set to '/human heart filled.png' once that asset exists — the filled heart
-// then uses it as-is and the CSS tint below is skipped.
-const FILLED_HEART_SRC = null
-// Gold tint + warm golden glow for the filled (signed-in) heart. Applied to
-// the original image in both themes, so it reads on day and night.
-const FILLED_TINT =
-  'sepia(1) saturate(3.2) hue-rotate(2deg) brightness(1.08) drop-shadow(0 0 4px rgba(255, 199, 56, 0.85)) drop-shadow(0 0 11px rgba(255, 184, 28, 0.5))'
+// Signed-in customers get the sacred heart, shown in its own colours.
+const FILLED_HEART_SRC = '/sacred heart.png'
 
 /**
  * Pure heart FAB — no circle background.
@@ -19,7 +14,7 @@ const FILLED_TINT =
  * This component itself does NOT set right/bottom so it won't fight your CSS.
  */
 function heartFilter(filled, isNight) {
-  if (filled) return FILLED_HEART_SRC ? {} : { filter: FILLED_TINT }
+  if (filled) return {}
   return isNight ? { filter: 'brightness(0) invert(1)' } : {}
 }
 
@@ -150,7 +145,7 @@ export default function HeartBeatButton({
       ) : (
         /* HEART ONLY — NO CIRCLE */
         <img
-          src={filled && FILLED_HEART_SRC ? FILLED_HEART_SRC : HEART_SRC}
+          src={filled ? FILLED_HEART_SRC : HEART_SRC}
           width={size}
           height={size}
           aria-hidden="true"
