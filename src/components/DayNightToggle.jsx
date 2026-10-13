@@ -58,6 +58,7 @@ export default function DayNightToggle({
   circlePx = 24,
   trackPad = 1,
   moonImages = ['/toggle/Blue%20hand-drawn%20symbol%20with%20_LAME_.png','/toggle/moon-blue.png'],
+  sunImages = ['/toggle/sun.webp'],
   onThemeChange,                 /** @type {(t: Theme) => void | undefined} */
 }) {
   const isControlled = value !== undefined && typeof onChange === 'function';
@@ -105,32 +106,28 @@ export default function DayNightToggle({
     return () => window.removeEventListener(THEME_FLIP, flip);
   });
 
-  // The day knob wears one of moonImages, picked at random once mounted
-  // (picked after mount so the server and first client render agree)
+  // Each knob wears one of its set, picked at random once mounted (after
+  // mount so the server and first client render agree): in day mode a moon
+  // (tap for night), in night mode the sun or a sunlit planet (tap for day)
   const [moonPick, setMoonPick] = useState(0);
-  // The night knob wears the sun or one of moonImages (never the same orb
-  // as the day knob), picked the same way
-  const [nightPick, setNightPick] = useState(-1); // -1: the sun
+  const [sunPick, setSunPick] = useState(0);
   useEffect(() => {
-    const n = Array.isArray(moonImages) ? moonImages.length : 0;
-    const day = n > 1 ? Math.floor(Math.random() * n) : 0;
-    // sun + every orb except the day one
-    const night = [-1, ...Array.from({ length: n }, (_, i) => i).filter((i) => i !== day)];
-    setMoonPick(day);
-    setNightPick(night[Math.floor(Math.random() * night.length)]);
-  }, [moonImages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    const pick = (list) => (Array.isArray(list) && list.length > 1 ? Math.floor(Math.random() * list.length) : 0);
+    setMoonPick(pick(moonImages));
+    setSunPick(pick(sunImages));
+  }, [moonImages.length, sunImages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // preload moon, sun, and constellation to avoid first-switch flash
   useEffect(() => {
     const moonSrc = (Array.isArray(moonImages) && moonImages.length ? moonImages[moonPick] || moonImages[0] : '/toggle/Blue%20hand-drawn%20symbol%20with%20_LAME_.png');
-    const sunSrc = (nightPick >= 0 && moonImages?.[nightPick]) || '/toggle/sun.webp';
+    const sunSrc = sunImages?.[sunPick] || '/toggle/sun.webp';
     const constellationSrc = '/toggle/virgo-constellation.webp';
     const sunsetSrc = '/toggle/white%20cloud.png';
     [moonSrc, sunSrc, constellationSrc, sunsetSrc].forEach(src => {
       const img = new Image();
       img.src = src;
     });
-  }, [moonImages, moonPick, nightPick]);
+  }, [moonImages, moonPick, sunImages, sunPick]);
 
   // Sizing
   const dims = useMemo(() => {
@@ -146,8 +143,8 @@ export default function DayNightToggle({
   const moonSrc = Array.isArray(moonImages) && moonImages.length ? moonImages[moonPick] || moonImages[0] : '/toggle/moon-red.png';
   // The moons are lifted with a screen blend; planet photos keep their own colours
   const moonBlend = moonSrc.includes('/planet-') ? 'normal' : 'screen';
-  const nightSrc = (nightPick >= 0 && moonImages?.[nightPick]) || '/toggle/sun.webp';
-  const nightIsSun = nightSrc === '/toggle/sun.webp';
+  const nightSrc = sunImages?.[sunPick] || '/toggle/sun.webp';
+  const nightIsSun = nightSrc.endsWith('/sun.webp');
 
   // keyboard a11y
   function onKeyDown(e) {
@@ -250,7 +247,7 @@ export default function DayNightToggle({
           filter:'saturate(1.02)',
         }}
       >
-        {/* Night knob: the sun, or a moon or planet */}
+        {/* Night knob: the sun or a sunlit planet */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -267,7 +264,7 @@ export default function DayNightToggle({
               display: 'block',
               objectFit: 'cover',
               objectPosition: 'center',
-              // the sun glows gold; a moon or planet gets a soft pale glow
+              // the sun glows gold; a planet gets a soft pale glow
               filter: nightIsSun
                 ? 'saturate(1.1) brightness(1.05) drop-shadow(0 0 12px rgba(255,210,80,.7))'
                 : 'saturate(1.1) brightness(1.08) drop-shadow(0 0 8px rgba(200,220,255,.45))',
