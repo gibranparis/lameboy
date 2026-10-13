@@ -69,9 +69,11 @@ export function useTokenCount({ tokens, open = true, from = 0, showGain = false 
  * passes it, and reaching the goal levels it up: the bar turns blue and
  * glows. It counts up from `from` (default empty) each time it opens, and
  * rolls to the new total whenever the cart changes.
- * @param {{ tokens: number, goal: number, open?: boolean, from?: number, showGain?: boolean, className?: string }} props
+ * subtle: a quieter version (thin bar, no glow, sheen or milestone marks)
+ * for the pop-up over the bag.
+ * @param {{ tokens: number, goal: number, open?: boolean, from?: number, showGain?: boolean, subtle?: boolean, className?: string }} props
  */
-export default function TokensMeter({ tokens, goal, open = true, from = 0, showGain = false, className = '' }) {
+export default function TokensMeter({ tokens, goal, open = true, from = 0, showGain = false, subtle = false, className = '' }) {
   const { val, gain } = useTokenCount({ tokens, open, from, showGain })
 
   const shown = Math.round(val)
@@ -84,7 +86,7 @@ export default function TokensMeter({ tokens, goal, open = true, from = 0, showG
 
   return (
     <div
-      className={`nl-evo ${done ? 'nl-evo--done' : ''} ${className}`}
+      className={`nl-evo ${done ? 'nl-evo--done' : ''} ${subtle ? 'nl-evo--subtle' : ''} ${className}`}
       role="progressbar"
       aria-label="tokens"
       aria-valuemin={0}
@@ -213,6 +215,18 @@ export default function TokensMeter({ tokens, goal, open = true, from = 0, showG
           0%, 100% { box-shadow: 0 0 0 0 rgba(61,139,255,0); }
           50% { box-shadow: 0 0 14px 2px rgba(61,139,255,0.55); }
         }
+        /* subtle: thin and quiet, no glow, sheen or milestone marks */
+        .nl-evo--subtle { margin: 0 0 8px; }
+        .nl-evo--subtle .nl-evo-head { font-size: 9px; margin-bottom: 4px; opacity: 0.8; }
+        .nl-evo--subtle .nl-evo-score b { font-weight: 700; }
+        .nl-evo--subtle .nl-evo-track { height: 4px; box-shadow: none; }
+        .nl-evo--subtle .nl-evo-tick { display: none; }
+        .nl-evo--subtle .nl-evo-fill,
+        .nl-evo--subtle.nl-evo--done .nl-evo-fill { box-shadow: none; }
+        .nl-evo--subtle .nl-evo-fill::after { display: none; }
+        .nl-evo--subtle.nl-evo--done .nl-evo-track { animation: none; }
+        .nl-evo--subtle .nl-evo-gain { font-size: 10px; text-shadow: none; }
+        .nl-evo--subtle .nl-evo-caption { margin-top: 4px; font-size: 9px; font-weight: 600; opacity: 0.8; }
         @media (prefers-reduced-motion: reduce) {
           .nl-evo-fill, .nl-evo-fill::before, .nl-evo--done .nl-evo-caption { transition: none; }
           .nl-evo-fill::after, .nl-evo--done .nl-evo-track, .nl-evo-tick--lit, .nl-evo-gain { animation: none; }

@@ -82,7 +82,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
     if (!btn || now <= from || document.documentElement.hasAttribute('data-checkout-open')) return
     const country = getProfile()?.country || 'US'
     const r = btn.getBoundingClientRect()
-    const w = 220
+    const w = 180 // matches .cart-meter width
     const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w))
     const pos = r.top > 110 ? { left, bottom: window.innerHeight - r.top + 8 } : { left, top: r.bottom + 8 }
     tMeter.current.forEach(clearTimeout)
@@ -261,11 +261,11 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
           aria-hidden="true"
           style={{
             ...meter.pos,
-            background: isNight ? 'rgba(18,18,18,0.92)' : 'rgba(250,250,248,0.96)',
-            border: `1px solid ${isNight ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+            background: isNight ? 'rgba(18,18,18,0.7)' : 'rgba(250,250,248,0.75)',
+            border: `1px solid ${isNight ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'}`,
           }}
         >
-          <TokensMeter from={meter.from} tokens={meter.tokens} goal={meter.goal} showGain />
+          <TokensMeter from={meter.from} tokens={meter.tokens} goal={meter.goal} showGain subtle />
         </div>,
         document.body
       )}
@@ -273,13 +273,13 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
       <style jsx>{`
         .cart-meter {
           position: fixed;
-          width: 220px;
+          width: 180px;
           box-sizing: border-box;
-          padding: 10px 12px 0;
-          border-radius: 14px;
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-          box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+          padding: 8px 10px 0;
+          border-radius: 12px;
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
           z-index: 2147483000;
           pointer-events: none;
           transform-origin: bottom right;
