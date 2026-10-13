@@ -18,9 +18,12 @@ const CTRL_GAP = 8
 const CTRL_EDGE = 8
 // The video's size once resized (px wide), remembered on this device
 const VIDEO_W_KEY = 'lb:video-w'
+// It starts as small as it goes (a thumbnail); the corner grip, a pinch or
+// ⌘ / ctrl + scroll grows it
+const VIDEO_MIN_W = 160
 /** Never smaller than a thumbnail, never wider than the screen */
 const clampVideoW = (/** @type {number} */ w) =>
-  Math.round(Math.max(160, Math.min(w, typeof window === 'undefined' ? 960 : Math.min(1000, window.innerWidth - 16))))
+  Math.round(Math.max(VIDEO_MIN_W, Math.min(w, typeof window === 'undefined' ? 960 : Math.min(1000, window.innerWidth - 16))))
 
 /**
  * @param {{ playlistId?: string, size?: number, dayImgSrc?: string, nightImgSrc?: string }} props
@@ -50,7 +53,7 @@ export default function MusicPlayerButton({
   // Ref on the panel div — used by ResizeObserver to track player height
   const panelRef = useRef(/** @type {HTMLDivElement|null} */ (null))
   // Resized by the corner handle, a pinch or ⌘ / ctrl + scroll (px; null:
-  // its usual size). Remembered on this device.
+  // its starting size, the smallest). Remembered on this device.
   const [videoW, setVideoW] = useState(/** @type {number|null} */ (null))
   // The pop-out controls while they're out: where the column sits, and the
   // iPod's centre they pop out of (null: tucked away)
@@ -250,7 +253,7 @@ export default function MusicPlayerButton({
 
   // The corner handle: drag it out to grow the video, in to shrink it
   // (sideways counts double, as the video grows from its middle); a
-  // double-tap puts it back to its usual size
+  // double-tap puts it back to its starting size (the smallest)
   const resizeRef = useRef(/** @type {null | { id: number, x: number, y: number, w: number }} */ (null))
   const onResizeDown = (/** @type {React.PointerEvent<HTMLDivElement>} */ e) => {
     e.stopPropagation()
@@ -537,7 +540,7 @@ export default function MusicPlayerButton({
         />
         {/* Intercepts YouTube hover UI; tap = play/pause */}
         <div className="yt-blocker" onClick={handleBlockerClick} />
-        {/* Corner handle: drag to resize, double-tap for the usual size */}
+        {/* Corner handle: drag to resize, double-tap for the starting size */}
         <div
           className="yt-resize"
           role="slider"
@@ -729,11 +732,11 @@ export default function MusicPlayerButton({
         }
         .yt-panel {
           position: relative; /* so it can rise above the grid while dragged */
-          width: min(480px, calc(100vw - 2 * var(--header-ctrl, 64px)));
+          width: ${VIDEO_MIN_W}px; /* starts as small as it goes */
           background: #000;
           pointer-events: all;
           /* Soft rounded corners, floating just above the page */
-          border-radius: 18px;
+          border-radius: 14px;
           overflow: hidden;
           box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.12);
         }
