@@ -12,9 +12,9 @@ import { haptic } from '@/lib/haptics'
 // playback resumes, so the cover stays up this long past PLAYING
 const UNCOVER_DELAY_MS = 150
 // The iPod's pop-out controls (back, play / pause, forward): round pills like
-// the cart's size pills, stacked under the iPod
-const CTRL_PILL = 30
-const CTRL_GAP = 8
+// the cart's size pills, in a row to the right of the iPod
+const CTRL_PILL = 28 // same as the cart's size pills
+const CTRL_GAP = 6 // tight enough to clear the LAME logo on a phone
 const CTRL_EDGE = 8
 // The video's size once resized (px wide), remembered on this device
 const VIDEO_W_KEY = 'lb:video-w'
@@ -401,17 +401,17 @@ export default function MusicPlayerButton({
     }
   }, [playlistId, portalTarget]) // no 'open' — player lives independently of panel visibility
 
-  // The controls pop out of the iPod into a column under it (over it when
-  // the iPod is near the bottom), kept on screen
+  // The controls pop out of the iPod into a row to its right, level with it
+  // (to its left when the iPod is near the right edge), kept on screen
   const showControls = () => {
     const r = ipodBtnRef.current?.getBoundingClientRect()
     if (!r) return
-    const colH = 3 * CTRL_PILL + 2 * CTRL_GAP
+    const rowW = 3 * CTRL_PILL + 2 * CTRL_GAP
     const cx = r.left + r.width / 2
     const cy = r.top + r.height / 2
-    const below = r.bottom + CTRL_GAP
-    const top = below + colH <= window.innerHeight - CTRL_EDGE ? below : Math.max(CTRL_EDGE, r.top - CTRL_GAP - colH)
-    const left = Math.max(CTRL_EDGE, Math.min(window.innerWidth - CTRL_EDGE - CTRL_PILL, cx - CTRL_PILL / 2))
+    const right = r.right + CTRL_GAP
+    const left = right + rowW <= window.innerWidth - CTRL_EDGE ? right : Math.max(CTRL_EDGE, r.left - CTRL_GAP - rowW)
+    const top = Math.max(CTRL_EDGE, Math.min(window.innerHeight - CTRL_EDGE - CTRL_PILL, cy - CTRL_PILL / 2))
     setControls({ left, top, cx, cy, key: Date.now() })
   }
 
@@ -609,8 +609,8 @@ export default function MusicPlayerButton({
         >
           {/** @type {const} */ (['prev', 'toggle', 'next']).map((what, i) => {
             // Each pill pops out of the iPod's centre into its slot
-            const slotX = controls.left + CTRL_PILL / 2
-            const slotY = controls.top + i * (CTRL_PILL + CTRL_GAP) + CTRL_PILL / 2
+            const slotX = controls.left + i * (CTRL_PILL + CTRL_GAP) + CTRL_PILL / 2
+            const slotY = controls.top + CTRL_PILL / 2
             const label = what === 'prev' ? 'Previous track' : what === 'next' ? 'Next track' : playing ? 'Pause' : 'Play'
             return (
               <button
@@ -671,7 +671,7 @@ export default function MusicPlayerButton({
         .ipod-ctrls {
           position: fixed;
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
           gap: ${CTRL_GAP}px;
           z-index: 2147483002; /* with the other pop-ups, above the dragged video */
         }
