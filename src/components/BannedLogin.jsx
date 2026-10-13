@@ -238,91 +238,36 @@ export default function BannedLogin({
 
       {hintUp && (
         <div className="lb-pull-hint" aria-live="polite" data-video={videoRevealed ? '1' : '0'}>
-          <span className="lb-pull-sparkle lb-pull-sparkle--l" aria-hidden="true">✦</span>
-          pull me <span className="lb-pull-heart" aria-hidden="true">♡</span>
-          <span className="lb-pull-sparkle lb-pull-sparkle--r" aria-hidden="true">✧</span>
+          pull me
         </div>
       )}
       <style jsx>{`
-        /* soft pastel bubble: pink to lilac, a beating heart and twinkles */
+        /* plain text, styled like the clock and location below */
         .lb-pull-hint {
           position: fixed;
           left: 50%;
           top: calc(50% - 50px);
           transform: translate(-50%, -100%);
-          padding: 7px 16px 8px;
-          border-radius: 999px;
-          background: linear-gradient(135deg, #ffd6ea 0%, #f6d3ff 55%, #dcd6ff 100%);
-          border: 1.5px solid #fff;
-          color: #d63f8c;
-          /* same type as the clock and location below */
           font-family: inherit;
           font-size: clamp(12px, 1.2vw, 14px);
           font-weight: 800;
           letter-spacing: 0.06em;
           text-transform: uppercase;
           line-height: 1.2;
+          color: #000;
+          opacity: 0.95;
           white-space: nowrap;
           pointer-events: none;
-          box-shadow: 0 6px 18px rgba(232, 120, 190, 0.35), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
-          animation: lbHintIn 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both,
-            lbHintBob 1.4s ease-in-out 0.45s infinite,
-            lbHintOut 0.35s ease-in 2.65s forwards;
-        }
-        .lb-pull-hint::after {
-          content: '';
-          position: absolute;
-          left: 50%;
-          bottom: -6px;
-          width: 11px;
-          height: 11px;
-          background: #f6d3ff;
-          border-right: 1.5px solid #fff;
-          border-bottom: 1.5px solid #fff;
-          border-radius: 0 0 3px 0;
-          transform: translateX(-50%) rotate(45deg);
+          animation: lbHintFade 3s ease both;
         }
         .lb-pull-hint[data-video='1'] {
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+          color: #fff;
+          text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55), 0 0 12px rgba(0, 0, 0, 0.35);
         }
-        .lb-pull-heart {
-          display: inline-block;
-          margin-left: 2px;
-          color: #ff5fa8;
-          animation: lbHintHeart 0.9s ease-in-out infinite;
-        }
-        .lb-pull-sparkle {
-          position: absolute;
-          font-size: 11px;
-          line-height: 1;
-          color: #c99bff;
-          animation: lbHintTwinkle 1.2s ease-in-out infinite;
-        }
-        .lb-pull-sparkle--l { left: -9px; top: -6px; }
-        .lb-pull-sparkle--r { right: -8px; bottom: -4px; color: #ff8cc6; animation-delay: 0.6s; }
-        @keyframes lbHintIn {
-          from { opacity: 0; transform: translate(-50%, -70%) scale(0.5); }
-          to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
-        }
-        @keyframes lbHintBob {
-          0%, 100% { margin-top: 0; }
-          50% { margin-top: -5px; }
-        }
-        @keyframes lbHintHeart {
-          0%, 100% { transform: scale(1); }
-          30% { transform: scale(1.3); }
-          50% { transform: scale(1.05); }
-        }
-        @keyframes lbHintTwinkle {
-          0%, 100% { opacity: 0.3; transform: scale(0.7) rotate(0deg); }
-          50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
-        }
-        @keyframes lbHintOut {
-          to { opacity: 0; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .lb-pull-hint { animation: lbHintOut 0.35s ease-in 2.65s forwards; }
-          .lb-pull-heart, .lb-pull-sparkle { animation: none; }
+        @keyframes lbHintFade {
+          0% { opacity: 0; }
+          10%, 88% { opacity: 0.95; }
+          100% { opacity: 0; }
         }
       `}</style>
     </div>
