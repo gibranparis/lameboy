@@ -8,10 +8,10 @@ const HEART_SRC = '/human heart zero.png'
 // Set to '/human heart filled.png' once that asset exists — the filled heart
 // then uses it as-is and the CSS tint below is skipped.
 const FILLED_HEART_SRC = null
-// Warm red/pink tint + soft glow for the filled (signed-in) heart. Applied
-// to the original image in both themes, so it reads on day and night.
+// Gold tint + warm golden glow for the filled (signed-in) heart. Applied to
+// the original image in both themes, so it reads on day and night.
 const FILLED_TINT =
-  'brightness(0.8) sepia(1) saturate(4) hue-rotate(-60deg) drop-shadow(0 0 4px rgba(255, 64, 110, 0.75)) drop-shadow(0 0 10px rgba(255, 64, 110, 0.4))'
+  'sepia(1) saturate(3.2) hue-rotate(2deg) brightness(1.08) drop-shadow(0 0 4px rgba(255, 199, 56, 0.85)) drop-shadow(0 0 11px rgba(255, 184, 28, 0.5))'
 
 /**
  * Pure heart FAB — no circle background.
