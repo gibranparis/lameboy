@@ -42,6 +42,8 @@ const reducedMotion = () =>
 
 const RESET_EVENT = 'lb:drag-reset'
 export const DRAG_RESET = RESET_EVENT
+/** Fired (on window) when a drag starts moving something on the shop grid */
+export const GRID_MOVED = 'lb:grid-moved'
 // Where keyed elements were left, so one that remounts (a pop-up reopened)
 // comes back where it was parked
 /** @type {Map<string, {x: number, y: number}>} */

@@ -18,7 +18,7 @@ import ShopGrid from '@/components/ShopGrid'
 import { isSignedIn, useProfile } from '@/lib/profile'
 import { useCart } from '@/contexts/CartContext'
 import { freeShipTokens } from '@/lib/freeShipping'
-import { useDragSnap, pinball, resetDragged } from '@/lib/dragSnap'
+import { useDragSnap, pinball, resetDragged, GRID_MOVED } from '@/lib/dragSnap'
 import { askForMotion, onShake } from '@/lib/shake'
 import { haptic } from '@/lib/haptics'
 const HeaderBar = nextDynamic(() => import('@/components/HeaderBar'), { ssr: false })
@@ -33,6 +33,7 @@ const RUNNER_H = 14
 const LOADER_MS = 900 // black orb + "Let All Mankind Evolve" before the shop
 // One beat per chakra: red → orange → yellow → green → blue → purple → pink → black
 const CHAKRA_STEP_MS = 220
+const PILL_LINGER_MS = 5000 // how long the tokens pill stays up after it shows
 // Splash video is off by default; enable by setting NEXT_PUBLIC_SPLASH_VIDEO=on and redeploying
 const SPLASH_VIDEO_ON = process.env.NEXT_PUBLIC_SPLASH_VIDEO === 'on'
 
@@ -276,8 +277,47 @@ export default function Page() {
   const [newsletterOpen, setNewsletterOpen] = useState(false)
   const profile = useProfile()
   const heartFilled = isSignedIn(profile)
-  // Signed in, the tokens pill stays up under the heart
+  // Signed in, the tokens pill pops up under the heart: as the shop opens
+  // and whenever the cart's tokens grow. It lingers a few seconds (longer
+  // while it's being moved itself), and anything on the grid moving clears
+  // it away at once.
   const { total: cartTotal, cartReady } = useCart()
+  const [pillUp, setPillUp] = useState(false)
+  const pillTimer = useRef(/** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined))
+  const pillHeld = useRef(false)
+  const lingerPill = useCallback(() => {
+    clearTimeout(pillTimer.current)
+    if (!pillHeld.current) pillTimer.current = setTimeout(() => setPillUp(false), PILL_LINGER_MS)
+  }, [])
+  const pillTotal = useRef(/** @type {number | null} */ (null))
+  useEffect(() => {
+    if (!inShop || !shopReady || !heartFilled || !cartReady) {
+      pillTotal.current = null
+      return
+    }
+    const before = pillTotal.current
+    pillTotal.current = cartTotal
+    if (before === null || cartTotal > before) {
+      setPillUp(true)
+      lingerPill()
+    }
+  }, [inShop, shopReady, heartFilled, cartReady, cartTotal, lingerPill])
+  useEffect(() => {
+    const clear = () => {
+      clearTimeout(pillTimer.current)
+      setPillUp(false)
+    }
+    window.addEventListener(GRID_MOVED, clear)
+    return () => {
+      window.removeEventListener(GRID_MOVED, clear)
+      clearTimeout(pillTimer.current)
+    }
+  }, [])
+  const onPillHold = useCallback((/** @type {boolean} */ held) => {
+    pillHeld.current = held
+    if (held) clearTimeout(pillTimer.current)
+    else lingerPill()
+  }, [lingerPill])
 
   /* ===================== Shop → splash ===================== */
   // Once entered, the shop stays mounted (hidden) while the splash page shows,
@@ -618,13 +658,15 @@ export default function Page() {
       )}
 
 
-      {/* Tokens toward free shipping, under the heart once signed in (hidden
-          while the heart panel, with the full meter, is open) */}
+      {/* Tokens toward free shipping, under the heart once signed in: up for
+          a little after it's shown (see pillUp), never while the heart panel,
+          with the full meter, is open */}
       {inShop && !loaderShow && heartFilled && cartReady && (
         <TokensPill
           {...freeShipTokens(cartTotal, profile?.country)}
-          hidden={newsletterOpen || !shopReady}
+          hidden={!pillUp || newsletterOpen || !shopReady}
           onOpen={() => setNewsletterOpen(true)}
+          onHold={onPillHold}
         />
       )}
 
