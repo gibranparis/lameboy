@@ -84,7 +84,14 @@ export default function HeaderBar({ ctrlPx, shopReady = true }) {
             className="select-none"
             circlePx={sizes.toggleDot}
             trackPad={1}
-            moonImages={['/toggle/moon-red.png', '/toggle/moon-blue.png']}
+            moonImages={[
+              '/toggle/moon-red.png',
+              '/toggle/moon-blue.png',
+              '/toggle/planet-mars-ocean.png',
+              '/toggle/planet-titan.png',
+              '/toggle/planet-titan-mosaic.png',
+              '/toggle/planet-europa.png',
+            ]}
           />
         </div>
       </div>
