@@ -10,7 +10,8 @@ const SLASHES = 10 // one per 10% of the way to free shipping
 
 /**
  * The tokens meter in miniature, for a signed-in customer: a clean little
- * pill under the heart with a row of progression slashes, one per 10% of the
+ * cartoon pill (ink outline, hard shadow) under the heart with a row of
+ * chunky progression bars, one per 10% of the
  * way to free shipping. They light up one by one as the cart's tokens roll
  * in (the one in progress fills partway, and each pops as it completes), a
  * "+N" drops out when it grows, and once free shipping is unlocked they all
@@ -54,7 +55,7 @@ export default function TokensPill({ tokens, goal, hidden = false, onOpen, onHol
         {Array.from({ length: SLASHES }, (_, i) => {
           const f = Math.max(0, Math.min(1, progress - i))
           return (
-            <span key={i} className={`tk-slash ${f >= 1 ? 'tk-slash--full' : ''}`}>
+            <span key={i} className={`tk-slash ${f >= 1 ? 'tk-slash--full' : ''} ${f <= 0 ? 'tk-slash--empty' : ''}`}>
               <span className="tk-slash-fill" style={{ width: `${(f * 100).toFixed(1)}%` }} />
             </span>
           )
@@ -63,110 +64,123 @@ export default function TokensPill({ tokens, goal, hidden = false, onOpen, onHol
       {done && <span className="tk-star" aria-hidden="true">★</span>}
       {gain && <span key={gain.key} className="tk-gain" aria-hidden="true">+{gain.n.toLocaleString('en-US')}</span>}
       <style jsx>{`
+        /* cartoon look: chunky ink outline, hard offset shadow, rounded bars */
         .tk-pill {
+          --tk-ink: #111;
+          --tk-paper: #fff;
           position: fixed;
           /* centred under the heart (44px, at the right of the top row) */
           top: calc(var(--safe-top, 0px) + var(--header-ctrl, 64px) - 4px);
-          right: calc(max(var(--header-pad-x, 16px), env(safe-area-inset-right)) - 6px);
+          right: calc(max(var(--header-pad-x, 16px), env(safe-area-inset-right)) - 8px);
           z-index: 9991;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 56px;
-          height: 18px;
-          padding: 0 7px;
+          width: 60px;
+          height: 22px;
+          padding: 0 6px;
           box-sizing: border-box;
-          border: 1px solid rgba(0,0,0,0.08);
+          border: 2px solid var(--tk-ink);
           border-radius: 9999px;
           overflow: visible;
-          background: rgba(255,255,255,0.72);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+          background: var(--tk-paper);
+          box-shadow: 2px 2px 0 var(--tk-ink);
           cursor: pointer;
           -webkit-tap-highlight-color: transparent;
-          transition: opacity 0.25s ease, box-shadow 0.45s ease;
+          transition: opacity 0.25s ease, transform 0.12s ease, box-shadow 0.12s ease;
+          animation: tk-boing 0.6s cubic-bezier(0.3, 1.8, 0.5, 1);
         }
         :global(html[data-theme='night']) .tk-pill {
-          border-color: rgba(255,255,255,0.12);
-          background: rgba(22,22,22,0.72);
-          box-shadow: 0 3px 12px rgba(0,0,0,0.45);
+          --tk-ink: #fff;
+          --tk-paper: #161616;
         }
-        .tk-pill--hidden { opacity: 0; pointer-events: none; }
-        .tk-pill--done { box-shadow: 0 0 12px rgba(61,139,255,0.45); }
-        .tk-pill--done { animation: tk-levelup 0.55s cubic-bezier(0.3, 1.6, 0.5, 1); }
-        @keyframes tk-levelup {
-          0% { transform: scale(1); }
-          35% { transform: scale(1.18); }
+        .tk-pill:active { transform: translate(1px, 1px) scale(0.96, 0.9); box-shadow: 1px 1px 0 var(--tk-ink); }
+        @keyframes tk-boing {
+          0% { transform: scale(0.4, 0.4); }
+          45% { transform: scale(1.15, 0.85); }
+          70% { transform: scale(0.94, 1.08); }
           100% { transform: scale(1); }
         }
-        /* the progression slashes: thin, slanted, evenly spaced */
+        /* hidden drops the animation, so it boings again each time it shows */
+        .tk-pill--hidden { opacity: 0; pointer-events: none; animation: none; }
+        .tk-pill--done { animation: tk-levelup 0.6s cubic-bezier(0.3, 1.8, 0.5, 1); }
+        @keyframes tk-levelup {
+          0% { transform: scale(1) rotate(0); }
+          30% { transform: scale(1.25, 0.8) rotate(-4deg); }
+          60% { transform: scale(0.92, 1.12) rotate(3deg); }
+          100% { transform: scale(1) rotate(0); }
+        }
+        /* the progression bars: chunky, rounded, a little slanted */
         .tk-slashes {
           display: flex;
           gap: 2px;
           width: 100%;
-          height: 9px;
+          height: 10px;
         }
         .tk-slash {
           position: relative;
           flex: 1;
           overflow: hidden;
-          border-radius: 1px;
-          transform: skewX(-22deg);
-          background: rgba(0,0,0,0.12);
+          border-radius: 2px;
+          transform: skewX(-14deg);
+          background: transparent;
+          box-shadow: inset 0 0 0 1.5px var(--tk-ink);
         }
-        :global(html[data-theme='night']) .tk-slash { background: rgba(255,255,255,0.16); }
+        /* bars not reached yet are faint outlines */
+        .tk-slash--empty { opacity: 0.28; }
         .tk-slash-fill {
           position: absolute;
           left: 0; top: 0; bottom: 0;
-          background: linear-gradient(180deg, #7dffb0, var(--hover-green, #0bf05f));
+          background: var(--hover-green, #0bf05f);
           transition: background 0.45s ease;
         }
-        .tk-slash--full { animation: tk-slash-pop 0.35s ease-out; }
-        .tk-slash--full .tk-slash-fill { box-shadow: 0 0 4px rgba(11,240,95,0.6); }
+        .tk-slash--full { animation: tk-slash-pop 0.4s cubic-bezier(0.3, 1.8, 0.5, 1); }
         @keyframes tk-slash-pop {
-          0% { transform: skewX(-22deg) scaleY(1); }
-          45% { transform: skewX(-22deg) scaleY(1.45); }
-          100% { transform: skewX(-22deg) scaleY(1); }
+          0% { transform: skewX(-14deg) scale(1, 1); }
+          45% { transform: skewX(-14deg) scale(1.3, 1.6); }
+          100% { transform: skewX(-14deg) scale(1, 1); }
         }
-        .tk-pill--done .tk-slash-fill {
-          background: linear-gradient(180deg, #8fd0ff, #3d8bff);
-          box-shadow: 0 0 4px rgba(61,139,255,0.7);
-        }
-        /* unlocked: a little star rides the top corner */
+        .tk-pill--done .tk-slash-fill { background: #3d8bff; }
+        /* unlocked: a fat outlined star pops onto the top corner */
         .tk-star {
           position: absolute;
-          right: -5px;
-          top: -7px;
-          font-size: 11px;
+          right: -8px;
+          top: -10px;
+          font-size: 15px;
           line-height: 1;
-          color: #3d8bff;
-          text-shadow: 0 0 6px rgba(61,139,255,0.7);
-          animation: tk-star 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+          color: #ffd23f;
+          -webkit-text-stroke: 1.5px var(--tk-ink);
+          paint-order: stroke fill;
+          animation: tk-star 0.55s cubic-bezier(0.3, 1.8, 0.5, 1) both, tk-star-wobble 2.4s ease-in-out 0.55s infinite;
           pointer-events: none;
         }
         @keyframes tk-star {
-          from { opacity: 0; transform: scale(0.2) rotate(-90deg); }
+          from { opacity: 0; transform: scale(0.2) rotate(-120deg); }
           to { opacity: 1; transform: none; }
+        }
+        @keyframes tk-star-wobble {
+          0%, 100% { transform: rotate(0); }
+          50% { transform: rotate(14deg) scale(1.08); }
         }
         /* what was just earned drops out from under the pill */
         .tk-gain {
           position: absolute; left: 50%; top: 100%;
-          font-size: 10px; font-weight: 800; white-space: nowrap;
+          font-size: 11px; font-weight: 900; white-space: nowrap;
           font-variant-numeric: tabular-nums;
-          color: #08a443;
+          color: var(--hover-green, #0bf05f);
+          -webkit-text-stroke: 1px var(--tk-ink);
+          paint-order: stroke fill;
           pointer-events: none;
           animation: tk-gain 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
-        :global(html[data-theme='night']) .tk-gain { color: var(--hover-green, #0bf05f); text-shadow: 0 0 8px rgba(11,240,95,0.55); }
-        @keyframes tk-gain {
+                @keyframes tk-gain {
           0% { opacity: 0; transform: translate(-50%, -4px) scale(0.8); }
           18% { opacity: 1; transform: translate(-50%, 2px) scale(1.15); }
           70% { opacity: 1; transform: translate(-50%, 6px) scale(1); }
           100% { opacity: 0; transform: translate(-50%, 12px) scale(1); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .tk-pill--done, .tk-gain, .tk-slash--full, .tk-star { animation: none; }
+          .tk-pill, .tk-pill--done, .tk-gain, .tk-slash--full, .tk-star { animation: none; }
         }
       `}</style>
     </button>
