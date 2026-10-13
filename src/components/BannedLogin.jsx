@@ -255,9 +255,13 @@ export default function BannedLogin({
           background: linear-gradient(135deg, #ffd6ea 0%, #f6d3ff 55%, #dcd6ff 100%);
           border: 1.5px solid #fff;
           color: #d63f8c;
-          font-size: 13px;
+          /* same type as the clock and location below */
+          font-family: inherit;
+          font-size: clamp(12px, 1.2vw, 14px);
           font-weight: 800;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          line-height: 1.2;
           white-space: nowrap;
           pointer-events: none;
           box-shadow: 0 6px 18px rgba(232, 120, 190, 0.35), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
