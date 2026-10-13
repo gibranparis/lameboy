@@ -13,7 +13,7 @@ import TokensMeter from '@/components/TokensMeter'
 
 const METER_MS = 3000 // how long the tokens pop-up stays after an add
 
-const BIRKINS = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png']
+const BIRKINS = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png', '/cart/birkin-purple.png']
 const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
 
 /**
@@ -43,7 +43,7 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
 
   // If imgSrc is provided, use that exact image.
   // Otherwise, build a candidate list starting from a random Birkin
-  // so the first one (candidates[0]) cycles between green/royal/sky.
+  // so the first one (candidates[0]) cycles between green/royal/sky/purple.
   const candidates = useMemo(() => {
     if (imgSrc) return [imgSrc]
 

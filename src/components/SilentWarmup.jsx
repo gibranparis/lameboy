@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 // Default assets live in /public
-const CART = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png']
+const CART = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png', '/cart/birkin-purple.png']
 const TOGGLE = ['/toggle/moon-blue.png', '/toggle/moon-red.png']
 
 export default function SilentWarmup({
