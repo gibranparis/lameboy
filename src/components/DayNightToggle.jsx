@@ -105,9 +105,18 @@ export default function DayNightToggle({
     return () => window.removeEventListener(THEME_FLIP, flip);
   });
 
+  // The day knob wears one of moonImages, picked at random once mounted
+  // (picked after mount so the server and first client render agree)
+  const [moonPick, setMoonPick] = useState(0);
+  useEffect(() => {
+    if (Array.isArray(moonImages) && moonImages.length > 1) {
+      setMoonPick(Math.floor(Math.random() * moonImages.length));
+    }
+  }, [moonImages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // preload moon, sun, and constellation to avoid first-switch flash
   useEffect(() => {
-    const moonSrc = (Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/Blue%20hand-drawn%20symbol%20with%20_LAME_.png');
+    const moonSrc = (Array.isArray(moonImages) && moonImages.length ? moonImages[moonPick] || moonImages[0] : '/toggle/Blue%20hand-drawn%20symbol%20with%20_LAME_.png');
     const sunSrc = '/toggle/sun.webp';
     const constellationSrc = '/toggle/virgo-constellation.webp';
     const sunsetSrc = '/toggle/white%20cloud.png';
@@ -115,7 +124,7 @@ export default function DayNightToggle({
       const img = new Image();
       img.src = src;
     });
-  }, [moonImages]);
+  }, [moonImages, moonPick]);
 
   // Sizing
   const dims = useMemo(() => {
@@ -128,7 +137,9 @@ export default function DayNightToggle({
     return { h, w, knob, inset, shift };
   }, [circlePx, trackPad]);
 
-  const moonSrc = Array.isArray(moonImages) && moonImages.length ? moonImages[0] : '/toggle/moon-red.png';
+  const moonSrc = Array.isArray(moonImages) && moonImages.length ? moonImages[moonPick] || moonImages[0] : '/toggle/moon-red.png';
+  // The moons are lifted with a screen blend; planet photos keep their own colours
+  const moonBlend = moonSrc.includes('/planet-') ? 'normal' : 'screen';
 
   // keyboard a11y
   function onKeyDown(e) {
@@ -267,7 +278,7 @@ export default function DayNightToggle({
             style={{
               width: dims.knob, height: dims.knob, borderRadius:'50%',
               display:'block', objectFit:'cover',
-              mixBlendMode:'screen', filter:'saturate(1.15) brightness(1.02)',
+              mixBlendMode:moonBlend, filter:'saturate(1.15) brightness(1.02)',
             }}
             draggable={false}
           />
