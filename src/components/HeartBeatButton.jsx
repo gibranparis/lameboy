@@ -7,6 +7,8 @@ import React, { useRef, useEffect, useState, useMemo } from 'react'
 const HEART_SRC = '/human heart zero.png'
 // Signed-in customers get the sacred heart, shown in its own colours.
 const FILLED_HEART_SRC = '/sacred heart.png'
+// The sacred heart sits a touch smaller inside the same button box.
+const FILLED_HEART_SCALE = 0.86
 
 /**
  * Pure heart FAB — no circle background.
@@ -146,8 +148,8 @@ export default function HeartBeatButton({
         /* HEART ONLY — NO CIRCLE */
         <img
           src={filled ? FILLED_HEART_SRC : HEART_SRC}
-          width={size}
-          height={size}
+          width={filled ? Math.round(size * FILLED_HEART_SCALE) : size}
+          height={filled ? Math.round(size * FILLED_HEART_SCALE) : size}
           aria-hidden="true"
           className="lb-heart"
           data-paused={paused ? '1' : '0'}
