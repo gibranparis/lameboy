@@ -108,23 +108,29 @@ export default function DayNightToggle({
   // The day knob wears one of moonImages, picked at random once mounted
   // (picked after mount so the server and first client render agree)
   const [moonPick, setMoonPick] = useState(0);
+  // The night knob wears the sun or one of moonImages (never the same orb
+  // as the day knob), picked the same way
+  const [nightPick, setNightPick] = useState(-1); // -1: the sun
   useEffect(() => {
-    if (Array.isArray(moonImages) && moonImages.length > 1) {
-      setMoonPick(Math.floor(Math.random() * moonImages.length));
-    }
+    const n = Array.isArray(moonImages) ? moonImages.length : 0;
+    const day = n > 1 ? Math.floor(Math.random() * n) : 0;
+    // sun + every orb except the day one
+    const night = [-1, ...Array.from({ length: n }, (_, i) => i).filter((i) => i !== day)];
+    setMoonPick(day);
+    setNightPick(night[Math.floor(Math.random() * night.length)]);
   }, [moonImages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // preload moon, sun, and constellation to avoid first-switch flash
   useEffect(() => {
     const moonSrc = (Array.isArray(moonImages) && moonImages.length ? moonImages[moonPick] || moonImages[0] : '/toggle/Blue%20hand-drawn%20symbol%20with%20_LAME_.png');
-    const sunSrc = '/toggle/sun.webp';
+    const sunSrc = (nightPick >= 0 && moonImages?.[nightPick]) || '/toggle/sun.webp';
     const constellationSrc = '/toggle/virgo-constellation.webp';
     const sunsetSrc = '/toggle/white%20cloud.png';
     [moonSrc, sunSrc, constellationSrc, sunsetSrc].forEach(src => {
       const img = new Image();
       img.src = src;
     });
-  }, [moonImages, moonPick]);
+  }, [moonImages, moonPick, nightPick]);
 
   // Sizing
   const dims = useMemo(() => {
@@ -140,6 +146,8 @@ export default function DayNightToggle({
   const moonSrc = Array.isArray(moonImages) && moonImages.length ? moonImages[moonPick] || moonImages[0] : '/toggle/moon-red.png';
   // The moons are lifted with a screen blend; planet photos keep their own colours
   const moonBlend = moonSrc.includes('/planet-') ? 'normal' : 'screen';
+  const nightSrc = (nightPick >= 0 && moonImages?.[nightPick]) || '/toggle/sun.webp';
+  const nightIsSun = nightSrc === '/toggle/sun.webp';
 
   // keyboard a11y
   function onKeyDown(e) {
@@ -242,7 +250,7 @@ export default function DayNightToggle({
           filter:'saturate(1.02)',
         }}
       >
-        {/* Sun */}
+        {/* Night knob: the sun, or a moon or planet */}
         <span
           style={{
             position:'absolute', inset:0, display:'grid', placeItems:'center',
@@ -250,7 +258,7 @@ export default function DayNightToggle({
           }}
         >
           <img
-            src="/toggle/sun.webp"
+            src={nightSrc}
             alt=""
             style={{
               width: dims.knob,
@@ -259,7 +267,10 @@ export default function DayNightToggle({
               display: 'block',
               objectFit: 'cover',
               objectPosition: 'center',
-              filter: 'saturate(1.1) brightness(1.05) drop-shadow(0 0 12px rgba(255,210,80,.7))',
+              // the sun glows gold; a moon or planet gets a soft pale glow
+              filter: nightIsSun
+                ? 'saturate(1.1) brightness(1.05) drop-shadow(0 0 12px rgba(255,210,80,.7))'
+                : 'saturate(1.1) brightness(1.08) drop-shadow(0 0 8px rgba(200,220,255,.45))',
             }}
             draggable={false}
           />
