@@ -2,9 +2,11 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { CART_BAGS, CART_BAG_START } from '@/lib/cartBags'
 
 // Default assets live in /public
-const CART = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png', '/cart/birkin-purple.png']
+// Just the bag the cart button will wear this load
+const CART = [CART_BAGS[CART_BAG_START]]
 const TOGGLE = ['/toggle/moon-blue.png', '/toggle/moon-red.png']
 
 export default function SilentWarmup({

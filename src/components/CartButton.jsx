@@ -10,11 +10,9 @@ import { CART_LANDED, cartFlying } from '@/lib/cartFlight'
 import { getProfile } from '@/lib/profile'
 import { freeShipTokens } from '@/lib/freeShipping'
 import TokensMeter from '@/components/TokensMeter'
+import { CART_BAGS, CART_BAG_START } from '@/lib/cartBags'
 
 const METER_MS = 3000 // how long the tokens pop-up stays after an add
-
-const BIRKINS = ['/cart/birkin-green.png', '/cart/birkin-royal.png', '/cart/birkin-sky.png', '/cart/birkin-purple.png']
-const SHARED_START = Math.floor(Math.random() * BIRKINS.length)
 
 /**
  * CartButton
@@ -42,15 +40,14 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   }, [])
 
   // If imgSrc is provided, use that exact image.
-  // Otherwise, build a candidate list starting from a random Birkin
-  // so the first one (candidates[0]) cycles between green/royal/sky/purple.
+  // Otherwise, build a candidate list starting from this load's random bag
+  // (lib/cartBags), the rest as fallbacks.
   const candidates = useMemo(() => {
     if (imgSrc) return [imgSrc]
 
-    const start = SHARED_START
     const ordered = []
-    for (let i = 0; i < BIRKINS.length; i++) {
-      ordered.push(BIRKINS[(start + i) % BIRKINS.length])
+    for (let i = 0; i < CART_BAGS.length; i++) {
+      ordered.push(CART_BAGS[(CART_BAG_START + i) % CART_BAGS.length])
     }
     return ordered
   }, [imgSrc])
