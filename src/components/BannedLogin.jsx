@@ -67,6 +67,23 @@ export default function BannedLogin({
     }
   }, [])
 
+  // "pull me" hint over the orb: pops up 6s after the splash opens, stays
+  // 3s. Skipped once the orb has been touched.
+  const [hintUp, setHintUp] = useState(false)
+  const orbTouched = gateStep > 0 || isProceeding || orbHeld
+  useEffect(() => {
+    if (orbTouched) {
+      setHintUp(false)
+      return
+    }
+    const show = setTimeout(() => setHintUp(true), 6000)
+    const hide = setTimeout(() => setHintUp(false), 9000)
+    return () => {
+      clearTimeout(show)
+      clearTimeout(hide)
+    }
+  }, [orbTouched])
+
   // Determine which location and timezone to show based on gateStep
   const displayLocation = useMemo(() => {
     if (isProceeding) return 'Let All Mankind Evolve'
@@ -218,6 +235,63 @@ export default function BannedLogin({
         </span>
       )}
       </div>
+
+      {hintUp && (
+        <div className="lb-pull-hint" aria-live="polite" data-video={videoRevealed ? '1' : '0'}>
+          pull me
+        </div>
+      )}
+      <style jsx>{`
+        .lb-pull-hint {
+          position: fixed;
+          left: 50%;
+          top: calc(50% - 50px);
+          transform: translate(-50%, -100%);
+          padding: 6px 12px;
+          border-radius: 999px;
+          background: #000;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          white-space: nowrap;
+          pointer-events: none;
+          animation: lbHintIn 0.32s cubic-bezier(0.2, 1.4, 0.4, 1) both,
+            lbHintBob 1.1s ease-in-out 0.32s infinite,
+            lbHintOut 0.3s ease-in 2.7s forwards;
+        }
+        .lb-pull-hint::after {
+          content: '';
+          position: absolute;
+          left: 50%;
+          bottom: -5px;
+          width: 10px;
+          height: 10px;
+          background: inherit;
+          border-radius: 2px;
+          transform: translateX(-50%) rotate(45deg);
+        }
+        .lb-pull-hint[data-video='1'] {
+          background: #fff;
+          color: #000;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+        }
+        @keyframes lbHintIn {
+          from { opacity: 0; transform: translate(-50%, -80%) scale(0.6); }
+          to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+        }
+        @keyframes lbHintBob {
+          0%, 100% { margin-top: 0; }
+          50% { margin-top: -4px; }
+        }
+        @keyframes lbHintOut {
+          to { opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .lb-pull-hint { animation: lbHintOut 0.3s ease-in 2.7s forwards; }
+        }
+      `}</style>
     </div>
   )
 }
