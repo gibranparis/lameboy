@@ -84,14 +84,16 @@ export default function HeaderBar({ ctrlPx, shopReady = true }) {
             className="select-none"
             circlePx={sizes.toggleDot}
             trackPad={1}
+            // Day mode shows a moon (tap for night): our moons, Titan, Europa
             moonImages={[
               '/toggle/moon-red.png',
               '/toggle/moon-blue.png',
-              '/toggle/planet-mars-ocean.png',
               '/toggle/planet-titan.png',
               '/toggle/planet-titan-mosaic.png',
               '/toggle/planet-europa.png',
             ]}
+            // Night mode shows a sun (tap for day): the sun, or sunlit ocean Mars
+            sunImages={['/toggle/sun.webp', '/toggle/planet-mars-ocean.png']}
           />
         </div>
       </div>
