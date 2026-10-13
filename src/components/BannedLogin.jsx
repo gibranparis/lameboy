@@ -67,8 +67,10 @@ export default function BannedLogin({
     }
   }, [])
 
-  // "pull me" hint over the orb: pops up 6s after the splash opens, stays
-  // 3s. Skipped once the orb has been touched.
+  // "pull me" hint over the orb: pops up every 6s for 2s while the splash
+  // sits idle. Stops once the orb has been touched.
+  const HINT_EVERY_MS = 6000
+  const HINT_UP_MS = 2000
   const [hintUp, setHintUp] = useState(false)
   const orbTouched = gateStep > 0 || isProceeding || orbHeld
   useEffect(() => {
@@ -76,10 +78,14 @@ export default function BannedLogin({
       setHintUp(false)
       return
     }
-    const show = setTimeout(() => setHintUp(true), 6000)
-    const hide = setTimeout(() => setHintUp(false), 9000)
+    let hide = 0
+    const pop = () => {
+      setHintUp(true)
+      hide = window.setTimeout(() => setHintUp(false), HINT_UP_MS)
+    }
+    const every = window.setInterval(pop, HINT_EVERY_MS)
     return () => {
-      clearTimeout(show)
+      clearInterval(every)
       clearTimeout(hide)
     }
   }, [orbTouched])
@@ -258,7 +264,7 @@ export default function BannedLogin({
           opacity: 0.95;
           white-space: nowrap;
           pointer-events: none;
-          animation: lbHintFade 3s ease both;
+          animation: lbHintFade 2s ease both;
         }
         .lb-pull-hint[data-video='1'] {
           color: #fff;
@@ -266,7 +272,7 @@ export default function BannedLogin({
         }
         @keyframes lbHintFade {
           0% { opacity: 0; }
-          10%, 88% { opacity: 0.95; }
+          15%, 85% { opacity: 0.95; }
           100% { opacity: 0; }
         }
       `}</style>
