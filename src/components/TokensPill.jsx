@@ -131,7 +131,7 @@ export default function TokensPill({ tokens, goal, hidden = false, onOpen, onHol
         .tk-slash-fill {
           position: absolute;
           left: 0; top: 0; bottom: 0;
-          background: var(--hover-green, #0bf05f);
+          background: var(--bag-accent, var(--hover-green, #0bf05f));
           transition: background 0.45s ease;
         }
         .tk-slash--full { animation: tk-slash-pop 0.4s cubic-bezier(0.3, 1.8, 0.5, 1); }
@@ -167,7 +167,7 @@ export default function TokensPill({ tokens, goal, hidden = false, onOpen, onHol
           position: absolute; left: 50%; top: 100%;
           font-size: 11px; font-weight: 900; white-space: nowrap;
           font-variant-numeric: tabular-nums;
-          color: var(--hover-green, #0bf05f);
+          color: var(--bag-accent, var(--hover-green, #0bf05f));
           -webkit-text-stroke: 1px var(--tk-ink);
           paint-order: stroke fill;
           pointer-events: none;
