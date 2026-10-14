@@ -10,7 +10,7 @@ import { CART_LANDED, cartFlying } from '@/lib/cartFlight'
 import { getProfile } from '@/lib/profile'
 import { freeShipTokens } from '@/lib/freeShipping'
 import TokensMeter from '@/components/TokensMeter'
-import { CART_BAGS, CART_BAG_START } from '@/lib/cartBags'
+import { CART_BAGS, CART_BAG_START, applyCartBagAccent } from '@/lib/cartBags'
 
 const METER_MS = 3000 // how long the tokens pop-up stays after an add
 
@@ -27,6 +27,11 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
   const [pulse, setPulse] = useState(false)
   const [bumpCls, setBumpCls] = useState('')
   const [isNight, setIsNight] = useState(false)
+
+  // The cart's accent (checkout button, badge, …) follows the bag on show
+  useEffect(() => {
+    if (!imgSrc) applyCartBagAccent()
+  }, [imgSrc])
 
   useEffect(() => {
     const onTheme = (e) => setIsNight(e?.detail?.theme === 'night')
@@ -193,8 +198,8 @@ export default function CartButton({ size = 48, inHeader = false, imgSrc, onClic
       width: 20,
       height: 20,
       borderRadius: '50%',
-      background: 'linear-gradient(180deg,#34d399,#22c55e)',
-      color: '#fff',
+      background: 'var(--bag-accent, #22c55e)',
+      color: 'var(--bag-ink, #fff)',
       fontFamily: 'Helvetica, Arial, sans-serif',
       fontWeight: 700,
       fontSize: 11,

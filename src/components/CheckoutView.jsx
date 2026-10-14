@@ -101,7 +101,7 @@ function ShippingEstimate({ items, night, country, setCountry }) {
               disabled={status === 'loading' || !zip.trim()}
               style={{
                 ...inputStyle, cursor: 'pointer', fontWeight: 700,
-                background: 'var(--hover-green, #0bf05f)', color: '#000', border: 'none',
+                background: 'var(--bag-accent, var(--hover-green, #0bf05f))', color: 'var(--bag-ink, #000)', border: 'none',
                 opacity: status === 'loading' || !zip.trim() ? 0.6 : 1,
               }}
             >
@@ -322,8 +322,8 @@ export default function CheckoutView({ onClose }) {
           <button
             style={{
               width: '100%',
-              background: 'var(--hover-green, #0bf05f)',
-              color: '#000',
+              background: 'var(--bag-accent, var(--hover-green, #0bf05f))',
+              color: 'var(--bag-ink, #000)',
               border: 'none',
               padding: '11px 0',
               borderRadius: 24,
