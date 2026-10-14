@@ -113,7 +113,8 @@ export default function TokensMeter({ tokens, goal, open = true, from = 0, showG
         {done ? 'free shipping unlocked ★' : `${left.toLocaleString('en-US')} token${left === 1 ? '' : 's'} to free shipping`}
       </div>
       <style jsx>{`
-        .nl-evo { margin: 2px 0 14px; }
+        /* progress wears the accent of the bag on show (see lib/cartBags) */
+        .nl-evo { margin: 2px 0 14px; --tk-accent: var(--bag-accent, var(--hover-green, #0bf05f)); }
         .nl-evo-head {
           display: flex; justify-content: space-between; align-items: baseline;
           font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
@@ -127,12 +128,12 @@ export default function TokensMeter({ tokens, goal, open = true, from = 0, showG
         .nl-evo-gain {
           position: absolute; right: 0; bottom: 100%;
           font-size: 11px; font-weight: 800; letter-spacing: 0.02em; white-space: nowrap;
-          color: var(--hover-green, #0bf05f);
-          text-shadow: 0 0 8px rgba(11,240,95,0.55);
+          color: var(--tk-accent);
+          text-shadow: 0 0 8px color-mix(in srgb, var(--tk-accent) 55%, transparent);
           pointer-events: none;
           animation: nl-evo-gain 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
-        :global(html[data-theme='day']) .nl-evo-gain { color: #08a443; text-shadow: none; }
+        :global(html[data-theme='day']) .nl-evo-gain { color: color-mix(in srgb, var(--tk-accent) 80%, #000); text-shadow: none; }
         @keyframes nl-evo-gain {
           0% { opacity: 0; transform: translateY(6px) scale(0.8); }
           18% { opacity: 1; transform: translateY(0) scale(1.15); }
@@ -168,8 +169,8 @@ export default function TokensMeter({ tokens, goal, open = true, from = 0, showG
         }
         .nl-evo-fill {
           position: relative; height: 100%; border-radius: inherit; overflow: hidden;
-          background: linear-gradient(90deg, #08c94f, var(--hover-green, #0bf05f) 60%, #7dffb0);
-          box-shadow: 0 0 10px rgba(11,240,95,0.45);
+          background: linear-gradient(90deg, color-mix(in srgb, var(--tk-accent) 82%, #000), var(--tk-accent) 60%, color-mix(in srgb, var(--tk-accent) 55%, #fff));
+          box-shadow: 0 0 10px color-mix(in srgb, var(--tk-accent) 45%, transparent);
           transition: box-shadow 0.5s ease;
         }
         /* free shipping unlocked: blue fades in over the green as the fill lands */
