@@ -66,7 +66,7 @@ export function useTokenCount({ tokens, open = true, from = 0, showGain = false 
  * The tokens meter, played like a game: the cart's tokens toward the free
  * shipping goal (see lib/freeShipping). The count rolls up like a score with
  * a "+N" for what was just earned, each 10% milestone lights up as the fill
- * passes it, and reaching the goal levels it up: the bar turns blue and
+ * passes it, and reaching the goal levels it up: the bar turns gold and
  * glows. It counts up from `from` (default empty) each time it opens, and
  * rolls to the new total whenever the cart changes.
  * subtle: a quieter version (thin bar, no glow, sheen or milestone marks)
@@ -173,14 +173,14 @@ export default function TokensMeter({ tokens, goal, open = true, from = 0, showG
           box-shadow: 0 0 10px color-mix(in srgb, var(--tk-accent) 45%, transparent);
           transition: box-shadow 0.5s ease;
         }
-        /* free shipping unlocked: blue fades in over the green as the fill lands */
+        /* free shipping unlocked: gold fades in over the fill as it lands */
         .nl-evo-fill::before {
           content: ''; position: absolute; inset: 0;
-          background: linear-gradient(90deg, #1f5fe0, #3d8bff 60%, #8fd0ff);
+          background: linear-gradient(90deg, #c98a00, #f5b301 55%, #ffe27a);
           opacity: 0;
           transition: opacity 0.3s ease;
         }
-        .nl-evo--done .nl-evo-fill { box-shadow: 0 0 10px rgba(61,139,255,0.5); }
+        .nl-evo--done .nl-evo-fill { box-shadow: 0 0 10px rgba(245,179,1,0.55); }
         .nl-evo--done .nl-evo-fill::before { opacity: 1; transition-duration: 0.45s; }
         /* a soft light gliding along the filled part */
         .nl-evo-fill::after {
@@ -200,10 +200,10 @@ export default function TokensMeter({ tokens, goal, open = true, from = 0, showG
         }
         :global(html[data-theme='day']) .nl-evo-caption { color: rgba(0,0,0,0.5); }
         .nl-evo--done .nl-evo-head > span:first-child,
-        .nl-evo--done .nl-evo-caption { color: #5aa8ff; transition: color 0.45s ease; }
+        .nl-evo--done .nl-evo-caption { color: #ffcf40; transition: color 0.45s ease; }
         :global(html[data-theme='day']) .nl-evo--done .nl-evo-head > span:first-child,
-        :global(html[data-theme='day']) .nl-evo--done .nl-evo-caption { color: #1f5fe0; }
-        /* level up: a bounce as it unlocks, then a steady blue glow */
+        :global(html[data-theme='day']) .nl-evo--done .nl-evo-caption { color: #b07800; }
+        /* level up: a bounce as it unlocks, then a steady gold glow */
         .nl-evo--done .nl-evo-track {
           animation: nl-evo-levelup 0.55s cubic-bezier(0.3, 1.6, 0.5, 1), nl-evo-glow 2.2s ease-in-out 0.55s infinite;
         }
@@ -213,8 +213,8 @@ export default function TokensMeter({ tokens, goal, open = true, from = 0, showG
           100% { transform: scale(1); }
         }
         @keyframes nl-evo-glow {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(61,139,255,0); }
-          50% { box-shadow: 0 0 14px 2px rgba(61,139,255,0.55); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245,179,1,0); }
+          50% { box-shadow: 0 0 14px 2px rgba(245,179,1,0.6); }
         }
         /* subtle: thin and quiet, no glow, sheen or milestone marks */
         .nl-evo--subtle { margin: 0 0 8px; }

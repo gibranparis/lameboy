@@ -15,7 +15,7 @@ const SLASHES = 10 // one per 10% of the way to free shipping
  * way to free shipping. They light up one by one as the cart's tokens roll
  * in (the one in progress fills partway, and each pops as it completes), a
  * "+N" drops out when it grows, and once free shipping is unlocked they all
- * turn blue with a star. Like everything else on the shop page it can be
+ * turn gold with a star. Like everything else on the shop page it can be
  * dragged and parked, or flicked to pinball around; a tap opens the heart
  * panel with the full meter and the count. The page decides when it's up
  * (`hidden`); onHold tells it while the pill itself is being moved.
@@ -140,7 +140,7 @@ export default function TokensPill({ tokens, goal, hidden = false, onOpen, onHol
           45% { transform: skewX(-14deg) scale(1.3, 1.6); }
           100% { transform: skewX(-14deg) scale(1, 1); }
         }
-        .tk-pill--done .tk-slash-fill { background: #3d8bff; }
+        .tk-pill--done .tk-slash-fill { background: #f5b301; }
         /* unlocked: a fat outlined star pops onto the top corner */
         .tk-star {
           position: absolute;

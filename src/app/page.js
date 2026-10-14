@@ -9,6 +9,7 @@ import { PRODUCTS, fetchProducts } from '@/lib/products'
 
 import OrbShell from '@/components/OrbShell'
 import SplashVideoBackground from '@/components/SplashVideoBackground'
+import OrbRain, { RAIN_DELAY_MS, RAIN_COVER_MS } from '@/components/OrbRain'
 
 // Gate (text only now)
 const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
@@ -31,6 +32,8 @@ const MusicPlayerButton = nextDynamic(() => import('@/components/MusicPlayerButt
 
 const RUNNER_H = 14
 const LOADER_MS = 900 // black orb + "Let All Mankind Evolve" before the shop
+// With motion on, the shop swaps in once the orb rain has covered the page
+const RAIN_LOADER_MS = RAIN_DELAY_MS + RAIN_COVER_MS
 // One beat per chakra: red → orange → yellow → green → blue → purple → pink → black
 const CHAKRA_STEP_MS = 220
 const PILL_LINGER_MS = 5000 // how long the tokens pill stays up after it shows
@@ -171,10 +174,17 @@ export default function Page() {
 
   /* ===================== Gate → Loader → Shop choreography ===================== */
 
+  // Orb crosses rain over the page as the splash hands over to the shop
+  const [rainOn, setRainOn] = useState(false)
+  const rainMotion = () =>
+    typeof window !== 'undefined' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
   const handleEnterShop = useCallback(() => {
     if (mode !== 'gate') return
 
     setLoaderShow(true)
+    const raining = rainMotion()
+    const rainT = raining ? setTimeout(() => setRainOn(true), RAIN_DELAY_MS) : 0
 
     const root = document.documentElement
     root.setAttribute('data-theme', 'day')
@@ -187,14 +197,15 @@ export default function Page() {
       setMode('shop')
     }, 120)
 
-    // fade loader out
+    // fade loader out (under the rain's cover, when it's raining)
     const t2 = setTimeout(() => {
       setLoaderShow(false)
-    }, LOADER_MS)
+    }, raining ? RAIN_LOADER_MS : LOADER_MS)
 
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
+      clearTimeout(rainT)
     }
   }, [mode])
 
@@ -458,6 +469,8 @@ export default function Page() {
           onHidden={() => setVideoRevealed(false)}
         />
       )}
+
+      {rainOn && <OrbRain onDone={() => setRainOn(false)} />}
 
       {/* SINGLE persistent orb (never remounts) */}
       <OrbShell
