@@ -8,6 +8,7 @@ import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStrip
 import { COUNTRIES, US_STATES } from '@/lib/countries'
 import { clearProfile, getProfile, saveProfile } from '@/lib/profile'
 import { SHIP_DAYS_MIN, SHIP_DAYS_MAX, FINAL_SALE_LINE } from '@/lib/store-info'
+import { storedBagAccent } from '@/lib/cartBags'
 
 const INPUT = {
   width: '100%',
@@ -26,8 +27,9 @@ const INPUT = {
 
 const BTN = {
   width: '100%',
-  background: 'var(--hover-green, #0bf05f)',
-  color: '#000',
+  // the accent of the bag shown in the shop this session (see lib/cartBags)
+  background: 'var(--bag-accent, var(--hover-green, #0bf05f))',
+  color: 'var(--bag-ink, #000)',
   border: 'none',
   padding: '14px 0',
   borderRadius: 28,
@@ -297,9 +299,15 @@ export default function CheckoutFlow({ geoCountry = null, geoRegion = null }) {
   const [stripePromise] = useState(() => getStripePromise())
   const [options, setOptions] = useState(null)
 
+  // Buttons wear the accent of the bag shown in the shop this session
+  useEffect(() => { storedBagAccent() }, [])
+
   useEffect(() => {
     if (!options && cartReady && total > 0) {
-      setOptions({ mode: 'payment', amount: total, currency: 'usd', paymentMethodTypes: ['card', 'link'], appearance: STRIPE_APPEARANCE })
+      // Stripe's own highlights take the bag's accent too
+      const { accent } = storedBagAccent()
+      const appearance = { ...STRIPE_APPEARANCE, variables: { ...STRIPE_APPEARANCE.variables, colorPrimary: accent } }
+      setOptions({ mode: 'payment', amount: total, currency: 'usd', paymentMethodTypes: ['card', 'link'], appearance })
     }
   }, [options, cartReady, total])
 
