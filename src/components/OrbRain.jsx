@@ -5,97 +5,93 @@
 import { useEffect, useRef } from 'react'
 
 // The splash → shop transition: once "Let All Mankind Evolve" is up, orb
-// crosses pour down over the whole page like raindrops (flat, outlined and
-// smiling, after Takashi Murakami's flowers), bounce where they land and pile
-// up until the screen is covered (the shop swaps in underneath), then drop
-// away off the bottom to reveal the grid.
+// crosses (the orb shell's own glossy form, each in one of its colours) float
+// down over the whole page, bounce lightly where they land and settle until
+// the screen is covered (the shop swaps in underneath), then drift away off
+// the bottom to reveal the grid.
 export const RAIN_DELAY_MS = 450 // after the proceed text shows
-export const RAIN_COVER_MS = 1700 // from the first drop to a covered screen
+export const RAIN_COVER_MS = 2100 // from the first drop to a covered screen
 const RAIN_CLEAR_MS = 900 // the drop-away
 
-// Poppy flat colours; each cross gets its own mix
-const POP = ['#ff4fa3', '#ffd400', '#33b6ff', '#3ccf4e', '#8b5cf6', '#ff7a00', '#ff2d55', '#00d1c1']
-const INK = '#111'
-const VARIANTS = 8
+// The orb's colour forms (see OrbShell): each cross is one solid chakra
+// colour, or the full rainbow cross
+const FORMS = [
+  ['#cc0014'], // root
+  ['#e05500'], // sacral
+  ['#ffd400'], // solar
+  ['#00a832'], // heart
+  ['#0066ff'], // throat
+  ['#6d5cff'], // third eye
+  ['#c86bff'], // crown
+  ['#32ffc7'], // seafoam
+  ['#e05500', '#ffd400', '#0066ff', '#00a832', '#6d5cff'], // rainbow
+]
 
 const reducedMotion = () =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16)
+  const f = (v) => Math.max(0, Math.min(255, Math.round(v + (amt < 0 ? v : 255 - v) * amt)))
+  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`
+}
+
 /**
- * One cartoon orb cross: five flat balls with a thick ink outline and a
- * white shine, the centre one wearing a smiley face. Drawn once per variant
- * and stamped for every falling orb.
+ * One orb cross in the orb shell's form: five glossy balls (centre plus four
+ * arms) lit from the top left. Drawn once per colour form and stamped for
+ * every falling orb.
  */
-function crossSprite(px, seed) {
+function crossSprite(px, colors) {
   const c = document.createElement('canvas')
   c.width = c.height = px
   const g = c.getContext('2d')
   if (!g) return c
-  const r = px * 0.165 // ball radius
-  const arm = px * 0.3 // centre to arm ball
+  const r = px * 0.16 // ball radius
+  const arm = px * 0.31 // centre to arm ball
   const mid = px / 2
-  const line = Math.max(2, px * 0.028)
-  const pick = (k) => POP[(seed * 3 + k * 5) % POP.length]
-  const balls = [
-    [0, -arm, pick(1)],
-    [arm, 0, pick(2)],
-    [0, arm, pick(3)],
-    [-arm, 0, pick(4)],
-    [0, 0, pick(0)], // centre last, on top
+  const at = [
+    [0, 0],
+    [0, -arm],
+    [arm, 0],
+    [0, arm],
+    [-arm, 0],
   ]
-  for (const [dx, dy, fill] of balls) {
-    const x = mid + dx
-    const y = mid + dy
+  // arms first so the centre ball sits on top
+  for (const i of [1, 2, 3, 4, 0]) {
+    const x = mid + at[i][0]
+    const y = mid + at[i][1]
+    const col = colors[i % colors.length]
+    const grad = g.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.08, x, y, r)
+    grad.addColorStop(0, '#ffffff')
+    grad.addColorStop(0.22, shade(col, 0.35))
+    grad.addColorStop(0.6, col)
+    grad.addColorStop(1, shade(col, -0.4))
     g.beginPath()
     g.arc(x, y, r, 0, Math.PI * 2)
-    g.fillStyle = fill
-    g.fill()
-    g.lineWidth = line
-    g.strokeStyle = INK
-    g.stroke()
-    // flat cartoon shine
-    g.beginPath()
-    g.ellipse(x - r * 0.38, y - r * 0.42, r * 0.22, r * 0.14, -0.6, 0, Math.PI * 2)
-    g.fillStyle = 'rgba(255,255,255,0.92)'
-    g.fill()
-  }
-  // the smiley on the centre ball
-  const ex = r * 0.32
-  const ey = -r * 0.1
-  g.fillStyle = INK
-  for (const s of [-1, 1]) {
-    g.beginPath()
-    g.ellipse(mid + s * ex, mid + ey, r * 0.09, r * 0.15, 0, 0, Math.PI * 2)
-    g.fill()
-  }
-  g.beginPath()
-  g.arc(mid, mid + r * 0.08, r * 0.42, 0.15 * Math.PI, 0.85 * Math.PI)
-  g.lineWidth = line * 0.9
-  g.lineCap = 'round'
-  g.strokeStyle = INK
-  g.stroke()
-  g.fillStyle = 'rgba(255,90,140,0.55)'
-  for (const s of [-1, 1]) {
-    g.beginPath()
-    g.ellipse(mid + s * r * 0.58, mid + r * 0.22, r * 0.14, r * 0.09, 0, 0, Math.PI * 2)
+    g.fillStyle = grad
     g.fill()
   }
   return c
 }
 
 /**
- * Full-screen orb rain. Mount it when the transition starts; it plays once
- * and calls onDone when the last orb has left the screen.
- * @param {{ onDone?: () => void }} props
+ * Full-screen orb rain. Mount it when the transition starts; it plays once,
+ * calls onCovered when the pile covers the page (swap what's underneath
+ * then) and onDone when the last orb has left the screen. Its clock runs on
+ * animation time, so a slow device just plays it slower, never uncovered.
+ * @param {{ onCovered?: () => void, onDone?: () => void }} props
  */
-export default function OrbRain({ onDone }) {
+export default function OrbRain({ onCovered, onDone }) {
   const ref = useRef(/** @type {HTMLCanvasElement | null} */ (null))
   const doneRef = useRef(onDone)
   doneRef.current = onDone
+  const coveredRef = useRef(onCovered)
+  coveredRef.current = onCovered
 
   useEffect(() => {
     const canvas = ref.current
     if (!canvas || reducedMotion()) {
+      coveredRef.current?.()
       doneRef.current?.()
       return
     }
@@ -119,7 +115,7 @@ export default function OrbRain({ onDone }) {
     // spots tile the page (jittered) so the pile covers it completely.
     const base = Math.max(70, Math.min(124, Math.min(W, H) / 4.4))
     const spritePx = Math.round(base * 1.4 * dpr)
-    const sprites = Array.from({ length: VARIANTS }, (_, i) => crossSprite(spritePx, i))
+    const sprites = FORMS.map((f) => crossSprite(spritePx, f))
     const step = base * 0.42
     const orbs = []
     for (let y = -step / 2; y < H + step; y += step) {
@@ -128,15 +124,16 @@ export default function OrbRain({ onDone }) {
         orbs.push({
           x: x + (Math.random() - 0.5) * step,
           restY: y + (Math.random() - 0.5) * step,
-          y: -size - Math.random() * H * 0.35,
-          vx: (Math.random() - 0.5) * 40,
-          vy: 200 + Math.random() * 300,
+          y: -size - Math.random() * H * 0.2,
+          vx: (Math.random() - 0.5) * 70,
+          vy: 150 + Math.random() * 200,
           size,
-          sprite: sprites[Math.floor(Math.random() * VARIANTS)],
+          sprite: sprites[Math.floor(Math.random() * sprites.length)],
           // they pour in all over, the bottom of the pile a touch first
-          start: Math.random() * RAIN_COVER_MS * 0.45 + (1 - y / H) * 120,
+          start: Math.random() * RAIN_COVER_MS * 0.3 + (1 - y / H) * 120,
           rot: (Math.random() - 0.5) * 0.9,
-          spin: (Math.random() - 0.5) * 3,
+          spin: (Math.random() - 0.5) * 1.6,
+          sway: Math.random() * Math.PI * 2, // its own phase of side-to-side float
           squash: 0,
           drop: 0, // the moment it starts falling away (ms)
           settled: false,
@@ -146,11 +143,15 @@ export default function OrbRain({ onDone }) {
     // Later drops land on top of earlier ones
     orbs.sort((a, b) => a.start - b.start)
 
-    const G = 6500 // px/s²
-    const BOUNCE = 0.45
+    // Light and airy: gentle gravity, air drag caps the fall speed, and a
+    // springy bounce that settles soon after
+    const G = 3200 // px/s²
+    const DRAG = 2.4 // per second, so terminal speed is G / DRAG
+    const BOUNCE = 0.58
     let raf = 0
     let last = performance.now()
-    const t0 = last
+    let t = 0 // animation time (ms)
+    let covered = false
     const clearAt = RAIN_COVER_MS
     let pileDirty = false
     let pileAt = 0
@@ -158,9 +159,9 @@ export default function OrbRain({ onDone }) {
     /** Draw one orb (squash/stretch while moving) onto a context. */
     const paint = (g, o) => {
       const s = o.size
-      const stretch = Math.min(0.22, Math.max(0, o.vy) / 9000)
-      const sx = 1 - stretch * 0.5 + o.squash * 0.28
-      const sy = 1 + stretch - o.squash * 0.28
+      const stretch = Math.min(0.08, Math.max(0, o.vy) / 16000)
+      const sx = 1 - stretch * 0.5 + o.squash * 0.18
+      const sy = 1 + stretch - o.squash * 0.18
       const c = Math.cos(o.rot)
       const n = Math.sin(o.rot)
       // translate → scale → rotate, as one matrix
@@ -177,7 +178,11 @@ export default function OrbRain({ onDone }) {
     const frame = (now) => {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
-      const t = now - t0
+      t += dt * 1000
+      if (!covered && t >= clearAt) {
+        covered = true
+        coveredRef.current?.()
+      }
       let onScreen = 0
       const moving = []
       for (const o of orbs) {
@@ -196,17 +201,19 @@ export default function OrbRain({ onDone }) {
           o.settled = false
           pileDirty = true
         }
-        o.vy += G * dt
+        o.vy += (G - DRAG * o.vy) * dt
         o.y += o.vy * dt
-        o.x += o.vx * dt
+        // a soft side-to-side float while airborne
+        o.sway += dt * 5
+        o.x += (o.vx + (o.settled ? 0 : Math.sin(o.sway) * 35)) * dt
         o.rot += o.spin * dt
         o.squash *= Math.pow(0.0005, dt) // springs back quickly
         if (!falling && o.y >= o.restY) {
-          // splat and bounce where it lands, a little less each time
-          o.squash = Math.min(1, o.vy / 1800)
+          // land softly and bounce, a little less each time
+          o.squash = Math.min(0.6, o.vy / 2600)
           o.y = o.restY
-          o.vy = Math.abs(o.vy) < 160 ? 0 : -o.vy * BOUNCE
-          o.vx *= 0.5
+          o.vy = Math.abs(o.vy) < 120 ? 0 : -o.vy * BOUNCE
+          o.vx *= 0.4
           o.spin *= 0.5
           if (o.vy === 0) {
             // at rest: onto the pile layer for good

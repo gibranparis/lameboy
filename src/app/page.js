@@ -32,7 +32,7 @@ const MusicPlayerButton = nextDynamic(() => import('@/components/MusicPlayerButt
 
 const RUNNER_H = 14
 const LOADER_MS = 900 // black orb + "Let All Mankind Evolve" before the shop
-// With motion on, the shop swaps in once the orb rain has covered the page
+// With motion on, about when the orb rain has covered the page (it says so itself)
 const RAIN_LOADER_MS = RAIN_DELAY_MS + RAIN_COVER_MS
 // One beat per chakra: red → orange → yellow → green → blue → purple → pink → black
 const CHAKRA_STEP_MS = 220
@@ -197,10 +197,11 @@ export default function Page() {
       setMode('shop')
     }, 120)
 
-    // fade loader out (under the rain's cover, when it's raining)
+    // fade loader out. When it's raining the rain says when the page is
+    // covered (onCovered); this is only a fallback in case it never does.
     const t2 = setTimeout(() => {
       setLoaderShow(false)
-    }, raining ? RAIN_LOADER_MS : LOADER_MS)
+    }, raining ? RAIN_LOADER_MS + 4000 : LOADER_MS)
 
     return () => {
       clearTimeout(t1)
@@ -470,7 +471,7 @@ export default function Page() {
         />
       )}
 
-      {rainOn && <OrbRain onDone={() => setRainOn(false)} />}
+      {rainOn && <OrbRain onCovered={() => setLoaderShow(false)} onDone={() => setRainOn(false)} />}
 
       {/* SINGLE persistent orb (never remounts) */}
       <OrbShell
