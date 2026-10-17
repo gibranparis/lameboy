@@ -9,7 +9,7 @@ import { PRODUCTS, fetchProducts } from '@/lib/products'
 
 import OrbShell from '@/components/OrbShell'
 import SplashVideoBackground from '@/components/SplashVideoBackground'
-import OrbRain, { RAIN_DELAY_MS, RAIN_COVER_MS } from '@/components/OrbRain'
+import OrbRain, { RAIN_DELAY_MS, RAIN_COVER_MS, prepareOrbRain } from '@/components/OrbRain'
 
 // Gate (text only now)
 const BannedLogin = nextDynamic(() => import('@/components/BannedLogin'), { ssr: false })
@@ -419,6 +419,8 @@ export default function Page() {
       import('@/components/CheckoutView')
       import('@/components/OrbShell')
       import('@/components/BlueOrbCross3D')
+      // the splash → shop orb rain's worker, so it's loaded before it plays
+      if (mode === 'gate') prepareOrbRain()
 
       // Preload FULL-RES images in background during gate
       // Thumbs are tiny and load instantly, so preload the big ones
